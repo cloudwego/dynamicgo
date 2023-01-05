@@ -1,0 +1,20 @@
+{
+    "Null1": null,
+    "Null2": null,
+    "Null3": null,
+    "Null4": [
+        1,
+        null,
+        2
+    ],
+    "Null5": {
+        "a": 1,
+        "b": null,
+        "c": 2
+    },
+    "Null6": {
+        "1": 1,
+        "3": null,
+        "2": 2
+    }
+}

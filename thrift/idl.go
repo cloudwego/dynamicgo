@@ -1,0 +1,802 @@
+/**
+ * Copyright 2022 CloudWeGo Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package thrift
+
+import (
+	"errors"
+	"fmt"
+	"math"
+	"math/rand"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/cloudwego/dynamicgo/http"
+	"github.com/cloudwego/dynamicgo/internal/rt"
+	"github.com/cloudwego/dynamicgo/internal/util"
+	"github.com/cloudwego/dynamicgo/json"
+	"github.com/cloudwego/dynamicgo/meta"
+	"github.com/cloudwego/thriftgo/parser"
+	"github.com/cloudwego/thriftgo/semantic"
+)
+
+// Options is options for parsing thrift IDL.
+type Options struct {
+	// ParseServiceMode indicates how to parse service.
+	ParseServiceMode meta.ParseServiceMode
+
+	// MapFieldWay indicates StructDescriptor.FieldByKey() uses alias to map field.
+	// By default, we use alias to map, and alias always equals to field name if not given.
+	MapFieldWay meta.MapFieldWay
+
+	// ParseFieldRandomRate indicates whether to parse partial fields and is only used for mock test.
+	// The value means the possibility of randomly parse and embed one field into StructDescriptor.
+	// It must be within (0, 1], and 0 means always parse all fields.
+	ParseFieldRandomRate float64
+
+	// ParseEnumAsInt64 indicates whether to parse enum as I64 (default I32).
+	ParseEnumAsInt64 bool
+
+	// SetOptionalBitmap indicates to set bitmap for optional fields
+	SetOptionalBitmap bool
+
+	// UseDefaultValue indicates to parse and store default value defined on IDL fields.
+	UseDefaultValue bool
+
+	// ParseFunctionMode indicates to parse only response or request for a function
+	ParseFunctionMode meta.ParseFunctionMode
+
+	// EnableThriftBase indicates to explictly handle thrift/base (see README.md) fields.
+	// One field is identified as a thrift base if it satisfies **BOTH** of the following conditions:
+	//   1. Its type is 'base.Base' (for request base) or 'base.BaseResp' (for response base);
+	//   2. it is on the top layer of the root struct of one function.
+	EnableThriftBase bool
+}
+
+// NewDefaultOptions creates a default Options.
+func NewDefaultOptions() Options {
+	return Options{}
+}
+
+// path := /a/b/c.thrift
+// includePath := ../d.thrift
+// result := /a/d.thrift
+func absPath(path, includePath string) string {
+	if filepath.IsAbs(includePath) {
+		return includePath
+	}
+	return filepath.Join(filepath.Dir(path), includePath)
+}
+
+// NewDescritorFromPath behaviors like NewDescritorFromPath, besides it uses DefaultOptions.
+func NewDescritorFromPath(path string, includeDirs ...string) (*ServiceDescriptor, error) {
+	return NewDefaultOptions().NewDescritorFromPath(path, includeDirs...)
+}
+
+// NewDescritorFromContent creates a ServiceDescriptor from a thrift path and its includes, which uses the given options.
+// The includeDirs is used to find the include files.
+func (opts Options) NewDescritorFromPath(path string, includeDirs ...string) (*ServiceDescriptor, error) {
+	tree, err := parser.ParseFile(path, includeDirs, true)
+	if err != nil {
+		return nil, err
+	}
+	svc, err := parse(tree, opts.ParseServiceMode, opts)
+	if err != nil {
+		return nil, err
+	}
+	return svc, nil
+}
+
+// NewDescritorFromContent creates a ServiceDescriptor from a thrift path and its includes, with specific methods.
+// If methods is empty, all methods will be parsed.
+// The includeDirs is used to find the include files.
+func (opts Options) NewDescriptorFromPathWithMethod(path string, includeDirs []string, methods ...string) (*ServiceDescriptor, error) {
+	tree, err := parser.ParseFile(path, includeDirs, true)
+	if err != nil {
+		return nil, err
+	}
+	svc, err := parse(tree, opts.ParseServiceMode, opts, methods...)
+	if err != nil {
+		return nil, err
+	}
+	return svc, nil
+}
+
+// NewDescritorFromContent behaviors like NewDescritorFromPath, besides it uses DefaultOptions.
+func NewDescritorFromContent(path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error) {
+	return NewDefaultOptions().NewDescritorFromContent(path, content, includes, isAbsIncludePath)
+}
+
+// NewDescritorFromContent creates a ServiceDescriptor from a thrift content and its includes, which uses the default options.
+// path is the main thrift file path, content is the main thrift file content.
+// includes is the thrift file content map, and its keys are specific including thrift file path.
+// isAbsIncludePath indicates whether these keys of includes are absolute path. If true, the include path will be joined with the main thrift file path.
+func (opts Options) NewDescritorFromContent(path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error) {
+	tree, err := parseIDLContent(path, content, includes, isAbsIncludePath)
+	if err != nil {
+		return nil, err
+	}
+	svc, err := parse(tree, opts.ParseServiceMode, opts)
+	if err != nil {
+		return nil, err
+	}
+	return svc, nil
+}
+
+// NewDescritorFromContentWithMethod creates a ServiceDescriptor from a thrift content and its includes, but only parse specific methods.
+func (opts Options) NewDescriptorFromContentWithMethod(path, content string, includes map[string]string, isAbsIncludePath bool, methods ...string) (*ServiceDescriptor, error) {
+	tree, err := parseIDLContent(path, content, includes, isAbsIncludePath)
+	if err != nil {
+		return nil, err
+	}
+	svc, err := parse(tree, opts.ParseServiceMode, opts, methods...)
+	if err != nil {
+		return nil, err
+	}
+	return svc, nil
+}
+
+func parseIDLContent(path, content string, includes map[string]string, isAbsIncludePath bool) (*parser.Thrift, error) {
+	tree, err := parser.ParseString(path, content)
+	if err != nil {
+		return nil, err
+	}
+	_includes := make(map[string]*parser.Thrift, len(includes))
+	for k, v := range includes {
+		t, err := parser.ParseString(k, v)
+		if err != nil {
+			return nil, err
+		}
+		_includes[k] = t
+	}
+	if err := parseIncludes(tree, _includes, isAbsIncludePath); err != nil {
+		return nil, err
+	}
+	return tree, nil
+}
+
+func parseIncludes(tree *parser.Thrift, includes map[string]*parser.Thrift, isAbsIncludePath bool) error {
+	for _, i := range tree.Includes {
+		p := i.Path
+		if isAbsIncludePath {
+			p = absPath(tree.Filename, i.Path)
+		}
+		ref, ok := includes[p]
+		if !ok {
+			return fmt.Errorf("miss include path: %s for file: %s", p, tree.Filename)
+		}
+		if err := parseIncludes(ref, includes, isAbsIncludePath); err != nil {
+			return err
+		}
+		i.Reference = ref
+	}
+	return nil
+}
+
+// Parse descriptor from parser.Thrift
+func parse(tree *parser.Thrift, mode meta.ParseServiceMode, opts Options, methods ...string) (*ServiceDescriptor, error) {
+	if len(tree.Services) == 0 {
+		return nil, errors.New("empty serverce from idls")
+	}
+	if err := semantic.ResolveSymbols(tree); err != nil {
+		return nil, err
+	}
+
+	sDsc := &ServiceDescriptor{
+		functions:   map[string]*FunctionDescriptor{},
+		annotations: map[string][]string{},
+	}
+
+	structsCache := map[string]*TypeDescriptor{}
+
+	// support one service
+	svcs := tree.Services
+	switch mode {
+	case meta.LastServiceOnly:
+		svcs = svcs[len(svcs)-1:]
+		sDsc.name = svcs[len(svcs)-1].Name
+	case meta.FirstServiceOnly:
+		svcs = svcs[:1]
+		sDsc.name = svcs[0].Name
+	case meta.CombineServices:
+		sDsc.name = "CombinedServices"
+	}
+
+	for _, svc := range svcs {
+		sopts := opts
+		// pass origin annotations
+		copyAnnotationValues(sDsc.annotations, svc.Annotations)
+		// handle thrid-party annotations
+		anns, _, next, err := mapAnnotations(svc.Annotations, AnnoScopeService, svc, sopts)
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range anns {
+			if err := handleAnnotation(AnnoScopeService, p.inter, p.cont, &sopts, svcs); err != nil {
+				return nil, err
+			}
+		}
+
+		funcs := make([]funcTreePair, 0, len(svc.Functions))
+		getAllFuncs(svc, tree, &funcs)
+		if len(methods) > 0 {
+			funcs = findFuncs(funcs, methods)
+		}
+		for _, p := range funcs {
+			injectAnnotations((*[]*parser.Annotation)(&p.fn.Annotations), next)
+			if err := addFunction(p.fn, p.tree, sDsc, structsCache, sopts); err != nil {
+				return nil, err
+			}
+		}
+
+	}
+	return sDsc, nil
+}
+
+type funcTreePair struct {
+	tree *parser.Thrift
+	fn   *parser.Function
+}
+
+func findFuncs(funcs []funcTreePair, methods []string) (ret []funcTreePair) {
+	for _, m := range methods {
+		for _, p := range funcs {
+			if p.fn.Name == m {
+				ret = append(ret, p)
+			}
+		}
+	}
+	return
+}
+
+func getAllFuncs(svc *parser.Service, tree *parser.Thrift, ret *[]funcTreePair) {
+	funcs := *ret
+	n := len(svc.Functions)
+	l := len(funcs)
+	if cap(funcs) < l+n {
+		tmp := make([]funcTreePair, l, l+n)
+		copy(tmp, funcs)
+		funcs = tmp
+	}
+
+	for _, fn := range svc.Functions {
+		funcs = append(funcs, funcTreePair{
+			tree: tree,
+			fn:   fn,
+		})
+	}
+
+	if svc.Extends != "" {
+		ref := svc.GetReference()
+		if ref != nil {
+			idx := ref.GetIndex()
+			name := ref.GetName()
+			subTree := tree.Includes[idx].Reference
+			sub, _ := subTree.GetService(name)
+			if sub != nil {
+				getAllFuncs(sub, subTree, &funcs)
+			}
+		}
+	}
+	*ret = funcs
+	return
+}
+
+func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescriptor, structsCache map[string]*TypeDescriptor, opts Options) error {
+	// for fuzzing test
+	if opts.ParseFieldRandomRate > 0 {
+		rand.Seed(time.Now().UnixNano())
+	}
+
+	if sDsc.functions[fn.Name] != nil {
+		return fmt.Errorf("duplicate method name: %s", fn.Name)
+	}
+	if len(fn.Arguments) == 0 {
+		return fmt.Errorf("empty arguments in function: %s", fn.Name)
+	}
+
+	// find all endpoints of this function
+	enpdoints := []http.Endpoint{}
+	// for http router
+	for _, val := range fn.Annotations {
+		method := http.AnnoToMethod(val.Key)
+		if method != "" && len(val.Values) != 0 {
+			// record the pair{method,path}
+			enpdoints = append(enpdoints, http.Endpoint{Method: method, Path: val.Values[0]})
+		}
+	}
+
+	annos := make(map[string][]string, len(fn.Annotations))
+	// handle thrid-party annotations
+	anns, _, nextAnns, err := mapAnnotations(fn.Annotations, AnnoScopeFunction, fn, opts)
+	if err != nil {
+		return err
+	}
+	for _, p := range anns {
+		// handle thrid-party annotations
+		if err := handleAnnotation(AnnoScopeFunction, p.inter, p.cont, &opts, fn); err != nil {
+			return err
+		}
+
+	}
+
+	var hasRequestBase bool
+	var req *TypeDescriptor
+	var resp *TypeDescriptor
+
+	// parse request field
+	if opts.ParseFunctionMode != meta.ParseResponseOnly {
+		// WARN: only support single argument
+		reqAst := fn.Arguments[0]
+		req = &TypeDescriptor{
+			typ: STRUCT,
+			struc: &StructDescriptor{
+				baseID:   FieldID(math.MaxUint16),
+				ids:      FieldIDMap{},
+				names:    FieldNameMap{},
+				requires: make(RequiresBitmap, 1),
+			},
+		}
+		reqType, err := parseType(reqAst.Type, tree, structsCache, 0, opts, nextAnns)
+		if err != nil {
+			return err
+		}
+		if reqType.Type() == STRUCT {
+			for _, f := range reqType.Struct().names.all {
+				x := (*FieldDescriptor)(f.Val)
+				if x.isRequestBase {
+					hasRequestBase = true
+					break
+				}
+			}
+		}
+		reqField := &FieldDescriptor{
+			name: reqAst.Name,
+			id:   FieldID(reqAst.ID),
+			typ:  reqType,
+		}
+		req.Struct().ids.Set(FieldID(reqAst.ID), reqField)
+		req.Struct().names.Set(reqAst.Name, reqField)
+		req.Struct().names.Build()
+	}
+
+	// parse response filed
+	if opts.ParseFunctionMode != meta.ParseRequestOnly {
+		respAst := fn.FunctionType
+		resp = &TypeDescriptor{
+			typ: STRUCT,
+			struc: &StructDescriptor{
+				baseID:   FieldID(math.MaxUint16),
+				ids:      FieldIDMap{},
+				names:    FieldNameMap{},
+				requires: make(RequiresBitmap, 1),
+			},
+		}
+		respType, err := parseType(respAst, tree, structsCache, 0, opts, nextAnns)
+		if err != nil {
+			return err
+		}
+		respField := &FieldDescriptor{
+			typ: respType,
+		}
+		resp.Struct().ids.Set(0, respField)
+		// response has no name or id
+		resp.Struct().names.Set("", respField)
+
+		// parse exceptions
+		if len(fn.Throws) > 0 {
+			// only support single exception
+			exp := fn.Throws[0]
+			exceptionType, err := parseType(exp.Type, tree, structsCache, 0, opts, nextAnns)
+			if err != nil {
+				return err
+			}
+			exceptionField := &FieldDescriptor{
+				name:  exp.Name,
+				alias: exp.Name,
+				id:    FieldID(exp.ID),
+				// isException: true,
+				typ: exceptionType,
+			}
+			resp.Struct().ids.Set(FieldID(exp.ID), exceptionField)
+			resp.Struct().names.Set(exp.Name, exceptionField)
+		}
+		resp.Struct().names.Build()
+	}
+
+	fnDsc := &FunctionDescriptor{
+		name:           fn.Name,
+		oneway:         fn.Oneway,
+		request:        req,
+		response:       resp,
+		hasRequestBase: hasRequestBase,
+		endpoints:      enpdoints,
+		annotations:    annos,
+	}
+	copyAnnotationValues(fnDsc.annotations, fn.Annotations)
+	sDsc.functions[fn.Name] = fnDsc
+	return nil
+}
+
+// reuse builtin types
+var builtinTypes = map[string]*TypeDescriptor{
+	"void":   {name: "void", typ: VOID, struc: new(StructDescriptor)},
+	"bool":   {name: "bool", typ: BOOL},
+	"byte":   {name: "byte", typ: BYTE},
+	"i8":     {name: "i8", typ: I08},
+	"i16":    {name: "i16", typ: I16},
+	"i32":    {name: "i32", typ: I32},
+	"i64":    {name: "i64", typ: I64},
+	"double": {name: "double", typ: DOUBLE},
+	"string": {name: "string", typ: STRING},
+	"binary": {name: "binary", typ: STRING},
+}
+
+type compilingInstance struct {
+	desc *TypeDescriptor
+	opts Options
+}
+
+type compilingCache map[string]*compilingInstance
+
+// arg cache:
+// only support self reference on the same file
+// cross file self reference complicate matters
+func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescriptor, recursionDepth int, opts Options, nextAnns []parser.Annotation) (*TypeDescriptor, error) {
+	if ty, ok := builtinTypes[t.Name]; ok {
+		return ty, nil
+	}
+
+	nextRecursionDepth := recursionDepth + 1
+
+	var err error
+	switch t.Name {
+	case "list":
+		ty := &TypeDescriptor{name: t.Name}
+		ty.typ = LIST
+		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns)
+		return ty, err
+	case "set":
+		ty := &TypeDescriptor{name: t.Name}
+		ty.typ = SET
+		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns)
+		return ty, err
+	case "map":
+		ty := &TypeDescriptor{name: t.Name}
+		ty.typ = MAP
+		if ty.key, err = parseType(t.KeyType, tree, cache, nextRecursionDepth, opts, nextAnns); err != nil {
+			return nil, err
+		}
+		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns)
+		return ty, err
+	default:
+		// check the cache
+		if ty, ok := cache[t.Name]; ok {
+			return ty, nil
+		}
+
+		// get type from AST tree
+		typePkg, typeName := util.SplitSubfix(t.Name)
+		if typePkg != "" {
+			ref, ok := tree.GetReference(typePkg)
+			if !ok {
+				return nil, fmt.Errorf("miss reference: %s", typePkg)
+			}
+			tree = ref
+			// cross file reference need empty cache
+			cache = map[string]*TypeDescriptor{}
+		}
+		if typDef, ok := tree.GetTypedef(typeName); ok {
+			return parseType(typDef.Type, tree, cache, nextRecursionDepth, opts, nextAnns)
+		}
+		if _, ok := tree.GetEnum(typeName); ok {
+			if opts.ParseEnumAsInt64 {
+				return builtinTypes["i64"], nil
+			}
+			return builtinTypes["i32"], nil
+		}
+
+		// handle STRUCT type
+		var st *parser.StructLike
+		var ok bool
+		st, ok = tree.GetUnion(typeName)
+		if !ok {
+			st, ok = tree.GetStruct(typeName)
+		}
+		if !ok {
+			st, ok = tree.GetException(typeName)
+		}
+		if !ok {
+			return nil, fmt.Errorf("missing type: %s", typeName)
+		}
+		injectAnnotations((*[]*parser.Annotation)(&st.Annotations), nextAnns)
+
+		ty := &TypeDescriptor{
+			name: t.Name,
+			typ:  STRUCT,
+			struc: &StructDescriptor{
+				baseID:      FieldID(math.MaxUint16),
+				name:        typeName,
+				ids:         FieldIDMap{},
+				names:       FieldNameMap{},
+				requires:    make(RequiresBitmap, len(st.Fields)),
+				annotations: make(map[string][]string, len(st.Annotations)),
+			},
+		}
+		copyAnnotationValues(ty.struc.annotations, st.Annotations)
+
+		// handle thrid-party annotations for struct itself
+		anns, _, nextAnns2, err := mapAnnotations(st.Annotations, AnnoScopeStruct, st, opts)
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range anns {
+			if err := handleAnnotation(AnnoScopeStruct, p.inter, p.cont, &opts, st); err != nil {
+				return nil, err
+			}
+		}
+		if st := ty.Struct(); st != nil {
+			cache[t.Name] = ty
+		}
+
+		// parse fields
+		for _, field := range st.Fields {
+			// fork field-specific options
+			fopts := opts
+			if fopts.ParseFieldRandomRate > 0 && rand.Float64() > fopts.ParseFieldRandomRate {
+				continue
+			}
+			var isRequestBase, isResponseBase bool
+			if fopts.EnableThriftBase {
+				isRequestBase = field.Type.Name == "base.Base" && recursionDepth == 0
+				isResponseBase = field.Type.Name == "base.BaseResp" && recursionDepth == 0
+			}
+			// cannot cache the request base
+			if isRequestBase {
+				delete(cache, t.Name)
+			}
+			if isRequestBase || isResponseBase {
+				ty.struc.baseID = FieldID(field.ID)
+			}
+			_f := &FieldDescriptor{
+				isRequestBase:  isRequestBase,
+				isResponseBase: isResponseBase,
+				id:             FieldID(field.ID),
+				name:           field.Name,
+				alias:          field.Name,
+			}
+
+			// handle annotations
+			injectAnnotations((*[]*parser.Annotation)(&field.Annotations), nextAnns2)
+			anns, left, _, err := mapAnnotations(field.Annotations, AnnoScopeField, field, fopts)
+			if err != nil {
+				return nil, err
+			}
+			ignore := false
+			for _, val := range left {
+				skip, err := handleNativeFieldAnnotation(val, _f)
+				if err != nil {
+					return nil, err
+				}
+				if skip {
+					ignore = true
+					break
+				}
+			}
+			if ignore {
+				continue
+			}
+			for _, p := range anns {
+				if err := handleFieldAnnotation(p.inter, p.cont, &fopts, _f, ty.struc, field); err != nil {
+					return nil, err
+				}
+			}
+			// copyAnnos(_f.annotations, anns)
+
+			// recursively parse field type
+			// WARN: options and annotations on field SHOULD NOT override these on their type definition
+			if _f.typ, err = parseType(field.Type, tree, cache, nextRecursionDepth, opts, nil); err != nil {
+				return nil, err
+			}
+
+			// make default value
+			// WARN: ignore errors here
+			if fopts.UseDefaultValue {
+				dv, _ := makeDefaultValue(_f.typ, field.Default, tree)
+				_f.defaultValue = dv
+			}
+			// set field id
+			ty.Struct().ids.Set(FieldID(field.ID), _f)
+			// set field requireness
+			convertRequireness(field.Requiredness, ty.struc, _f, fopts)
+			// set field key
+			if fopts.MapFieldWay == meta.MapFieldUseAlias {
+				ty.Struct().names.Set(_f.alias, _f)
+			} else if fopts.MapFieldWay == meta.MapFieldUseFieldName {
+				ty.Struct().names.Set(_f.name, _f)
+			} else {
+				ty.Struct().names.Set(_f.alias, _f)
+				ty.Struct().names.Set(_f.name, _f)
+			}
+
+		}
+		// buidl field name map
+		ty.Struct().names.Build()
+		return ty, nil
+	}
+}
+
+func convertRequireness(r parser.FieldType, st *StructDescriptor, f *FieldDescriptor, opts Options) {
+	var req Requireness
+	switch r {
+	case parser.FieldType_Default:
+		f.required = DefaultRequireness
+		if opts.SetOptionalBitmap {
+			req = RequiredRequireness
+		} else {
+			req = DefaultRequireness
+		}
+	case parser.FieldType_Optional:
+		f.required = OptionalRequireness
+		if opts.SetOptionalBitmap {
+			req = DefaultRequireness
+		} else {
+			req = OptionalRequireness
+		}
+	case parser.FieldType_Required:
+		f.required = RequiredRequireness
+		req = RequiredRequireness
+	default:
+		panic("invalid requireness type")
+	}
+
+	if f.isRequestBase || f.isResponseBase {
+		// hence users who set EnableThriftBase can pass thrift base through conversion context, the field is always set optional
+		req = OptionalRequireness
+	}
+
+	st.requires.Set(f.id, req)
+}
+
+func assertType(expected, but Type) error {
+	if expected == but {
+		return nil
+	}
+	return fmt.Errorf("need %s type, but got: %s", expected, but)
+}
+
+func makeDefaultValue(typ *TypeDescriptor, val *parser.ConstValue, tree *parser.Thrift) (*DefaultValue, error) {
+	if val == nil {
+		return nil, nil
+	}
+	switch val.Type {
+	case parser.ConstType_ConstInt:
+		if !typ.typ.IsInt() {
+			return nil, fmt.Errorf("mismatched int default value with type %s", typ.name)
+		}
+		if x := val.TypedValue.Int; x != nil {
+			v := int64(*x)
+			p := BinaryProtocol{Buf: make([]byte, 0, 4)}
+			p.WriteInt(typ.typ, int(v))
+			jbuf := json.EncodeInt64(make([]byte, 0, 8), v)
+			return &DefaultValue{
+				goValue:      v,
+				jsonValue:    rt.Mem2Str(jbuf),
+				thriftBinary: rt.Mem2Str(p.Buf),
+			}, nil
+		}
+	case parser.ConstType_ConstDouble:
+		if typ.typ != DOUBLE {
+			return nil, fmt.Errorf("mismatched double default value with type %s", typ.name)
+		}
+		if x := val.TypedValue.Double; x != nil {
+			v := float64(*x)
+			tbuf := make([]byte, 8)
+			BinaryEncoding{}.EncodeDouble(tbuf, v)
+			jbuf, err := json.EncodeFloat64(make([]byte, 0, 8), v)
+			if err != nil {
+				return nil, err
+			}
+			return &DefaultValue{
+				goValue:      v,
+				jsonValue:    rt.Mem2Str(jbuf),
+				thriftBinary: rt.Mem2Str(tbuf),
+			}, nil
+		}
+	case parser.ConstType_ConstLiteral:
+		if typ.typ != STRING {
+			return nil, fmt.Errorf("mismatched string default value with type %s", typ.name)
+		}
+		if x := val.TypedValue.Literal; x != nil {
+			v := string(*x)
+			tbuf := make([]byte, len(v)+4)
+			BinaryEncoding{}.EncodeString(tbuf, v)
+			jbuf := json.EncodeString(make([]byte, 0, len(v)+2), v)
+			return &DefaultValue{
+				goValue:      v,
+				jsonValue:    rt.Mem2Str(jbuf),
+				thriftBinary: rt.Mem2Str(tbuf),
+			}, nil
+		}
+	case parser.ConstType_ConstIdentifier:
+		x := *val.TypedValue.Identifier
+
+		// try to handle it as bool
+		if typ.typ == BOOL {
+			if v := strings.ToLower(x); v == "true" {
+				return &DefaultValue{
+					goValue:      true,
+					jsonValue:    "true",
+					thriftBinary: string([]byte{0x01}),
+				}, nil
+			} else if v == "false" {
+				return &DefaultValue{
+					goValue:      false,
+					jsonValue:    "false",
+					thriftBinary: string([]byte{0x00}),
+				}, nil
+			}
+		}
+
+		// try to handle as const value
+		var ctree = tree
+		pkg, name := util.SplitSubfix(x)
+		if pkg != "" {
+			if nt, ok := tree.GetReference(pkg); ok && nt != nil {
+				ctree = nt
+			}
+		}
+		y, ok := ctree.GetConstant(name)
+		if ok && y != nil {
+			return makeDefaultValue(typ, y.Value, ctree)
+		}
+
+		// try to handle as enum value
+		if pkg == "" {
+			return nil, fmt.Errorf("not found identifier: %s", x)
+		}
+		emv := name
+		emp, emt := util.SplitSubfix(pkg)
+		if emp != "" {
+			if nt, ok := tree.GetReference(emp); ok && nt != nil {
+				tree = nt
+			}
+		}
+		z, ok := tree.GetEnum(emt)
+		if !ok || z == nil {
+			return nil, fmt.Errorf("not found enum type: %s", emt)
+		}
+		if !typ.typ.IsInt() {
+			return nil, fmt.Errorf("mismatched int default value with type %s", typ.name)
+		}
+		for _, vv := range z.Values {
+			if vv.Name == emv {
+				v := int64(vv.Value)
+				p := BinaryProtocol{Buf: make([]byte, 0, 4)}
+				p.WriteInt(typ.typ, int(v))
+				jbuf := json.EncodeInt64(make([]byte, 0, 8), v)
+				return &DefaultValue{
+					goValue:      v,
+					jsonValue:    rt.Mem2Str(jbuf),
+					thriftBinary: rt.Mem2Str(p.Buf),
+				}, nil
+			}
+		}
+
+	}
+	return nil, nil
+}
