@@ -18,6 +18,7 @@ package testdata
 
 import (
 	ejson "encoding/json"
+	"io/ioutil"
 	"os"
 	"runtime"
 	"runtime/debug"
@@ -213,10 +214,10 @@ func TestGenExample(t *testing.T) {
 	if !genData {
 		return
 	}
-	require.Nil(t, os.WriteFile("./data/example.bin", out, 0644))
+	require.Nil(t, ioutil.WriteFile("./data/example.bin", out, 0644))
 	out, err := ejson.Marshal(obj)
 	require.Nil(t, err)
-	require.Nil(t, os.WriteFile("./data/example.json", out, 0644))
+	require.Nil(t, ioutil.WriteFile("./data/example.json", out, 0644))
 }
 
 func TestGenExample2(t *testing.T) {
@@ -229,10 +230,10 @@ func TestGenExample2(t *testing.T) {
 	if !genData {
 		return
 	}
-	require.Nil(t, os.WriteFile("./data/example2.bin", out, 0644))
+	require.Nil(t, ioutil.WriteFile("./data/example2.bin", out, 0644))
 	// out, err := ejson.Marshal(obj)
 	// require.Nil(t, err)
-	// require.Nil(t, os.WriteFile("./data/example2.json", out, 0644))
+	// require.Nil(t, ioutil.WriteFile("./data/example2.json", out, 0644))
 }
 
 func TestGenExample2Super(t *testing.T) {
@@ -245,10 +246,10 @@ func TestGenExample2Super(t *testing.T) {
 	if !genData {
 		return
 	}
-	require.Nil(t, os.WriteFile("./data/example2super.bin", out, 0644))
+	require.Nil(t, ioutil.WriteFile("./data/example2super.bin", out, 0644))
 	// out, err := ejson.Marshal(obj)
 	// require.Nil(t, err)
-	// require.Nil(t, os.WriteFile("./data/example2super.json", out, 0644))
+	// require.Nil(t, ioutil.WriteFile("./data/example2super.json", out, 0644))
 }
 
 func TestGenExample3Req(t *testing.T) {
@@ -261,10 +262,10 @@ func TestGenExample3Req(t *testing.T) {
 	if !genData {
 		return
 	}
-	require.Nil(t, os.WriteFile("./data/example3req.bin", out, 0644))
+	require.Nil(t, ioutil.WriteFile("./data/example3req.bin", out, 0644))
 	out, err := jsoniter.Marshal(obj)
 	require.NoError(t, err)
-	require.Nil(t, os.WriteFile("./data/example3req.json", out, 0644))
+	require.Nil(t, ioutil.WriteFile("./data/example3req.json", out, 0644))
 }
 
 func TestGenExample3Resp(t *testing.T) {
@@ -277,8 +278,8 @@ func TestGenExample3Resp(t *testing.T) {
 	if !genData {
 		return
 	}
-	require.Nil(t, os.WriteFile("./data/example3resp.bin", out, 0644))
+	require.Nil(t, ioutil.WriteFile("./data/example3resp.bin", out, 0644))
 	out, err := ejson.Marshal(obj)
 	require.Nil(t, err)
-	require.Nil(t, os.WriteFile("./data/example3resp.json", out, 0644))
+	require.Nil(t, ioutil.WriteFile("./data/example3resp.json", out, 0644))
 }
