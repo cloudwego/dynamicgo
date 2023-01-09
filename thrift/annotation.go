@@ -234,6 +234,8 @@ func FindAnnotationMapper(key string, scope AnnoScope) AnnotationMapper {
 const (
 	// AnnoKeyDynamicGoDeprecated is used to mark a description as deprecated
 	AnnoKeyDynamicGoDeprecated = "dynamicgo.deprecated"
+	// AnnoKeyDynamicGoApiNone is used to deal with http response field with api.none annotation
+	AnnoKeyDynamicGoApiNone = "api.none"
 )
 
 type amPair struct {
@@ -382,10 +384,14 @@ func handleFieldAnnotation(ann Annotation, values []parser.Annotation, opts *Opt
 	return nil
 }
 
-func handleNativeFieldAnnotation(ann parser.Annotation, f *FieldDescriptor) (skip bool, err error) {
+func handleNativeFieldAnnotation(ann parser.Annotation, f *FieldDescriptor, parseTarget ParseTarget) (skip bool, err error) {
 	switch ann.GetKey() {
 	case AnnoKeyDynamicGoDeprecated:
 		{
+			return true, nil
+		}
+	case AnnoKeyDynamicGoApiNone:
+		if parseTarget == Response {
 			return true, nil
 		}
 	}

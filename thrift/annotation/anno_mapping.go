@@ -198,6 +198,24 @@ func (m targetMapper) Map(anns []parser.Annotation, desc interface{}, opts thrif
 	return
 }
 
+type apiNoneMapper struct{}
+
+func (m apiNoneMapper) Map(anns []parser.Annotation, desc interface{}, opts thrift.Options) (ret []parser.Annotation, next []parser.Annotation, err error) {
+	if len(anns) > 1 {
+		return nil, nil, errors.New("api.none must be unique")
+	}
+	for _, ann := range anns {
+		if len(ann.Values) != 1 {
+			return nil, nil, errors.New("api.none must have a value")
+		}
+		ret = append(ret, parser.Annotation{
+			Key:    thrift.AnnoKeyDynamicGoApiNone,
+			Values: []string{ann.Values[0]},
+		})
+	}
+	return
+}
+
 func FindAnnotations(anns []*parser.Annotation, keys ...string) (ret []*parser.Annotation) {
 	for _, ann := range anns {
 		for _, key := range keys {

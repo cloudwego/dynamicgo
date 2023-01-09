@@ -34,6 +34,15 @@ import (
 	"github.com/cloudwego/thriftgo/semantic"
 )
 
+const (
+	Request ParseTarget = iota
+	Response
+	Others
+)
+
+// ParseTarget indicates the target to parse
+type ParseTarget uint8
+
 // Options is options for parsing thrift IDL.
 type Options struct {
 	// ParseServiceMode indicates how to parse service.
@@ -351,7 +360,7 @@ func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescript
 				requires: make(RequiresBitmap, 1),
 			},
 		}
-		reqType, err := parseType(reqAst.Type, tree, structsCache, 0, opts, nextAnns)
+		reqType, err := parseType(reqAst.Type, tree, structsCache, 0, opts, nextAnns, Request)
 		if err != nil {
 			return err
 		}
@@ -386,7 +395,7 @@ func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescript
 				requires: make(RequiresBitmap, 1),
 			},
 		}
-		respType, err := parseType(respAst, tree, structsCache, 0, opts, nextAnns)
+		respType, err := parseType(respAst, tree, structsCache, 0, opts, nextAnns, Response)
 		if err != nil {
 			return err
 		}
@@ -401,7 +410,7 @@ func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescript
 		if len(fn.Throws) > 0 {
 			// only support single exception
 			exp := fn.Throws[0]
-			exceptionType, err := parseType(exp.Type, tree, structsCache, 0, opts, nextAnns)
+			exceptionType, err := parseType(exp.Type, tree, structsCache, 0, opts, nextAnns, Others)
 			if err != nil {
 				return err
 			}
@@ -456,7 +465,7 @@ type compilingCache map[string]*compilingInstance
 // arg cache:
 // only support self reference on the same file
 // cross file self reference complicate matters
-func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescriptor, recursionDepth int, opts Options, nextAnns []parser.Annotation) (*TypeDescriptor, error) {
+func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescriptor, recursionDepth int, opts Options, nextAnns []parser.Annotation, parseTarget ParseTarget) (*TypeDescriptor, error) {
 	if ty, ok := builtinTypes[t.Name]; ok {
 		return ty, nil
 	}
@@ -468,20 +477,20 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescri
 	case "list":
 		ty := &TypeDescriptor{name: t.Name}
 		ty.typ = LIST
-		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns)
+		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		return ty, err
 	case "set":
 		ty := &TypeDescriptor{name: t.Name}
 		ty.typ = SET
-		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns)
+		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		return ty, err
 	case "map":
 		ty := &TypeDescriptor{name: t.Name}
 		ty.typ = MAP
-		if ty.key, err = parseType(t.KeyType, tree, cache, nextRecursionDepth, opts, nextAnns); err != nil {
+		if ty.key, err = parseType(t.KeyType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget); err != nil {
 			return nil, err
 		}
-		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns)
+		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		return ty, err
 	default:
 		// check the cache
@@ -501,7 +510,7 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescri
 			cache = map[string]*TypeDescriptor{}
 		}
 		if typDef, ok := tree.GetTypedef(typeName); ok {
-			return parseType(typDef.Type, tree, cache, nextRecursionDepth, opts, nextAnns)
+			return parseType(typDef.Type, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		}
 		if _, ok := tree.GetEnum(typeName); ok {
 			if opts.ParseEnumAsInt64 {
@@ -588,7 +597,7 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescri
 			}
 			ignore := false
 			for _, val := range left {
-				skip, err := handleNativeFieldAnnotation(val, _f)
+				skip, err := handleNativeFieldAnnotation(val, _f, parseTarget)
 				if err != nil {
 					return nil, err
 				}
@@ -609,7 +618,7 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescri
 
 			// recursively parse field type
 			// WARN: options and annotations on field SHOULD NOT override these on their type definition
-			if _f.typ, err = parseType(field.Type, tree, cache, nextRecursionDepth, opts, nil); err != nil {
+			if _f.typ, err = parseType(field.Type, tree, cache, nextRecursionDepth, opts, nil, parseTarget); err != nil {
 				return nil, err
 			}
 
