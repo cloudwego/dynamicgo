@@ -619,7 +619,7 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache compilingCache, recurs
 
 			// recursively parse field type
 			// WARN: options and annotations on field SHOULD NOT override these on their type definition
-			if _f.typ, err = parseType(field.Type, tree, cache, nextRecursionDepth, opts, nil, Others); err != nil {
+			if _f.typ, err = parseType(field.Type, tree, cache, nextRecursionDepth, opts, nil, parseTarget); err != nil {
 				return nil, err
 			}
 
