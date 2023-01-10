@@ -210,7 +210,7 @@ func parse(tree *parser.Thrift, mode meta.ParseServiceMode, opts Options, method
 		annotations: map[string][]string{},
 	}
 
-	structsCache := map[string]*TypeDescriptor{}
+	structsCache := compilingCache{}
 
 	// support one service
 	svcs := tree.Services
@@ -305,7 +305,7 @@ func getAllFuncs(svc *parser.Service, tree *parser.Thrift, ret *[]funcTreePair) 
 	return
 }
 
-func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescriptor, structsCache map[string]*TypeDescriptor, opts Options) error {
+func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescriptor, structsCache compilingCache, opts Options) error {
 	// for fuzzing test
 	if opts.ParseFieldRandomRate > 0 {
 		rand.Seed(time.Now().UnixNano())
@@ -456,8 +456,9 @@ var builtinTypes = map[string]*TypeDescriptor{
 }
 
 type compilingInstance struct {
-	desc *TypeDescriptor
-	opts Options
+	desc        *TypeDescriptor
+	opts        Options
+	parseTarget ParseTarget
 }
 
 type compilingCache map[string]*compilingInstance
@@ -465,7 +466,7 @@ type compilingCache map[string]*compilingInstance
 // arg cache:
 // only support self reference on the same file
 // cross file self reference complicate matters
-func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescriptor, recursionDepth int, opts Options, nextAnns []parser.Annotation, parseTarget ParseTarget) (*TypeDescriptor, error) {
+func parseType(t *parser.Type, tree *parser.Thrift, cache compilingCache, recursionDepth int, opts Options, nextAnns []parser.Annotation, parseTarget ParseTarget) (*TypeDescriptor, error) {
 	if ty, ok := builtinTypes[t.Name]; ok {
 		return ty, nil
 	}
@@ -494,8 +495,8 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescri
 		return ty, err
 	default:
 		// check the cache
-		if ty, ok := cache[t.Name]; ok && parseTarget != Response {
-			return ty, nil
+		if ty, ok := cache[t.Name]; ok && ty.parseTarget == parseTarget {
+			return ty.desc, nil
 		}
 
 		// get type from AST tree
@@ -507,7 +508,7 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescri
 			}
 			tree = ref
 			// cross file reference need empty cache
-			cache = map[string]*TypeDescriptor{}
+			cache = compilingCache{}
 		}
 		if typDef, ok := tree.GetTypedef(typeName); ok {
 			return parseType(typDef.Type, tree, cache, nextRecursionDepth, opts, nextAnns, Others)
@@ -559,7 +560,7 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescri
 			}
 		}
 		if st := ty.Struct(); st != nil {
-			cache[t.Name] = ty
+			cache[t.Name] = &compilingInstance{parseTarget: parseTarget, desc: ty}
 		}
 
 		// parse fields
@@ -618,7 +619,7 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescri
 
 			// recursively parse field type
 			// WARN: options and annotations on field SHOULD NOT override these on their type definition
-			if _f.typ, err = parseType(field.Type, tree, cache, nextRecursionDepth, opts, nil, parseTarget); err != nil {
+			if _f.typ, err = parseType(field.Type, tree, cache, nextRecursionDepth, opts, nil, Others); err != nil {
 				return nil, err
 			}
 

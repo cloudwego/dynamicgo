@@ -51,7 +51,6 @@ func init() {
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, apiBodyMapper{}, "raw.body")
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, sourceMapper{}, "janus.source", "agw.source")
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, targetMapper{}, "agw.target", "janus.target")
-	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, apiNoneMapper{}, "api.none")
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeService, nameCaseMapper{}, NameCaseKeys...)
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeFunction, nameCaseMapper{}, NameCaseKeys...)
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeStruct, nameCaseMapper{}, NameCaseKeys...)
