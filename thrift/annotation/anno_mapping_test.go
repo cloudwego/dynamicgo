@@ -126,9 +126,15 @@ func TestApiNoneField(t *testing.T) {
 	p, err := GetDescFromContent(`
 	namespace go kitex.test.server
 
+	struct ExampleStruct {
+		0: string FieldName1
+		1: string FieldName2 (api.none="")
+	}
+
 	struct Base {
 		0: string DefaultField
 		1: string FieldName1 (api.none="")
+		2: ExampleStruct ExampleStruct
 	}
 
 	service InboxService {
@@ -140,6 +146,10 @@ func TestApiNoneField(t *testing.T) {
 	resp := p.Response().Struct().Fields()[0].Type()
 	require.NotNil(t, req.Struct().FieldById(1))
 	require.NotNil(t, req.Struct().FieldByKey("FieldName1"))
+	require.NotNil(t, req.Struct().FieldById(2).Type().Struct().FieldById(1))
+	require.NotNil(t, req.Struct().FieldByKey("ExampleStruct").Type().Struct().FieldByKey("FieldName2"))
 	require.Equal(t, (*thrift.FieldDescriptor)(nil), resp.Struct().FieldById(1))
 	require.Equal(t, (*thrift.FieldDescriptor)(nil), resp.Struct().FieldByKey("FieldName1"))
+	require.Equal(t, (*thrift.FieldDescriptor)(nil), resp.Struct().FieldById(2).Type().Struct().FieldById(1))
+	require.Equal(t, (*thrift.FieldDescriptor)(nil), resp.Struct().FieldByKey("ExampleStruct").Type().Struct().FieldByKey("FieldName2"))
 }
