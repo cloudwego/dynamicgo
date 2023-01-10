@@ -477,24 +477,24 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescri
 	case "list":
 		ty := &TypeDescriptor{name: t.Name}
 		ty.typ = LIST
-		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
+		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, Others)
 		return ty, err
 	case "set":
 		ty := &TypeDescriptor{name: t.Name}
 		ty.typ = SET
-		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
+		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, Others)
 		return ty, err
 	case "map":
 		ty := &TypeDescriptor{name: t.Name}
 		ty.typ = MAP
-		if ty.key, err = parseType(t.KeyType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget); err != nil {
+		if ty.key, err = parseType(t.KeyType, tree, cache, nextRecursionDepth, opts, nextAnns, Others); err != nil {
 			return nil, err
 		}
-		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
+		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, Others)
 		return ty, err
 	default:
 		// check the cache
-		if ty, ok := cache[t.Name]; ok {
+		if ty, ok := cache[t.Name]; ok && parseTarget != Response {
 			return ty, nil
 		}
 
@@ -510,7 +510,7 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescri
 			cache = map[string]*TypeDescriptor{}
 		}
 		if typDef, ok := tree.GetTypedef(typeName); ok {
-			return parseType(typDef.Type, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
+			return parseType(typDef.Type, tree, cache, nextRecursionDepth, opts, nextAnns, Others)
 		}
 		if _, ok := tree.GetEnum(typeName); ok {
 			if opts.ParseEnumAsInt64 {
