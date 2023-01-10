@@ -129,7 +129,6 @@ func TestApiNoneField(t *testing.T) {
 	struct Base {
 		0: string DefaultField
 		1: string FieldName1 (api.none="")
-		2: base Base // TODO: この場合は。。。？
 	}
 
 	service InboxService {
