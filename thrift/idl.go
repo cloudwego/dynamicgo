@@ -37,7 +37,7 @@ import (
 const (
 	Request ParseTarget = iota
 	Response
-	Others
+	Exception
 )
 
 // ParseTarget indicates the target to parse
@@ -410,7 +410,7 @@ func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescript
 		if len(fn.Throws) > 0 {
 			// only support single exception
 			exp := fn.Throws[0]
-			exceptionType, err := parseType(exp.Type, tree, structsCache, 0, opts, nextAnns, Others)
+			exceptionType, err := parseType(exp.Type, tree, structsCache, 0, opts, nextAnns, Exception)
 			if err != nil {
 				return err
 			}
@@ -478,20 +478,20 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache compilingCache, recurs
 	case "list":
 		ty := &TypeDescriptor{name: t.Name}
 		ty.typ = LIST
-		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, Others)
+		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		return ty, err
 	case "set":
 		ty := &TypeDescriptor{name: t.Name}
 		ty.typ = SET
-		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, Others)
+		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		return ty, err
 	case "map":
 		ty := &TypeDescriptor{name: t.Name}
 		ty.typ = MAP
-		if ty.key, err = parseType(t.KeyType, tree, cache, nextRecursionDepth, opts, nextAnns, Others); err != nil {
+		if ty.key, err = parseType(t.KeyType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget); err != nil {
 			return nil, err
 		}
-		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, Others)
+		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		return ty, err
 	default:
 		// check the cache
@@ -511,7 +511,7 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache compilingCache, recurs
 			cache = compilingCache{}
 		}
 		if typDef, ok := tree.GetTypedef(typeName); ok {
-			return parseType(typDef.Type, tree, cache, nextRecursionDepth, opts, nextAnns, Others)
+			return parseType(typDef.Type, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		}
 		if _, ok := tree.GetEnum(typeName); ok {
 			if opts.ParseEnumAsInt64 {
