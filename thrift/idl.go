@@ -34,6 +34,15 @@ import (
 	"github.com/cloudwego/thriftgo/semantic"
 )
 
+const (
+	Request ParseTarget = iota
+	Response
+	Exception
+)
+
+// ParseTarget indicates the target to parse
+type ParseTarget uint8
+
 // Options is options for parsing thrift IDL.
 type Options struct {
 	// ParseServiceMode indicates how to parse service.
@@ -201,7 +210,7 @@ func parse(tree *parser.Thrift, mode meta.ParseServiceMode, opts Options, method
 		annotations: map[string][]string{},
 	}
 
-	structsCache := map[string]*TypeDescriptor{}
+	structsCache := compilingCache{}
 
 	// support one service
 	svcs := tree.Services
@@ -296,7 +305,7 @@ func getAllFuncs(svc *parser.Service, tree *parser.Thrift, ret *[]funcTreePair) 
 	return
 }
 
-func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescriptor, structsCache map[string]*TypeDescriptor, opts Options) error {
+func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescriptor, structsCache compilingCache, opts Options) error {
 	// for fuzzing test
 	if opts.ParseFieldRandomRate > 0 {
 		rand.Seed(time.Now().UnixNano())
@@ -351,7 +360,7 @@ func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescript
 				requires: make(RequiresBitmap, 1),
 			},
 		}
-		reqType, err := parseType(reqAst.Type, tree, structsCache, 0, opts, nextAnns)
+		reqType, err := parseType(reqAst.Type, tree, structsCache, 0, opts, nextAnns, Request)
 		if err != nil {
 			return err
 		}
@@ -386,7 +395,7 @@ func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescript
 				requires: make(RequiresBitmap, 1),
 			},
 		}
-		respType, err := parseType(respAst, tree, structsCache, 0, opts, nextAnns)
+		respType, err := parseType(respAst, tree, structsCache, 0, opts, nextAnns, Response)
 		if err != nil {
 			return err
 		}
@@ -401,7 +410,7 @@ func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescript
 		if len(fn.Throws) > 0 {
 			// only support single exception
 			exp := fn.Throws[0]
-			exceptionType, err := parseType(exp.Type, tree, structsCache, 0, opts, nextAnns)
+			exceptionType, err := parseType(exp.Type, tree, structsCache, 0, opts, nextAnns, Exception)
 			if err != nil {
 				return err
 			}
@@ -447,8 +456,9 @@ var builtinTypes = map[string]*TypeDescriptor{
 }
 
 type compilingInstance struct {
-	desc *TypeDescriptor
-	opts Options
+	desc        *TypeDescriptor
+	opts        Options
+	parseTarget ParseTarget
 }
 
 type compilingCache map[string]*compilingInstance
@@ -456,7 +466,7 @@ type compilingCache map[string]*compilingInstance
 // arg cache:
 // only support self reference on the same file
 // cross file self reference complicate matters
-func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescriptor, recursionDepth int, opts Options, nextAnns []parser.Annotation) (*TypeDescriptor, error) {
+func parseType(t *parser.Type, tree *parser.Thrift, cache compilingCache, recursionDepth int, opts Options, nextAnns []parser.Annotation, parseTarget ParseTarget) (*TypeDescriptor, error) {
 	if ty, ok := builtinTypes[t.Name]; ok {
 		return ty, nil
 	}
@@ -468,25 +478,25 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescri
 	case "list":
 		ty := &TypeDescriptor{name: t.Name}
 		ty.typ = LIST
-		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns)
+		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		return ty, err
 	case "set":
 		ty := &TypeDescriptor{name: t.Name}
 		ty.typ = SET
-		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns)
+		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		return ty, err
 	case "map":
 		ty := &TypeDescriptor{name: t.Name}
 		ty.typ = MAP
-		if ty.key, err = parseType(t.KeyType, tree, cache, nextRecursionDepth, opts, nextAnns); err != nil {
+		if ty.key, err = parseType(t.KeyType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget); err != nil {
 			return nil, err
 		}
-		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns)
+		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		return ty, err
 	default:
 		// check the cache
-		if ty, ok := cache[t.Name]; ok {
-			return ty, nil
+		if ty, ok := cache[t.Name]; ok && ty.parseTarget == parseTarget {
+			return ty.desc, nil
 		}
 
 		// get type from AST tree
@@ -498,10 +508,10 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescri
 			}
 			tree = ref
 			// cross file reference need empty cache
-			cache = map[string]*TypeDescriptor{}
+			cache = compilingCache{}
 		}
 		if typDef, ok := tree.GetTypedef(typeName); ok {
-			return parseType(typDef.Type, tree, cache, nextRecursionDepth, opts, nextAnns)
+			return parseType(typDef.Type, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		}
 		if _, ok := tree.GetEnum(typeName); ok {
 			if opts.ParseEnumAsInt64 {
@@ -550,7 +560,7 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescri
 			}
 		}
 		if st := ty.Struct(); st != nil {
-			cache[t.Name] = ty
+			cache[t.Name] = &compilingInstance{parseTarget: parseTarget, desc: ty}
 		}
 
 		// parse fields
@@ -588,7 +598,7 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescri
 			}
 			ignore := false
 			for _, val := range left {
-				skip, err := handleNativeFieldAnnotation(val, _f)
+				skip, err := handleNativeFieldAnnotation(val, _f, parseTarget)
 				if err != nil {
 					return nil, err
 				}
@@ -609,7 +619,7 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache map[string]*TypeDescri
 
 			// recursively parse field type
 			// WARN: options and annotations on field SHOULD NOT override these on their type definition
-			if _f.typ, err = parseType(field.Type, tree, cache, nextRecursionDepth, opts, nil); err != nil {
+			if _f.typ, err = parseType(field.Type, tree, cache, nextRecursionDepth, opts, nil, parseTarget); err != nil {
 				return nil, err
 			}
 
