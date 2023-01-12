@@ -374,6 +374,7 @@ type ServiceDescriptor struct {
 	name        string
 	functions   map[string]*FunctionDescriptor
 	annotations map[string][]string
+	Router      Router
 }
 
 // Name returns the name of the service

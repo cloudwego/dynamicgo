@@ -17,12 +17,17 @@
 package thrift
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"math"
+	stdh "net/http"
 	"testing"
 
-	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cloudwego/dynamicgo/http"
+	"github.com/cloudwego/dynamicgo/meta"
 )
 
 func TestThriftContentWithAbsIncludePath(t *testing.T) {
@@ -140,6 +145,27 @@ func TestBypassAnnotatio(t *testing.T) {
 	}
 	require.Equal(t, []string{"中文1", "中文2"}, p.Annotations()["anno.test"])
 	require.Equal(t, []string{"中文1", "中文2"}, p.Functions()["ExampleMethod"].Annotations()["anno.test"])
+}
+
+func TestRouterLookup(t *testing.T) {
+	opts := Options{}
+	svc, err := opts.NewDescritorFromPath("../testdata/idl/example3.thrift")
+	if err != nil {
+		panic(err)
+	}
+	body, err := ioutil.ReadFile("../testdata/data/example3req.json")
+	if err != nil {
+		panic(err)
+	}
+	hr, err := stdh.NewRequest("POST", "http://localhost:8888/example/set?query=1,2,3", bytes.NewBuffer(body))
+	if err != nil {
+		panic(err)
+	}
+	req := &http.HTTPRequest{
+		Request: hr,
+	}
+	fnDsc, err := svc.Router.Lookup(req)
+	require.Equal(t, fnDsc.name, "ExampleMethod")
 }
 
 func GetDescFromContent(content string, method string, opts *Options) (*FunctionDescriptor, error) {

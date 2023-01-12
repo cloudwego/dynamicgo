@@ -347,9 +347,9 @@ const (
 
 // Params and recyclable
 type Params struct {
-	params   []Param
-	recycle  func(*Params)
-	recycled bool
+	Params        []Param
+	RecycleParams func(*Params)
+	recycled      bool
 }
 
 // Recycle the Params
@@ -358,12 +358,12 @@ func (ps *Params) Recycle() {
 		return
 	}
 	ps.recycled = true
-	ps.recycle(ps)
+	ps.RecycleParams(ps)
 }
 
 // ByName search Param by given name
 func (ps *Params) ByName(name string) string {
-	for _, p := range ps.params {
+	for _, p := range ps.Params {
 		if p.Key == name {
 			return p.Value
 		}
@@ -373,12 +373,12 @@ func (ps *Params) ByName(name string) string {
 
 // Set set Param by given name and value, return true if Param exists
 func (ps *Params) Set(name string, val string) bool {
-	for i, p := range ps.params {
+	for i, p := range ps.Params {
 		if p.Key == name {
-			ps.params[i].Value = val
+			ps.Params[i].Value = val
 			return true
 		}
 	}
-	ps.params = append(ps.params, Param{Key: name, Value: val})
+	ps.Params = append(ps.Params, Param{Key: name, Value: val})
 	return false
 }

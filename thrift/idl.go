@@ -208,6 +208,7 @@ func parse(tree *parser.Thrift, mode meta.ParseServiceMode, opts Options, method
 	sDsc := &ServiceDescriptor{
 		functions:   map[string]*FunctionDescriptor{},
 		annotations: map[string][]string{},
+		Router:      NewRouter(),
 	}
 
 	structsCache := compilingCache{}
@@ -437,6 +438,16 @@ func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescript
 		annotations:    annos,
 	}
 	copyAnnotationValues(fnDsc.annotations, fn.Annotations)
+
+	for _, ann := range fn.Annotations {
+		fmt.Println(ann)
+		if nr, ok := AnnoToRoute(ann.GetKey()); ok {
+			for _, v := range ann.GetValues() {
+				sDsc.Router.Handle(nr(v, fnDsc))
+			}
+		}
+	}
+
 	sDsc.functions[fn.Name] = fnDsc
 	return nil
 }
