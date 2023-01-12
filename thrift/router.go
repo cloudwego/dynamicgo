@@ -7,7 +7,7 @@ import (
 	"github.com/cloudwego/dynamicgo/http"
 )
 
-// Router http router for bam annotations
+// Router http router
 type Router interface {
 	// Handle register Route to Router
 	Handle(rt Route)
