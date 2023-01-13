@@ -165,6 +165,7 @@ func TestRouterLookup(t *testing.T) {
 		Request: hr,
 	}
 	fnDsc, err := svc.Router.Lookup(req)
+	require.Equal(t, err, nil)
 	require.Equal(t, fnDsc.name, "ExampleMethod")
 }
 

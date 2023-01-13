@@ -440,7 +440,6 @@ func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescript
 	copyAnnotationValues(fnDsc.annotations, fn.Annotations)
 
 	for _, ann := range fn.Annotations {
-		fmt.Println(ann)
 		if nr, ok := AnnoToRoute(ann.GetKey()); ok {
 			for _, v := range ann.GetValues() {
 				sDsc.Router.Handle(nr(v, fnDsc))

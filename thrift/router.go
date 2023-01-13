@@ -81,14 +81,11 @@ func (r *router) Handle(rt Route) {
 }
 
 func (r *router) Lookup(req *http.HTTPRequest) (*FunctionDescriptor, error) {
-	fmt.Println(req.Method())
 	root, ok := r.trees[req.Method()]
-	fmt.Println(root)
 	if !ok {
 		return nil, fmt.Errorf("function lookup failed, no root with method=%s", req.Method())
 	}
 	fn, ps, _ := root.getValue(req.Path(), r.getParams, false)
-	fmt.Println(req.Path(), fn, ps)
 	if fn == nil {
 		r.putParams(ps)
 		return nil, fmt.Errorf("function lookup failed, path=%s", req.Path())
