@@ -11,7 +11,6 @@ import "github.com/cloudwego/dynamicgo/conv/t2j"
 - [type BinaryConv](<#type-binaryconv>)
   - [func NewBinaryConv(opts conv.Options) BinaryConv](<#func-newbinaryconv>)
   - [func (self *BinaryConv) Do(ctx context.Context, desc *thrift.TypeDescriptor, tbytes []byte) (json []byte, err error)](<#func-binaryconv-do>)
-  - [func (self *BinaryConv) DoHTTP(ctx context.Context, desc *thrift.TypeDescriptor, tbytes []byte) (json []byte, err error)](<#func-binaryconv-dohttp>)
   - [func (self *BinaryConv) DoInto(ctx context.Context, desc *thrift.TypeDescriptor, tbytes []byte, buf *[]byte) (err error)](<#func-binaryconv-dointo>)
   - [func (self *BinaryConv) SetOptions(opts conv.Options)](<#func-binaryconv-setoptions>)
 - [type HTTPConv](<#type-httpconv>)
@@ -82,14 +81,6 @@ desc is the thrift type descriptor of the thrift binary, usually it is a respons
 
 </p>
 </details>
-
-### func \(\*BinaryConv\) DoHTTP
-
-```go
-func (self *BinaryConv) DoHTTP(ctx context.Context, desc *thrift.TypeDescriptor, tbytes []byte) (json []byte, err error)
-```
-
-DoHTTP converts thrift binary \(tbytes\) to json bytes \(jbytes\) and writes the result to http.ResponseSetter
 
 ### func \(\*BinaryConv\) DoInto
 

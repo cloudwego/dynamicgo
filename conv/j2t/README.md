@@ -11,7 +11,6 @@ import "github.com/cloudwego/dynamicgo/conv/j2t"
 - [type BinaryConv](<#type-binaryconv>)
   - [func NewBinaryConv(opts conv.Options) BinaryConv](<#func-newbinaryconv>)
   - [func (self *BinaryConv) Do(ctx context.Context, desc *thrift.TypeDescriptor, jbytes []byte) (tbytes []byte, err error)](<#func-binaryconv-do>)
-  - [func (self *BinaryConv) DoHTTP(ctx context.Context, desc *thrift.TypeDescriptor, jbytes []byte) (tbytes []byte, err error)](<#func-binaryconv-dohttp>)
   - [func (self *BinaryConv) DoInto(ctx context.Context, desc *thrift.TypeDescriptor, jbytes []byte, buf *[]byte) (err error)](<#func-binaryconv-dointo>)
   - [func (self *BinaryConv) SetOptions(opts conv.Options)](<#func-binaryconv-setoptions>)
 - [type HTTPConv](<#type-httpconv>)
@@ -83,14 +82,6 @@ desc is the thrift type descriptor of the thrift binary, usually it the request 
 </p>
 </details>
 
-### func \(\*BinaryConv\) DoHTTP
-
-```go
-func (self *BinaryConv) DoHTTP(ctx context.Context, desc *thrift.TypeDescriptor, jbytes []byte) (tbytes []byte, err error)
-```
-
-DoHTTP converts json bytes \(jbytes\) to thrift binary \(tbytes\) and reads http.RequestGetter as the context argument
-
 ### func \(\*BinaryConv\) DoInto
 
 ```go
@@ -151,11 +142,11 @@ func (h HTTPConv) DoInto(ctx context.Context, req http.RequestGetter, buf *[]byt
 	if err != nil {
 		panic(err)
 	}
-	jdata := `{"msg":"hello","InnerBase":{}}`
 	fn := svc.Functions()["ExampleMethod"]
 
 	cv := NewHTTPConv(meta.EncodingThriftBinary, fn)
 
+	jdata := `{"msg":"hello","InnerBase":{}}`
 	stdreq, err := stdhttp.NewRequest("POST",
 		"http://localhost:8080/example?query=1,2,3&inner_query=中文",
 		strings.NewReader(jdata))
