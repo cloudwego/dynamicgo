@@ -50,25 +50,6 @@ func (self *BinaryConv) SetOptions(opts conv.Options) {
 func (self *BinaryConv) Do(ctx context.Context, desc *thrift.TypeDescriptor, tbytes []byte) (json []byte, err error) {
 	buf := conv.NewBytes()
 
-	err = self.do(ctx, tbytes, desc, buf, nil)
-	if err == nil && len(*buf) > 0 {
-		json = make([]byte, len(*buf))
-		copy(json, *buf)
-	}
-
-	conv.FreeBytes(buf)
-	return
-}
-
-// DoInto behaves like Do, but it writes the result to buffer directly instead of returning a new buffer
-func (self *BinaryConv) DoInto(ctx context.Context, desc *thrift.TypeDescriptor, tbytes []byte, buf *[]byte) (err error) {
-	return self.do(ctx, tbytes, desc, buf, nil)
-}
-
-// DoHTTP converts thrift binary (tbytes) to json bytes (jbytes) and writes the result to http.ResponseSetter
-func (self *BinaryConv) DoHTTP(ctx context.Context, desc *thrift.TypeDescriptor, tbytes []byte) (json []byte, err error) {
-	buf := conv.NewBytes()
-
 	var resp http.ResponseSetter
 	if self.opts.EnableHttpMapping {
 		respi := ctx.Value(conv.CtxKeyHTTPResponse)
@@ -84,7 +65,6 @@ func (self *BinaryConv) DoHTTP(ctx context.Context, desc *thrift.TypeDescriptor,
 	}
 
 	err = self.do(ctx, tbytes, desc, buf, resp)
-
 	if err == nil && len(*buf) > 0 {
 		json = make([]byte, len(*buf))
 		copy(json, *buf)
@@ -92,4 +72,23 @@ func (self *BinaryConv) DoHTTP(ctx context.Context, desc *thrift.TypeDescriptor,
 
 	conv.FreeBytes(buf)
 	return
+}
+
+// DoInto behaves like Do, but it writes the result to buffer directly instead of returning a new buffer
+func (self *BinaryConv) DoInto(ctx context.Context, desc *thrift.TypeDescriptor, tbytes []byte, buf *[]byte) (err error) {
+	var resp http.ResponseSetter
+	if self.opts.EnableHttpMapping {
+		respi := ctx.Value(conv.CtxKeyHTTPResponse)
+		if respi != nil {
+			respi, ok := respi.(http.ResponseSetter)
+			if !ok {
+				return wrapError(meta.ErrInvalidParam, "invalid http.Response", nil)
+			}
+			resp = respi
+		} else {
+			return wrapError(meta.ErrInvalidParam, "no http response in context", nil)
+		}
+	}
+
+	return self.do(ctx, tbytes, desc, buf, resp)
 }

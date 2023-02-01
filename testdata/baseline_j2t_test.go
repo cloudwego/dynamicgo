@@ -500,7 +500,7 @@ func TestThriftEncodeNesting_Raw(t *testing.T) {
 		EnableValueMapping: true,
 	})
 	nj := convertI642StringNesting(nestingJSON, true)
-	out, err := cv.DoHTTP(ctx, nesting, []byte(nj))
+	out, err := cv.Do(ctx, nesting, []byte(nj))
 	require.Nil(t, err)
 
 	stru := baseline.NewNesting()
@@ -740,13 +740,13 @@ func BenchmarkHTTP2Thrift_DynamicGo_Raw(b *testing.B) {
 			EnableValueMapping: true,
 		})
 		nj := []byte(convertI642StringNesting(nestingJSON, true))
-		out, err := cv.DoHTTP(ctx, nesting, nj)
+		out, err := cv.Do(ctx, nesting, nj)
 		require.Nil(b, err)
 
 		b.SetBytes(int64(len(out)))
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_, _ = cv.DoHTTP(ctx, nesting, nj)
+			_, _ = cv.Do(ctx, nesting, nj)
 		}
 	})
 }

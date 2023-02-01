@@ -128,7 +128,7 @@ func TestThrift2HTTP_Raw(t *testing.T) {
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPResponse, http.NewHTTPResponse())
 		cv := t2j.NewBinaryConv(opts)
-		out, err := cv.DoHTTP(ctx, desc, in)
+		out, err := cv.Do(ctx, desc, in)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -144,7 +144,7 @@ func TestThrift2HTTP_Raw(t *testing.T) {
 
 		opts.EnableValueMapping = true
 		cv = t2j.NewBinaryConv(opts)
-		ret, err := cv.DoHTTP(ctx, desc, in)
+		ret, err := cv.Do(ctx, desc, in)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -169,7 +169,7 @@ func TestThrift2HTTP_Raw(t *testing.T) {
 		resp := http.NewHTTPResponse()
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPResponse, resp)
 		cv := t2j.NewBinaryConv(opts)
-		out, err := cv.DoHTTP(ctx, desc, in)
+		out, err := cv.Do(ctx, desc, in)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -188,7 +188,7 @@ func TestThrift2HTTP_Raw(t *testing.T) {
 
 		opts.EnableValueMapping = true
 		cv = t2j.NewBinaryConv(opts)
-		ret, err := cv.DoHTTP(ctx, desc, in)
+		ret, err := cv.Do(ctx, desc, in)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -426,7 +426,7 @@ func BenchmarkThrift2HTTP_DynamicGo(t *testing.B) {
 		resp := http.NewHTTPResponse()
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPResponse, resp)
 		cv := t2j.NewBinaryConv(opts)
-		ret, err := cv.DoHTTP(ctx, desc, in)
+		ret, err := cv.Do(ctx, desc, in)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -437,7 +437,7 @@ func BenchmarkThrift2HTTP_DynamicGo(t *testing.B) {
 		t.SetBytes(int64(len(in)))
 		t.ResetTimer()
 		for i := 0; i < t.N; i++ {
-			_, err = cv.DoHTTP(ctx, desc, in)
+			_, err = cv.Do(ctx, desc, in)
 		}
 	})
 
@@ -457,7 +457,7 @@ func BenchmarkThrift2HTTP_DynamicGo(t *testing.B) {
 		resp := http.NewHTTPResponse()
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPResponse, resp)
 		cv := t2j.NewBinaryConv(opts)
-		ret, err := cv.DoHTTP(ctx, desc, in)
+		ret, err := cv.Do(ctx, desc, in)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -469,7 +469,7 @@ func BenchmarkThrift2HTTP_DynamicGo(t *testing.B) {
 		t.SetBytes(int64(len(in)))
 		t.ResetTimer()
 		for i := 0; i < t.N; i++ {
-			_, err = cv.DoHTTP(ctx, desc, in)
+			_, err = cv.Do(ctx, desc, in)
 		}
 	})
 }

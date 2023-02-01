@@ -105,7 +105,7 @@ func TestConvHTTP2Thrift(t *testing.T) {
 	})
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-	out, err := cv.DoHTTP(ctx, desc, data)
+	out, err := cv.Do(ctx, desc, data)
 	require.NoError(t, err)
 
 	act := example3.NewExampleReq()
@@ -293,7 +293,7 @@ func TestWriteDefault(t *testing.T) {
 	})
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-	out, err := cv.DoHTTP(ctx, desc, data)
+	out, err := cv.Do(ctx, desc, data)
 	require.Nil(t, err)
 	act := example3.NewExampleReq()
 	_, err = act.FastRead(out)
@@ -338,7 +338,7 @@ func TestWriteRequired(t *testing.T) {
 		})
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-		out, err := cv.DoHTTP(ctx, desc, data)
+		out, err := cv.Do(ctx, desc, data)
 		require.Nil(t, err)
 		act := example3.NewExampleReq()
 		_, err = act.FastRead(out)
@@ -377,7 +377,7 @@ func TestBodyFallbackToHttp(t *testing.T) {
 		})
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-		out, err := cv.DoHTTP(ctx, desc, data)
+		out, err := cv.Do(ctx, desc, data)
 		require.NoError(t, err)
 		act := example3.NewExampleReq()
 		_, err = act.FastRead(out)
@@ -399,7 +399,7 @@ func TestBodyFallbackToHttp(t *testing.T) {
 		})
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-		out, err := cv.DoHTTP(ctx, desc, data)
+		out, err := cv.Do(ctx, desc, data)
 		require.NoError(t, err)
 		act := example3.NewExampleReq()
 		_, err = act.FastRead(out)
@@ -418,7 +418,7 @@ func TestRequireness(t *testing.T) {
 	req := http.NewHTTPRequest()
 	req.Request, _ = stdh.NewRequest("GET", "root?query=abc", bytes.NewBuffer(nil))
 	ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-	out, err := cv.DoHTTP(ctx, desc, data)
+	out, err := cv.Do(ctx, desc, data)
 	require.Nil(t, err)
 	act := example3.NewExampleError()
 	_, err = act.FastRead(out)
@@ -462,7 +462,7 @@ func TestApiBody(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	r, err := http.NewHTTPRequestFromStdReq(req)
 	ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, r)
-	out, err := cv.DoHTTP(ctx, desc, data)
+	out, err := cv.Do(ctx, desc, data)
 	require.Nil(t, err)
 	act := example3.NewExampleApiBody()
 	_, err = act.FastRead(out)
@@ -642,7 +642,7 @@ type MockConv struct {
 	fc        int
 }
 
-func (mock *MockConv) DoHTTP(self *BinaryConv, ctx context.Context, desc *thrift.TypeDescriptor, jbytes []byte) (tbytes []byte, err error) {
+func (mock *MockConv) Do(self *BinaryConv, ctx context.Context, desc *thrift.TypeDescriptor, jbytes []byte) (tbytes []byte, err error) {
 	buf := conv.NewBytes()
 
 	var req http.RequestGetter
@@ -768,7 +768,7 @@ func TestStateMachineOOM(t *testing.T) {
 		})
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-		out, err := mock.DoHTTP(&cv, ctx, desc, data)
+		out, err := mock.Do(&cv, ctx, desc, data)
 		require.NoError(t, err)
 		act := example3.NewExampleReq()
 		_, err = act.FastRead(out)
@@ -787,7 +787,7 @@ func TestEmptyConvHTTP2Thrift(t *testing.T) {
 	})
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-	out, err := cv.DoHTTP(ctx, desc, data)
+	out, err := cv.Do(ctx, desc, data)
 	require.NoError(t, err)
 
 	act := example3.NewExampleReq()
@@ -921,7 +921,7 @@ func TestJSONString(t *testing.T) {
 	})
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-	out, err := cv.DoHTTP(ctx, desc, data)
+	out, err := cv.Do(ctx, desc, data)
 	require.NoError(t, err)
 
 	act := example3.NewExampleJSONString()
@@ -944,7 +944,7 @@ func TestHttpConvError(t *testing.T) {
 		})
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-		_, err = cv.DoHTTP(ctx, desc, data)
+		_, err = cv.Do(ctx, desc, data)
 		require.Error(t, err)
 		require.Equal(t, meta.ErrMissRequiredField, err.(meta.Error).Code.Behavior())
 	})
@@ -963,7 +963,7 @@ func TestHttpConvError(t *testing.T) {
 		})
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-		out, err := cv.DoHTTP(ctx, desc, data)
+		out, err := cv.Do(ctx, desc, data)
 		require.NoError(t, err)
 		var exp = example3.NewExampleError()
 		_, err = exp.FastRead(out)
@@ -984,7 +984,7 @@ func TestHttpConvError(t *testing.T) {
 		})
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-		_, err = cv.DoHTTP(ctx, desc, data)
+		_, err = cv.Do(ctx, desc, data)
 		require.Error(t, err)
 		require.Equal(t, meta.ErrConvert, err.(meta.Error).Code.Behavior())
 	})
@@ -1004,7 +1004,7 @@ func TestHttpMappingFallback(t *testing.T) {
 		})
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-		out, err := cv.DoHTTP(ctx, desc, data)
+		out, err := cv.Do(ctx, desc, data)
 		require.NoError(t, err)
 		exp := example3.NewExampleFallback()
 		exp.Msg = "hello"
@@ -1025,7 +1025,7 @@ func TestHttpMappingFallback(t *testing.T) {
 		})
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-		out, err := cv.DoHTTP(ctx, desc, data)
+		out, err := cv.Do(ctx, desc, data)
 		require.NoError(t, err)
 		exp := example3.NewExampleFallback()
 		exp.Msg = "a"
@@ -1065,7 +1065,7 @@ func TestPostFormBody(t *testing.T) {
 		req, err := http.NewHTTPRequestFromStdReq(sr)
 		require.NoError(t, err)
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-		out, err := cv.DoHTTP(ctx, desc, []byte(`{}`))
+		out, err := cv.Do(ctx, desc, []byte(`{}`))
 		require.Nil(t, err)
 		act := example3.NewExamplePostForm()
 		_, err = act.FastRead(out)
@@ -1092,7 +1092,7 @@ func TestPostFormBody(t *testing.T) {
 		req, err := http.NewHTTPRequestFromStdReq(sr)
 		require.NoError(t, err)
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-		out, err := cv.DoHTTP(ctx, desc, []byte(``))
+		out, err := cv.Do(ctx, desc, []byte(``))
 		require.Nil(t, err)
 		act := example3.NewExamplePostForm()
 		_, err = act.FastRead(out)
@@ -1140,7 +1140,7 @@ func TestAGWDynamicBody(t *testing.T) {
 		rr, err := http.NewHTTPRequestFromStdReq(req)
 		require.NoError(t, err)
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, rr)
-		out, err := cv.DoHTTP(ctx, desc, []byte(data))
+		out, err := cv.Do(ctx, desc, []byte(data))
 		require.Nil(t, err)
 		act := example3.NewExampleDynamicStruct()
 		_, err = act.FastRead(out)
@@ -1178,7 +1178,7 @@ func TestNobodyRequiredFields(t *testing.T) {
 	req, err := http.NewHTTPRequestFromUrl("GET", "http://localhost?required_field=1", nil)
 	require.NoError(t, err)
 	ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
-	out, err := cv.DoHTTP(ctx, desc, nil)
+	out, err := cv.Do(ctx, desc, nil)
 	require.Nil(t, err)
 	fmt.Printf("%+v", out)
 }
@@ -1198,7 +1198,7 @@ func TestBase64Decode(t *testing.T) {
 		require.NoError(t, err)
 		req.Request.Header.Set("Binary2", base64.StdEncoding.EncodeToString([]byte("world")))
 		ctx := context.WithValue(context.Background(), conv.CtxKeyHTTPRequest, req)
-		out, err := cv.DoHTTP(ctx, desc, in)
+		out, err := cv.Do(ctx, desc, in)
 		require.Nil(t, err)
 
 		act := example3.NewExampleBase64Binary()
@@ -1218,7 +1218,7 @@ func TestBase64Decode(t *testing.T) {
 		require.NoError(t, err)
 		req.Request.Header.Set("Binary2", "world")
 		ctx := context.WithValue(context.Background(), conv.CtxKeyHTTPRequest, req)
-		out, err := cv.DoHTTP(ctx, desc, in)
+		out, err := cv.Do(ctx, desc, in)
 		require.Nil(t, err)
 
 		act := example3.NewExampleBase64Binary()
@@ -1255,7 +1255,7 @@ func TestDefaultValue(t *testing.T) {
 		req, err := http.NewHTTPRequestFromUrl("GET", "http://localhost", nil)
 		require.NoError(t, err)
 		ctx := context.WithValue(context.Background(), conv.CtxKeyHTTPRequest, req)
-		out, err := cv.DoHTTP(ctx, desc, in)
+		out, err := cv.Do(ctx, desc, in)
 		require.Nil(t, err)
 		act := &example3.ExampleDefaultValue{}
 		_, err = act.FastRead(out)
@@ -1275,7 +1275,7 @@ func TestDefaultValue(t *testing.T) {
 		req, err := http.NewHTTPRequestFromUrl("GET", "http://localhost", nil)
 		require.NoError(t, err)
 		ctx := context.WithValue(context.Background(), conv.CtxKeyHTTPRequest, req)
-		out, err := cv.DoHTTP(ctx, desc, in)
+		out, err := cv.Do(ctx, desc, in)
 		require.Nil(t, err)
 		act := &example3.ExampleDefaultValue{}
 		_, err = act.FastRead(out)
@@ -1344,7 +1344,7 @@ func TestOptionalDefaultValue(t *testing.T) {
 		req, err := http.NewHTTPRequestFromUrl("GET", "http://localhost", nil)
 		require.NoError(t, err)
 		ctx := context.WithValue(context.Background(), conv.CtxKeyHTTPRequest, req)
-		_, err = cv.DoHTTP(ctx, desc, in)
+		_, err = cv.Do(ctx, desc, in)
 		require.Error(t, err)
 	})
 	t.Run("write default + write optional + http mapping", func(t *testing.T) {
@@ -1357,7 +1357,7 @@ func TestOptionalDefaultValue(t *testing.T) {
 		req, err := http.NewHTTPRequestFromUrl("GET", "http://localhost", nil)
 		require.NoError(t, err)
 		ctx := context.WithValue(context.Background(), conv.CtxKeyHTTPRequest, req)
-		out, err := cv.DoHTTP(ctx, desc, in)
+		out, err := cv.Do(ctx, desc, in)
 		require.Nil(t, err)
 		act := &example3.ExampleOptionalDefaultValue{}
 		_, err = act.FastRead(out)
@@ -1380,7 +1380,7 @@ func TestNoBodyStruct(t *testing.T) {
 		EnableHttpMapping: true,
 	})
 	ctx := context.WithValue(context.Background(), conv.CtxKeyHTTPRequest, req)
-	out, err := cv.DoHTTP(ctx, desc, in)
+	out, err := cv.Do(ctx, desc, in)
 	require.Nil(t, err)
 	act := &example3.ExampleNoBodyStruct{}
 	_, err = act.FastRead(out)

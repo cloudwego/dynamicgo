@@ -53,7 +53,7 @@ func BenchmarkThrift2HTTP_DynamicGo(b *testing.B) {
 	ctx := context.Background()
 	resp := http.NewHTTPResponse()
 	ctx = context.WithValue(ctx, cv.CtxKeyHTTPResponse, resp)
-	out, err := conv.DoHTTP(ctx, desc, in)
+	out, err := conv.Do(ctx, desc, in)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func BenchmarkThrift2HTTP_DynamicGo(b *testing.B) {
 		resp := http.NewHTTPResponse()
 		ctx = context.WithValue(ctx, cv.CtxKeyHTTPResponse, resp)
 		out = out[:0]
-		_, _ = conv.DoHTTP(ctx, desc, in)
+		_, _ = conv.Do(ctx, desc, in)
 	}
 }
 
@@ -99,7 +99,7 @@ func BenchmarkThrift2HTTP_Parallel_DynamicGo(b *testing.B) {
 	ctx := context.Background()
 	resp := http.NewHTTPResponse()
 	ctx = context.WithValue(ctx, cv.CtxKeyHTTPResponse, resp)
-	_, err := conv.DoHTTP(ctx, desc, in)
+	_, err := conv.Do(ctx, desc, in)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func BenchmarkThrift2HTTP_Parallel_DynamicGo(b *testing.B) {
 			ctx := context.Background()
 			resp := http.NewHTTPResponse()
 			ctx = context.WithValue(ctx, cv.CtxKeyHTTPResponse, resp)
-			_, _ = conv.DoHTTP(ctx, desc, in)
+			_, _ = conv.Do(ctx, desc, in)
 		}
 	})
 }

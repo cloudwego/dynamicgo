@@ -56,25 +56,6 @@ func (self *BinaryConv) SetOptions(opts conv.Options) {
 func (self *BinaryConv) Do(ctx context.Context, desc *thrift.TypeDescriptor, jbytes []byte) (tbytes []byte, err error) {
 	buf := conv.NewBytes()
 
-	err = self.do(ctx, jbytes, desc, buf, nil)
-	if err == nil && len(*buf) > 0 {
-		tbytes = make([]byte, len(*buf))
-		copy(tbytes, *buf)
-	}
-
-	conv.FreeBytes(buf)
-	return
-}
-
-// DoInto behaves like Do, but it writes the result to buffer directly instead of returning a new buffer
-func (self *BinaryConv) DoInto(ctx context.Context, desc *thrift.TypeDescriptor, jbytes []byte, buf *[]byte) (err error) {
-	return self.do(ctx, jbytes, desc, buf, nil)
-}
-
-// DoHTTP converts json bytes (jbytes) to thrift binary (tbytes) and reads http.RequestGetter as the context argument
-func (self *BinaryConv) DoHTTP(ctx context.Context, desc *thrift.TypeDescriptor, jbytes []byte) (tbytes []byte, err error) {
-	buf := conv.NewBytes()
-
 	var req http.RequestGetter
 	if self.opts.EnableHttpMapping {
 		reqi := ctx.Value(conv.CtxKeyHTTPRequest)
@@ -90,7 +71,6 @@ func (self *BinaryConv) DoHTTP(ctx context.Context, desc *thrift.TypeDescriptor,
 	}
 
 	err = self.do(ctx, jbytes, desc, buf, req)
-
 	if err == nil && len(*buf) > 0 {
 		tbytes = make([]byte, len(*buf))
 		copy(tbytes, *buf)
@@ -98,6 +78,24 @@ func (self *BinaryConv) DoHTTP(ctx context.Context, desc *thrift.TypeDescriptor,
 
 	conv.FreeBytes(buf)
 	return
+}
+
+// DoInto behaves like Do, but it writes the result to buffer directly instead of returning a new buffer
+func (self *BinaryConv) DoInto(ctx context.Context, desc *thrift.TypeDescriptor, jbytes []byte, buf *[]byte) (err error) {
+	var req http.RequestGetter
+	if self.opts.EnableHttpMapping {
+		reqi := ctx.Value(conv.CtxKeyHTTPRequest)
+		if reqi != nil {
+			reqi, ok := reqi.(http.RequestGetter)
+			if !ok {
+				return newError(meta.ErrInvalidParam, "invalid http.RequestGetter", nil)
+			}
+			req = reqi
+		} else {
+			return newError(meta.ErrInvalidParam, "EnableHttpMapping but no http response in context", nil)
+		}
+	}
+	return self.do(ctx, jbytes, desc, buf, req)
 }
 
 func toFlags(opts conv.Options) (flags uint64) {

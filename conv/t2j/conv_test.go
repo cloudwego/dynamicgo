@@ -173,7 +173,7 @@ func TestConvThrift2HTTP(t *testing.T) {
 	ctx := context.Background()
 	resp := http.NewHTTPResponse()
 	ctx = context.WithValue(ctx, cv.CtxKeyHTTPResponse, resp)
-	out, err := conv.DoHTTP(ctx, desc, in)
+	out, err := conv.Do(ctx, desc, in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +197,7 @@ func TestConvThrift2HTTP(t *testing.T) {
 	ctx = context.Background()
 	resp = http.NewHTTPResponse()
 	ctx = context.WithValue(ctx, cv.CtxKeyHTTPResponse, resp)
-	out, err = conv.DoHTTP(ctx, desc, in)
+	out, err = conv.Do(ctx, desc, in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -384,7 +384,7 @@ func TestHttpMappingFallback(t *testing.T) {
 		ctx := context.Background()
 		resp := http.NewHTTPResponse()
 		ctx = context.WithValue(ctx, cv.CtxKeyHTTPResponse, resp)
-		out, err := conv.DoHTTP(ctx, desc, in)
+		out, err := conv.Do(ctx, desc, in)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -406,7 +406,7 @@ func TestHttpMappingFallback(t *testing.T) {
 		ctx := context.Background()
 		resp := http.NewHTTPResponse()
 		ctx = context.WithValue(ctx, cv.CtxKeyHTTPResponse, resp)
-		out, err := conv.DoHTTP(ctx, desc, in)
+		out, err := conv.Do(ctx, desc, in)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -432,7 +432,7 @@ func TestWriteEmpty(t *testing.T) {
 	ctx := context.Background()
 	resp := http.NewHTTPResponse()
 	ctx = context.WithValue(ctx, cv.CtxKeyHTTPResponse, resp)
-	out, err := conv.DoHTTP(ctx, desc, data)
+	out, err := conv.Do(ctx, desc, data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -513,7 +513,7 @@ func TestNobodyRequiredFields(t *testing.T) {
 		_ = exp.FastWriteNocopy(in, nil)
 		resp := http.NewHTTPResponse()
 		ctx := context.WithValue(context.Background(), cv.CtxKeyHTTPResponse, resp)
-		out, err := conv.DoHTTP(ctx, desc, in)
+		out, err := conv.Do(ctx, desc, in)
 		require.NoError(t, err)
 
 		act := example3.NewExampleBase64Binary()
@@ -535,7 +535,7 @@ func TestNobodyRequiredFields(t *testing.T) {
 		_ = exp.FastWriteNocopy(in, nil)
 		resp := http.NewHTTPResponse()
 		ctx := context.WithValue(context.Background(), cv.CtxKeyHTTPResponse, resp)
-		out, err := conv.DoHTTP(ctx, desc, in)
+		out, err := conv.Do(ctx, desc, in)
 		require.NoError(t, err)
 
 		act := struct {
@@ -568,7 +568,7 @@ func TestJSONString(t *testing.T) {
 	ctx := context.Background()
 	resp := http.NewHTTPResponse()
 	ctx = context.WithValue(ctx, cv.CtxKeyHTTPResponse, resp)
-	out, err := conv.DoHTTP(ctx, desc, in)
+	out, err := conv.Do(ctx, desc, in)
 	require.NoError(t, err)
 
 	act := example3.NewExampleJSONString()
@@ -595,7 +595,7 @@ func TestDefaultValue(t *testing.T) {
 		})
 		resp := http.NewHTTPResponse()
 		ctx := context.WithValue(context.Background(), cv.CtxKeyHTTPResponse, resp)
-		out, err := conv.DoHTTP(ctx, desc, in)
+		out, err := conv.Do(ctx, desc, in)
 		require.NoError(t, err)
 		act := &example3.ExampleDefaultValue{}
 		err = json.Unmarshal(out, act)
@@ -618,7 +618,7 @@ func TestDefaultValue(t *testing.T) {
 		})
 		resp := http.NewHTTPResponse()
 		ctx := context.WithValue(context.Background(), cv.CtxKeyHTTPResponse, resp)
-		out, err := conv.DoHTTP(ctx, desc, in)
+		out, err := conv.Do(ctx, desc, in)
 		require.NoError(t, err)
 		act := &example3.ExampleDefaultValue{}
 		err = json.Unmarshal(out, act)
@@ -643,7 +643,7 @@ func TestOptionalDefaultValue(t *testing.T) {
 		})
 		resp := http.NewHTTPResponse()
 		ctx := context.WithValue(context.Background(), cv.CtxKeyHTTPResponse, resp)
-		out, err := conv.DoHTTP(ctx, desc, in)
+		out, err := conv.Do(ctx, desc, in)
 		require.NoError(t, err)
 		act := &example3.ExampleOptionalDefaultValue{}
 		err = json.Unmarshal(out, act)
@@ -669,7 +669,7 @@ func TestOptionalDefaultValue(t *testing.T) {
 		})
 		resp := http.NewHTTPResponse()
 		ctx := context.WithValue(context.Background(), cv.CtxKeyHTTPResponse, resp)
-		out, err := conv.DoHTTP(ctx, desc, in)
+		out, err := conv.Do(ctx, desc, in)
 		require.NoError(t, err)
 		act := &example3.ExampleOptionalDefaultValue{}
 		err = json.Unmarshal(out, act)
