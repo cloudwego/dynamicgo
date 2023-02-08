@@ -9,6 +9,7 @@ import "github.com/cloudwego/dynamicgo/thrift"
 ## Index
 
 - [Constants](<#constants>)
+- [Variables](<#variables>)
 - [func FreeBinaryProtocolBuffer(bp *BinaryProtocol)](<#func-freebinaryprotocolbuffer>)
 - [func FreeRequiresBitmap(b *RequiresBitmap)](<#func-freerequiresbitmap>)
 - [func GetBinaryMessageHeaderAndFooter(methodName string, msgTyp TMessageType, structID FieldID, seqID int32) (header []byte, footer []byte, err error)](<#func-getbinarymessageheaderandfooter>)
@@ -154,10 +155,11 @@ import "github.com/cloudwego/dynamicgo/thrift"
 - [type OptionMapping](<#type-optionmapping>)
 - [type Options](<#type-options>)
   - [func NewDefaultOptions() Options](<#func-newdefaultoptions>)
-  - [func (opts Options) NewDescriptorFromContentWithMethod(path, content string, includes map[string]string, isAbsIncludePath bool, methods ...string) (*ServiceDescriptor, error)](<#func-options-newdescriptorfromcontentwithmethod>)
-  - [func (opts Options) NewDescriptorFromPathWithMethod(path string, includeDirs []string, methods ...string) (*ServiceDescriptor, error)](<#func-options-newdescriptorfrompathwithmethod>)
-  - [func (opts Options) NewDescritorFromContent(path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error)](<#func-options-newdescritorfromcontent>)
-  - [func (opts Options) NewDescritorFromPath(path string, includeDirs ...string) (*ServiceDescriptor, error)](<#func-options-newdescritorfrompath>)
+  - [func (opts Options) NewDescriptorFromContentWithMethod(ctx context.Context, path, content string, includes map[string]string, isAbsIncludePath bool, methods ...string) (*ServiceDescriptor, error)](<#func-options-newdescriptorfromcontentwithmethod>)
+  - [func (opts Options) NewDescriptorFromPathWithMethod(ctx context.Context, path string, includeDirs []string, methods ...string) (*ServiceDescriptor, error)](<#func-options-newdescriptorfrompathwithmethod>)
+  - [func (opts Options) NewDescritorFromContent(ctx context.Context, path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error)](<#func-options-newdescritorfromcontent>)
+  - [func (opts Options) NewDescritorFromPath(ctx context.Context, path string, includeDirs ...string) (*ServiceDescriptor, error)](<#func-options-newdescritorfrompath>)
+- [type ParseTarget](<#type-parsetarget>)
 - [type Requireness](<#type-requireness>)
 - [type RequiresBitmap](<#type-requiresbitmap>)
   - [func NewRequiresBitmap() *RequiresBitmap](<#func-newrequiresbitmap>)
@@ -167,8 +169,8 @@ import "github.com/cloudwego/dynamicgo/thrift"
   - [func (b RequiresBitmap) IsSet(id FieldID) bool](<#func-requiresbitmap-isset>)
   - [func (b *RequiresBitmap) Set(id FieldID, val Requireness)](<#func-requiresbitmap-set>)
 - [type ServiceDescriptor](<#type-servicedescriptor>)
-  - [func NewDescritorFromContent(path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error)](<#func-newdescritorfromcontent>)
-  - [func NewDescritorFromPath(path string, includeDirs ...string) (*ServiceDescriptor, error)](<#func-newdescritorfrompath>)
+  - [func NewDescritorFromContent(ctx context.Context, path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error)](<#func-newdescritorfromcontent>)
+  - [func NewDescritorFromPath(ctx context.Context, path string, includeDirs ...string) (*ServiceDescriptor, error)](<#func-newdescritorfrompath>)
   - [func (s ServiceDescriptor) Annotations() map[string][]string](<#func-servicedescriptor-annotations>)
   - [func (s ServiceDescriptor) Functions() map[string]*FunctionDescriptor](<#func-servicedescriptor-functions>)
   - [func (s *ServiceDescriptor) LookupFunctionByMethod(method string) (*FunctionDescriptor, error)](<#func-servicedescriptor-lookupfunctionbymethod>)
@@ -209,6 +211,16 @@ import "github.com/cloudwego/dynamicgo/thrift"
 const (
     // AnnoKeyDynamicGoDeprecated is used to mark a description as deprecated
     AnnoKeyDynamicGoDeprecated = "dynamicgo.deprecated"
+    // AnnoKeyDynamicGoApiNone is used to deal with http response field with api.none annotation
+    AnnoKeyDynamicGoApiNone = "api.none"
+)
+```
+
+## Variables
+
+```go
+var (
+    CtxKeyIsBodyRoot = &ctxIsBodyRoot
 )
 ```
 
@@ -402,7 +414,7 @@ type Annotation interface {
     //   AnnoKindKeyMapping: KeyMapping interface
     //   AnnoKindKeyMapping: ValueMapping interface
     //   AnnoKindOptionMapping: OptionMapping interface
-    Make(values []parser.Annotation, desc interface{}) (handler interface{}, err error)
+    Make(ctx context.Context, values []parser.Annotation, desc interface{}) (handler interface{}, err error)
 }
 ```
 
@@ -419,7 +431,7 @@ AnnotationMapper is used to convert a annotation to equivalent annotations desc 
 ```go
 type AnnotationMapper interface {
     // Map map a annotation to equivalent annotations
-    Map(ann []parser.Annotation, desc interface{}, opt Options) (cur []parser.Annotation, next []parser.Annotation, err error)
+    Map(ctx context.Context, ann []parser.Annotation, desc interface{}, opt Options) (cur []parser.Annotation, next []parser.Annotation, err error)
 }
 ```
 
@@ -651,7 +663,7 @@ ReadAnyWithDesc explains thrift data with descriptor and converts it to go inter
 
 ```go
 {
-	p1, err := NewDescritorFromPath("../testdata/idl/example2.thrift")
+	p1, err := NewDescritorFromPath(context.Background(), "../testdata/idl/example2.thrift")
 	if err != nil {
 		panic(err)
 	}
@@ -837,7 +849,7 @@ ReadString ...
 func (p *BinaryProtocol) ReadStringWithDesc(desc *TypeDescriptor, buf *[]byte, byteAsUint8 bool, disallowUnknown bool, base64Binary bool) error
 ```
 
-ReadStringWithDesc explains thrift data with desc and converts to simple string
+ReadStringWithDesc explains thrift data with desc and converts to simple string TODO\(opt\): nocopy for string type here?
 
 ### func \(\*BinaryProtocol\) ReadStructBegin
 
@@ -1457,7 +1469,7 @@ KeyMapping is used to convert field key while parsing idl. See also: thrift/anno
 ```go
 type KeyMapping interface {
     // Map key to new key
-    Map(key string) string
+    Map(ctx context.Context, key string) string
 }
 ```
 
@@ -1468,7 +1480,7 @@ OptionMapping is used to convert thrift.Options while parsing idl. See also: thr
 ```go
 type OptionMapping interface {
     // Map options to new options
-    Map(opts Options) Options
+    Map(ctx context.Context, opts Options) Options
 }
 ```
 
@@ -1521,7 +1533,7 @@ NewDefaultOptions creates a default Options.
 ### func \(Options\) NewDescriptorFromContentWithMethod
 
 ```go
-func (opts Options) NewDescriptorFromContentWithMethod(path, content string, includes map[string]string, isAbsIncludePath bool, methods ...string) (*ServiceDescriptor, error)
+func (opts Options) NewDescriptorFromContentWithMethod(ctx context.Context, path, content string, includes map[string]string, isAbsIncludePath bool, methods ...string) (*ServiceDescriptor, error)
 ```
 
 NewDescritorFromContentWithMethod creates a ServiceDescriptor from a thrift content and its includes, but only parse specific methods.
@@ -1529,7 +1541,7 @@ NewDescritorFromContentWithMethod creates a ServiceDescriptor from a thrift cont
 ### func \(Options\) NewDescriptorFromPathWithMethod
 
 ```go
-func (opts Options) NewDescriptorFromPathWithMethod(path string, includeDirs []string, methods ...string) (*ServiceDescriptor, error)
+func (opts Options) NewDescriptorFromPathWithMethod(ctx context.Context, path string, includeDirs []string, methods ...string) (*ServiceDescriptor, error)
 ```
 
 NewDescritorFromContent creates a ServiceDescriptor from a thrift path and its includes, with specific methods. If methods is empty, all methods will be parsed. The includeDirs is used to find the include files.
@@ -1537,7 +1549,7 @@ NewDescritorFromContent creates a ServiceDescriptor from a thrift path and its i
 ### func \(Options\) NewDescritorFromContent
 
 ```go
-func (opts Options) NewDescritorFromContent(path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error)
+func (opts Options) NewDescritorFromContent(ctx context.Context, path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error)
 ```
 
 NewDescritorFromContent creates a ServiceDescriptor from a thrift content and its includes, which uses the default options. path is the main thrift file path, content is the main thrift file content. includes is the thrift file content map, and its keys are specific including thrift file path. isAbsIncludePath indicates whether these keys of includes are absolute path. If true, the include path will be joined with the main thrift file path.
@@ -1545,10 +1557,26 @@ NewDescritorFromContent creates a ServiceDescriptor from a thrift content and it
 ### func \(Options\) NewDescritorFromPath
 
 ```go
-func (opts Options) NewDescritorFromPath(path string, includeDirs ...string) (*ServiceDescriptor, error)
+func (opts Options) NewDescritorFromPath(ctx context.Context, path string, includeDirs ...string) (*ServiceDescriptor, error)
 ```
 
 NewDescritorFromContent creates a ServiceDescriptor from a thrift path and its includes, which uses the given options. The includeDirs is used to find the include files.
+
+## type ParseTarget
+
+ParseTarget indicates the target to parse
+
+```go
+type ParseTarget uint8
+```
+
+```go
+const (
+    Request ParseTarget = iota
+    Response
+    Exception
+)
+```
 
 ## type Requireness
 
@@ -1638,7 +1666,7 @@ type ServiceDescriptor struct {
 ### func NewDescritorFromContent
 
 ```go
-func NewDescritorFromContent(path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error)
+func NewDescritorFromContent(ctx context.Context, path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error)
 ```
 
 NewDescritorFromContent behaviors like NewDescritorFromPath, besides it uses DefaultOptions.
@@ -1687,7 +1715,7 @@ NewDescritorFromContent behaviors like NewDescritorFromPath, besides it uses Def
 		"a/b/base/base.thrift": base,
 	}
 
-	p1, err := NewDescritorFromContent(path, content, includes, true)
+	p1, err := NewDescritorFromContent(context.Background(), path, content, includes, true)
 	if err != nil {
 		panic(err)
 	}
@@ -1699,7 +1727,7 @@ NewDescritorFromContent behaviors like NewDescritorFromPath, besides it uses Def
 
 	p2, err := Options{
 		ParseFunctionMode: meta.ParseRequestOnly,
-	}.NewDescritorFromContent(path, content, includes, false)
+	}.NewDescritorFromContent(context.Background(), path, content, includes, false)
 	if err != nil {
 		panic(err)
 	}
@@ -1714,7 +1742,7 @@ NewDescritorFromContent behaviors like NewDescritorFromPath, besides it uses Def
 ### func NewDescritorFromPath
 
 ```go
-func NewDescritorFromPath(path string, includeDirs ...string) (*ServiceDescriptor, error)
+func NewDescritorFromPath(ctx context.Context, path string, includeDirs ...string) (*ServiceDescriptor, error)
 ```
 
 NewDescritorFromPath behaviors like NewDescritorFromPath, besides it uses DefaultOptions.
@@ -1725,7 +1753,7 @@ NewDescritorFromPath behaviors like NewDescritorFromPath, besides it uses Defaul
 ```go
 {
 
-	p1, err := NewDescritorFromPath("../testdata/idl/example.thrift")
+	p1, err := NewDescritorFromPath(context.Background(), "../testdata/idl/example.thrift")
 	if err != nil {
 		panic(err)
 	}
@@ -1734,7 +1762,7 @@ NewDescritorFromPath behaviors like NewDescritorFromPath, besides it uses Defaul
 
 	p2, err := Options{
 		ParseFunctionMode: meta.ParseRequestOnly,
-	}.NewDescritorFromPath("../testdata/idl/example.thrift")
+	}.NewDescritorFromPath(context.Background(), "../testdata/idl/example.thrift")
 	if err != nil {
 		panic(err)
 	}

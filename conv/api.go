@@ -41,8 +41,10 @@ var (
 var (
 	// DefaultBufferSize is the default buffer size for conversion
 	DefaultBufferSize = 4096
+	// DefaultHttpValueBufferSize is the default buffer size for copying a json value
+	DefaulHttpValueBufferSizeForJSON = 1024
 	// DefaultHttpValueBufferSize is the default buffer size for copying a http value
-	DefaulHttpValueBufferSize = 1024
+	DefaulHttpValueBufferSizeForScalar = 64
 )
 
 type Options struct {
@@ -76,6 +78,8 @@ type Options struct {
 	// or root-level fields should be seeking on http-values when reading failed from current layer of json.
 	// this option is only used in j2t now.
 	TracebackRequredOrRootFields bool
+	// NoCopyString indicates if string should be copied or just referenced (if possible)
+	NoCopyString bool
 }
 
 var bufPool = sync.Pool{
