@@ -17,6 +17,8 @@
 package annotation
 
 import (
+	"context"
+
 	"github.com/cloudwego/dynamicgo/thrift"
 	"github.com/cloudwego/thriftgo/parser"
 )
@@ -46,7 +48,7 @@ func (self keyMappingAnnotation) ID() thrift.AnnoID {
 	return self.typ
 }
 
-func (self keyMappingAnnotation) Make(values []parser.Annotation, ast interface{}) (interface{}, error) {
+func (self keyMappingAnnotation) Make(ctx context.Context, values []parser.Annotation, ast interface{}) (interface{}, error) {
 	if len(values) == 0 {
 		return nil, nil
 	}
@@ -68,6 +70,6 @@ type apiKey struct {
 	Value string
 }
 
-func (m apiKey) Map(key string) string {
+func (m apiKey) Map(ctx context.Context, key string) string {
 	return m.Value
 }

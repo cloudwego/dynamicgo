@@ -1,6 +1,7 @@
 package thrift
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 
@@ -9,7 +10,7 @@ import (
 
 func ExampleNewDescritorFromPath() {
 	// default Options
-	p1, err := NewDescritorFromPath("../testdata/idl/example.thrift")
+	p1, err := NewDescritorFromPath(context.Background(), "../testdata/idl/example.thrift")
 	if err != nil {
 		panic(err)
 	}
@@ -19,7 +20,7 @@ func ExampleNewDescritorFromPath() {
 	// With Options.ParseFunctionMode = ParseRequestOnly
 	p2, err := Options{
 		ParseFunctionMode: meta.ParseRequestOnly,
-	}.NewDescritorFromPath("../testdata/idl/example.thrift")
+	}.NewDescritorFromPath(context.Background(), "../testdata/idl/example.thrift")
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +68,7 @@ func ExampleNewDescritorFromContent() {
 		"a/b/base/base.thrift": base,
 	}
 	// default Options
-	p1, err := NewDescritorFromContent(path, content, includes, true)
+	p1, err := NewDescritorFromContent(context.Background(), path, content, includes, true)
 	if err != nil {
 		panic(err)
 	}
@@ -80,7 +81,7 @@ func ExampleNewDescritorFromContent() {
 	// With Options.ParseFunctionMode = ParseRequestOnly
 	p2, err := Options{
 		ParseFunctionMode: meta.ParseRequestOnly,
-	}.NewDescritorFromContent(path, content, includes, false)
+	}.NewDescritorFromContent(context.Background(), path, content, includes, false)
 	if err != nil {
 		panic(err)
 	}
@@ -89,7 +90,7 @@ func ExampleNewDescritorFromContent() {
 }
 
 func ExampleBinaryProtocol_ReadAnyWithDesc() {
-	p1, err := NewDescritorFromPath("../testdata/idl/example2.thrift")
+	p1, err := NewDescritorFromPath(context.Background(), "../testdata/idl/example2.thrift")
 	if err != nil {
 		panic(err)
 	}

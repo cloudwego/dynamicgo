@@ -65,7 +65,7 @@ func (self valueMappingAnnotation) ID() thrift.AnnoID {
 	return self.typ
 }
 
-func (self valueMappingAnnotation) Make(values []parser.Annotation, ast interface{}) (interface{}, error) {
+func (self valueMappingAnnotation) Make(ctx context.Context, values []parser.Annotation, ast interface{}) (interface{}, error) {
 	if len(values) != 1 {
 		return nil, fmt.Errorf("valueMappingAnnotation only support one value")
 	}

@@ -73,7 +73,7 @@ type Options struct {
 	// WriteOptionalField indicates if optional-requireness fields should be written when not given
 	WriteOptionalField bool
 	// TracebackRequredOrRootFields indicates if required-requireness
-	// or root-level fields should be backtracing when reading failed from current state.
+	// or root-level fields should be seeking on http-values when reading failed from current layer of json.
 	// this option is only used in j2t now.
 	TracebackRequredOrRootFields bool
 }

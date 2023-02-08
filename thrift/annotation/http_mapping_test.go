@@ -17,6 +17,7 @@
 package annotation
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/thrift"
@@ -28,7 +29,7 @@ func GetDescFromContent(content string, method string) (*thrift.FunctionDescript
 	includes := map[string]string{
 		path: content,
 	}
-	p, err := thrift.NewDescritorFromContent(path, content, includes, true)
+	p, err := thrift.NewDescritorFromContent(context.Background(), path, content, includes, true)
 	if err != nil {
 		return nil, err
 	}
@@ -77,4 +78,32 @@ func TestAPIRawUri(t *testing.T) {
 	require.Equal(t, field, req.Struct().HttpMappingFields()[0])
 	hm := field.HTTPMappings()
 	require.Equal(t, []thrift.HttpMapping{apiRawUri{}}, hm)
+}
+
+func TestAPIBody(t *testing.T) {
+	fn, err := GetDescFromContent(`
+	namespace go kitex.test.server
+	struct Base {
+		1: required Base2 f1
+		2: required string f2 (api.body="ff")
+	}
+
+	struct Base2 {
+		2: required string f (api.body="f")
+	}
+
+	service InboxService {
+		string ExampleMethod(1: Base req)
+	}
+	`, "ExampleMethod")
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := fn.Request().Struct().Fields()[0].Type()
+	require.Equal(t, 0, len(req.Struct().HttpMappingFields()))
+	f2 := req.Struct().FieldById(2)
+	require.Equal(t, "ff", f2.Alias())
+	f1 := req.Struct().FieldById(1).Type()
+	require.Equal(t, 1, len(f1.Struct().HttpMappingFields()))
+	require.Equal(t, "f", f1.Struct().FieldById(2).Alias())
 }

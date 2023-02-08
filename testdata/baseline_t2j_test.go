@@ -37,7 +37,7 @@ import (
 )
 
 func getSimpleDesc() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(idlPath)
+	svc, err := thrift.NewDescritorFromPath(context.Background(), idlPath)
 	if err != nil {
 		panic(err)
 	}
@@ -45,7 +45,7 @@ func getSimpleDesc() *thrift.TypeDescriptor {
 }
 
 func getPartialSimpleDesc() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(idlPath)
+	svc, err := thrift.NewDescritorFromPath(context.Background(), idlPath)
 	if err != nil {
 		panic(err)
 	}
@@ -53,7 +53,7 @@ func getPartialSimpleDesc() *thrift.TypeDescriptor {
 }
 
 func getNestingDesc() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(idlPath)
+	svc, err := thrift.NewDescritorFromPath(context.Background(), idlPath)
 	if err != nil {
 		panic(err)
 	}
@@ -61,7 +61,7 @@ func getNestingDesc() *thrift.TypeDescriptor {
 }
 
 func getPartialNestingDesc() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(idlPath)
+	svc, err := thrift.NewDescritorFromPath(context.Background(), idlPath)
 	if err != nil {
 		panic(err)
 	}

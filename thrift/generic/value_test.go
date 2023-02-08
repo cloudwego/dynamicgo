@@ -17,6 +17,7 @@
 package generic
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
@@ -128,7 +129,7 @@ func countHelper(count *int, ps []PathNode) {
 }
 
 func getExampleDesc() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(exampleIDLPath)
+	svc, err := thrift.NewDescritorFromPath(context.Background(), exampleIDLPath)
 	if err != nil {
 		panic(err)
 	}
@@ -136,7 +137,7 @@ func getExampleDesc() *thrift.TypeDescriptor {
 }
 
 func getExamplePartialDesc() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(exampleIDLPath)
+	svc, err := thrift.NewDescritorFromPath(context.Background(), exampleIDLPath)
 	if err != nil {
 		panic(err)
 	}

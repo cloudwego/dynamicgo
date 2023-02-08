@@ -30,7 +30,7 @@ import (
 )
 
 func TestAPIJSConv(t *testing.T) {
-	p, err := thrift.NewDescritorFromPath("../../testdata/idl/example3.thrift")
+	p, err := thrift.NewDescritorFromPath(context.Background(), "../../testdata/idl/example3.thrift")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func (self ValueMappingAnnotation2) ID() thrift.AnnoID {
 	return self.typ
 }
 
-func (self ValueMappingAnnotation2) Make(values []parser.Annotation, ast interface{}) (interface{}, error) {
+func (self ValueMappingAnnotation2) Make(ctx context.Context, values []parser.Annotation, ast interface{}) (interface{}, error) {
 	if len(values) != 1 {
 		return nil, errors.New("ValueMappingAnnotation2 must have one value")
 	}
@@ -127,7 +127,7 @@ func TestJSConv2(t *testing.T) {
 	includes := map[string]string{
 		path: content,
 	}
-	p, err := thrift.NewDescritorFromContent(path, content, includes, true)
+	p, err := thrift.NewDescritorFromContent(context.Background(), path, content, includes, true)
 	if err != nil {
 		t.Fatal(err)
 	}

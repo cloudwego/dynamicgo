@@ -486,7 +486,6 @@ func TestThriftEncodeSimple_Raw(t *testing.T) {
 func TestThriftEncodeNesting_Raw(t *testing.T) {
 	nesting := getNestingDesc()
 	// fmt.Printf("%#v", nesting)
-
 	stru2 := baseline.NewNesting()
 	if err := sonic.UnmarshalString(nestingJSON, stru2); err != nil {
 		t.Fatal(err)
@@ -498,6 +497,7 @@ func TestThriftEncodeNesting_Raw(t *testing.T) {
 		WriteDefaultField:  true,
 		EnableHttpMapping:  true,
 		EnableValueMapping: true,
+		TracebackRequredOrRootFields: true,
 	})
 	nj := convertI642StringNesting(nestingJSON, true)
 	out, err := cv.Do(ctx, nesting, []byte(nj))

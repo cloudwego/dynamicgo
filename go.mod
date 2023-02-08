@@ -5,7 +5,7 @@ go 1.15
 require (
 	github.com/apache/thrift v0.13.0
 	github.com/bytedance/gopkg v0.0.0-20220817015305-b879a72dc90f // indirect
-	github.com/bytedance/sonic v1.6.1
+	github.com/bytedance/sonic v1.7.1-0.20230113033420-cfa4fe173694
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311
 	github.com/cloudwego/kitex v0.4.4
 	github.com/cloudwego/thriftgo v0.2.4

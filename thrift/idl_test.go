@@ -17,6 +17,7 @@
 package thrift
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"testing"
@@ -43,7 +44,7 @@ func TestThriftContentWithAbsIncludePath(t *testing.T) {
 		`,
 		"a/z.thrift": "namespace go kitex.test.server",
 	}
-	p, err := NewDescritorFromContent(path, content, includes, true)
+	p, err := NewDescritorFromContent(context.Background(), path, content, includes, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +93,7 @@ func TestDynamicgoDeprecated(t *testing.T) {
 	includes := map[string]string{
 		path: content,
 	}
-	p, err := NewDescritorFromContent(path, content, includes, true)
+	p, err := NewDescritorFromContent(context.Background(), path, content, includes, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +107,7 @@ func TestDynamicgoDeprecated(t *testing.T) {
 }
 
 func TestHttpEndPoints(t *testing.T) {
-	p, err := NewDescritorFromPath("../testdata/idl/example3.thrift")
+	p, err := NewDescritorFromPath(context.Background(), "../testdata/idl/example3.thrift")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +135,7 @@ func TestBypassAnnotatio(t *testing.T) {
 	includes := map[string]string{
 		path: content,
 	}
-	p, err := NewDescritorFromContent(path, content, includes, true)
+	p, err := NewDescritorFromContent(context.Background(), path, content, includes, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +148,7 @@ func GetDescFromContent(content string, method string, opts *Options) (*Function
 	includes := map[string]string{
 		path: content,
 	}
-	p, err := opts.NewDescritorFromContent(path, content, includes, true)
+	p, err := opts.NewDescritorFromContent(context.Background(), path, content, includes, true)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +172,7 @@ func TestDefalutValue(t *testing.T) {
 	t.Run("use", func(t *testing.T) {
 		p, err := Options{
 			UseDefaultValue: true,
-		}.NewDescritorFromPath("../testdata/idl/example.thrift")
+		}.NewDescritorFromPath(context.Background(), "../testdata/idl/example.thrift")
 		require.NoError(t, err)
 		desc := p.Functions()["ExampleDefaultValue"].Request().Struct().Fields()[0].Type()
 		buf := make([]byte, 11)
@@ -227,7 +228,7 @@ func TestDefalutValue(t *testing.T) {
 	t.Run("not use", func(t *testing.T) {
 		p, err := Options{
 			UseDefaultValue: false,
-		}.NewDescritorFromPath("../testdata/idl/example.thrift")
+		}.NewDescritorFromPath(context.Background(), "../testdata/idl/example.thrift")
 		require.NoError(t, err)
 		desc := p.Functions()["ExampleDefaultValue"].Request().Struct().Fields()[0].Type()
 		require.Equal(t, (*DefaultValue)(nil), desc.Struct().FieldById(1).DefaultValue())
@@ -318,14 +319,14 @@ func TestNewFunctionDescriptorFromContent(t *testing.T) {
 	includes := map[string]string{
 		path: content,
 	}
-	p, err := Options{}.NewDescriptorFromContentWithMethod(path, content, includes, false, "Method1")
+	p, err := Options{}.NewDescriptorFromContentWithMethod(context.Background(), path, content, includes, false, "Method1")
 	require.NoError(t, err)
 	require.NotNil(t, p.Functions()["Method1"])
 	require.Nil(t, p.Functions()["Method2"])
 }
 
 func TestNewFunctionDescriptorFromPath(t *testing.T) {
-	p, err := Options{}.NewDescriptorFromPathWithMethod("../testdata/idl/example.thrift", nil, "ExampleMethod")
+	p, err := Options{}.NewDescriptorFromPathWithMethod(context.Background(), "../testdata/idl/example.thrift", nil, "ExampleMethod")
 	require.NoError(t, err)
 	require.NotNil(t, p.Functions()["ExampleMethod"])
 	require.Nil(t, p.Functions()["Ping"])

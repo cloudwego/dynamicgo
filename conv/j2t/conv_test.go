@@ -116,7 +116,7 @@ func TestConvHTTP2Thrift(t *testing.T) {
 
 func getExampleDesc() *thrift.TypeDescriptor {
 	opts := thrift.Options{}
-	svc, err := opts.NewDescritorFromPath(exampleIDLPath)
+	svc, err := opts.NewDescritorFromPath(context.Background(), exampleIDLPath)
 	if err != nil {
 		panic(err)
 	}
@@ -125,7 +125,7 @@ func getExampleDesc() *thrift.TypeDescriptor {
 
 func getErrorExampleDesc() *thrift.TypeDescriptor {
 	opts := thrift.Options{}
-	svc, err := opts.NewDescritorFromPath(exampleIDLPath)
+	svc, err := opts.NewDescritorFromPath(context.Background(), exampleIDLPath)
 	if err != nil {
 		panic(err)
 	}
@@ -134,7 +134,7 @@ func getErrorExampleDesc() *thrift.TypeDescriptor {
 
 func getExampleInt2FloatDesc() *thrift.TypeDescriptor {
 	opts := thrift.Options{}
-	svc, err := opts.NewDescritorFromPath(exampleIDLPath)
+	svc, err := opts.NewDescritorFromPath(context.Background(), exampleIDLPath)
 	if err != nil {
 		panic(err)
 	}
@@ -143,7 +143,7 @@ func getExampleInt2FloatDesc() *thrift.TypeDescriptor {
 
 func getExampleJSONStringDesc() *thrift.TypeDescriptor {
 	opts := thrift.Options{}
-	svc, err := opts.NewDescritorFromPath(exampleIDLPath)
+	svc, err := opts.NewDescritorFromPath(context.Background(), exampleIDLPath)
 	if err != nil {
 		panic(err)
 	}
@@ -152,7 +152,7 @@ func getExampleJSONStringDesc() *thrift.TypeDescriptor {
 
 func getExampleFallbackDesc() *thrift.TypeDescriptor {
 	opts := thrift.Options{}
-	svc, err := opts.NewDescritorFromPath(exampleIDLPath)
+	svc, err := opts.NewDescritorFromPath(context.Background(), exampleIDLPath)
 	if err != nil {
 		panic(err)
 	}
@@ -160,7 +160,7 @@ func getExampleFallbackDesc() *thrift.TypeDescriptor {
 }
 
 func getExampleDescByName(method string, req bool, opts thrift.Options) *thrift.TypeDescriptor {
-	svc, err := opts.NewDescritorFromPath(exampleIDLPath)
+	svc, err := opts.NewDescritorFromPath(context.Background(), exampleIDLPath)
 	if err != nil {
 		panic(err)
 	}
@@ -255,7 +255,7 @@ func getExampleJSONStringReq(exp *example3.ExampleJSONString) *http.HTTPRequest 
 
 func getNullDesc() *thrift.TypeDescriptor {
 	opts := thrift.Options{}
-	svc, err := opts.NewDescritorFromPath(nullIDLPath)
+	svc, err := opts.NewDescritorFromPath(context.Background(), nullIDLPath)
 	if err != nil {
 		panic(err)
 	}
@@ -1164,7 +1164,7 @@ func TestNobodyRequiredFields(t *testing.T) {
 	includes := map[string]string{
 		path: content,
 	}
-	p, err := thrift.NewDescritorFromContent(path, content, includes, true)
+	p, err := thrift.NewDescritorFromContent(context.Background(), path, content, includes, true)
 	if err != nil {
 		t.Fatal(err)
 	}

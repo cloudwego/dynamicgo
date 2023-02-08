@@ -17,6 +17,7 @@
 package thrift
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -92,18 +93,18 @@ func absPath(path, includePath string) string {
 }
 
 // NewDescritorFromPath behaviors like NewDescritorFromPath, besides it uses DefaultOptions.
-func NewDescritorFromPath(path string, includeDirs ...string) (*ServiceDescriptor, error) {
-	return NewDefaultOptions().NewDescritorFromPath(path, includeDirs...)
+func NewDescritorFromPath(ctx context.Context, path string, includeDirs ...string) (*ServiceDescriptor, error) {
+	return NewDefaultOptions().NewDescritorFromPath(ctx, path, includeDirs...)
 }
 
 // NewDescritorFromContent creates a ServiceDescriptor from a thrift path and its includes, which uses the given options.
 // The includeDirs is used to find the include files.
-func (opts Options) NewDescritorFromPath(path string, includeDirs ...string) (*ServiceDescriptor, error) {
+func (opts Options) NewDescritorFromPath(ctx context.Context, path string, includeDirs ...string) (*ServiceDescriptor, error) {
 	tree, err := parser.ParseFile(path, includeDirs, true)
 	if err != nil {
 		return nil, err
 	}
-	svc, err := parse(tree, opts.ParseServiceMode, opts)
+	svc, err := parse(ctx, tree, opts.ParseServiceMode, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -113,12 +114,12 @@ func (opts Options) NewDescritorFromPath(path string, includeDirs ...string) (*S
 // NewDescritorFromContent creates a ServiceDescriptor from a thrift path and its includes, with specific methods.
 // If methods is empty, all methods will be parsed.
 // The includeDirs is used to find the include files.
-func (opts Options) NewDescriptorFromPathWithMethod(path string, includeDirs []string, methods ...string) (*ServiceDescriptor, error) {
+func (opts Options) NewDescriptorFromPathWithMethod(ctx context.Context, path string, includeDirs []string, methods ...string) (*ServiceDescriptor, error) {
 	tree, err := parser.ParseFile(path, includeDirs, true)
 	if err != nil {
 		return nil, err
 	}
-	svc, err := parse(tree, opts.ParseServiceMode, opts, methods...)
+	svc, err := parse(ctx, tree, opts.ParseServiceMode, opts, methods...)
 	if err != nil {
 		return nil, err
 	}
@@ -126,20 +127,20 @@ func (opts Options) NewDescriptorFromPathWithMethod(path string, includeDirs []s
 }
 
 // NewDescritorFromContent behaviors like NewDescritorFromPath, besides it uses DefaultOptions.
-func NewDescritorFromContent(path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error) {
-	return NewDefaultOptions().NewDescritorFromContent(path, content, includes, isAbsIncludePath)
+func NewDescritorFromContent(ctx context.Context, path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error) {
+	return NewDefaultOptions().NewDescritorFromContent(ctx, path, content, includes, isAbsIncludePath)
 }
 
 // NewDescritorFromContent creates a ServiceDescriptor from a thrift content and its includes, which uses the default options.
 // path is the main thrift file path, content is the main thrift file content.
 // includes is the thrift file content map, and its keys are specific including thrift file path.
 // isAbsIncludePath indicates whether these keys of includes are absolute path. If true, the include path will be joined with the main thrift file path.
-func (opts Options) NewDescritorFromContent(path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error) {
+func (opts Options) NewDescritorFromContent(ctx context.Context, path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error) {
 	tree, err := parseIDLContent(path, content, includes, isAbsIncludePath)
 	if err != nil {
 		return nil, err
 	}
-	svc, err := parse(tree, opts.ParseServiceMode, opts)
+	svc, err := parse(ctx, tree, opts.ParseServiceMode, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -147,12 +148,12 @@ func (opts Options) NewDescritorFromContent(path, content string, includes map[s
 }
 
 // NewDescritorFromContentWithMethod creates a ServiceDescriptor from a thrift content and its includes, but only parse specific methods.
-func (opts Options) NewDescriptorFromContentWithMethod(path, content string, includes map[string]string, isAbsIncludePath bool, methods ...string) (*ServiceDescriptor, error) {
+func (opts Options) NewDescriptorFromContentWithMethod(ctx context.Context, path, content string, includes map[string]string, isAbsIncludePath bool, methods ...string) (*ServiceDescriptor, error) {
 	tree, err := parseIDLContent(path, content, includes, isAbsIncludePath)
 	if err != nil {
 		return nil, err
 	}
-	svc, err := parse(tree, opts.ParseServiceMode, opts, methods...)
+	svc, err := parse(ctx, tree, opts.ParseServiceMode, opts, methods...)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +198,7 @@ func parseIncludes(tree *parser.Thrift, includes map[string]*parser.Thrift, isAb
 }
 
 // Parse descriptor from parser.Thrift
-func parse(tree *parser.Thrift, mode meta.ParseServiceMode, opts Options, methods ...string) (*ServiceDescriptor, error) {
+func parse(ctx context.Context, tree *parser.Thrift, mode meta.ParseServiceMode, opts Options, methods ...string) (*ServiceDescriptor, error) {
 	if len(tree.Services) == 0 {
 		return nil, errors.New("empty serverce from idls")
 	}
@@ -230,12 +231,12 @@ func parse(tree *parser.Thrift, mode meta.ParseServiceMode, opts Options, method
 		// pass origin annotations
 		copyAnnotationValues(sDsc.annotations, svc.Annotations)
 		// handle thrid-party annotations
-		anns, _, next, err := mapAnnotations(svc.Annotations, AnnoScopeService, svc, sopts)
+		anns, _, next, err := mapAnnotations(ctx, svc.Annotations, AnnoScopeService, svc, sopts)
 		if err != nil {
 			return nil, err
 		}
 		for _, p := range anns {
-			if err := handleAnnotation(AnnoScopeService, p.inter, p.cont, &sopts, svcs); err != nil {
+			if err := handleAnnotation(ctx, AnnoScopeService, p.inter, p.cont, &sopts, svcs); err != nil {
 				return nil, err
 			}
 		}
@@ -247,7 +248,7 @@ func parse(tree *parser.Thrift, mode meta.ParseServiceMode, opts Options, method
 		}
 		for _, p := range funcs {
 			injectAnnotations((*[]*parser.Annotation)(&p.fn.Annotations), next)
-			if err := addFunction(p.fn, p.tree, sDsc, structsCache, sopts); err != nil {
+			if err := addFunction(ctx, p.fn, p.tree, sDsc, structsCache, sopts); err != nil {
 				return nil, err
 			}
 		}
@@ -305,7 +306,7 @@ func getAllFuncs(svc *parser.Service, tree *parser.Thrift, ret *[]funcTreePair) 
 	return
 }
 
-func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescriptor, structsCache compilingCache, opts Options) error {
+func addFunction(ctx context.Context, fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescriptor, structsCache compilingCache, opts Options) error {
 	// for fuzzing test
 	if opts.ParseFieldRandomRate > 0 {
 		rand.Seed(time.Now().UnixNano())
@@ -331,13 +332,13 @@ func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescript
 
 	annos := make(map[string][]string, len(fn.Annotations))
 	// handle thrid-party annotations
-	anns, _, nextAnns, err := mapAnnotations(fn.Annotations, AnnoScopeFunction, fn, opts)
+	anns, _, nextAnns, err := mapAnnotations(ctx, fn.Annotations, AnnoScopeFunction, fn, opts)
 	if err != nil {
 		return err
 	}
 	for _, p := range anns {
 		// handle thrid-party annotations
-		if err := handleAnnotation(AnnoScopeFunction, p.inter, p.cont, &opts, fn); err != nil {
+		if err := handleAnnotation(ctx, AnnoScopeFunction, p.inter, p.cont, &opts, fn); err != nil {
 			return err
 		}
 
@@ -360,7 +361,8 @@ func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescript
 				requires: make(RequiresBitmap, 1),
 			},
 		}
-		reqType, err := parseType(reqAst.Type, tree, structsCache, 0, opts, nextAnns, Request)
+
+		reqType, err := parseType(ctx, reqAst.Type, tree, structsCache, 0, opts, nextAnns, Request)
 		if err != nil {
 			return err
 		}
@@ -395,7 +397,7 @@ func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescript
 				requires: make(RequiresBitmap, 1),
 			},
 		}
-		respType, err := parseType(respAst, tree, structsCache, 0, opts, nextAnns, Response)
+		respType, err := parseType(ctx, respAst, tree, structsCache, 0, opts, nextAnns, Response)
 		if err != nil {
 			return err
 		}
@@ -410,7 +412,7 @@ func addFunction(fn *parser.Function, tree *parser.Thrift, sDsc *ServiceDescript
 		if len(fn.Throws) > 0 {
 			// only support single exception
 			exp := fn.Throws[0]
-			exceptionType, err := parseType(exp.Type, tree, structsCache, 0, opts, nextAnns, Exception)
+			exceptionType, err := parseType(ctx, exp.Type, tree, structsCache, 0, opts, nextAnns, Exception)
 			if err != nil {
 				return err
 			}
@@ -466,7 +468,7 @@ type compilingCache map[string]*compilingInstance
 // arg cache:
 // only support self reference on the same file
 // cross file self reference complicate matters
-func parseType(t *parser.Type, tree *parser.Thrift, cache compilingCache, recursionDepth int, opts Options, nextAnns []parser.Annotation, parseTarget ParseTarget) (*TypeDescriptor, error) {
+func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache compilingCache, recursionDepth int, opts Options, nextAnns []parser.Annotation, parseTarget ParseTarget) (*TypeDescriptor, error) {
 	if ty, ok := builtinTypes[t.Name]; ok {
 		return ty, nil
 	}
@@ -478,20 +480,20 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache compilingCache, recurs
 	case "list":
 		ty := &TypeDescriptor{name: t.Name}
 		ty.typ = LIST
-		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
+		ty.elem, err = parseType(ctx, t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		return ty, err
 	case "set":
 		ty := &TypeDescriptor{name: t.Name}
 		ty.typ = SET
-		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
+		ty.elem, err = parseType(ctx, t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		return ty, err
 	case "map":
 		ty := &TypeDescriptor{name: t.Name}
 		ty.typ = MAP
-		if ty.key, err = parseType(t.KeyType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget); err != nil {
+		if ty.key, err = parseType(ctx, t.KeyType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget); err != nil {
 			return nil, err
 		}
-		ty.elem, err = parseType(t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
+		ty.elem, err = parseType(ctx, t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		return ty, err
 	default:
 		// check the cache
@@ -511,7 +513,7 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache compilingCache, recurs
 			cache = compilingCache{}
 		}
 		if typDef, ok := tree.GetTypedef(typeName); ok {
-			return parseType(typDef.Type, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
+			return parseType(ctx, typDef.Type, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		}
 		if _, ok := tree.GetEnum(typeName); ok {
 			if opts.ParseEnumAsInt64 {
@@ -533,8 +535,11 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache compilingCache, recurs
 		if !ok {
 			return nil, fmt.Errorf("missing type: %s", typeName)
 		}
+
+		// inject previous annotations
 		injectAnnotations((*[]*parser.Annotation)(&st.Annotations), nextAnns)
 
+		// make struct descriptor
 		ty := &TypeDescriptor{
 			name: t.Name,
 			typ:  STRUCT,
@@ -547,15 +552,23 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache compilingCache, recurs
 				annotations: make(map[string][]string, len(st.Annotations)),
 			},
 		}
+
+		// copy original annotations
 		copyAnnotationValues(ty.struc.annotations, st.Annotations)
 
+		if recursionDepth == 0 {
+			ctx = context.WithValue(ctx, CtxKeyIsBodyRoot, true)
+		} else {
+			ctx = context.WithValue(ctx, CtxKeyIsBodyRoot, false)
+		}
+
 		// handle thrid-party annotations for struct itself
-		anns, _, nextAnns2, err := mapAnnotations(st.Annotations, AnnoScopeStruct, st, opts)
+		anns, _, nextAnns2, err := mapAnnotations(ctx, st.Annotations, AnnoScopeStruct, st, opts)
 		if err != nil {
 			return nil, err
 		}
 		for _, p := range anns {
-			if err := handleAnnotation(AnnoScopeStruct, p.inter, p.cont, &opts, st); err != nil {
+			if err := handleAnnotation(ctx, AnnoScopeStruct, p.inter, p.cont, &opts, st); err != nil {
 				return nil, err
 			}
 		}
@@ -590,12 +603,14 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache compilingCache, recurs
 				alias:          field.Name,
 			}
 
-			// handle annotations
+			// inject previous annotations
 			injectAnnotations((*[]*parser.Annotation)(&field.Annotations), nextAnns2)
-			anns, left, _, err := mapAnnotations(field.Annotations, AnnoScopeField, field, fopts)
+			anns, left, _, err := mapAnnotations(ctx, field.Annotations, AnnoScopeField, field, fopts)
 			if err != nil {
 				return nil, err
 			}
+			
+			// handle annotations
 			ignore := false
 			for _, val := range left {
 				skip, err := handleNativeFieldAnnotation(val, _f, parseTarget)
@@ -611,7 +626,7 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache compilingCache, recurs
 				continue
 			}
 			for _, p := range anns {
-				if err := handleFieldAnnotation(p.inter, p.cont, &fopts, _f, ty.struc, field); err != nil {
+				if err := handleFieldAnnotation(ctx, p.inter, p.cont, &fopts, _f, ty.struc, field); err != nil {
 					return nil, err
 				}
 			}
@@ -619,9 +634,10 @@ func parseType(t *parser.Type, tree *parser.Thrift, cache compilingCache, recurs
 
 			// recursively parse field type
 			// WARN: options and annotations on field SHOULD NOT override these on their type definition
-			if _f.typ, err = parseType(field.Type, tree, cache, nextRecursionDepth, opts, nil, parseTarget); err != nil {
+			if _f.typ, err = parseType(ctx, field.Type, tree, cache, nextRecursionDepth, opts, nil, parseTarget); err != nil {
 				return nil, err
 			}
+			
 
 			// make default value
 			// WARN: ignore errors here

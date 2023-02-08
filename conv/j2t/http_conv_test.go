@@ -33,7 +33,7 @@ import (
 )
 
 func getFnDescByPathName(t *testing.T, filePath, fnName string) *thrift.FunctionDescriptor {
-	svc, err := thrift.NewDescritorFromPath(util_test.MustGitPath(filePath))
+	svc, err := thrift.NewDescritorFromPath(context.Background(), util_test.MustGitPath(filePath))
 	if err != nil {
 		t.Fatal(err)
 	}
