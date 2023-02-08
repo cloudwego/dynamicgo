@@ -17,6 +17,7 @@
 package annotation
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/thrift"
@@ -40,7 +41,7 @@ func TestAgwKey(t *testing.T) {
 	includes := map[string]string{
 		path: content,
 	}
-	p, err := thrift.NewDescritorFromContent(path, content, includes, true)
+	p, err := thrift.NewDescritorFromContent(context.Background(), path, content, includes, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +92,7 @@ func TestNameCase(t *testing.T) {
 		path: content,
 	}
 
-	p, err := thrift.Options{}.NewDescriptorFromContentWithMethod(path, content, includes, true, "ExampleMethod1", "ExampleMethod2")
+	p, err := thrift.Options{}.NewDescriptorFromContentWithMethod(context.Background(), path, content, includes, true, "ExampleMethod1", "ExampleMethod2")
 	require.NoError(t, err)
 
 	base1 := p.Functions()["ExampleMethod1"].Request().Struct().Fields()[0].Type()
@@ -118,7 +119,7 @@ func TestNameCase(t *testing.T) {
 	require.Equal(t, "logID", base4.Struct().FieldById(3).Alias())
 	require.Equal(t, "reqList", base4.Struct().FieldById(4).Alias())
 
-	p, err = thrift.Options{}.NewDescriptorFromContentWithMethod(path, content, includes, true, "ExampleMethod3")
+	p, err = thrift.Options{}.NewDescriptorFromContentWithMethod(context.Background(), path, content, includes, true, "ExampleMethod3")
 	require.NoError(t, err)
 	base3 = p.Functions()["ExampleMethod3"].Request().Struct().Fields()[0].Type()
 	require.Equal(t, "inner_base", base3.Struct().FieldById(1).Alias())

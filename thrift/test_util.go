@@ -17,6 +17,7 @@
 package thrift
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/cloudwego/dynamicgo/internal/util_test"
@@ -25,7 +26,7 @@ import (
 // GetFnDescFromFile get a fucntion descriptor from idl path (relative to your git root) and
 // the function name
 func GetFnDescFromFile(filePath, fnName string, opts Options) *FunctionDescriptor {
-	svc, err := opts.NewDescritorFromPath(util_test.MustGitPath(filePath))
+	svc, err := opts.NewDescritorFromPath(context.Background(), util_test.MustGitPath(filePath))
 	if err != nil {
 		panic(fmt.Errorf("%s:%s", util_test.MustGitPath(filePath), err))
 	}

@@ -93,18 +93,18 @@ func absPath(path, includePath string) string {
 }
 
 // NewDescritorFromPath behaviors like NewDescritorFromPath, besides it uses DefaultOptions.
-func NewDescritorFromPath(path string, includeDirs ...string) (*ServiceDescriptor, error) {
-	return NewDefaultOptions().NewDescritorFromPath(path, includeDirs...)
+func NewDescritorFromPath(ctx context.Context, path string, includeDirs ...string) (*ServiceDescriptor, error) {
+	return NewDefaultOptions().NewDescritorFromPath(ctx, path, includeDirs...)
 }
 
 // NewDescritorFromContent creates a ServiceDescriptor from a thrift path and its includes, which uses the given options.
 // The includeDirs is used to find the include files.
-func (opts Options) NewDescritorFromPath(path string, includeDirs ...string) (*ServiceDescriptor, error) {
+func (opts Options) NewDescritorFromPath(ctx context.Context, path string, includeDirs ...string) (*ServiceDescriptor, error) {
 	tree, err := parser.ParseFile(path, includeDirs, true)
 	if err != nil {
 		return nil, err
 	}
-	svc, err := parse(tree, opts.ParseServiceMode, opts)
+	svc, err := parse(ctx, tree, opts.ParseServiceMode, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -114,12 +114,12 @@ func (opts Options) NewDescritorFromPath(path string, includeDirs ...string) (*S
 // NewDescritorFromContent creates a ServiceDescriptor from a thrift path and its includes, with specific methods.
 // If methods is empty, all methods will be parsed.
 // The includeDirs is used to find the include files.
-func (opts Options) NewDescriptorFromPathWithMethod(path string, includeDirs []string, methods ...string) (*ServiceDescriptor, error) {
+func (opts Options) NewDescriptorFromPathWithMethod(ctx context.Context, path string, includeDirs []string, methods ...string) (*ServiceDescriptor, error) {
 	tree, err := parser.ParseFile(path, includeDirs, true)
 	if err != nil {
 		return nil, err
 	}
-	svc, err := parse(tree, opts.ParseServiceMode, opts, methods...)
+	svc, err := parse(ctx, tree, opts.ParseServiceMode, opts, methods...)
 	if err != nil {
 		return nil, err
 	}
@@ -127,20 +127,20 @@ func (opts Options) NewDescriptorFromPathWithMethod(path string, includeDirs []s
 }
 
 // NewDescritorFromContent behaviors like NewDescritorFromPath, besides it uses DefaultOptions.
-func NewDescritorFromContent(path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error) {
-	return NewDefaultOptions().NewDescritorFromContent(path, content, includes, isAbsIncludePath)
+func NewDescritorFromContent(ctx context.Context, path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error) {
+	return NewDefaultOptions().NewDescritorFromContent(ctx, path, content, includes, isAbsIncludePath)
 }
 
 // NewDescritorFromContent creates a ServiceDescriptor from a thrift content and its includes, which uses the default options.
 // path is the main thrift file path, content is the main thrift file content.
 // includes is the thrift file content map, and its keys are specific including thrift file path.
 // isAbsIncludePath indicates whether these keys of includes are absolute path. If true, the include path will be joined with the main thrift file path.
-func (opts Options) NewDescritorFromContent(path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error) {
+func (opts Options) NewDescritorFromContent(ctx context.Context, path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error) {
 	tree, err := parseIDLContent(path, content, includes, isAbsIncludePath)
 	if err != nil {
 		return nil, err
 	}
-	svc, err := parse(tree, opts.ParseServiceMode, opts)
+	svc, err := parse(ctx, tree, opts.ParseServiceMode, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -148,12 +148,12 @@ func (opts Options) NewDescritorFromContent(path, content string, includes map[s
 }
 
 // NewDescritorFromContentWithMethod creates a ServiceDescriptor from a thrift content and its includes, but only parse specific methods.
-func (opts Options) NewDescriptorFromContentWithMethod(path, content string, includes map[string]string, isAbsIncludePath bool, methods ...string) (*ServiceDescriptor, error) {
+func (opts Options) NewDescriptorFromContentWithMethod(ctx context.Context, path, content string, includes map[string]string, isAbsIncludePath bool, methods ...string) (*ServiceDescriptor, error) {
 	tree, err := parseIDLContent(path, content, includes, isAbsIncludePath)
 	if err != nil {
 		return nil, err
 	}
-	svc, err := parse(tree, opts.ParseServiceMode, opts, methods...)
+	svc, err := parse(ctx, tree, opts.ParseServiceMode, opts, methods...)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +198,7 @@ func parseIncludes(tree *parser.Thrift, includes map[string]*parser.Thrift, isAb
 }
 
 // Parse descriptor from parser.Thrift
-func parse(tree *parser.Thrift, mode meta.ParseServiceMode, opts Options, methods ...string) (*ServiceDescriptor, error) {
+func parse(ctx context.Context, tree *parser.Thrift, mode meta.ParseServiceMode, opts Options, methods ...string) (*ServiceDescriptor, error) {
 	if len(tree.Services) == 0 {
 		return nil, errors.New("empty serverce from idls")
 	}
@@ -212,7 +212,6 @@ func parse(tree *parser.Thrift, mode meta.ParseServiceMode, opts Options, method
 	}
 
 	structsCache := compilingCache{}
-	ctx := context.Background()
 
 	// support one service
 	svcs := tree.Services

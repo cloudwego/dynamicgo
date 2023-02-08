@@ -30,7 +30,7 @@ import (
 )
 
 func TestAPIJSConv(t *testing.T) {
-	p, err := thrift.NewDescritorFromPath("../../testdata/idl/example3.thrift")
+	p, err := thrift.NewDescritorFromPath(context.Background(), "../../testdata/idl/example3.thrift")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestJSConv2(t *testing.T) {
 	includes := map[string]string{
 		path: content,
 	}
-	p, err := thrift.NewDescritorFromContent(path, content, includes, true)
+	p, err := thrift.NewDescritorFromContent(context.Background(), path, content, includes, true)
 	if err != nil {
 		t.Fatal(err)
 	}

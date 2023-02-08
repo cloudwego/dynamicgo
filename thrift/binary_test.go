@@ -18,6 +18,7 @@ package thrift
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"io/ioutil"
 	"os"
@@ -56,7 +57,7 @@ func TestMain(m *testing.M) {
 }
 
 func getExampleDesc() *TypeDescriptor {
-	svc, err := NewDescritorFromPath("../testdata/idl/example.thrift")
+	svc, err := NewDescritorFromPath(context.Background(), "../testdata/idl/example.thrift")
 	if err != nil {
 		panic(err)
 	}

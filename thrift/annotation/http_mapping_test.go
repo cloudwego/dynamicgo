@@ -17,6 +17,7 @@
 package annotation
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/thrift"
@@ -28,7 +29,7 @@ func GetDescFromContent(content string, method string) (*thrift.FunctionDescript
 	includes := map[string]string{
 		path: content,
 	}
-	p, err := thrift.NewDescritorFromContent(path, content, includes, true)
+	p, err := thrift.NewDescritorFromContent(context.Background(), path, content, includes, true)
 	if err != nil {
 		return nil, err
 	}
