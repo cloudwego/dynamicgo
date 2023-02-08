@@ -17,6 +17,8 @@
 package annotation
 
 import (
+	"context"
+
 	"github.com/cloudwego/dynamicgo/thrift"
 )
 
@@ -39,6 +41,6 @@ func (self optionMappingAnnotation) ID() thrift.AnnoID {
 	return self.typ
 }
 
-func (self optionMappingAnnotation) Make(key string, value []string, ast interface{}) (interface{}, error) {
+func (self optionMappingAnnotation) Make(ctx context.Context, key string, value []string, ast interface{}) (interface{}, error) {
 	return nil, nil
 }

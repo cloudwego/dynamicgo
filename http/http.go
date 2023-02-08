@@ -40,8 +40,8 @@ import (
 	"net/url"
 	"sync"
 
+	"github.com/bytedance/sonic/ast"
 	"github.com/cloudwego/dynamicgo/internal/rt"
-	"github.com/cloudwego/dynamicgo/json"
 )
 
 // Endpoint a http endpoint.
@@ -134,9 +134,14 @@ var (
 
 var jsonPairsPool = sync.Pool{
 	New: func() interface{} {
-		ret := make([]json.Pair, DefaultJsonPairSize)
+		ret := make([]ast.Pair, DefaultJsonPairSize)
 		return &ret
 	},
+}
+
+type jsonCache struct {
+	root ast.Node
+	m   map[string]string
 }
 
 // NewHTTPRequestFromStdReq creates a new HTTPRequest from http.Request.
@@ -161,8 +166,12 @@ func NewHTTPRequestFromStdReq(req *http.Request, params ...Param) (ret *HTTPRequ
 			if len(body) == 0 {
 				return ret, nil
 			}
-			node := json.NewRaw(rt.Mem2Str(body))
-			ret.BodyMap = node
+			node := ast.NewRaw(rt.Mem2Str(body))
+			cache := &jsonCache{
+				root: node,
+				m:    make(map[string]string),
+			}
+			ret.BodyMap = cache
 			// parser := json.NewParser(rt.Mem2Str(body))
 			// parser.Set(true, false)
 			// vs := jsonPairsPool.New().(*[]json.Pair)
@@ -247,8 +256,13 @@ func (self *HTTPRequest) MapBody(key string) string {
 		self.BodyMap = v.BodyMap
 	}
 	switch t := self.BodyMap.(type) {
-	case json.Node:
-		v := t.Get(key)
+	case *jsonCache:
+		// fast path
+		if v, ok := t.m[key]; ok {
+			return v
+		}
+		// slow path
+		v := t.root.Get(key)
 		if v.Check() != nil {
 			return ""
 		}
@@ -256,12 +270,13 @@ func (self *HTTPRequest) MapBody(key string) string {
 		if e != nil {
 			return ""
 		}
-		if v.Type() == json.V_STRING {
+		if v.Type() == ast.V_STRING {
 			j, e = v.String()
 			if e != nil {
 				return ""
 			}
 		}
+		t.m[key] = j
 		return j
 	case map[string]string:
 		return t[key]

@@ -17,6 +17,7 @@
 package annotation
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -30,7 +31,7 @@ import (
 
 type goTagMapper struct{}
 
-func (m goTagMapper) Map(anns []parser.Annotation, desc interface{}, opts thrift.Options) (ret []parser.Annotation, next []parser.Annotation, err error) {
+func (m goTagMapper) Map(ctx context.Context, anns []parser.Annotation, desc interface{}, opts thrift.Options) (ret []parser.Annotation, next []parser.Annotation, err error) {
 	for _, ann := range anns {
 		out := make([]string, 0, len(ann.Values))
 		for _, v := range ann.Values {
@@ -65,7 +66,7 @@ func handleGoJSON(kv []string, ret *[]parser.Annotation) error {
 
 type apiBodyMapper struct{}
 
-func (m apiBodyMapper) Map(anns []parser.Annotation, desc interface{}, opts thrift.Options) (ret []parser.Annotation, next []parser.Annotation, err error) {
+func (m apiBodyMapper) Map(ctx context.Context, anns []parser.Annotation, desc interface{}, opts thrift.Options) (ret []parser.Annotation, next []parser.Annotation, err error) {
 	if len(anns) > 1 {
 		return nil, nil, errors.New("api.body must be unique")
 	}
@@ -76,17 +77,25 @@ func (m apiBodyMapper) Map(anns []parser.Annotation, desc interface{}, opts thri
 		ret = append(ret, parser.Annotation{
 			Key:    APIKeyName,
 			Values: []string{ann.Values[0]},
-		}, parser.Annotation{
-			Key:    "api.body",
-			Values: []string{ann.Values[0]},
 		})
+		isRoot := ctx.Value(thrift.CtxKeyIsBodyRoot)
+		// special fast-path: if the field is at body root, we don't need to add api.body
+		if isRoot != nil && isRoot.(bool) {
+			println("skip api.body for root field")
+			continue
+		} else {
+			ret = append(ret, parser.Annotation{
+				Key:    "api.body",
+				Values: []string{ann.Values[0]},
+			})
+		}
 	}
 	return
 }
 
 type sourceMapper struct{}
 
-func (m sourceMapper) Map(anns []parser.Annotation, desc interface{}, opts thrift.Options) (ret []parser.Annotation, next []parser.Annotation, err error) {
+func (m sourceMapper) Map(ctx context.Context, anns []parser.Annotation, desc interface{}, opts thrift.Options) (ret []parser.Annotation, next []parser.Annotation, err error) {
 	field, ok := desc.(*parser.Field)
 	if !ok || field == nil {
 		return nil, nil, errors.New("target must be used on field")
@@ -159,7 +168,7 @@ func (self sourceMapper) decideNameCase(field *parser.Field) string {
 
 type targetMapper struct{}
 
-func (m targetMapper) Map(anns []parser.Annotation, desc interface{}, opts thrift.Options) (ret []parser.Annotation, next []parser.Annotation, err error) {
+func (m targetMapper) Map(ctx context.Context, anns []parser.Annotation, desc interface{}, opts thrift.Options) (ret []parser.Annotation, next []parser.Annotation, err error) {
 	field, ok := desc.(*parser.Field)
 	if !ok || field == nil {
 		return nil, nil, errors.New("target must be used on field")
@@ -211,7 +220,7 @@ func FindAnnotations(anns []*parser.Annotation, keys ...string) (ret []*parser.A
 
 type nameCaseMapper struct{}
 
-func (m nameCaseMapper) Map(anns []parser.Annotation, desc interface{}, opts thrift.Options) (ret []parser.Annotation, next []parser.Annotation, err error) {
+func (m nameCaseMapper) Map(ctx context.Context, anns []parser.Annotation, desc interface{}, opts thrift.Options) (ret []parser.Annotation, next []parser.Annotation, err error) {
 	if len(anns) > 2 {
 		return nil, nil, errors.New("name case must be unique")
 	}

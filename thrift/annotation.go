@@ -46,7 +46,7 @@ type Annotation interface {
 	//   AnnoKindKeyMapping: KeyMapping interface
 	//   AnnoKindKeyMapping: ValueMapping interface
 	//   AnnoKindOptionMapping: OptionMapping interface
-	Make(values []parser.Annotation, desc interface{}) (handler interface{}, err error)
+	Make(ctx context.Context,values []parser.Annotation, desc interface{}) (handler interface{}, err error)
 }
 
 // AnnoID is the unique id of an annotation, which is composed of kind, scope and type:
@@ -121,7 +121,7 @@ func (t AnnoID) Type() AnnoType {
 // See also: thrift/annotation/option_mapping.go
 type OptionMapping interface {
 	// Map options to new options
-	Map(opts Options) Options
+	Map(ctx context.Context, opts Options) Options
 }
 
 // ValueMapping is used to convert thrift value while running convertion.
@@ -151,7 +151,7 @@ type HttpMapping interface {
 // See also: thrift/annotation/key_mapping.go
 type KeyMapping interface {
 	// Map key to new key
-	Map(key string) string
+	Map(ctx context.Context, key string) string
 }
 
 //--------------------------------- Thrid-party Register ----------------------------------
@@ -181,7 +181,7 @@ func FindAnnotation(key string, scope AnnoScope) Annotation {
 }
 
 // makeAnnotation search an annotation by given key+scope and make its handler
-func makeAnnotation(anns []parser.Annotation, scope AnnoScope, desc interface{}) (interface{}, AnnoID, error) {
+func makeAnnotation(ctx context.Context, anns []parser.Annotation, scope AnnoScope, desc interface{}) (interface{}, AnnoID, error) {
 	if len(anns) == 0 {
 		return nil, 0, nil
 	}
@@ -189,7 +189,7 @@ func makeAnnotation(anns []parser.Annotation, scope AnnoScope, desc interface{})
 	if ann == nil {
 		return nil, 0, nil
 	}
-	if handler, err := ann.Make(anns, desc); err != nil {
+	if handler, err := ann.Make(ctx, anns, desc); err != nil {
 		return nil, 0, err
 	} else {
 		return handler, ann.ID(), nil
@@ -204,7 +204,7 @@ func makeAnnotation(anns []parser.Annotation, scope AnnoScope, desc interface{})
 //   AnnoScopeField: desc is *parser.Field
 type AnnotationMapper interface {
 	// Map map a annotation to equivalent annotations
-	Map(ann []parser.Annotation, desc interface{}, opt Options) (cur []parser.Annotation, next []parser.Annotation, err error)
+	Map(ctx context.Context, ann []parser.Annotation, desc interface{}, opt Options) (cur []parser.Annotation, next []parser.Annotation, err error)
 }
 
 var annotationMapper = map[string]map[AnnoScope]AnnotationMapper{}
@@ -258,7 +258,7 @@ func (p *amPairs) Add(con parser.Annotation, inter AnnotationMapper) {
 	})
 }
 
-func mapAnnotations(as parser.Annotations, scope AnnoScope, desc interface{}, opt Options) (ret []annoPair, left []parser.Annotation, next []parser.Annotation, err error) {
+func mapAnnotations(ctx context.Context, as parser.Annotations, scope AnnoScope, desc interface{}, opt Options) (ret []annoPair, left []parser.Annotation, next []parser.Annotation, err error) {
 	con := make(amPairs, 0, len(as))
 	cur := make([]parser.Annotation, 0, len(as))
 	// try find mapper
@@ -272,7 +272,7 @@ func mapAnnotations(as parser.Annotations, scope AnnoScope, desc interface{}, op
 	}
 	// process all the annotations under the mapper
 	for _, a := range con {
-		if c, n, err := a.inter.Map(a.cont, desc, opt); err != nil {
+		if c, n, err := a.inter.Map(ctx, a.cont, desc, opt); err != nil {
 			return nil, nil, nil, err
 		} else {
 			cur = append(cur, c...)
@@ -316,8 +316,8 @@ func mergeAnnotations(in []parser.Annotation, scope AnnoScope) ([]annoPair, []pa
 	return m, left
 }
 
-func handleAnnotation(scope AnnoScope, ann Annotation, values []parser.Annotation, opts *Options, desc interface{}) error {
-	handle, err := ann.Make(values, desc)
+func handleAnnotation(ctx context.Context, scope AnnoScope, ann Annotation, values []parser.Annotation, opts *Options, desc interface{}) error {
+	handle, err := ann.Make(ctx, values, desc)
 	if err != nil {
 		return err
 	}
@@ -328,7 +328,7 @@ func handleAnnotation(scope AnnoScope, ann Annotation, values []parser.Annotatio
 			if !ok {
 				return fmt.Errorf("annotation %#v for %d is not OptionMaker", handle, ann.ID())
 			}
-			*opts = om.Map(*opts)
+			*opts = om.Map(ctx, *opts)
 			return nil
 		default:
 			//NOTICE: ignore unsupported annotations
@@ -338,8 +338,8 @@ func handleAnnotation(scope AnnoScope, ann Annotation, values []parser.Annotatio
 	return nil
 }
 
-func handleFieldAnnotation(ann Annotation, values []parser.Annotation, opts *Options, field *FieldDescriptor, st *StructDescriptor, desc *parser.Field) error {
-	handle, err := ann.Make(values, desc)
+func handleFieldAnnotation(ctx context.Context, ann Annotation, values []parser.Annotation, opts *Options, field *FieldDescriptor, st *StructDescriptor, desc *parser.Field) error {
+	handle, err := ann.Make(ctx, values, desc)
 	if err != nil {
 		return err
 	}
@@ -350,7 +350,7 @@ func handleFieldAnnotation(ann Annotation, values []parser.Annotation, opts *Opt
 			if !ok {
 				return fmt.Errorf("annotation %#v for %d is not OptionMaker", handle, ann.ID())
 			}
-			*opts = om.Map(*opts)
+			*opts = om.Map(ctx, *opts)
 			return nil
 		case AnnoKindHttpMappping:
 			hm, ok := handle.(HttpMapping)
@@ -375,7 +375,7 @@ func handleFieldAnnotation(ann Annotation, values []parser.Annotation, opts *Opt
 			if !ok {
 				return fmt.Errorf("annotation %#v for %d is not KeyMapping", handle, ann.ID())
 			}
-			field.alias = km.Map(field.alias)
+			field.alias = km.Map(ctx, field.alias)
 		default:
 			//NOTICE: ignore unsupported annotations
 			return fmt.Errorf("unsupported annotation %d", ann.ID())
@@ -422,3 +422,8 @@ func injectAnnotations(origin *[]*parser.Annotation, next []parser.Annotation) e
 	}
 	return nil
 }
+
+var (
+	ctxIsBodyRoot = "isBodyRoot"
+	CtxKeyIsBodyRoot = &ctxIsBodyRoot
+)

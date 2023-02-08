@@ -73,7 +73,7 @@ func (self httpMappingAnnotation) ID() thrift.AnnoID {
 	return self.typ
 }
 
-func (self httpMappingAnnotation) Make(values []parser.Annotation, ast interface{}) (interface{}, error) {
+func (self httpMappingAnnotation) Make(ctx context.Context, values []parser.Annotation, ast interface{}) (interface{}, error) {
 	if len(values) != 1 || len(values[0].Values) < 1 {
 		return nil, errors.New("httpMappingAnnotation only accept single key and value")
 	}
