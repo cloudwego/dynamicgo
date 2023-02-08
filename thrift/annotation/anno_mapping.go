@@ -81,7 +81,6 @@ func (m apiBodyMapper) Map(ctx context.Context, anns []parser.Annotation, desc i
 		isRoot := ctx.Value(thrift.CtxKeyIsBodyRoot)
 		// special fast-path: if the field is at body root, we don't need to add api.body
 		if isRoot != nil && isRoot.(bool) {
-			println("skip api.body for root field")
 			continue
 		} else {
 			ret = append(ret, parser.Annotation{
