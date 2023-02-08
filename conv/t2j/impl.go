@@ -368,7 +368,7 @@ func (self *BinaryConv) handleUnsets(b *thrift.RequiresBitmap, desc *thrift.Stru
 		// check if field has http mapping
 		var ok = false
 		if hms := field.HTTPMappings(); self.opts.EnableHttpMapping && hms != nil {
-			tmp := make([]byte, 0, conv.DefaulHttpValueBufferSize)
+			tmp := make([]byte, 0, conv.DefaulHttpValueBufferSizeForJSON)
 			if err := writeDefaultOrEmpty(field, &tmp); err != nil {
 				return err
 			}
@@ -502,15 +502,21 @@ func (self *BinaryConv) writeHttpValue(ctx context.Context, resp http.ResponseSe
 	var start = p.Read
 	if ft := field.Type(); ft.Type().IsComplex() {
 		// for nested type, convert it to a new JSON string
-		tmp := make([]byte, 0, conv.DefaulHttpValueBufferSize)
+		tmp := make([]byte, 0, conv.DefaulHttpValueBufferSizeForJSON)
 		err := self.doRecurse(ctx, p, ft, &tmp, resp)
 		if err != nil {
 			return false, unwrapError(fmt.Sprintf("mapping field %d failed, thrift pos:%d", field.ID(), p.Read), err)
 		}
 		val = rt.Mem2Str(tmp)
+	} else if ft.Type() == thrift.STRING && !ft.IsBinary() {
+		// special case for string, refer it directly from thrift
+		val, err = p.ReadString(!self.opts.NoCopyString)
+		if err != nil {
+			return false, wrapError(meta.ErrRead, "", err)
+		}
 	} else {
-		// non-STRUCT type, convert it to a generic string
-		tmp := make([]byte, 0, conv.DefaulHttpValueBufferSize)
+		// scalar type, convert it to a generic string
+		tmp := make([]byte, 0, conv.DefaulHttpValueBufferSizeForScalar)
 		if err = p.ReadStringWithDesc(field.Type(), &tmp, self.opts.ByteAsUint8, self.opts.DisallowUnknownField, !self.opts.NoBase64Binary); err != nil {
 			return false, wrapError(meta.ErrRead, "", err)
 		}
@@ -533,8 +539,7 @@ func (self *BinaryConv) writeHttpValue(ctx context.Context, resp http.ResponseSe
 				if err := p.Skip(field.Type().Type(), types.TB_SKIP_STACK_SIZE, self.opts.UseNativeSkip); err != nil {
 					return false, wrapError(meta.ErrRead, "", err)
 				}
-				// TODO: add option to not copy the buffer
-				rawVal = string((p.Buf[start:p.Read]))
+				rawVal = rt.Mem2Str((p.Buf[start:p.Read]))
 			}
 			if e := hm.Response(ctx, resp, field, rawVal); e == nil {
 				ok = true
