@@ -22,7 +22,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/cloudwego/dynamicgo/internal/native"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/stretchr/testify/require"
 )
@@ -262,24 +261,6 @@ func TestSkipPair(t *testing.T) {
 	src = ` {1,"{", 3,"\" \\}", [[ ],{} ] } `
 	ret = skipPair(src, 1, '{', '}')
 	require.Equal(t, len(src)-1, ret)
-}
-
-func BenchmarkSkipValue(b *testing.B) {
-	var src = ` [ 1, "[", 3, "\" \\[", [ [ "", { } ], { "a": [ ] } ] ] `
-	b.Run("dyanmicgo", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			_, _ = SkipValue(src, 0)
-		}
-	})
-	b.Run("native", func(b *testing.B) {
-		var fsm = types.NewStateMachine()
-		var p int
-		for i := 0; i < b.N; i++ {
-			fsm.Sp = 0
-			p = 0
-			_ = native.SkipOne(&src, &p, fsm)
-		}
-	})
 }
 
 func BenchmarkSkipNumber(b *testing.B) {

@@ -889,10 +889,7 @@ func (p *BinaryProtocol) EncodeText(desc *TypeDescriptor, buf *[]byte, byteAsUin
 		if err != nil {
 			return err
 		}
-		*buf, err = json.EncodeFloat64(*buf, f)
-		if err != nil {
-			return err
-		}
+		*buf = json.EncodeFloat64(*buf, f)
 		return nil
 	case STRING:
 		if base64Binary && desc.IsBinary() {

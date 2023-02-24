@@ -26,7 +26,6 @@ const (
 )
 
 func quoteString(e *[]byte, s string) {
-	*e = append(*e, '"')
 	start := 0
 	for i := 0; i < len(s); {
 		if b := s[i]; b < utf8.RuneSelf {
@@ -86,7 +85,6 @@ func quoteString(e *[]byte, s string) {
 	if start < len(s) {
 		*e = append(*e, s[start:]...)
 	}
-	*e = append(*e, '"')
 }
 
 var bytesPool = sync.Pool{}

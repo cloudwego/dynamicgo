@@ -25,13 +25,10 @@ import (
 	"reflect"
 	"runtime"
 	"runtime/debug"
-	"strconv"
 	"testing"
 	"time"
 
 	"github.com/cloudwego/dynamicgo/meta"
-	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/skip"
-	"github.com/stretchr/testify/require"
 	thrift_iter "github.com/thrift-iterator/go"
 	"github.com/thrift-iterator/go/general"
 	"github.com/thrift-iterator/go/protocol"
@@ -70,76 +67,6 @@ func getExampleData() []byte {
 		panic(err)
 	}
 	return out
-}
-
-func BenchmarkSkipNoCheck(b *testing.B) {
-	desc := getExampleDesc()
-	data := getExampleData()
-
-	b.Run("native", func(b *testing.B) {
-		p := NewBinaryProtocol(data)
-		err := p.SkipNative(desc.Type(), 512)
-		require.Nil(b, err)
-		require.Equal(b, len(data), p.Read)
-
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			p.Read = 0
-			_ = p.SkipNative(desc.Type(), 512)
-		}
-	})
-
-	b.Run("go", func(b *testing.B) {
-		p := NewBinaryProtocol(data)
-		err := p.SkipGo(desc.Type(), 512)
-		require.Nil(b, err)
-		require.Equal(b, len(data), p.Read)
-
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			p.Read = 0
-			_ = p.SkipGo(desc.Type(), 512)
-		}
-	})
-}
-
-func BenchmarkSkipAndCheck(b *testing.B) {
-	desc := getExampleDesc()
-	data := getExampleData()
-
-	b.Run("native", func(b *testing.B) {
-		p := NewBinaryProtocol(data)
-		err := p.SkipNative(desc.Type(), 512)
-		require.Nil(b, err)
-		require.Equal(b, len(data), p.Read)
-
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			p.Read = 0
-			err := p.SkipNative(desc.Type(), 512)
-			require.Nil(b, err)
-			require.Equal(b, len(data), p.Read)
-		}
-	})
-
-	b.Run("go", func(b *testing.B) {
-		p := NewBinaryProtocol(data)
-		err := p.SkipGo(desc.Type(), 512)
-		require.Nil(b, err)
-		require.Equal(b, len(data), p.Read)
-
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			p.Read = 0
-			err := p.SkipGo(desc.Type(), 512)
-			require.Nil(b, err)
-			require.Equal(b, len(data), p.Read)
-		}
-	})
 }
 
 func TestBinaryUnwrapReply(t *testing.T) {
@@ -203,31 +130,4 @@ func TestBinaryUnwrapReply(t *testing.T) {
 
 		})
 	}
-}
-
-func TestSkip(t *testing.T) {
-	var MAX_STACKS = 1000
-	r := require.New(t)
-
-	obj := skip.NewTestListMap()
-	obj.ListMap = make([]map[string]string, 10)
-	for i := 0; i < 10; i++ {
-		obj.ListMap[i] = map[string]string{strconv.Itoa(i): strconv.Itoa(i)}
-	}
-	data := make([]byte, obj.BLength())
-	_ = obj.FastWriteNocopy(data, nil)
-
-	p := BinaryProtocol{
-		Buf: data,
-	}
-	println("Skip Go")
-	e1 := p.SkipGo(STRUCT, MAX_STACKS)
-	r.NoError(e1)
-	r.Equal(len(data), p.Read)
-
-	p.Read = 0
-	println("Skip Native")
-	e2 := p.SkipNative(STRUCT, MAX_STACKS)
-	r.NoError(e2)
-	r.Equal(len(data), p.Read)
 }

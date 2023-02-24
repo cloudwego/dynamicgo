@@ -733,10 +733,7 @@ func makeDefaultValue(typ *TypeDescriptor, val *parser.ConstValue, tree *parser.
 			v := float64(*x)
 			tbuf := make([]byte, 8)
 			BinaryEncoding{}.EncodeDouble(tbuf, v)
-			jbuf, err := json.EncodeFloat64(make([]byte, 0, 8), v)
-			if err != nil {
-				return nil, err
-			}
+			jbuf := json.EncodeFloat64(make([]byte, 0, 8), v)
 			return &DefaultValue{
 				goValue:      v,
 				jsonValue:    rt.Mem2Str(jbuf),

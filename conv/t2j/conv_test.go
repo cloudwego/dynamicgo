@@ -31,7 +31,6 @@ import (
 	"unsafe"
 
 	"github.com/cloudwego/dynamicgo/conv"
-	cv "github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/internal/util_test"
 	sjson "github.com/cloudwego/dynamicgo/json"
@@ -40,7 +39,6 @@ import (
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/example3"
 	"github.com/cloudwego/dynamicgo/thrift"
 	"github.com/cloudwego/dynamicgo/thrift/base"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -136,9 +134,9 @@ func getExmaple3JSON() string {
 func TestConvThrift2JSON(t *testing.T) {
 	desc := thrift.FnResponse(thrift.GetFnDescFromFile("testdata/idl/example3.thrift", "ExampleMethod", thrift.Options{}))
 	// js := getExmaple3JSON()
-	conv := NewBinaryConv(conv.Options{})
+	cv := NewBinaryConv(conv.Options{})
 	in := getExample3Data()
-	out, err := conv.Do(context.Background(), desc, in)
+	out, err := cv.Do(context.Background(), desc, in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,60 +158,6 @@ func TestConvThrift2JSON(t *testing.T) {
 // 		RawBody:    []byte{},
 // 	}
 // }
-
-func TestConvThrift2HTTP(t *testing.T) {
-	desc := thrift.FnResponse(thrift.GetFnDescFromFile("testdata/idl/example3.thrift", "ExampleMethod", thrift.Options{}))
-	expJSON := getExmaple3JSON()
-	conv := NewBinaryConv(conv.Options{
-		// MapRecurseDepth:    conv.DefaultMaxDepth,
-		EnableValueMapping: true,
-		EnableHttpMapping:  true,
-	})
-	in := getExample3Data()
-	ctx := context.Background()
-	resp := http.NewHTTPResponse()
-	ctx = context.WithValue(ctx, cv.CtxKeyHTTPResponse, resp)
-	out, err := conv.Do(ctx, desc, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	println(expJSON, string(out))
-	chechHelper(t, expJSON, string(out), testOptions{
-		JSConv: true,
-	})
-	// buf, err := io.ReadAll(resp.Response.Body)
-	// require.Nil(t, err)
-	// chechHelper(t, expJSON, string(buf))
-	assert.Equal(t, "true", resp.Header["Heeader"][0])
-	if len(resp.Header) != 2 {
-		spew.Dump(resp.Header)
-	}
-	assert.Equal(t, 2, len(resp.Header))
-	assert.Equal(t, "cookie", resp.Response.Cookies()[0].Name)
-	assert.Equal(t, "-1e-7", resp.Response.Cookies()[0].Value)
-	assert.Equal(t, "inner_string", resp.Response.Cookies()[1].Name)
-	assert.Equal(t, "hello", resp.Response.Cookies()[1].Value)
-
-	ctx = context.Background()
-	resp = http.NewHTTPResponse()
-	ctx = context.WithValue(ctx, cv.CtxKeyHTTPResponse, resp)
-	out, err = conv.Do(ctx, desc, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	chechHelper(t, expJSON, string(out), testOptions{
-		JSConv: true,
-	})
-	// buf, err = io.ReadAll(resp.Response.Body)
-	// require.Nil(t, err)
-	// chechHelper(t, expJSON, string(buf))
-	assert.Equal(t, "true", resp.Header["Heeader"][0])
-	assert.Equal(t, 2, len(resp.Header))
-	assert.Equal(t, "cookie", resp.Response.Cookies()[0].Name)
-	assert.Equal(t, "-1e-7", resp.Response.Cookies()[0].Value)
-	assert.Equal(t, "inner_string", resp.Response.Cookies()[1].Name)
-	assert.Equal(t, "hello", resp.Response.Cookies()[1].Value)
-}
 
 func chechHelper(t *testing.T, exp string, act string, opts testOptions) {
 	var expMap, actMap map[string]interface{}
@@ -286,13 +230,13 @@ func TestThriftResponseBase(t *testing.T) {
 		EnableThriftBase: true,
 	}))
 	js := getExmaple3JSON()
-	conv := NewBinaryConv(conv.Options{
+	cv := NewBinaryConv(conv.Options{
 		EnableThriftBase: true,
 	})
 	in := getExample3Data()
 
 	ctx := context.Background()
-	out, err := conv.Do(ctx, desc, in)
+	out, err := cv.Do(ctx, desc, in)
 	require.NoError(t, err)
 	var exp, act = new(example3.ExampleResp), new(example3.ExampleResp)
 	require.Nil(t, json.Unmarshal([]byte(js), &exp))
@@ -301,8 +245,8 @@ func TestThriftResponseBase(t *testing.T) {
 
 	b := base.NewBaseResp()
 	require.NoError(t, err)
-	ctx = context.WithValue(ctx, cv.CtxKeyThriftRespBase, b)
-	out, err = conv.Do(ctx, desc, in)
+	ctx = context.WithValue(ctx, conv.CtxKeyThriftRespBase, b)
+	out, err = cv.Do(ctx, desc, in)
 	require.NoError(t, err)
 	exp, act = new(example3.ExampleResp), new(example3.ExampleResp)
 	require.Nil(t, json.Unmarshal([]byte(js), &exp))
@@ -316,7 +260,7 @@ func TestThriftResponseBase(t *testing.T) {
 }
 
 func TestAGWBodyDynamic(t *testing.T) {
-	conv := NewBinaryConv(conv.Options{
+	cv := NewBinaryConv(conv.Options{
 		EnableValueMapping: true,
 	})
 	desc := getExampleErrorDesc()
@@ -326,19 +270,19 @@ func TestAGWBodyDynamic(t *testing.T) {
 	ctx := context.Background()
 	in := make([]byte, exp.BLength())
 	_ = exp.FastWriteNocopy(in, nil)
-	out, err := conv.Do(ctx, desc, in)
+	out, err := cv.Do(ctx, desc, in)
 	require.NoError(t, err)
 	expj := (`{"Int64":1,"Xjson":{"b":1}}`)
 	require.Equal(t, expj, string(out))
 
-	conv.opts.EnableValueMapping = false
-	out, err = conv.Do(ctx, desc, in)
+	cv.opts.EnableValueMapping = false
+	out, err = cv.Do(ctx, desc, in)
 	require.NoError(t, err)
 	require.Equal(t, (`{"Int64":1,"Xjson":"{\"b\":1}"}`), string(out))
 }
 
 func TestInt2String(t *testing.T) {
-	conv := NewBinaryConv(conv.Options{
+	cv := NewBinaryConv(conv.Options{
 		EnableValueMapping: true,
 	})
 	desc := getExampleInt2Float()
@@ -352,23 +296,23 @@ func TestInt2String(t *testing.T) {
 	in := make([]byte, exp.BLength())
 	_ = exp.FastWriteNocopy(in, nil)
 
-	out, err := conv.Do(ctx, desc, in)
+	out, err := cv.Do(ctx, desc, in)
 	require.NoError(t, err)
 	require.Equal(t, `{"Int32":"1","Float64":"3.14","Int64":2,"Subfix":0.92653,"中文":"hello"}`, string(out))
 
-	conv.opts.EnableValueMapping = false
-	out, err = conv.Do(ctx, desc, in)
+	cv.opts.EnableValueMapping = false
+	out, err = cv.Do(ctx, desc, in)
 	require.NoError(t, err)
 	require.Equal(t, (`{"Int32":1,"Float64":3.14,"Int64":2,"Subfix":0.92653,"中文":"hello"}`), string(out))
 
-	conv.opts.String2Int64 = true
-	out, err = conv.Do(ctx, desc, in)
+	cv.opts.String2Int64 = true
+	out, err = cv.Do(ctx, desc, in)
 	require.NoError(t, err)
 	require.Equal(t, (`{"Int32":1,"Float64":3.14,"Int64":"2","Subfix":0.92653,"中文":"hello"}`), string(out))
 }
 
 func TestHttpMappingFallback(t *testing.T) {
-	conv := NewBinaryConv(cv.Options{})
+	cv := NewBinaryConv(conv.Options{})
 	t.Run("not as extra", func(t *testing.T) {
 		desc := getExampleFallbackDesc()
 		exp := example3.NewExampleFallback()
@@ -377,14 +321,14 @@ func TestHttpMappingFallback(t *testing.T) {
 		in := make([]byte, exp.BLength())
 		_ = exp.FastWriteNocopy(in, nil)
 		expJSON := `{"Msg":"hello"}`
-		conv.SetOptions(cv.Options{
+		cv.SetOptions(conv.Options{
 			EnableHttpMapping:  true,
 			HttpMappingAsExtra: false,
 		})
 		ctx := context.Background()
 		resp := http.NewHTTPResponse()
-		ctx = context.WithValue(ctx, cv.CtxKeyHTTPResponse, resp)
-		out, err := conv.Do(ctx, desc, in)
+		ctx = context.WithValue(ctx, conv.CtxKeyHTTPResponse, resp)
+		out, err := cv.Do(ctx, desc, in)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -399,14 +343,14 @@ func TestHttpMappingFallback(t *testing.T) {
 		in := make([]byte, exp.BLength())
 		_ = exp.FastWriteNocopy(in, nil)
 		expJSON := `{"Msg":"hello","Heeader":"world"}`
-		conv.SetOptions(cv.Options{
+		cv.SetOptions(conv.Options{
 			EnableHttpMapping:  true,
 			HttpMappingAsExtra: true,
 		})
 		ctx := context.Background()
 		resp := http.NewHTTPResponse()
-		ctx = context.WithValue(ctx, cv.CtxKeyHTTPResponse, resp)
-		out, err := conv.Do(ctx, desc, in)
+		ctx = context.WithValue(ctx, conv.CtxKeyHTTPResponse, resp)
+		out, err := cv.Do(ctx, desc, in)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -425,14 +369,14 @@ func TestWriteEmpty(t *testing.T) {
 	p.WriteFieldEnd()
 	p.WriteStructEnd()
 	data := p.Buf
-	conv := NewBinaryConv(conv.Options{
+	cv := NewBinaryConv(conv.Options{
 		WriteDefaultField: true,
 		EnableHttpMapping: true,
 	})
 	ctx := context.Background()
 	resp := http.NewHTTPResponse()
-	ctx = context.WithValue(ctx, cv.CtxKeyHTTPResponse, resp)
-	out, err := conv.Do(ctx, desc, data)
+	ctx = context.WithValue(ctx, conv.CtxKeyHTTPResponse, resp)
+	out, err := cv.Do(ctx, desc, data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -454,11 +398,11 @@ func TestUnknowFields(t *testing.T) {
 	t.Run("top", func(t *testing.T) {
 		desc := getExamplePartialDesc()
 		// js := getExmaple3JSON()
-		conv := NewBinaryConv(conv.Options{
+		cv := NewBinaryConv(conv.Options{
 			DisallowUnknownField: true,
 		})
 		in := getExample3Data()
-		_, err := conv.Do(context.Background(), desc, in)
+		_, err := cv.Do(context.Background(), desc, in)
 		require.Error(t, err)
 		require.Equal(t, meta.ErrUnknownField, err.(meta.Error).Code.Behavior())
 	})
@@ -466,11 +410,11 @@ func TestUnknowFields(t *testing.T) {
 	t.Run("nested", func(t *testing.T) {
 		desc := getExamplePartialDesc2()
 		// js := getExmaple3JSON()
-		conv := NewBinaryConv(conv.Options{
+		cv := NewBinaryConv(conv.Options{
 			DisallowUnknownField: true,
 		})
 		in := getExample3Data()
-		_, err := conv.Do(context.Background(), desc, in)
+		_, err := cv.Do(context.Background(), desc, in)
 		require.Error(t, err)
 		require.Equal(t, meta.ErrUnknownField, err.(meta.Error).Code.Behavior())
 	})
@@ -478,22 +422,22 @@ func TestUnknowFields(t *testing.T) {
 	t.Run("skip top", func(t *testing.T) {
 		desc := getExamplePartialDesc()
 		// js := getExmaple3JSON()
-		conv := NewBinaryConv(conv.Options{
+		cv := NewBinaryConv(conv.Options{
 			DisallowUnknownField: false,
 		})
 		in := getExample3Data()
-		_, err := conv.Do(context.Background(), desc, in)
+		_, err := cv.Do(context.Background(), desc, in)
 		require.NoError(t, err)
 	})
 
 	t.Run("skip nested", func(t *testing.T) {
 		desc := getExamplePartialDesc2()
 		// js := getExmaple3JSON()
-		conv := NewBinaryConv(conv.Options{
+		cv := NewBinaryConv(conv.Options{
 			DisallowUnknownField: false,
 		})
 		in := getExample3Data()
-		_, err := conv.Do(context.Background(), desc, in)
+		_, err := cv.Do(context.Background(), desc, in)
 		require.NoError(t, err)
 	})
 }
@@ -502,7 +446,7 @@ func TestNobodyRequiredFields(t *testing.T) {
 	desc := GetDescByName("Base64BinaryMethod", true)
 
 	t.Run("base64 encode", func(t *testing.T) {
-		conv := NewBinaryConv(conv.Options{
+		cv := NewBinaryConv(conv.Options{
 			EnableHttpMapping: true,
 			NoBase64Binary:    false,
 		})
@@ -512,8 +456,8 @@ func TestNobodyRequiredFields(t *testing.T) {
 		in := make([]byte, exp.BLength())
 		_ = exp.FastWriteNocopy(in, nil)
 		resp := http.NewHTTPResponse()
-		ctx := context.WithValue(context.Background(), cv.CtxKeyHTTPResponse, resp)
-		out, err := conv.Do(ctx, desc, in)
+		ctx := context.WithValue(context.Background(), conv.CtxKeyHTTPResponse, resp)
+		out, err := cv.Do(ctx, desc, in)
 		require.NoError(t, err)
 
 		act := example3.NewExampleBase64Binary()
@@ -524,7 +468,7 @@ func TestNobodyRequiredFields(t *testing.T) {
 	})
 
 	t.Run("no base64 encode", func(t *testing.T) {
-		conv := NewBinaryConv(conv.Options{
+		cv := NewBinaryConv(conv.Options{
 			EnableHttpMapping: true,
 			NoBase64Binary:    true,
 		})
@@ -534,8 +478,8 @@ func TestNobodyRequiredFields(t *testing.T) {
 		in := make([]byte, exp.BLength())
 		_ = exp.FastWriteNocopy(in, nil)
 		resp := http.NewHTTPResponse()
-		ctx := context.WithValue(context.Background(), cv.CtxKeyHTTPResponse, resp)
-		out, err := conv.Do(ctx, desc, in)
+		ctx := context.WithValue(context.Background(), conv.CtxKeyHTTPResponse, resp)
+		out, err := cv.Do(ctx, desc, in)
 		require.NoError(t, err)
 
 		act := struct {
@@ -562,13 +506,13 @@ func TestJSONString(t *testing.T) {
 	in := make([]byte, exp.BLength())
 	_ = exp.FastWriteNocopy(in, nil)
 
-	conv := NewBinaryConv(conv.Options{
+	cv := NewBinaryConv(conv.Options{
 		EnableHttpMapping: true,
 	})
 	ctx := context.Background()
 	resp := http.NewHTTPResponse()
-	ctx = context.WithValue(ctx, cv.CtxKeyHTTPResponse, resp)
-	out, err := conv.Do(ctx, desc, in)
+	ctx = context.WithValue(ctx, conv.CtxKeyHTTPResponse, resp)
+	out, err := cv.Do(ctx, desc, in)
 	require.NoError(t, err)
 
 	act := example3.NewExampleJSONString()
@@ -589,13 +533,13 @@ func TestDefaultValue(t *testing.T) {
 	}))
 	in := []byte{byte(thrift.STOP)}
 	t.Run("default value", func(t *testing.T) {
-		conv := NewBinaryConv(conv.Options{
+		cv := NewBinaryConv(conv.Options{
 			EnableHttpMapping: true,
 			WriteDefaultField: true,
 		})
 		resp := http.NewHTTPResponse()
-		ctx := context.WithValue(context.Background(), cv.CtxKeyHTTPResponse, resp)
-		out, err := conv.Do(ctx, desc, in)
+		ctx := context.WithValue(context.Background(), conv.CtxKeyHTTPResponse, resp)
+		out, err := cv.Do(ctx, desc, in)
 		require.NoError(t, err)
 		act := &example3.ExampleDefaultValue{}
 		err = json.Unmarshal(out, act)
@@ -612,13 +556,13 @@ func TestDefaultValue(t *testing.T) {
 		desc := thrift.FnResponse(thrift.GetFnDescFromFile("testdata/idl/example3.thrift", "DefaultValueMethod", thrift.Options{
 			UseDefaultValue: false,
 		}))
-		conv := NewBinaryConv(conv.Options{
+		cv := NewBinaryConv(conv.Options{
 			EnableHttpMapping: true,
 			WriteDefaultField: true,
 		})
 		resp := http.NewHTTPResponse()
-		ctx := context.WithValue(context.Background(), cv.CtxKeyHTTPResponse, resp)
-		out, err := conv.Do(ctx, desc, in)
+		ctx := context.WithValue(context.Background(), conv.CtxKeyHTTPResponse, resp)
+		out, err := cv.Do(ctx, desc, in)
 		require.NoError(t, err)
 		act := &example3.ExampleDefaultValue{}
 		err = json.Unmarshal(out, act)
@@ -637,13 +581,13 @@ func TestOptionalDefaultValue(t *testing.T) {
 		desc := thrift.FnResponse(thrift.GetFnDescFromFile("testdata/idl/example3.thrift", "OptionalDefaultValueMethod", thrift.Options{
 			UseDefaultValue: true,
 		}))
-		conv := NewBinaryConv(conv.Options{
+		cv := NewBinaryConv(conv.Options{
 			EnableHttpMapping: true,
 			WriteRequireField: true,
 		})
 		resp := http.NewHTTPResponse()
-		ctx := context.WithValue(context.Background(), cv.CtxKeyHTTPResponse, resp)
-		out, err := conv.Do(ctx, desc, in)
+		ctx := context.WithValue(context.Background(), conv.CtxKeyHTTPResponse, resp)
+		out, err := cv.Do(ctx, desc, in)
 		require.NoError(t, err)
 		act := &example3.ExampleOptionalDefaultValue{}
 		err = json.Unmarshal(out, act)
@@ -661,15 +605,15 @@ func TestOptionalDefaultValue(t *testing.T) {
 			SetOptionalBitmap: true,
 			UseDefaultValue:   true,
 		}))
-		conv := NewBinaryConv(conv.Options{
+		cv := NewBinaryConv(conv.Options{
 			EnableHttpMapping:  true,
 			WriteRequireField:  true,
 			WriteDefaultField:  true,
 			WriteOptionalField: true,
 		})
 		resp := http.NewHTTPResponse()
-		ctx := context.WithValue(context.Background(), cv.CtxKeyHTTPResponse, resp)
-		out, err := conv.Do(ctx, desc, in)
+		ctx := context.WithValue(context.Background(), conv.CtxKeyHTTPResponse, resp)
+		out, err := cv.Do(ctx, desc, in)
 		require.NoError(t, err)
 		act := &example3.ExampleOptionalDefaultValue{}
 		err = json.Unmarshal(out, act)

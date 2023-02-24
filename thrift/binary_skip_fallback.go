@@ -19,13 +19,9 @@
 
 package thrift
 
-import (
-	"io"
-)
-
 const MaxSkipDepth = 1023
 
 // Skip skips over the value for the given type.
 func (p *BinaryProtocol) Skip(fieldType Type, useNative bool) (err error) {
-	return p.SkipGo(fieldType, maxDepth)
+	return p.SkipGo(fieldType, MaxSkipDepth)
 }

@@ -38,7 +38,13 @@ func quote(buf *[]byte, val string) {
 	if len(val) == 0 {
 		*buf = append(*buf, '"')
 	}
+	NoQuote(buf, val)
+	
+	*buf = append(*buf, '"')
+}
 
+// NoQuote only escape inner '\' and '"' of one string, but it does add quotes besides string.
+func NoQuote(buf *[]byte, val string) {
 	sp := rt.IndexChar(val, 0)
 	nb := len(val)
 	b := (*rt.GoSlice)(unsafe.Pointer(buf))
@@ -69,7 +75,6 @@ func quote(buf *[]byte, val string) {
 
 	runtime.KeepAlive(buf)
 	runtime.KeepAlive(sp)
-	*buf = append(*buf, '"')
 }
 
 func unquote(src string) (string, types.ParsingError) {
@@ -104,4 +109,28 @@ func (self *Parser) skip() (int, types.ParsingError) {
 func (self *Node) encodeInterface(buf *[]byte) error {
 	//WARN: NOT compatible with json.Encoder
 	return encoder.EncodeInto(buf, self.packAny(), 0)
+}
+
+func i64toa(buf *[]byte, val int64) int {
+	rt.GuardSlice(buf, types.MaxInt64StringLen)
+	s := len(*buf)
+	ret := native.I64toa((*byte)(rt.IndexPtr((*rt.GoSlice)(unsafe.Pointer(buf)).Ptr, byteType.Size, s)), val)
+	if ret < 0 {
+		*buf = append((*buf)[s:], '0')
+		return 1
+	}
+	*buf = (*buf)[:s+ret]
+	return ret
+}
+
+func f64toa(buf *[]byte, val float64) int {
+	rt.GuardSlice(buf, types.MaxFloat64StringLen)
+	s := len(*buf)
+	ret := native.F64toa((*byte)(rt.IndexPtr((*rt.GoSlice)(unsafe.Pointer(buf)).Ptr, byteType.Size, s)), val)
+	if ret < 0 {
+		*buf = append((*buf)[s:], '0')
+		return 1
+	}
+	*buf = (*buf)[:s+ret]
+	return ret
 }

@@ -23,7 +23,6 @@ import (
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/internal/rt"
-	"github.com/cloudwego/dynamicgo/internal/unquote"
 	"github.com/cloudwego/dynamicgo/json"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
@@ -209,7 +208,7 @@ func (self *BinaryConv) doRecurse(ctx context.Context, p *thrift.BinaryProtocol,
 		if e != nil {
 			return wrapError(meta.ErrWrite, "", e)
 		}
-		*out, err = json.EncodeFloat64(*out, float64(v))
+		*out = json.EncodeFloat64(*out, float64(v))
 	case thrift.STRING:
 		if desc.IsBinary() && !self.opts.NoBase64Binary {
 			v, e := p.ReadBinary(false)
@@ -414,7 +413,7 @@ func writeDefaultOrEmpty(field *thrift.FieldDescriptor, out *[]byte) (err error)
 	case thrift.BYTE, thrift.I16, thrift.I32, thrift.I64:
 		*out = json.EncodeInt64(*out, 0)
 	case thrift.DOUBLE:
-		*out, err = json.EncodeFloat64(*out, 0)
+		*out = json.EncodeFloat64(*out, 0)
 	case thrift.STRING:
 		*out = json.EncodeString(*out, "")
 	case thrift.LIST, thrift.SET:
@@ -488,7 +487,7 @@ func (self *BinaryConv) buildinTypeToKey(p *thrift.BinaryProtocol, dest *thrift.
 		if err != nil {
 			return err
 		}
-		unquote.QuoteIntoBytes(v, out)
+		json.NoQuote(out, v)
 	default:
 		return wrapError(meta.ErrUnsupportedType, fmt.Sprintf("unsupported descriptor type %s as MAP key", t), nil)
 	}
