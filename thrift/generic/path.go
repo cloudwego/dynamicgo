@@ -636,7 +636,7 @@ func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *thrift.Bi
 			v: unsafe.Pointer(uintptr(self.Node.v) + uintptr(ss)),
 		}
 	} else {
-		if e := p.Skip(et, _SkipMaxDepth, opts.UseNativeSkip); e != nil {
+		if e := p.Skip(et, opts.UseNativeSkip); e != nil {
 			return nil, errNode(meta.ErrRead, "", e)
 		}
 		v.Node = self.slice(ss, p.Read, et)
@@ -729,7 +729,7 @@ func (self *PathNode) scanChildren(p *thrift.BinaryProtocol, recurse bool, opts 
 		} else {
 			for i := 0; i < size; i++ {
 				ks := p.Read
-				if e := p.Skip(kt, _SkipMaxDepth, opts.UseNativeSkip); e != nil {
+				if e := p.Skip(kt, opts.UseNativeSkip); e != nil {
 					return errNode(meta.ErrRead, "", e)
 				}
 				ke := p.Read

@@ -28,9 +28,6 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/apache/thrift/lib/go/thrift"
-	"github.com/cloudwego/dynamicgo/internal/native"
-	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/primitive"
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/internal/util"
@@ -108,7 +105,7 @@ func (p *BinaryProtocol) Recycle() {
 	bpPool.Put(p)
 }
 
-// BinaryProtocol implements the thrift.BinaryProtocol
+// BinaryProtocol implements the BinaryProtocol
 // see https://github.com/apache/thrift/blob/master/doc/specs/thrift-binary-protocol.md
 type BinaryProtocol struct {
 	Buf  []byte
@@ -223,7 +220,7 @@ func (p BinaryProtocol) UnwrapBody() (string, TMessageType, int32, FieldID, []by
 
 // WriteMessageBegin ...
 func (p *BinaryProtocol) WriteMessageBegin(name string, typeID TMessageType, seqID int32) error {
-	version := uint32(thrift.VERSION_1) | uint32(typeID)
+	version := uint32(VERSION_1) | uint32(typeID)
 	e := p.WriteI32(int32(version))
 	if e != nil {
 		return e
@@ -415,7 +412,7 @@ func (p *BinaryProtocol) WriteInt(t Type, value int) error {
 	case I64:
 		return p.WriteI64(int64(value))
 	default:
-		return thrift.NewTProtocolExceptionWithType(thrift.INVALID_DATA, fmt.Errorf("Invalid field type %d", t))
+		return errInvalidDataType
 	}
 }
 
@@ -542,8 +539,8 @@ func (p *BinaryProtocol) ReadMessageBegin(copyString bool) (name string, typeID 
 		return name, typeID, seqID, errInvalidVersion
 	}
 	typeID = TMessageType(size & 0x0ff)
-	version := int64(int64(size) & thrift.VERSION_MASK)
-	if version != thrift.VERSION_1 {
+	version := int64(int64(size) & VERSION_MASK)
+	if version != VERSION_1 {
 		return name, typeID, seqID, errInvalidVersion
 	}
 	name, e = p.ReadString(copyString)
@@ -582,7 +579,7 @@ func (p *BinaryProtocol) ReadFieldBegin() (name string, typeID Type, id FieldID,
 	if !typeID.Valid() {
 		return "", 0, 0, errInvalidDataType
 	}
-	if t != thrift.STOP {
+	if t != byte(STOP) {
 		var x int16
 		x, err = p.ReadI16()
 		id = FieldID(x)
@@ -763,7 +760,7 @@ func (p *BinaryProtocol) ReadInt(t Type) (value int, err error) {
 		n, err := p.ReadI64()
 		return int(n), err
 	default:
-		return 0, thrift.NewTProtocolExceptionWithType(thrift.INVALID_DATA, fmt.Errorf("Invalid type specifier: %d", t))
+		return 0, errInvalidDataType
 	}
 }
 
@@ -920,7 +917,7 @@ func (p *BinaryProtocol) EncodeText(desc *TypeDescriptor, buf *[]byte, byteAsUin
 			*buf = json.EncodeString(*buf, vs)
 		}
 		return nil
-	case thrift.SET, thrift.LIST:
+	case SET, LIST:
 		elemType, size, e := p.ReadSetBegin()
 		if e != nil {
 			return e
@@ -944,7 +941,7 @@ func (p *BinaryProtocol) EncodeText(desc *TypeDescriptor, buf *[]byte, byteAsUin
 			*buf = append(*buf, ']')
 		}
 		return nil
-	case thrift.MAP:
+	case MAP:
 		keyType, valueType, size, e := p.ReadMapBegin()
 		if e != nil {
 			return e
@@ -972,7 +969,7 @@ func (p *BinaryProtocol) EncodeText(desc *TypeDescriptor, buf *[]byte, byteAsUin
 			*buf = append(*buf, '}')
 		}
 		return nil
-	case thrift.STRUCT:
+	case STRUCT:
 		st := desc.Struct()
 		if asJson {
 			*buf = append(*buf, '{')
@@ -1044,7 +1041,7 @@ func (p *BinaryProtocol) ReadAnyWithDesc(desc *TypeDescriptor, copyString bool, 
 		} else {
 			return p.ReadString(copyString)
 		}
-	case thrift.SET, thrift.LIST:
+	case SET, LIST:
 		elemType, size, e := p.ReadSetBegin()
 		if e != nil {
 			return nil, e
@@ -1062,7 +1059,7 @@ func (p *BinaryProtocol) ReadAnyWithDesc(desc *TypeDescriptor, copyString bool, 
 			ret = append(ret, v)
 		}
 		return ret, p.ReadSetEnd()
-	case thrift.MAP:
+	case MAP:
 		var ret interface{}
 		keyType, valueType, size, e := p.ReadMapBegin()
 		if e != nil {
@@ -1129,7 +1126,7 @@ func (p *BinaryProtocol) ReadAnyWithDesc(desc *TypeDescriptor, copyString bool, 
 			ret = m
 		}
 		return ret, p.ReadMapEnd()
-	case thrift.STRUCT:
+	case STRUCT:
 		st := desc.Struct()
 		var ret map[FieldID]interface{}
 		var ret2 map[string]interface{}
@@ -1182,7 +1179,7 @@ func (p *BinaryProtocol) WriteStringWithDesc(val string, desc *TypeDescriptor, d
 // WARNING: this function is not fully implemented, only support json-encoded string for LIST/MAP/SET/STRUCT
 func (p *BinaryProtocol) DecodeText(val string, desc *TypeDescriptor, disallowUnknown bool, base64Binary bool, useFieldName bool, asJson bool) error {
 	switch desc.Type() {
-	case thrift.STRING:
+	case STRING:
 		if asJson {
 			v, err := strconv.Unquote(val)
 			if err != nil {
@@ -1198,43 +1195,43 @@ func (p *BinaryProtocol) DecodeText(val string, desc *TypeDescriptor, disallowUn
 			val = rt.Mem2Str(v)
 		}
 		return p.WriteString(val)
-	case thrift.BOOL:
+	case BOOL:
 		v, err := strconv.ParseBool(val)
 		if err != nil {
 			return err
 		}
 		return p.WriteBool(v)
-	case thrift.BYTE:
+	case BYTE:
 		i, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			return err
 		}
 		return p.WriteByte(byte(i))
-	case thrift.I16:
+	case I16:
 		i, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			return err
 		}
 		return p.WriteI16(int16(i))
-	case thrift.I32:
+	case I32:
 		i, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			return err
 		}
 		return p.WriteI32(int32(i))
-	case thrift.I64:
+	case I64:
 		i, err := strconv.ParseInt(val, 10, 64)
 		if err != nil {
 			return err
 		}
 		return p.WriteI64(i)
-	case thrift.DOUBLE:
+	case DOUBLE:
 		f, err := strconv.ParseFloat(val, 64)
 		if err != nil {
 			return err
 		}
 		return p.WriteDouble(f)
-	case thrift.LIST, thrift.SET:
+	case LIST, SET:
 		if !asJson {
 			// OPT: Optimize this using json ast in-place parser
 			vs := strings.Split(val, ",")
@@ -1264,7 +1261,7 @@ func (p *BinaryProtocol) DecodeText(val string, desc *TypeDescriptor, disallowUn
 			}
 			return p.WriteListEnd()
 		}
-	case thrift.MAP:
+	case MAP:
 		//TODO: implement it for non-json
 		if !asJson {
 			return errNotImplemented
@@ -1287,7 +1284,7 @@ func (p *BinaryProtocol) DecodeText(val string, desc *TypeDescriptor, disallowUn
 			}
 		}
 		return p.WriteMapEnd()
-	case thrift.STRUCT:
+	case STRUCT:
 		//TODO: implement it for non-json
 		if !asJson {
 			return errNotImplemented
@@ -1649,33 +1646,6 @@ func (p *BinaryProtocol) WriteAnyWithDesc(desc *TypeDescriptor, val interface{},
 	}
 }
 
-// Skip skips over the value for the given type.
-func (p *BinaryProtocol) Skip(fieldType Type, maxDepth int, useNative bool) (err error) {
-	if useNative {
-		return p.SkipNative(fieldType, maxDepth)
-	}
-	return p.SkipGo(fieldType, maxDepth)
-}
-
-// Skip skips over teh value for the given type using native C implementation.
-func (p *BinaryProtocol) SkipNative(fieldType Type, maxDepth int) (err error) {
-	if maxDepth >= types.TB_SKIP_STACK_SIZE {
-		return
-	}
-	left := len(p.Buf) - p.Read
-	if left <= 0 {
-		return io.EOF
-	}
-	fsm := types.NewTStateMachine()
-	ret := native.TBSkip(fsm, &p.Buf[p.Read], left, uint8(fieldType))
-	if ret < 0 {
-		return
-	}
-	p.Read += int(ret)
-	types.FreeTStateMachine(fsm)
-	return nil
-}
-
 var typeSize = [256]int{
 	STOP:   -1,
 	VOID:   -1,
@@ -1707,34 +1677,34 @@ func (p *BinaryProtocol) SkipGo(fieldType Type, maxDepth int) (err error) {
 		return errExceedDepthLimit
 	}
 	switch fieldType {
-	case thrift.BOOL:
+	case BOOL:
 		_, err = p.ReadBool()
 		return
-	case thrift.BYTE:
+	case BYTE:
 		_, err = p.ReadByte()
 		return
-	case thrift.I16:
+	case I16:
 		_, err = p.ReadI16()
 		return
-	case thrift.I32:
+	case I32:
 		_, err = p.ReadI32()
 		return
-	case thrift.I64:
+	case I64:
 		_, err = p.ReadI64()
 		return
-	case thrift.DOUBLE:
+	case DOUBLE:
 		_, err = p.ReadDouble()
 		return
-	case thrift.STRING:
+	case STRING:
 		_, err = p.ReadString(false)
 		return
-	case thrift.STRUCT:
+	case STRUCT:
 		// if _, err = p.ReadStructBegin(); err != nil {
 		// 	return err
 		// }
 		for {
 			_, typeId, _, _ := p.ReadFieldBegin()
-			if typeId == thrift.STOP {
+			if typeId == STOP {
 				break
 			}
 			//fastpath
@@ -1752,7 +1722,7 @@ func (p *BinaryProtocol) SkipGo(fieldType Type, maxDepth int) (err error) {
 			p.ReadFieldEnd()
 		}
 		return p.ReadStructEnd()
-	case thrift.MAP:
+	case MAP:
 		keyType, valueType, size, err := p.ReadMapBegin()
 		if err != nil {
 			return err
@@ -1779,7 +1749,7 @@ func (p *BinaryProtocol) SkipGo(fieldType Type, maxDepth int) (err error) {
 			}
 		}
 		return p.ReadMapEnd()
-	case thrift.SET, thrift.LIST:
+	case SET, LIST:
 		elemType, size, err := p.ReadListBegin()
 		if err != nil {
 			return err

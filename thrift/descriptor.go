@@ -23,6 +23,11 @@ import (
 	"github.com/cloudwego/dynamicgo/http"
 )
 
+const (
+	VERSION_MASK = 0xffff0000
+	VERSION_1    = 0x80010000
+)
+
 // Type constants in the Thrift protocol
 type Type byte
 

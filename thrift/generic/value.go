@@ -87,7 +87,7 @@ func searchFieldName(p *thrift.BinaryProtocol, id string, f *thrift.FieldDescrip
 			tt = t
 			break
 		}
-		if err := p.Skip(t, _SkipMaxDepth, UseNativeSkipForGet); err != nil {
+		if err := p.Skip(t, UseNativeSkipForGet); err != nil {
 			return thrift.STRUCT, start, wrapError(meta.ErrRead, "", err)
 		}
 	}
@@ -154,7 +154,7 @@ func (self Value) GetByPath(pathes ...Path) Value {
 		}
 	}
 
-	if err := p.Skip(desc.Type(), _SkipMaxDepth, UseNativeSkipForGet); err != nil {
+	if err := p.Skip(desc.Type(), UseNativeSkipForGet); err != nil {
 		return errValue(meta.ErrRead, "", err)
 	}
 	return self.slice(start, p.Read, desc)
@@ -475,7 +475,7 @@ func marshalTo(read *thrift.BinaryProtocol, write *thrift.BinaryProtocol, from *
 					return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", i), nil)
 				} else {
 					// if not set, skip to the next field
-					if err := read.Skip(tt, _SkipMaxDepth, opts.UseNativeSkip); err != nil {
+					if err := read.Skip(tt, opts.UseNativeSkip); err != nil {
 						return wrapError(meta.ErrRead, "", err)
 					}
 					continue
@@ -495,7 +495,7 @@ func marshalTo(read *thrift.BinaryProtocol, write *thrift.BinaryProtocol, from *
 			// }
 			if tf == nil {
 				// if not set, skip to the next field
-				if err := read.Skip(tt, _SkipMaxDepth, opts.UseNativeSkip); err != nil {
+				if err := read.Skip(tt, opts.UseNativeSkip); err != nil {
 					return wrapError(meta.ErrRead, "", err)
 				}
 				continue
@@ -584,7 +584,7 @@ skip_val:
 		return meta.NewError(meta.ErrDismatchType, "to descriptor dismatches from descriptor", nil)
 	}
 	e := read.Read
-	if err := read.Skip(to.Type(), _SkipMaxDepth, opts.UseNativeSkip); err != nil {
+	if err := read.Skip(to.Type(), opts.UseNativeSkip); err != nil {
 		return wrapError(meta.ErrRead, "", err)
 	}
 	s := read.Read
