@@ -1,4 +1,4 @@
-name: Testdata Linux-X64
+name: Benchmark Linux-X64
 
 on: push
 
@@ -6,7 +6,7 @@ jobs:
   build:
     strategy:
       matrix:
-        go-version: 1.18.x
+        go-version: [1.18.x]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

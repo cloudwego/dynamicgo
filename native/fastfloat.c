@@ -1,14 +1,14 @@
 /* Copyright 2020 Alexander Bolz
- * 
+ *
  * Boost Software License - Version 1.0 - August 17th, 2003
- * 
+ *
  * Permission is hereby granted, free of charge, to any person or organization
  * obtaining a copy of the software and accompanying documentation covered by
  * this license (the "Software") to use, reproduce, display, distribute,
  * execute, and transmit the Software, and to prepare derivative works of the
  * Software, and to permit third-parties to whom the Software is furnished to
  * do so, all subject to the following:
- * 
+ *
  * The copyright notices in the Software and this entire statement, including
  * the above license grant, this restriction and the following disclaimer,
  * must be included in all copies of the Software, in whole or in part, and
@@ -19,9 +19,9 @@
  * Unless required by applicable law or agreed to in writing, this software
  * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
  * KIND, either express or implied.
- * 
- * This file may have been modified by ByteDance authors. All ByteDance
- * Modifications are Copyright 2022 ByteDance Authors.
+ *
+ * This file may have been modified by CloudWeGo Authors. All ByteDance
+ * Modifications are Copyright 2022 CloudWeGo Authors.
  */
 
 #include "native.h"
