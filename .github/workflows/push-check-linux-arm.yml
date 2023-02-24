@@ -30,4 +30,4 @@ jobs:
           GOARCH=arm64 go test -race -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/thrift/generic
           GOARCH=arm64 go test -race -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/conv/t2j
           GOARCH=arm64 go test -race -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/http
-          GOARCH=arm64 go test -race -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/json
+          GOARCH=arm64 go test -race -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/internal/json

@@ -74,7 +74,7 @@ func (self valueMappingAnnotation) Make(ctx context.Context, values []parser.Ann
 	case BodyDynamic:
 		return agwBodyDynamic{}, nil
 	default:
-		return nil, ErrNotImplemented
+		return nil, errNotImplemented
 	}
 }
 
@@ -107,7 +107,7 @@ func (m agwBodyDynamic) Write(ctx context.Context, p *thrift.BinaryProtocol, fie
 type apiJSConv struct{}
 
 func (m apiJSConv) Write(ctx context.Context, p *thrift.BinaryProtocol, field *thrift.FieldDescriptor, in []byte) error {
-	return ErrNotImplemented
+	return errNotImplemented
 }
 
 func (m apiJSConv) Read(ctx context.Context, p *thrift.BinaryProtocol, field *thrift.FieldDescriptor, out *[]byte) error {

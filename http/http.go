@@ -360,7 +360,7 @@ const (
 	HeaderSetCookie = "Set-Cookie"
 )
 
-// Params and recyclable
+// Http url-path params
 type Params struct {
 	params   []Param
 	recycle  func(*Params)

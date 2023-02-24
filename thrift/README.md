@@ -81,7 +81,7 @@ import "github.com/cloudwego/dynamicgo/thrift"
   - [func (p *BinaryProtocol) ReadStructEnd() error](<#func-binaryprotocol-readstructend>)
   - [func (p *BinaryProtocol) Recycle()](<#func-binaryprotocol-recycle>)
   - [func (p *BinaryProtocol) Reset()](<#func-binaryprotocol-reset>)
-  - [func (p *BinaryProtocol) Skip(fieldType Type, maxDepth int, useNative bool) (err error)](<#func-binaryprotocol-skip>)
+  - [func (p *BinaryProtocol) Skip(fieldType Type, useNative bool) (err error)](<#func-binaryprotocol-skip>)
   - [func (p *BinaryProtocol) SkipGo(fieldType Type, maxDepth int) (err error)](<#func-binaryprotocol-skipgo>)
   - [func (p *BinaryProtocol) SkipNative(fieldType Type, maxDepth int) (err error)](<#func-binaryprotocol-skipnative>)
   - [func (p BinaryProtocol) UnwrapBody() (string, TMessageType, int32, FieldID, []byte, error)](<#func-binaryprotocol-unwrapbody>)
@@ -214,6 +214,17 @@ const (
     // AnnoKeyDynamicGoApiNone is used to deal with http response field with api.none annotation
     AnnoKeyDynamicGoApiNone = "api.none"
 )
+```
+
+```go
+const (
+    VERSION_MASK = 0xffff0000
+    VERSION_1    = 0x80010000
+)
+```
+
+```go
+const MaxSkipDepth = types.TB_SKIP_STACK_SIZE - 1
 ```
 
 ## Variables
@@ -585,7 +596,7 @@ EncodeString encodes a string value.
 
 ## type BinaryProtocol
 
-BinaryProtocol implements the thrift.BinaryProtocol see https://github.com/apache/thrift/blob/master/doc/specs/thrift-binary-protocol.md
+BinaryProtocol implements the BinaryProtocol see https://github.com/apache/thrift/blob/master/doc/specs/thrift-binary-protocol.md
 
 ```go
 type BinaryProtocol struct {
@@ -849,7 +860,7 @@ ReadString ...
 func (p *BinaryProtocol) ReadStringWithDesc(desc *TypeDescriptor, buf *[]byte, byteAsUint8 bool, disallowUnknown bool, base64Binary bool) error
 ```
 
-ReadStringWithDesc explains thrift data with desc and converts to simple string TODO\(opt\): nocopy for string type here?
+ReadStringWithDesc explains thrift data with desc and converts to simple string
 
 ### func \(\*BinaryProtocol\) ReadStructBegin
 
@@ -886,7 +897,7 @@ Reset resets the buffer and read position
 ### func \(\*BinaryProtocol\) Skip
 
 ```go
-func (p *BinaryProtocol) Skip(fieldType Type, maxDepth int, useNative bool) (err error)
+func (p *BinaryProtocol) Skip(fieldType Type, useNative bool) (err error)
 ```
 
 Skip skips over the value for the given type.

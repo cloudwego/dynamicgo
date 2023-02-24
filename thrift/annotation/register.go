@@ -17,6 +17,8 @@
 package annotation
 
 import (
+	"errors"
+
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
 )
@@ -57,4 +59,8 @@ func init() {
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, nameCaseMapper{}, NameCaseKeys...)
 }
 
-var ErrNotImplemented = meta.NewError(meta.ErrUnsupportedType, "not implemented annotation", nil)
+var (
+	errNotImplemented = meta.NewError(meta.ErrUnsupportedType, "not implemented annotation", nil)
+	errNotFound = errors.New("not found value for key")
+)
+

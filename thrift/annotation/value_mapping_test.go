@@ -71,7 +71,7 @@ func (self ValueMappingAnnotation2) Make(ctx context.Context, values []parser.An
 	case APIJSConv2:
 		return apiJSConv2{}, nil
 	default:
-		return nil, ErrNotImplemented
+		return nil, errNotImplemented
 	}
 }
 
