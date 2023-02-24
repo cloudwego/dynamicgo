@@ -59,10 +59,6 @@ func intoBytesUnsafe(s string, m *[]byte) types.ParsingError {
 
 var typeByte = rt.UnpackType(reflect.TypeOf(byte(0)))
 
-//go:linkname growslice runtime.growslice
-//goland:noinspection GoUnusedParameter
-func growslice(et *rt.GoType, old rt.GoSlice, cap int) rt.GoSlice
-
 func QuoteIntoBytes(val string, buf *[]byte) {
 	sp := (*rt.GoString)(unsafe.Pointer(&val)).Ptr
 	nb := len(val)
@@ -83,7 +79,7 @@ func QuoteIntoBytes(val string, buf *[]byte) {
 		}
 
 		// double buf size
-		*b = growslice(typeByte, *b, b.Cap*2)
+		*b = rt.Growslice(typeByte, *b, b.Cap*2)
 		// ret is the complement of consumed input
 		ret = ^ret
 		// update input buffer

@@ -123,3 +123,7 @@ func PtrOffset(a unsafe.Pointer, b unsafe.Pointer) int {
 func GetBytePtr(b []byte) unsafe.Pointer {
 	return *(*unsafe.Pointer)(unsafe.Pointer(&b))
 }
+
+func Growslice(et *GoType, old GoSlice, cap int) GoSlice {
+	return growslice(et, old, cap)
+}

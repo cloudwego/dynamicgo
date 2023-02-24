@@ -37,10 +37,6 @@ func memmove(to unsafe.Pointer, from unsafe.Pointer, n uintptr)
 //goland:noinspection GoUnusedParameter
 func unsafe_NewArray(typ *rt.GoType, n int) unsafe.Pointer
 
-//go:linkname growslice runtime.growslice
-//goland:noinspection GoUnusedParameter
-func growslice(et *rt.GoType, old rt.GoSlice, cap int) rt.GoSlice
-
 //go:nosplit
 func mem2ptr(s []byte) unsafe.Pointer {
 	return (*rt.GoSlice)(unsafe.Pointer(&s)).Ptr

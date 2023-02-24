@@ -457,7 +457,7 @@ func (p *BinaryProtocol) malloc(size int) ([]byte, error) {
 		if d > c {
 			c = d * 2
 		}
-		buf := growslice(byteType, *(*rt.GoSlice)(unsafe.Pointer(&p.Buf)), c)
+		buf := rt.Growslice(byteType, *(*rt.GoSlice)(unsafe.Pointer(&p.Buf)), c)
 		p.Buf = *(*[]byte)(unsafe.Pointer(&buf))
 	}
 	p.Buf = (p.Buf)[:d]
