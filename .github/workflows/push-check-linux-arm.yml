@@ -25,9 +25,9 @@ jobs:
 
       - name: Unit Test
         run: |
-          GOARCH=arm64 go test -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/thrift
-          GOARCH=arm64 go test -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/thrift/annotation
-          GOARCH=arm64 go test -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/thrift/generic
-          GOARCH=arm64 go test -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/conv/t2j
-          GOARCH=arm64 go test -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/http
-          GOARCH=arm64 go test -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/json
+          GOARCH=arm64 go test -race -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/thrift
+          GOARCH=arm64 go test -race -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/thrift/annotation
+          GOARCH=arm64 go test -race -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/thrift/generic
+          GOARCH=arm64 go test -race -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/conv/t2j
+          GOARCH=arm64 go test -race -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/http
+          GOARCH=arm64 go test -race -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/json

@@ -37,10 +37,10 @@ import (
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
+	sjson "github.com/cloudwego/dynamicgo/internal/json"
 	"github.com/cloudwego/dynamicgo/internal/native"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
-	sjson "github.com/cloudwego/dynamicgo/json"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/example3"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/null"

@@ -23,8 +23,8 @@ import (
 	"unsafe"
 
 	"github.com/cloudwego/dynamicgo/http"
+	"github.com/cloudwego/dynamicgo/internal/json"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
-	"github.com/cloudwego/dynamicgo/json"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
 )

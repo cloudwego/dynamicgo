@@ -32,8 +32,8 @@ import (
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
+	sjson "github.com/cloudwego/dynamicgo/internal/json"
 	"github.com/cloudwego/dynamicgo/internal/util_test"
-	sjson "github.com/cloudwego/dynamicgo/json"
 	"github.com/cloudwego/dynamicgo/meta"
 	kbase "github.com/cloudwego/dynamicgo/testdata/kitex_gen/base"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/example3"
