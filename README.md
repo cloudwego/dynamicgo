@@ -28,13 +28,13 @@ JSON value operators. It can search, modify, deserialize, serialize without any 
 
 WARN: original codes are imported from https://github.com/bytedance/sonic/ast. It may be optimized and refactored in future.
 
-### Conv
+### conv
 Protocol convertors. Based on reflecting ability of `thrift`, `json` and `protobuf`(WIP) modules, it can convert message from one protocol into another. 
 
-#### j2t
+#### conv/j2t
 Convert JSON value or JSON-body HTTP request into thrift message.
 [DOC](conv/j2t/README.md)
 
-#### t2j
+#### conv/t2j
 Convert thrift message to JSON value or JSON-body HTTP response.
 [DOC](conv/t2j/README.md)
