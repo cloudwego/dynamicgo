@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 CloudWeGo Authors.
+ * Copyright 2023 CloudWeGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,9 +27,9 @@ import (
 	"time"
 
 	"github.com/cloudwego/dynamicgo/http"
+	"github.com/cloudwego/dynamicgo/internal/json"
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/internal/util"
-	"github.com/cloudwego/dynamicgo/json"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/thriftgo/parser"
 	"github.com/cloudwego/thriftgo/semantic"
@@ -733,10 +733,7 @@ func makeDefaultValue(typ *TypeDescriptor, val *parser.ConstValue, tree *parser.
 			v := float64(*x)
 			tbuf := make([]byte, 8)
 			BinaryEncoding{}.EncodeDouble(tbuf, v)
-			jbuf, err := json.EncodeFloat64(make([]byte, 0, 8), v)
-			if err != nil {
-				return nil, err
-			}
+			jbuf := json.EncodeFloat64(make([]byte, 0, 8), v)
 			return &DefaultValue{
 				goValue:      v,
 				jsonValue:    rt.Mem2Str(jbuf),

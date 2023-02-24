@@ -20,8 +20,8 @@
  * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
  * KIND, either express or implied.
  *
- * This file may have been modified by ByteDance authors. All ByteDance
- * Modifications are Copyright 2022 ByteDance Authors.
+ * This file may have been modified by CloudWeGo Authors. All ByteDance
+ * Modifications are Copyright 2022 CloudWeGo Authors.
  */
 
 #include "native.h"

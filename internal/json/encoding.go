@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 CloudWeGo Authors.
+ * Copyright 2023 CloudWeGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,7 @@
 package json
 
 import (
-	"errors"
-	"unsafe"
-
-	"github.com/cloudwego/dynamicgo/internal/native"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
-	"github.com/cloudwego/dynamicgo/internal/rt"
 )
 
 func EncodeNull(buf []byte) []byte {
@@ -65,25 +60,13 @@ func EncodeString(buf []byte, val string) []byte {
 // func EncodeNumber(buf []byte, val json.Number) ([]byte, error)
 
 func EncodeInt64(buf []byte, val int64) []byte {
-	rt.GuardSlice(&buf, types.MaxInt64StringLen)
-	s := len(buf)
-	ret := native.I64toa((*byte)(rt.IndexPtr((*rt.GoSlice)(unsafe.Pointer(&buf)).Ptr, byteType.Size, s)), val)
-	if ret < 0 {
-		return []byte{0, 0, 0, 0, 0, 0, 0, 0}
-	}
-	buf = buf[:s+ret]
+	i64toa(&buf, val)
 	return buf
 }
 
-func EncodeFloat64(buf []byte, val float64) ([]byte, error) {
-	rt.GuardSlice(&buf, types.MaxFloat64StringLen)
-	s := len(buf)
-	ret := native.F64toa((*byte)(rt.IndexPtr((*rt.GoSlice)(unsafe.Pointer(&buf)).Ptr, byteType.Size, s)), val)
-	if ret <= 0 {
-		return nil, errors.New("invalid float64")
-	}
-	buf = buf[:s+ret]
-	return buf, nil
+func EncodeFloat64(buf []byte, val float64) ([]byte) {
+	f64toa(&buf, val)
+	return buf
 }
 
 func EncodeArrayBegin(buf []byte) []byte {

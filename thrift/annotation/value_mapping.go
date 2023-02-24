@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 CloudWeGo Authors.
+ * Copyright 2023 CloudWeGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,8 +37,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/bytedance/sonic/encoder"
-	"github.com/cloudwego/dynamicgo/internal/native"
+	"github.com/cloudwego/dynamicgo/internal/json"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
@@ -75,7 +74,7 @@ func (self valueMappingAnnotation) Make(ctx context.Context, values []parser.Ann
 	case BodyDynamic:
 		return agwBodyDynamic{}, nil
 	default:
-		return nil, ErrNotImplemented
+		return nil, errNotImplemented
 	}
 }
 
@@ -89,11 +88,11 @@ func (m agwBodyDynamic) Read(ctx context.Context, p *thrift.BinaryProtocol, fiel
 	if err != nil {
 		return err
 	}
-	//NOTiCE: must validate the json string
-	ok, _ := encoder.Valid(b)
-	if !ok {
-		return fmt.Errorf("invalid json: %s", string(b))
-	}
+	//FIXME: must validate the json string
+	// ok, _ := encoder.Valid(b)
+	// if !ok {
+	// 	return fmt.Errorf("invalid json: %s", string(b))
+	// }
 	*out = append(*out, b...)
 	return nil
 }
@@ -108,7 +107,7 @@ func (m agwBodyDynamic) Write(ctx context.Context, p *thrift.BinaryProtocol, fie
 type apiJSConv struct{}
 
 func (m apiJSConv) Write(ctx context.Context, p *thrift.BinaryProtocol, field *thrift.FieldDescriptor, in []byte) error {
-	return ErrNotImplemented
+	return errNotImplemented
 }
 
 func (m apiJSConv) Read(ctx context.Context, p *thrift.BinaryProtocol, field *thrift.FieldDescriptor, out *[]byte) error {
@@ -148,51 +147,31 @@ func appendInt(p *thrift.BinaryProtocol, typ thrift.Type, out *[]byte) error {
 		if err != nil {
 			return err
 		}
-		ret := native.I64toa((*byte)(rt.IndexByte(out, l)), int64(i))
-		if ret < 0 {
-			return fmt.Errorf("failed to convert int %v to string", i)
-		}
-		*out = (*out)[:l+ret]
+		*out = json.EncodeInt64(*out, int64(i))
 	case thrift.I16:
 		i, err := p.ReadI16()
 		if err != nil {
 			return err
 		}
-		ret := native.I64toa((*byte)(rt.IndexByte(out, l)), int64(i))
-		if ret < 0 {
-			return fmt.Errorf("failed to convert int %v to string", i)
-		}
-		*out = (*out)[:l+ret]
+		*out = json.EncodeInt64(*out, int64(i))
 	case thrift.I32:
 		i, err := p.ReadI32()
 		if err != nil {
 			return err
 		}
-		ret := native.I64toa((*byte)(rt.IndexByte(out, l)), int64(i))
-		if ret < 0 {
-			return fmt.Errorf("failed to convert int %v to string", i)
-		}
-		*out = (*out)[:l+ret]
+		*out = json.EncodeInt64(*out, int64(i))
 	case thrift.I64:
 		i, err := p.ReadI64()
 		if err != nil {
 			return err
 		}
-		ret := native.I64toa((*byte)(rt.IndexByte(out, l)), int64(i))
-		if ret < 0 {
-			return fmt.Errorf("failed to convert int %v to string", i)
-		}
-		*out = (*out)[:l+ret]
+		*out = json.EncodeInt64(*out, int64(i))
 	case thrift.DOUBLE:
 		i, err := p.ReadDouble()
 		if err != nil {
 			return err
 		}
-		ret := native.F64toa((*byte)(rt.IndexByte(out, l)), i)
-		if ret <= 0 {
-			return meta.NewError(meta.ErrInvalidParam, "invalid float64", nil)
-		}
-		*out = (*out)[:l+ret]
+		*out = json.EncodeFloat64(*out, float64(i))
 	case thrift.STRING:
 		s, err := p.ReadString(false)
 		if err != nil {

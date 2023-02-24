@@ -1,5 +1,5 @@
 /*
- * Copyright 2022 CloudWeGo Authors.
+ * Copyright 2023 CloudWeGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -122,4 +122,8 @@ func PtrOffset(a unsafe.Pointer, b unsafe.Pointer) int {
 
 func GetBytePtr(b []byte) unsafe.Pointer {
 	return *(*unsafe.Pointer)(unsafe.Pointer(&b))
+}
+
+func Growslice(et *GoType, old GoSlice, cap int) GoSlice {
+	return growslice(et, old, cap)
 }

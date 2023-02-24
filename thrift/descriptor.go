@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 CloudWeGo Authors.
+ * Copyright 2023 CloudWeGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,11 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/cloudwego/dynamicgo/http"
+)
+
+const (
+	VERSION_MASK = 0xffff0000
+	VERSION_1    = 0x80010000
 )
 
 // Type constants in the Thrift protocol

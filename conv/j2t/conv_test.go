@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 CloudWeGo Authors.
+ * Copyright 2023 CloudWeGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,10 +37,10 @@ import (
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
+	sjson "github.com/cloudwego/dynamicgo/internal/json"
 	"github.com/cloudwego/dynamicgo/internal/native"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
-	sjson "github.com/cloudwego/dynamicgo/json"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/example3"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/null"

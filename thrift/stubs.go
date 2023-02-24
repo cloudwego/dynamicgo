@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 CloudWeGo Authors.
+ * Copyright 2023 CloudWeGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,3 @@ const (
 //go:linkname memmove runtime.memmove
 //goland:noinspection GoUnusedParameter
 func memmove(to unsafe.Pointer, from unsafe.Pointer, n uintptr)
-
-//go:linkname growslice runtime.growslice
-//goland:noinspection GoUnusedParameter
-func growslice(et *rt.GoType, old rt.GoSlice, cap int) rt.GoSlice

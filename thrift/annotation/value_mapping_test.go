@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 CloudWeGo Authors.
+ * Copyright 2023 CloudWeGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ func (self ValueMappingAnnotation2) Make(ctx context.Context, values []parser.An
 	case APIJSConv2:
 		return apiJSConv2{}, nil
 	default:
-		return nil, ErrNotImplemented
+		return nil, errNotImplemented
 	}
 }
 

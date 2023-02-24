@@ -113,7 +113,7 @@ type PathNode struct {
 
 ### 代码
 
-dynamicgo/testdata/baseline_tg_test.go
+[dynamicgo/testdata/baseline_tg_test.go](testdata/baseline_tg_test.go)
 
 ### 用例
 
@@ -144,8 +144,8 @@ dynamicgo/testdata/baseline_tg_test.go
 
 ### 代码
 
-- JSON2Thrift: dynamicgo/testdata/baseline_j2t_test.go
-- ThriftToJSON: dynamicgo/testdata/baseline_t2j_test.go
+- JSON2Thrift: [dynamicgo/testdata/baseline_j2t_test.go](testdata/baseline_j2t_test.go)
+- ThriftToJSON: [dynamicgo/testdata/baseline_t2j_test.go](testdata/baseline_t2j_test.go)
 
 ### 用例
 
@@ -171,7 +171,7 @@ dynamicgo/testdata/baseline_tg_test.go
 
 ### 代码
 
-dynamicgo/testdata/baseline_tg_test.go
+[dynamicgo/testdata/baseline_tg_test.go#BenchmarkThriftGetAll](testdata/baseline_tg_test.go#L823)
 
 ### 用例
 

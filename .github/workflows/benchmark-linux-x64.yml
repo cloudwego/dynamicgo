@@ -1,20 +1,20 @@
 name: Benchmark Linux-X64
 
-on: pull_request
+on: push
 
 jobs:
   build:
+    strategy:
+      matrix:
+        go-version: [1.18.x]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
 
-      - name: Check Branch
-        run: ./check_branch_name.sh ${{ github.head_ref }}
-
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: 1.18
+          go-version: ${{ matrix.go-version }}
 
       - uses: actions/cache@v2
         with:
@@ -22,6 +22,15 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+      
+      - name: Testdata
+        run: |
+          go get github.com/json-iterator/go@latest
+          go get github.com/cloudwego/kitex/pkg/remote/codec/thrift@latest
+          go get github.com/cloudwego/kitex/pkg/generic@latest
+          go get github.com/cloudwego/frugal@latest
+          go test -gcflags=all=-d=checkptr=0 -race github.com/cloudwego/dynamicgo/testdata
 
       - name: Benchmark sonic
-        run: go test -benchmem -run=^$ -bench . github.com/cloudwego/dynamicgo/testdata
+        run: |
+          go test -benchmem -run=^$ -bench . github.com/cloudwego/dynamicgo/testdata

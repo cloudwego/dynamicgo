@@ -1,5 +1,5 @@
 /**
- * Copyright 2022 CloudWeGo Authors.
+ * Copyright 2023 CloudWeGo Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ import (
 	"unsafe"
 
 	"github.com/cloudwego/dynamicgo/http"
+	"github.com/cloudwego/dynamicgo/internal/json"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
-	"github.com/cloudwego/dynamicgo/json"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
 )

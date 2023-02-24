@@ -138,7 +138,7 @@ func (h HTTPConv) DoInto(ctx context.Context, req http.RequestGetter, buf *[]byt
 ```go
 {
 
-	svc, err := thrift.NewDescritorFromPath(exampleIDLPath)
+	svc, err := thrift.NewDescritorFromPath(context.Background(), exampleIDLPath)
 	if err != nil {
 		panic(err)
 	}
