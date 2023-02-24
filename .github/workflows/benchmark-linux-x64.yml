@@ -25,7 +25,8 @@ jobs:
 
       - name: Benchmark sonic
         run: |
-          go get github.com/json-iterator/go
-          go get github.com/cloudwego/kitex/pkg/remote/codec/thrift
-          go get github.com/cloudwego/kitex/pkg/generic
+          go get github.com/json-iterator/go@latest
+          go get github.com/cloudwego/kitex/pkg/remote/codec/thrift@latest
+          go get github.com/cloudwego/kitex/pkg/generic@latest
+          go get github.com/cloudwego/frugal@latest
           go test -benchmem -run=^$ -bench . github.com/cloudwego/dynamicgo/testdata
