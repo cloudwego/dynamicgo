@@ -19,12 +19,9 @@ package j2t
 import (
 	"context"
 	"fmt"
-	"runtime"
-	"unsafe"
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
-	"github.com/cloudwego/dynamicgo/internal/native"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
@@ -74,28 +71,6 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 	}
 
 	return self.doNative(ctx, src, desc, buf, req, true)
-}
-
-func (self *BinaryConv) doNative(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool) (err error) {
-	jp := rt.Mem2Str(src)
-	fsm := types.NewJ2TStateMachine()
-	fsm.Init(0, unsafe.Pointer(desc))
-
-exec:
-	ret := native.J2T_FSM(fsm, buf, &jp, self.flags)
-	if ret != 0 {
-		cont, e := self.handleError(ctx, fsm, buf, src, req, ret, top)
-		if cont && e == nil {
-			goto exec
-		}
-		err = e
-		goto ret
-	}
-
-ret:
-	types.FreeJ2TStateMachine(fsm)
-	runtime.KeepAlive(desc)
-	return
 }
 
 func isJsonString(val string) bool {

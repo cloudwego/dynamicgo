@@ -23,6 +23,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+      - name: Build
+        run: |
+          cd ./conv/j2t
+          GOARCH=arm64 go test -run ^TestConvJSON2Thrift$ .
+
       - name: Unit Test
         run: |
           GOARCH=arm64 go test -race -gcflags=all=-d=checkptr=0 github.com/cloudwego/dynamicgo/thrift

@@ -136,3 +136,7 @@ func (err Error) Error() string {
 func (err Error) Unwrap() error {
 	return err.Err
 }
+
+var (
+	ErrorNotSupport = NewError(ErrNotImplemented, "Not support environment", nil)
+)

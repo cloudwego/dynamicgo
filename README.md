@@ -33,3 +33,7 @@ Convert JSON value or JSON-body HTTP request into thrift message.
 #### conv/t2j
 Convert thrift message to JSON value or JSON-body HTTP response.
 [DOC](conv/t2j/README.md)
+
+## Requirements
+- Go 1.16~1.20
+- Amd64 arch CPU
