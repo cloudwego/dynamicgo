@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/apache/thrift v0.13.0
 	github.com/bytedance/gopkg v0.0.0-20230224073017-0b6876860a2f // indirect
-	github.com/bytedance/sonic v1.8.2
+	github.com/bytedance/sonic v1.8.3-0.20230228111319-6d60889e3b65
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311
 	github.com/choleraehyq/pid v0.0.16 // indirect
 	github.com/cloudwego/kitex v0.4.4
