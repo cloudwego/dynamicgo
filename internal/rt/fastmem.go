@@ -105,7 +105,6 @@ func GuardSlice(buf *[]byte, n int) {
 		copy(tmp, *buf)
 		*buf = tmp
 	}
-	return
 }
 
 func AddPtr(a unsafe.Pointer, b uintptr) unsafe.Pointer {
