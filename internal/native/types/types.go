@@ -203,6 +203,7 @@ type J2TState struct {
 	Extra    J2TExtra
 }
 
+//go:nocheckptr
 func (self *J2TState) TdPointer() unsafe.Pointer {
 	return unsafe.Pointer(self.TypeDesc)
 }

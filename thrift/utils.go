@@ -324,6 +324,7 @@ func (b RequiresBitmap) CheckRequires(desc *StructDescriptor, writeDefault bool,
 	return nil
 }
 
+//go:nocheckptr
 // CheckRequires scan every bit of the bitmap. When a bit is marked, it will:
 //   - if the corresponding field is required-requireness and writeRquired is true, it will call handler to handle this field, otherwise report error
 //   - if the corresponding is default-requireness and writeDefault is true, it will call handler to handle this field

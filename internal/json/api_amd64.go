@@ -43,6 +43,7 @@ func quote(buf *[]byte, val string) {
 	*buf = append(*buf, '"')
 }
 
+//go:nocheckptr
 // NoQuote only escape inner '\' and '"' of one string, but it does add quotes besides string.
 func NoQuote(buf *[]byte, val string) {
 	sp := rt.IndexChar(val, 0)
