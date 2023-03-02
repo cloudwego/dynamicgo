@@ -70,7 +70,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 	}
 
 	if desc.Type() != thrift.STRUCT {
-		return wrapError(meta.ErrInvalidParam, "root descriptor must be STRUCT!", nil)
+		return self.doRecurse(ctx, desc, out, resp, &p)
 	}
 
 	_, e := p.ReadStructBegin()
@@ -144,7 +144,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 				return unwrapError(fmt.Sprintf("mapping field %d of STRUCT %s failed", field.ID(), desc.Type()), err)
 			}
 		} else {
-			err = self.doRecurse(ctx, &p, field.Type(), out, resp)
+			err = self.doRecurse(ctx, field.Type(), out, resp, &p)
 			if err != nil {
 				return unwrapError(fmt.Sprintf("converting field %d of STRUCT %s failed", field.ID(), desc.Type()), err)
 			}
@@ -160,7 +160,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 	return err
 }
 
-func (self *BinaryConv) doRecurse(ctx context.Context, p *thrift.BinaryProtocol, desc *thrift.TypeDescriptor, out *[]byte, resp http.ResponseSetter) (err error) {
+func (self *BinaryConv) doRecurse(ctx context.Context, desc *thrift.TypeDescriptor, out *[]byte, resp http.ResponseSetter, p *thrift.BinaryProtocol) (err error) {
 	tt := desc.Type()
 	switch tt {
 	case thrift.BOOL:
@@ -287,7 +287,7 @@ func (self *BinaryConv) doRecurse(ctx context.Context, p *thrift.BinaryProtocol,
 					return unwrapError(fmt.Sprintf("mapping field %d of STRUCT %s failed", field.ID(), desc.Type()), err)
 				}
 			} else {
-				err = self.doRecurse(ctx, p, field.Type(), out, nil)
+				err = self.doRecurse(ctx, field.Type(), out, nil, p)
 				if err != nil {
 					return unwrapError(fmt.Sprintf("converting field %d of STRUCT %s failed", field.ID(), desc.Type()), err)
 				}
@@ -320,7 +320,7 @@ func (self *BinaryConv) doRecurse(ctx context.Context, p *thrift.BinaryProtocol,
 				return wrapError(meta.ErrConvert, "", err)
 			}
 			*out = json.EncodeObjectColon(*out)
-			err = self.doRecurse(ctx, p, desc.Elem(), out, nil)
+			err = self.doRecurse(ctx, desc.Elem(), out, nil, p)
 			if err != nil {
 				return unwrapError(fmt.Sprintf("converting %dth element of MAP failed", i), err)
 			}
@@ -343,7 +343,7 @@ func (self *BinaryConv) doRecurse(ctx context.Context, p *thrift.BinaryProtocol,
 			if i != 0 {
 				*out = json.EncodeArrayComma(*out)
 			}
-			err = self.doRecurse(ctx, p, desc.Elem(), out, nil)
+			err = self.doRecurse(ctx, desc.Elem(), out, nil, p)
 			if err != nil {
 				return unwrapError(fmt.Sprintf("converting %dth element of SET failed", i), err)
 			}
@@ -501,7 +501,7 @@ func (self *BinaryConv) writeHttpValue(ctx context.Context, resp http.ResponseSe
 	if ft := field.Type(); ft.Type().IsComplex() {
 		// for nested type, convert it to a new JSON string
 		tmp := make([]byte, 0, conv.DefaulHttpValueBufferSizeForJSON)
-		err := self.doRecurse(ctx, p, ft, &tmp, resp)
+		err := self.doRecurse(ctx, ft, &tmp, resp, p)
 		if err != nil {
 			return false, unwrapError(fmt.Sprintf("mapping field %d failed, thrift pos:%d", field.ID(), p.Read), err)
 		}

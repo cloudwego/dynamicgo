@@ -24,6 +24,7 @@ import (
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
+	"github.com/cloudwego/dynamicgo/internal/json"
 	"github.com/cloudwego/dynamicgo/internal/native"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
@@ -71,6 +72,12 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 		// since there is no json data, we should add struct end into buf and return
 		*buf = append(*buf, byte(thrift.STOP))
 		return nil
+	}
+
+	// special case for unquoted json string
+	if desc.Type() == thrift.STRING && src[0] != '"' {
+		buf := make([]byte, 0, len(src)+2)
+		src = json.EncodeString(buf, rt.Mem2Str(src))
 	}
 
 	return self.doNative(ctx, src, desc, buf, req, true)

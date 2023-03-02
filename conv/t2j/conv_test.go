@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
+	"math"
 	"os"
 	"reflect"
 	"runtime"
@@ -627,5 +628,30 @@ func TestOptionalDefaultValue(t *testing.T) {
 		require.Equal(t, "1.2", resp.Response.Header.Get("c"))
 		require.Equal(t, "const string", resp.Response.Cookies()[0].Value)
 		require.Equal(t, `""`, resp.Response.Header.Get("f"))
+	})
+}
+
+
+func TestSimpleArgs(t *testing.T) {
+	cv := NewBinaryConv(conv.Options{})
+
+	t.Run("string", func(t *testing.T) {
+		desc := GetDescByName("String", false)
+		p := thrift.NewBinaryProtocolBuffer()
+		p.WriteString("hello")
+		in := p.Buf
+		out, err := cv.Do(context.Background(), desc, in)
+		require.NoError(t, err)
+		require.Equal(t, `"hello"`, string(out))
+	})
+
+	t.Run("int", func(t *testing.T) {
+		desc := GetDescByName("I64", false)
+		p := thrift.NewBinaryProtocolBuffer()
+		p.WriteI64(math.MaxInt64)
+		in := p.Buf
+		out, err := cv.Do(context.Background(), desc, in)
+		require.NoError(t, err)
+		require.Equal(t, strconv.Itoa(math.MaxInt64), string(out))
 	})
 }

@@ -206,4 +206,6 @@ service ExampleService {
     ExampleDefaultValue DefaultValueMethod(1: ExampleDefaultValue req),
     ExampleOptionalDefaultValue OptionalDefaultValueMethod(1: ExampleOptionalDefaultValue req),
     ExampleNoBodyStruct NoBodyStructMethod(1: ExampleNoBodyStruct req),
+    string String(1: string req),
+    i64 I64(1: i64 req),
 }
