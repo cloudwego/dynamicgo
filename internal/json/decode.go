@@ -40,6 +40,7 @@ func IsSpace(c byte) bool {
 	return (int(1<<c) & _blankCharsMask) != 0
 }
 
+//go:nocheckptr
 func SkipBlank(src string, pos int) int {
 	se := uintptr(rt.IndexChar(src, len(src)))
 	sp := uintptr(rt.IndexChar(src, pos))
@@ -128,6 +129,7 @@ func isDigit(c byte) bool {
 	return c >= '0' && c <= '9'
 }
 
+//go:nocheckptr
 func decodeInt64(src string, pos int) (ret int, v int64, err error) {
 	sp := uintptr(rt.IndexChar(src, pos))
 	ss := uintptr(sp)
@@ -177,6 +179,7 @@ func isNumberChars(c byte) bool {
 	return (c >= '0' && c <= '9') || c == '+' || c == '-' || c == 'e' || c == 'E' || c == '.'
 }
 
+//go:nocheckptr
 func decodeFloat64(src string, pos int) (ret int, v float64, err error) {
 	sp := uintptr(rt.IndexChar(src, pos))
 	ss := uintptr(sp)
@@ -271,6 +274,7 @@ func DecodeValue(src string, pos int) (ret int, v types.JsonState) {
 	}
 }
 
+//go:nocheckptr
 func skipNumber(src string, pos int) (ret int) {
 	sp := uintptr(rt.IndexChar(src, pos))
 	se := uintptr(rt.IndexChar(src, len(src)))
@@ -335,6 +339,7 @@ func skipNumber(src string, pos int) (ret int) {
 	return int(uintptr(sp) - uintptr((*rt.GoString)(unsafe.Pointer(&src)).Ptr))
 }
 
+//go:nocheckptr
 func skipString(src string, pos int) (ret int, ep int) {
 	if pos+1 >= len(src) {
 		return -int(types.ERR_EOF), -1
@@ -372,6 +377,7 @@ func skipString(src string, pos int) (ret int, ep int) {
 	return int(uintptr(sp) - uintptr((*rt.GoString)(unsafe.Pointer(&src)).Ptr)), ep
 }
 
+//go:nocheckptr
 func skipPair(src string, pos int, lchar byte, rchar byte) (ret int) {
 	if pos+1 >= len(src) {
 		return -int(types.ERR_EOF)
