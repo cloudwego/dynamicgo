@@ -1391,3 +1391,37 @@ func TestNoBodyStruct(t *testing.T) {
 	exp.NoBodyStruct.B = &B
 	require.Equal(t, exp, act)
 }
+
+func TestSimpleArgs(t *testing.T) {
+	cv := NewBinaryConv(conv.Options{})
+
+	t.Run("string", func(t *testing.T) {
+		desc := getExampleDescByName("String", true, thrift.Options{})
+		p := thrift.NewBinaryProtocolBuffer()
+		p.WriteString("hello")
+		exp := p.Buf
+		out, err := cv.Do(context.Background(), desc, []byte(`"hello"`))
+		require.NoError(t, err)
+		require.Equal(t, exp, out)
+	})
+
+	t.Run("no quoted string", func(t *testing.T) {
+		desc := getExampleDescByName("String", true, thrift.Options{})
+		p := thrift.NewBinaryProtocolBuffer()
+		p.WriteString(`hel\lo`)
+		exp := p.Buf
+		out, err := cv.Do(context.Background(), desc, []byte(`hel\lo`))
+		require.NoError(t, err)
+		require.Equal(t, exp, out)
+	})
+
+	t.Run("int", func(t *testing.T) {
+		desc :=  getExampleDescByName("I64", true, thrift.Options{})
+		p := thrift.NewBinaryProtocolBuffer()
+		p.WriteI64(math.MaxInt64)
+		exp := p.Buf
+		out, err := cv.Do(context.Background(), desc, []byte(strconv.Itoa(math.MaxInt64)))
+		require.NoError(t, err)
+		require.Equal(t, exp, out)
+	})
+}
