@@ -271,19 +271,19 @@ func tryGetValueFromHttp(req http.RequestGetter, key string) (string, bool) {
 	if req == nil {
 		return "", false
 	}
-	if v := req.Param(key); v != "" {
+	if v := req.GetParam(key); v != "" {
 		return v, true
 	}
-	if v := req.Query(key); v != "" {
+	if v := req.GetQuery(key); v != "" {
 		return v, true
 	}
-	if v := req.Header(key); v != "" {
+	if v := req.GetHeader(key); v != "" {
 		return v, true
 	}
-	if v := req.Cookie(key); v != "" {
+	if v := req.GetCookie(key); v != "" {
 		return v, true
 	}
-	if v := req.MapBody(key); v != "" {
+	if v := req.GetMapBody(key); v != "" {
 		return v, true
 	}
 	return "", false
