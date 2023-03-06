@@ -72,7 +72,7 @@ func (h HTTPConv) Do(ctx context.Context, req http.RequestGetter, opt conv.Optio
 	cv := NewBinaryConv(opt)
 	cv.opts.EnableHttpMapping = true
 	// dealing with http request
-	jbytes := req.Body()
+	jbytes := req.GetBody()
 	// manage buffer
 	buf := conv.NewBytes()
 	// do translation
@@ -100,7 +100,7 @@ func (h HTTPConv) DoInto(ctx context.Context, req http.RequestGetter, buf *[]byt
 	cv := NewBinaryConv(opt)
 	cv.opts.EnableHttpMapping = true
 	// dealing with http request
-	jbytes := req.Body()
+	jbytes := req.GetBody()
 	// write message header
 	*buf = append(*buf, h.top...)
 	// do translation

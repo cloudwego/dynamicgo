@@ -60,26 +60,26 @@ type Param struct {
 
 // RequestGetter is a interface for getting request parameters
 type RequestGetter interface {
-	// Method returns the http method.
-	Method() string
-	// Host returns the host.
-	Host() string
-	// Uri returns entire uri.
-	Uri() string
+	// GetMethod returns the http method.
+	GetMethod() string
+	// GetHost returns the host.
+	GetHost() string
+	// GetUri returns entire uri.
+	GetUri() string
 	// Header returns the value of the header with the given key.
-	Header(string) string
+	GetHeader(string) string
 	// Cookie returns the value of the cookie with the given key.
-	Cookie(string) string
+	GetCookie(string) string
 	// Query returns the value of the query with the given key.
-	Query(string) string
+	GetQuery(string) string
 	// Param returns the value of the url-path param with the given key.
-	Param(string) string
+	GetParam(string) string
 	// PostForm returns the value of the post-form body with the given key.
-	PostForm(string) string
+	GetPostForm(string) string
 	// MapBody returns the value of body with the given key.
-	MapBody(string) string
+	GetMapBody(string) string
 	// Body returns the raw body in bytes.
-	Body() []byte
+	GetBody() []byte
 }
 
 // Request is a implementation of RequestGetter.
@@ -181,12 +181,12 @@ func NewHTTPRequestFromStdReq(req *http.Request, params ...Param) (ret *HTTPRequ
 }
 
 // Header implements RequestGetter.Header.
-func (self HTTPRequest) Header(key string) string {
+func (self HTTPRequest) GetHeader(key string) string {
 	return self.Request.Header.Get(key)
 }
 
 // Cookie implements RequestGetter.Cookie.
-func (self HTTPRequest) Cookie(key string) string {
+func (self HTTPRequest) GetCookie(key string) string {
 	if c, err := self.Request.Cookie(key); err == nil {
 		return c.Value
 	}
@@ -194,12 +194,12 @@ func (self HTTPRequest) Cookie(key string) string {
 }
 
 // Query implements RequestGetter.Query.
-func (self HTTPRequest) Query(key string) string {
+func (self HTTPRequest) GetQuery(key string) string {
 	return self.Request.URL.Query().Get(key)
 }
 
 // Body implements RequestGetter.Body.
-func (self HTTPRequest) Body() []byte {
+func (self HTTPRequest) GetBody() []byte {
 	if self.rawBody != nil {
 		return self.rawBody
 	}
@@ -211,27 +211,27 @@ func (self HTTPRequest) Body() []byte {
 }
 
 // Method implements RequestGetter.Method.
-func (self HTTPRequest) Method() string {
+func (self HTTPRequest) GetMethod() string {
 	return self.Request.Method
 }
 
 // Path implements RequestGetter.Path.
-func (self HTTPRequest) Path() string {
+func (self HTTPRequest) GetPath() string {
 	return self.Request.URL.Path
 }
 
 // Host implements RequestGetter.Host.
-func (self HTTPRequest) Host() string {
+func (self HTTPRequest) GetHost() string {
 	return self.Request.URL.Host
 }
 
 // Param implements RequestGetter.Param.
-func (self HTTPRequest) Param(key string) string {
+func (self HTTPRequest) GetParam(key string) string {
 	return self.Params.ByName(key)
 }
 
 // MapBody implements RequestGetter.MapBody.
-func (self *HTTPRequest) MapBody(key string) string {
+func (self *HTTPRequest) GetMapBody(key string) string {
 	if self.BodyMap == nil && self.Request != nil {
 		v, err := NewHTTPRequestFromStdReq(self.Request)
 		if err != nil || v.BodyMap == nil {
@@ -272,12 +272,12 @@ func (self *HTTPRequest) MapBody(key string) string {
 }
 
 // PostForm implements RequestGetter.PostForm.
-func (self HTTPRequest) PostForm(key string) string {
+func (self HTTPRequest) GetPostForm(key string) string {
 	return self.Request.PostFormValue(key)
 }
 
 // Uri implements RequestGetter.Uri.
-func (self HTTPRequest) Uri() string {
+func (self HTTPRequest) GetUri() string {
 	return self.Request.URL.String()
 }
 

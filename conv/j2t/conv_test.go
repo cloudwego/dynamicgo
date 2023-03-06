@@ -367,7 +367,7 @@ func TestBodyFallbackToHttp(t *testing.T) {
 		edata := []byte(`{"Base":{"LogID":"c"},"Subfix":1,"Path":"b","InnerBase":{"Bool":true}}`)
 		exp := example3.NewExampleReq()
 		exp.InnerBase = sample.GetEmptyInnerBase3()
-		exp.RawUri = req.Uri()
+		exp.RawUri = req.GetUri()
 		err = json.Unmarshal(edata, exp)
 		require.Nil(t, err)
 		cv := NewBinaryConv(conv.Options{
@@ -388,7 +388,7 @@ func TestBodyFallbackToHttp(t *testing.T) {
 	t.Run("not write default", func(t *testing.T) {
 		edata := []byte(`{"Base":{"LogID":"c"},"Subfix":1,"Path":"b","InnerBase":{"Bool":true}}`)
 		exp := example3.NewExampleReq()
-		exp.RawUri = req.Uri()
+		exp.RawUri = req.GetUri()
 		err = json.Unmarshal(edata, exp)
 		require.Nil(t, err)
 		cv := NewBinaryConv(conv.Options{
@@ -750,10 +750,10 @@ func TestStateMachineOOM(t *testing.T) {
 		}
 		edata := []byte(`{"Base":{"LogID":"c"},"Subfix":1,"Path":"b","InnerBase":{"Bool":true}}`)
 		exp := example3.NewExampleReq()
-		exp.RawUri = req.Uri()
+		exp.RawUri = req.GetUri()
 		err = json.Unmarshal(edata, exp)
 		require.Nil(t, err)
-		exp.RawUri = req.Uri()
+		exp.RawUri = req.GetUri()
 		mock := MockConv{
 			sp:        1,
 			reqsCache: 1,

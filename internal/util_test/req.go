@@ -29,58 +29,58 @@ type Req struct {
 	UriStr    string
 }
 
-func (r Req) Header(k string) string {
+func (r Req) GetHeader(k string) string {
 	if r.HeaderMap == nil {
 		return ""
 	}
 	return r.HeaderMap[k]
 }
 
-func (r Req) Cookie(k string) string {
+func (r Req) GetCookie(k string) string {
 	if r.CookieMap == nil {
 		return ""
 	}
 	return r.CookieMap[k]
 }
 
-func (r Req) Query(k string) string {
+func (r Req) GetQuery(k string) string {
 	if r.QueryMap == nil {
 		return ""
 	}
 	return r.QueryMap[k]
 }
 
-func (r Req) Param(k string) string {
+func (r Req) GetParam(k string) string {
 	if r.ParamMap == nil {
 		return ""
 	}
 	return r.ParamMap[k]
 }
 
-func (r Req) Body() []byte {
+func (r Req) GetBody() []byte {
 	return r.BodyArr
 }
 
-func (r Req) PostForm(key string) string {
+func (r Req) GetPostForm(key string) string {
 	return ""
 }
 
-func (r Req) MapBody(key string) string {
+func (r Req) GetMapBody(key string) string {
 	return ""
 }
 
-func (r Req) Method() string {
+func (r Req) GetMethod() string {
 	return r.MethodStr
 }
 
-func (r Req) Path() string {
+func (r Req) GetPath() string {
 	return r.PathStr
 }
 
-func (r Req) Host() string {
+func (r Req) GetHost() string {
 	return r.HostStr
 }
 
-func (r Req) Uri() string {
+func (r Req) GetUri() string {
 	return r.UriStr
 }

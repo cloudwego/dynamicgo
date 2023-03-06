@@ -37,8 +37,8 @@ func TestJSONBody(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	require.Equal(t, `foo`, r.MapBody("name"))
-	require.Equal(t, "18", r.MapBody("age"))
+	require.Equal(t, `foo`, r.GetMapBody("name"))
+	require.Equal(t, "18", r.GetMapBody("age"))
 }
 
 func TestPostFormBody(t *testing.T) {
@@ -55,8 +55,8 @@ func TestPostFormBody(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	require.Equal(t, "{\"foo\":\"bar\"}", r.MapBody("name"))
+	require.Equal(t, "{\"foo\":\"bar\"}", r.GetMapBody("name"))
 	require.Equal(t, "{\"foo\":\"bar\"}", r.FormValue("name"))
-	require.Equal(t, "18", r.MapBody("age"))
+	require.Equal(t, "18", r.GetMapBody("age"))
 	require.Equal(t, "18", r.FormValue("age"))
 }

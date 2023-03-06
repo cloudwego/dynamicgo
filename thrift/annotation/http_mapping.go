@@ -109,7 +109,7 @@ type apiPostForm struct {
 }
 
 func (m apiPostForm) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
-	v := req.PostForm(m.value)
+	v := req.GetPostForm(m.value)
 	if v == "" {
 		return "", errNotFound
 	}
@@ -129,7 +129,7 @@ type apiQuery struct {
 }
 
 func (m apiQuery) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
-	v := req.Query(m.value)
+	v := req.GetQuery(m.value)
 	if v == "" {
 		return "", errNotFound
 	}
@@ -150,7 +150,7 @@ type apiPath struct {
 }
 
 func (m apiPath) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
-	v := req.Param(m.value)
+	v := req.GetParam(m.value)
 	if v == "" {
 		return "", errNotFound
 	}
@@ -171,7 +171,7 @@ type apiHeader struct {
 }
 
 func (m apiHeader) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
-	v := req.Header(m.value)
+	v := req.GetHeader(m.value)
 	if v == "" {
 		return "", errNotFound
 	}
@@ -192,7 +192,7 @@ type apiCookie struct {
 }
 
 func (m apiCookie) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
-	v := req.Cookie(m.value)
+	v := req.GetCookie(m.value)
 	if v == "" {
 		return "", errNotFound
 	}
@@ -213,7 +213,7 @@ type apiBody struct {
 }
 
 func (m apiBody) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
-	v := req.MapBody(m.value)
+	v := req.GetMapBody(m.value)
 	if v == "" {
 		return "", errNotFound
 	}
@@ -269,7 +269,7 @@ type apiRawBody struct{}
 
 func (apiRawBody) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
 	// NOTICE: pass unsafe buffer to conv.DoNative may cause panic
-	v := string(req.Body())
+	v := string(req.GetBody())
 	if v == "" {
 		return "", errNotFound
 	}
@@ -287,7 +287,7 @@ func (apiRawBody) Encoding() meta.Encoding {
 type apiRawUri struct{}
 
 func (m apiRawUri) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
-	v := req.Uri()
+	v := req.GetUri()
 	if v == "" {
 		return "", errNotFound
 	}
