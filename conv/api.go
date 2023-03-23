@@ -56,8 +56,6 @@ type Options struct {
 	EnableValueMapping bool
 	// EnableHttpMapping indicates if http mapping (api.query|api.header...) should be enabled
 	EnableHttpMapping bool
-	// HttpMappingAsExtra indicates if continuing convert the same field after http mapping
-	HttpMappingAsExtra bool
 	// EnableThriftBase indicates if thrift/base should be recoginized and mapping to/from context
 	EnableThriftBase bool
 	// UseNativeSkip indicates if use thrift.SkipNative() or thrift.SkipGo()
@@ -78,6 +76,10 @@ type Options struct {
 	// or root-level fields should be seeking on http-values when reading failed from current layer of json.
 	// this option is only used in j2t now.
 	TracebackRequredOrRootFields bool
+	// WriteHttpValueFallback indicates if continue writing the field into json after mapping to http response failed
+	WriteHttpValueFallback bool
+	// ReadHttpValueFallback indicates if continue reading the field from json after mapping from http request failed
+	ReadHttpValueFallback bool
 	// NoCopyString indicates if string should be copied or just referenced (if possible)
 	NoCopyString bool
 }

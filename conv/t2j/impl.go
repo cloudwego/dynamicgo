@@ -122,8 +122,9 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 			if err != nil {
 				return unwrapError(fmt.Sprintf("mapping field %d of STRUCT %s failed", field.ID(), desc.Name()), err)
 			}
-			// NOTICE: if no mapping success, we ignore option HttpMappingAsExtra and continue to write to json body
-			if !self.opts.HttpMappingAsExtra && ok {
+			// NOTICE: if option HttpMappingAsExtra is false and http-mapping failed,
+			// continue to write to json body
+			if !self.opts.WriteHttpValueFallback || ok {
 				continue
 			}
 		}
@@ -262,8 +263,9 @@ func (self *BinaryConv) doRecurse(ctx context.Context, desc *thrift.TypeDescript
 				if err != nil {
 					return unwrapError(fmt.Sprintf("mapping field %d of STRUCT %s failed", field.ID(), desc.Name()), err)
 				}
-				// NOTICE: if no mapping success, we ignore option HttpMappingAsExtra and continue to write to json body
-				if !self.opts.HttpMappingAsExtra && ok {
+				// NOTICE: if option HttpMappingAsExtra is false and http-mapping failed,
+				// continue to write to json body
+				if !self.opts.WriteHttpValueFallback || ok {
 					continue
 				}
 			}
