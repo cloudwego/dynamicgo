@@ -111,7 +111,7 @@ func TestHTTPConv_Do(t *testing.T) {
 			gotTbytes := make([]byte, 0, 1)
 			err := convIns.DoInto(context.Background(), tt.req, &gotTbytes, conv.Options{
 				WriteRequireField:            true,
-				TracebackRequredOrRootFields: true,
+				ReadHttpValueFallback:        true,
 				EnableHttpMapping:            true,
 			})
 			spew.Dump(gotTbytes)

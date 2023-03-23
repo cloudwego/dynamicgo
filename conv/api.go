@@ -72,15 +72,15 @@ type Options struct {
 	ByteAsUint8 bool
 	// WriteOptionalField indicates if optional-requireness fields should be written when not given
 	WriteOptionalField bool
+	// ReadHttpValueFallback indicates if http-annotated fields should fallback to http body after reading from non-body parts (header,cookie...) failed
+	ReadHttpValueFallback bool
+	// WriteHttpValueFallback indicates if http-annotated fields should fallback to http body after writing to non-body parts (header,cookie...) failed
+	WriteHttpValueFallback bool
 	// TracebackRequredOrRootFields indicates if required-requireness
 	// or root-level fields should be seeking on http-values when reading failed from current layer of json.
 	// this option is only used in j2t now.
 	TracebackRequredOrRootFields bool
-	// WriteHttpValueFallback indicates if continue writing the field into json after mapping to http response failed
-	WriteHttpValueFallback bool
-	// ReadHttpValueFallback indicates if continue reading the field from json after mapping from http request failed
-	ReadHttpValueFallback bool
-	// NoCopyString indicates if string should be copied or just referenced (if possible)
+	// NoCopyString indicates if string-kind http values should be copied or just referenced (if possible)
 	NoCopyString bool
 }
 

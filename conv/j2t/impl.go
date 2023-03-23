@@ -57,7 +57,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 			// check if any required field exists, if have, traceback on http
 			// since this case it always for top-level fields,
 			// we should only check opts.BackTraceRequireOrTopField to decide whether to traceback
-			err := reqs.HandleRequires(st, self.opts.TracebackRequredOrRootFields, self.opts.TracebackRequredOrRootFields, self.opts.TracebackRequredOrRootFields, func(f *thrift.FieldDescriptor) error {
+			err := reqs.HandleRequires(st, self.opts.ReadHttpValueFallback, self.opts.ReadHttpValueFallback, self.opts.ReadHttpValueFallback, func(f *thrift.FieldDescriptor) error {
 				val, _ := tryGetValueFromHttp(req, f.Alias())
 				if err := self.writeStringValue(ctx, buf, f, val, meta.EncodingJSON, req); err != nil {
 					return err
@@ -209,7 +209,7 @@ func (self *BinaryConv) writeHttpRequestToThrift(ctx context.Context, req http.R
 			} else {
 				// NOTICE: if no value found, tracebak on current json layeer to find value
 				// it must be a top level field or required field
-				if self.opts.TracebackRequredOrRootFields && (top || f.Required() == thrift.RequiredRequireness) {
+				if self.opts.ReadHttpValueFallback {
 					reqs.Set(f.ID(), thrift.RequiredRequireness)
 					continue
 				}
