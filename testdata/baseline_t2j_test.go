@@ -398,6 +398,7 @@ func BenchmarkThrift2HTTP_DynamicGo(t *testing.B) {
 
 		opts := conv.Options{}
 		opts.EnableValueMapping = false
+		opts.OmitHttpMappingErrors = true
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPResponse, http.NewHTTPResponse())
 		cv := t2j.NewBinaryConv(opts)
@@ -428,6 +429,8 @@ func BenchmarkThrift2HTTP_DynamicGo(t *testing.B) {
 		opts := conv.Options{}
 		opts.EnableHttpMapping = true
 		opts.EnableValueMapping = false
+		opts.OmitHttpMappingErrors = true
+		opts.NoCopyString = true
 
 		ctx := context.Background()
 		resp := http.NewHTTPResponse()
@@ -459,6 +462,8 @@ func BenchmarkThrift2HTTP_DynamicGo(t *testing.B) {
 		opts := conv.Options{}
 		opts.EnableHttpMapping = true
 		opts.EnableValueMapping = true
+		opts.OmitHttpMappingErrors = true
+		opts.NoCopyString = true
 
 		ctx := context.Background()
 		resp := http.NewHTTPResponse()

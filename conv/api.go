@@ -48,30 +48,32 @@ var (
 )
 
 type Options struct {
-	// DisallowUnknownField indicates if unknown fields should be skipped
-	DisallowUnknownField bool
-	// WriteDefaultField indicates if default-requireness fields should be written if
-	WriteDefaultField bool
+	
 	// EnableValueMapping indicates if value mapping (api.js_conv...) should be enabled
 	EnableValueMapping bool
 	// EnableHttpMapping indicates if http mapping (api.query|api.header...) should be enabled
 	EnableHttpMapping bool
 	// EnableThriftBase indicates if thrift/base should be recoginized and mapping to/from context
 	EnableThriftBase bool
-	// UseNativeSkip indicates if use thrift.SkipNative() or thrift.SkipGo()
-	UseNativeSkip bool
+	
 	// Int64AsString indicates if string value cane be read as **Int8/Int16/Int32/Int64/Float64**,
 	// or in response a **Int64** value can be written as string
 	String2Int64 bool
-	// WriteRequireField indicates if required-requireness fields should be written empty value if
-	// not found
-	WriteRequireField bool
 	// NoBase64Binary indicates if base64 string shoud be Encode/Decode as []byte
 	NoBase64Binary bool
 	// ByteAsUint8 indicates if byte should be conv as uint8 (default is int8), this only works for t2j now
 	ByteAsUint8 bool
+
 	// WriteOptionalField indicates if optional-requireness fields should be written when not given
 	WriteOptionalField bool
+	// WriteDefaultField indicates if default-requireness fields should be written if
+	WriteDefaultField bool
+	// WriteRequireField indicates if required-requireness fields should be written empty value if
+	// not found
+	WriteRequireField bool
+	// DisallowUnknownField indicates if unknown fields should be skipped
+	DisallowUnknownField bool
+	
 	// ReadHttpValueFallback indicates if http-annotated fields should fallback to http body after reading from non-body parts (header,cookie...) failed
 	ReadHttpValueFallback bool
 	// WriteHttpValueFallback indicates if http-annotated fields should fallback to http body after writing to non-body parts (header,cookie...) failed
@@ -80,10 +82,15 @@ type Options struct {
 	// or root-level fields should be seeking on http-values when reading failed from current layer of json.
 	// this option is only used in j2t now.
 	TracebackRequredOrRootFields bool
+	// OmitHttpMappingErrors indicates to omit http-mapping failing errors. 
+	// If there are more-than-one HTTP annotations on the field, dynamicgo will try to mapping next annotation source (from left to right) until succeed.
+	OmitHttpMappingErrors bool
+	
 	// NoCopyString indicates if string-kind http values should be copied or just referenced (if possible)
 	NoCopyString bool
-	// OmitHttpMappingErrors indicates if dynamicgo should not return error when any http-mapping failed
-	OmitHttpMappingErrors bool
+	// UseNativeSkip indicates if use thrift.SkipNative() or thrift.SkipGo()
+	UseNativeSkip bool
+	
 }
 
 var bufPool = sync.Pool{
