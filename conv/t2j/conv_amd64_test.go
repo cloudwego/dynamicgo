@@ -37,6 +37,7 @@ func TestConvThrift2HTTP(t *testing.T) {
 		// MapRecurseDepth:    conv.DefaultMaxDepth,
 		EnableValueMapping: true,
 		EnableHttpMapping:  true,
+		OmitHttpMappingErrors: true,
 	})
 	in := getExample3Data()
 	ctx := context.Background()

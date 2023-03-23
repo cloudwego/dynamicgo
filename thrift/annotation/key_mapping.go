@@ -59,7 +59,7 @@ func (self keyMappingAnnotation) Make(ctx context.Context, values []parser.Annot
 			case APIKey:
 				return &apiKey{v.Values[0]}, nil
 			default:
-				return nil, errNotImplemented
+				return nil, errNotImplemented("keyMappingAnnotation must have APIKey type")
 			}
 		}
 	}

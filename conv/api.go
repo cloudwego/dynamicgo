@@ -82,6 +82,8 @@ type Options struct {
 	TracebackRequredOrRootFields bool
 	// NoCopyString indicates if string-kind http values should be copied or just referenced (if possible)
 	NoCopyString bool
+	// OmitHttpMappingErrors indicates if dynamicgo should not return error when any http-mapping failed
+	OmitHttpMappingErrors bool
 }
 
 var bufPool = sync.Pool{

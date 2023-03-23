@@ -120,7 +120,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 		if resp != nil && self.opts.EnableHttpMapping && field.HTTPMappings() != nil {
 			ok, err := self.writeHttpValue(ctx, resp, &p, field)
 			if err != nil {
-				return unwrapError(fmt.Sprintf("mapping field %d of STRUCT %s failed", field.ID(), desc.Name()), err)
+				return unwrapError(fmt.Sprintf("mapping field %s of STRUCT %s failed", field.Name(), desc.Name()), err)
 			}
 			// NOTICE: if option HttpMappingAsExtra is false and http-mapping failed,
 			// continue to write to json body
@@ -142,12 +142,12 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 		if self.opts.EnableValueMapping && field.ValueMapping() != nil {
 			err = field.ValueMapping().Read(ctx, &p, field, out)
 			if err != nil {
-				return unwrapError(fmt.Sprintf("mapping field %d of STRUCT %s failed", field.ID(), desc.Type()), err)
+				return unwrapError(fmt.Sprintf("mapping field %s of STRUCT %s failed", field.Name(), desc.Type()), err)
 			}
 		} else {
 			err = self.doRecurse(ctx, field.Type(), out, resp, &p)
 			if err != nil {
-				return unwrapError(fmt.Sprintf("converting field %d of STRUCT %s failed", field.ID(), desc.Type()), err)
+				return unwrapError(fmt.Sprintf("converting field %s of STRUCT %s failed", field.Name(), desc.Type()), err)
 			}
 		}
 	}
@@ -261,7 +261,7 @@ func (self *BinaryConv) doRecurse(ctx context.Context, desc *thrift.TypeDescript
 			if resp != nil && self.opts.EnableHttpMapping && field.HTTPMappings() != nil {
 				ok, err := self.writeHttpValue(ctx, resp, p, field)
 				if err != nil {
-					return unwrapError(fmt.Sprintf("mapping field %d of STRUCT %s failed", field.ID(), desc.Name()), err)
+					return unwrapError(fmt.Sprintf("mapping field %s of STRUCT %s failed", field.Name(), desc.Name()), err)
 				}
 				// NOTICE: if option HttpMappingAsExtra is false and http-mapping failed,
 				// continue to write to json body
@@ -286,12 +286,12 @@ func (self *BinaryConv) doRecurse(ctx context.Context, desc *thrift.TypeDescript
 
 			if self.opts.EnableValueMapping && field.ValueMapping() != nil {
 				if err = field.ValueMapping().Read(ctx, p, field, out); err != nil {
-					return unwrapError(fmt.Sprintf("mapping field %d of STRUCT %s failed", field.ID(), desc.Type()), err)
+					return unwrapError(fmt.Sprintf("mapping field %s of STRUCT %s failed", field.Name(), desc.Type()), err)
 				}
 			} else {
 				err = self.doRecurse(ctx, field.Type(), out, nil, p)
 				if err != nil {
-					return unwrapError(fmt.Sprintf("converting field %d of STRUCT %s failed", field.ID(), desc.Type()), err)
+					return unwrapError(fmt.Sprintf("converting field %s of STRUCT %s failed", field.Name(), desc.Type()), err)
 				}
 			}
 		}
@@ -378,12 +378,16 @@ func (self *BinaryConv) handleUnsets(b *thrift.RequiresBitmap, desc *thrift.Stru
 					if e := hm.Response(ctx, resp, field, val); e == nil {
 						ok = true
 						break
+					} else if !self.opts.OmitHttpMappingErrors {
+						return e
 					}
 				} else if enc == meta.EncodingThriftBinary {
 					// no thrift data, pass empty string to http mapping
 					if e := hm.Response(ctx, resp, field, ""); e == nil {
 						ok = true
 						break
+					} else if !self.opts.OmitHttpMappingErrors {
+						return e
 					}
 				} else {
 					return wrapError(meta.ErrUnsupportedType, fmt.Sprintf("unknown http mapping encoding %d", enc), nil)
@@ -505,7 +509,7 @@ func (self *BinaryConv) writeHttpValue(ctx context.Context, resp http.ResponseSe
 		tmp := make([]byte, 0, conv.DefaulHttpValueBufferSizeForJSON)
 		err := self.doRecurse(ctx, ft, &tmp, resp, p)
 		if err != nil {
-			return false, unwrapError(fmt.Sprintf("mapping field %d failed, thrift pos:%d", field.ID(), p.Read), err)
+			return false, unwrapError(fmt.Sprintf("mapping field %s failed, thrift pos:%d", field.Name(), p.Read), err)
 		}
 		val = rt.Mem2Str(tmp)
 	} else if ft.Type() == thrift.STRING && !ft.IsBinary() {
@@ -530,6 +534,8 @@ func (self *BinaryConv) writeHttpValue(ctx context.Context, resp http.ResponseSe
 			if e := hm.Response(ctx, resp, field, val); e == nil {
 				ok = true
 				break
+			} else if !self.opts.OmitHttpMappingErrors {
+				return false, e
 			}
 		} else if enc == meta.EncodingThriftBinary {
 			// raw encoding, check if raw value is set
@@ -544,6 +550,8 @@ func (self *BinaryConv) writeHttpValue(ctx context.Context, resp http.ResponseSe
 			if e := hm.Response(ctx, resp, field, rawVal); e == nil {
 				ok = true
 				break
+			} else if !self.opts.OmitHttpMappingErrors {
+				return false, e
 			}
 		} else {
 			return false, wrapError(meta.ErrUnsupportedType, fmt.Sprintf("unsupported http mapping encoding %d", enc), nil)

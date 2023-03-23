@@ -164,6 +164,7 @@ func TestThrift2HTTP_Raw(t *testing.T) {
 		opts := conv.Options{}
 		opts.EnableHttpMapping = true
 		opts.WriteHttpValueFallback = true
+		opts.OmitHttpMappingErrors = true
 
 		ctx := context.Background()
 		resp := http.NewHTTPResponse()

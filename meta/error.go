@@ -18,6 +18,7 @@ package meta
 
 import (
 	"fmt"
+	"strings"
 )
 
 // CategoryBitOnErrorCode is used to shift category on error code
@@ -117,13 +118,11 @@ func NewError(code ErrCode, msg string, err error) error {
 // Message return current message if has,
 // otherwise return preceding error message
 func (err Error) Message() string {
-	if err.Msg != "" {
-		return err.Msg
-	} else if err.Err != nil {
-		return err.Error()
-	} else {
-		return ""
+	output := []string{err.Msg}
+	if err.Err != nil {
+		output = append(output, err.Err.Error())
 	}
+	return strings.Join(output, "\n")
 }
 
 // Error return error message,

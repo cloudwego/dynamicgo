@@ -78,7 +78,7 @@ func (self httpMappingAnnotation) Make(ctx context.Context, values []parser.Anno
 		return nil, errors.New("httpMappingAnnotation only accept single key and value")
 	}
 	value := values[0].Values[0]
-	switch self.typ.Type() {
+	switch t := self.typ.Type(); t {
 	case APIQuery:
 		return apiQuery{value: value}, nil
 	case APIPath:
@@ -100,7 +100,7 @@ func (self httpMappingAnnotation) Make(ctx context.Context, values []parser.Anno
 	case APINoBodyStruct:
 		return apiNoBodyStruct{}, nil
 	default:
-		return nil, errNotImplemented
+		return nil, errNotImplemented(fmt.Sprintf("unsupported type %d of http-mapping annotation", t))
 	}
 }
 
@@ -111,13 +111,13 @@ type apiPostForm struct {
 func (m apiPostForm) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
 	v := req.GetPostForm(m.value)
 	if v == "" {
-		return "", errNotFound
+		return "", errNotFound(m.value, "postform")
 	}
 	return v, nil
 }
 
 func (apiPostForm) Response(ctx context.Context, resp http.ResponseSetter, field *thrift.FieldDescriptor, val string) error {
-	return errNotImplemented
+	return errNotImplemented("apiPostForm not support http response!")
 }
 
 func (apiPostForm) Encoding() meta.Encoding {
@@ -131,13 +131,13 @@ type apiQuery struct {
 func (m apiQuery) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
 	v := req.GetQuery(m.value)
 	if v == "" {
-		return "", errNotFound
+		return "", errNotFound(m.value, "query")
 	}
 	return v, nil
 }
 
 func (apiQuery) Response(ctx context.Context, resp http.ResponseSetter, field *thrift.FieldDescriptor, val string) error {
-	return errNotImplemented
+	return errNotImplemented("apiQuery not support http response!")
 }
 
 func (apiQuery) Encoding() meta.Encoding {
@@ -152,13 +152,13 @@ type apiPath struct {
 func (m apiPath) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
 	v := req.GetParam(m.value)
 	if v == "" {
-		return "", errNotFound
+		return "", errNotFound(m.value, "url path")
 	}
 	return v, nil
 }
 
 func (apiPath) Response(ctx context.Context, resp http.ResponseSetter, field *thrift.FieldDescriptor, val string) error {
-	return errNotImplemented
+	return errNotImplemented("apiPath not support http response!")
 }
 
 func (apiPath) Encoding() meta.Encoding {
@@ -173,7 +173,7 @@ type apiHeader struct {
 func (m apiHeader) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
 	v := req.GetHeader(m.value)
 	if v == "" {
-		return "", errNotFound
+		return "", errNotFound(m.value, "request header")
 	}
 	return v, nil
 }
@@ -194,7 +194,7 @@ type apiCookie struct {
 func (m apiCookie) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
 	v := req.GetCookie(m.value)
 	if v == "" {
-		return "", errNotFound
+		return "", errNotFound(m.value, "request cookie")
 	}
 	return v, nil
 }
@@ -215,7 +215,7 @@ type apiBody struct {
 func (m apiBody) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
 	v := req.GetMapBody(m.value)
 	if v == "" {
-		return "", errNotFound
+		return "", errNotFound(m.value, "body")
 	}
 	return v, nil
 }
@@ -226,7 +226,7 @@ func (m apiBody) Response(ctx context.Context, resp http.ResponseSetter, field *
 	// 	return err
 	// }
 	// resp.Body[m.value] = val
-	return errNotImplemented
+	return errNotImplemented("apiBody not support http response!")
 }
 
 func (apiBody) Encoding() meta.Encoding {
@@ -236,7 +236,7 @@ func (apiBody) Encoding() meta.Encoding {
 type apiHTTPCode struct{}
 
 func (m apiHTTPCode) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
-	return "", errNotImplemented
+	return "", errNotImplemented("apiBody not support http request!")
 }
 
 func (m apiHTTPCode) Response(ctx context.Context, resp http.ResponseSetter, field *thrift.FieldDescriptor, val string) error {
@@ -268,12 +268,8 @@ func (apiNone) Encoding() meta.Encoding {
 type apiRawBody struct{}
 
 func (apiRawBody) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
-	// NOTICE: pass unsafe buffer to conv.DoNative may cause panic
-	v := string(req.GetBody())
-	if v == "" {
-		return "", errNotFound
-	}
-	return v, nil
+	// OPT: pass unsafe buffer to conv.DoNative may cause panic
+	return string(req.GetBody()), nil
 }
 
 func (apiRawBody) Response(ctx context.Context, resp http.ResponseSetter, field *thrift.FieldDescriptor, val string) error {
@@ -287,11 +283,7 @@ func (apiRawBody) Encoding() meta.Encoding {
 type apiRawUri struct{}
 
 func (m apiRawUri) Request(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor) (string, error) {
-	v := req.GetUri()
-	if v == "" {
-		return "", errNotFound
-	}
-	return v, nil
+	return req.GetUri(), nil
 }
 
 func (m apiRawUri) Response(ctx context.Context, resp http.ResponseSetter, field *thrift.FieldDescriptor, val string) error {
@@ -352,7 +344,7 @@ func (m apiNoBodyStruct) Request(ctx context.Context, req http.RequestGetter, fi
 }
 
 func (m apiNoBodyStruct) Response(ctx context.Context, resp http.ResponseSetter, field *thrift.FieldDescriptor, val string) error {
-	return errNotImplemented
+	return errNotImplemented("apiNoBodyStruct not support http Response!")
 }
 
 func (apiNoBodyStruct) Encoding() meta.Encoding {

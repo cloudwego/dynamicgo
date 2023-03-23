@@ -68,13 +68,13 @@ func (self valueMappingAnnotation) Make(ctx context.Context, values []parser.Ann
 	if len(values) != 1 {
 		return nil, fmt.Errorf("valueMappingAnnotation only support one value")
 	}
-	switch self.typ.Type() {
+	switch t := self.typ.Type(); t {
 	case JSConv:
 		return apiJSConv{}, nil
 	case BodyDynamic:
 		return agwBodyDynamic{}, nil
 	default:
-		return nil, errNotImplemented
+		return nil, errNotImplemented(fmt.Sprintf("unsupported type %v of valueMappingAnnotation", t))
 	}
 }
 
@@ -107,7 +107,7 @@ func (m agwBodyDynamic) Write(ctx context.Context, p *thrift.BinaryProtocol, fie
 type apiJSConv struct{}
 
 func (m apiJSConv) Write(ctx context.Context, p *thrift.BinaryProtocol, field *thrift.FieldDescriptor, in []byte) error {
-	return errNotImplemented
+	return errNotImplemented("apiJSConv not support writing")
 }
 
 func (m apiJSConv) Read(ctx context.Context, p *thrift.BinaryProtocol, field *thrift.FieldDescriptor, out *[]byte) error {

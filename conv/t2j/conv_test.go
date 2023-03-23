@@ -325,6 +325,7 @@ func TestHttpMappingFallback(t *testing.T) {
 		cv.SetOptions(conv.Options{
 			EnableHttpMapping:  true,
 			WriteHttpValueFallback: false,
+			OmitHttpMappingErrors: true,
 		})
 		ctx := context.Background()
 		resp := http.NewHTTPResponse()
@@ -347,6 +348,7 @@ func TestHttpMappingFallback(t *testing.T) {
 		cv.SetOptions(conv.Options{
 			EnableHttpMapping:  true,
 			WriteHttpValueFallback: true,
+			OmitHttpMappingErrors: true,
 		})
 		ctx := context.Background()
 		resp := http.NewHTTPResponse()
@@ -510,6 +512,7 @@ func TestJSONString(t *testing.T) {
 	cv := NewBinaryConv(conv.Options{
 		EnableHttpMapping: true,
 		WriteHttpValueFallback: true,
+		OmitHttpMappingErrors: true,
 	})
 	ctx := context.Background()
 	resp := http.NewHTTPResponse()
