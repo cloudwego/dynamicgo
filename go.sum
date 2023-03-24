@@ -71,6 +71,8 @@ github.com/bytedance/gopkg v0.0.0-20220531084716-665b4f21126f/go.mod h1:2ZlV9BaU
 github.com/bytedance/sonic v1.5.0/go.mod h1:ED5hyg4y6t3/9Ku1R6dU/4KyJ48DZ4jPhfY1O2AihPM=
 github.com/bytedance/sonic v1.8.3-0.20230228111319-6d60889e3b65 h1:3KInivjGZg0rFrZ2qAAnJk4HDeyw6RqM3vAKfQlZj+Y=
 github.com/bytedance/sonic v1.8.3-0.20230228111319-6d60889e3b65/go.mod h1:i736AoUSYt75HyZLoJW9ERYxcy6eaN6h4BZXU064P/U=
+github.com/bytedance/sonic v1.8.6-0.20230323091200-e2ce9c653eea h1:FooH4aknmz8F21F7t1204cOv7NgUl0Q4ZA7qpRrLhVQ=
+github.com/bytedance/sonic v1.8.6-0.20230323091200-e2ce9c653eea/go.mod h1:iG60EbhPuSzx/YfiIpQkPAgpZeKvbRwjldjmnlZnido=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/cespare/xxhash/v2 v2.1.1/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
@@ -79,6 +81,8 @@ github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 h1:qSGYFH7+jGhD
 github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311/go.mod h1:b583jCggY9gE99b6G5LEC39OIiVsWj+R97kbl5odCEk=
 github.com/chenzhuoyu/iasm v0.0.0-20220818063314-28c361dae733 h1:Hx6Jxqln+bHRrtjUdgrehhF3gtWVJ2S7bjO/YTNn8Fg=
 github.com/chenzhuoyu/iasm v0.0.0-20220818063314-28c361dae733/go.mod h1:wOQ0nsbeOLa2awv8bUYFW/EHXbjQMlZ10fAlXDB2sz8=
+github.com/chenzhuoyu/iasm v0.0.0-20220922113352-bfc57d23ee7f h1:Pq/tRaGsRmIZIxxfi0Tb7WFKB2/0q2fpFwflJzUs6hQ=
+github.com/chenzhuoyu/iasm v0.0.0-20220922113352-bfc57d23ee7f/go.mod h1:wOQ0nsbeOLa2awv8bUYFW/EHXbjQMlZ10fAlXDB2sz8=
 github.com/choleraehyq/pid v0.0.13/go.mod h1:uhzeFgxJZWQsZulelVQZwdASxQ9TIPZYL4TPkQMtL/U=
 github.com/choleraehyq/pid v0.0.15/go.mod h1:uhzeFgxJZWQsZulelVQZwdASxQ9TIPZYL4TPkQMtL/U=
 github.com/choleraehyq/pid v0.0.16 h1:1/714sMH9IBlE/aK6xM0acTagGKSzpiR0bDt7l0cG7o=

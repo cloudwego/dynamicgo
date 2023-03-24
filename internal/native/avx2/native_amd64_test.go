@@ -37,7 +37,7 @@ func TestNative_Value(t *testing.T) {
     var v types.JsonState
     s := `   -12345`
     p := (*rt.GoString)(unsafe.Pointer(&s))
-    x := __value(p.Ptr, p.Len, 0, &v, 0)
+    x := value(p.Ptr, p.Len, 0, &v, 0)
     assert.Equal(t, 9, x)
     assert.Equal(t, types.V_INTEGER, v.Vt)
     assert.Equal(t, int64(-12345), v.Iv)
@@ -49,7 +49,7 @@ func TestNative_Value_OutOfBound(t *testing.T) {
     mem := []byte{'"', '"'}
     s := rt.Mem2Str(mem[:1])
     p := (*rt.GoString)(unsafe.Pointer(&s))
-    x := __value(p.Ptr, p.Len, 0, &v, 0)
+    x := value(p.Ptr, p.Len, 0, &v, 0)
     assert.Equal(t, 1, x)
     assert.Equal(t, -int(types.ERR_EOF), int(v.Vt))
 }
@@ -59,7 +59,7 @@ func TestNative_Quote(t *testing.T) {
     d := make([]byte, 256)
     dp := (*rt.GoSlice)(unsafe.Pointer(&d))
     sp := (*rt.GoString)(unsafe.Pointer(&s))
-    rv := __quote(sp.Ptr, sp.Len, dp.Ptr, &dp.Len, 0)
+    rv := quote(sp.Ptr, sp.Len, dp.Ptr, &dp.Len, 0)
     if rv < 0 {
         require.NoError(t, types.ParsingError(-rv))
     }
@@ -73,7 +73,7 @@ func TestNative_QuoteNoMem(t *testing.T) {
     d := make([]byte, 10)
     dp := (*rt.GoSlice)(unsafe.Pointer(&d))
     sp := (*rt.GoString)(unsafe.Pointer(&s))
-    rv := __quote(sp.Ptr, sp.Len, dp.Ptr, &dp.Len, 0)
+    rv := quote(sp.Ptr, sp.Len, dp.Ptr, &dp.Len, 0)
     assert.Equal(t, -6, rv)
     assert.Equal(t, 5, len(d))
     assert.Equal(t, `hello`, string(d))
@@ -84,7 +84,7 @@ func TestNative_DoubleQuote(t *testing.T) {
     d := make([]byte, 256)
     dp := (*rt.GoSlice)(unsafe.Pointer(&d))
     sp := (*rt.GoString)(unsafe.Pointer(&s))
-    rv := __quote(sp.Ptr, sp.Len, dp.Ptr, &dp.Len, types.F_DOUBLE_UNQUOTE)
+    rv := quote(sp.Ptr, sp.Len, dp.Ptr, &dp.Len, types.F_DOUBLE_UNQUOTE)
     if rv < 0 {
         require.NoError(t, types.ParsingError(-rv))
     }
@@ -99,7 +99,7 @@ func TestNative_Unquote(t *testing.T) {
     ep := -1
     dp := (*rt.GoSlice)(unsafe.Pointer(&d))
     sp := (*rt.GoString)(unsafe.Pointer(&s))
-    rv := __unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, 0)
+    rv := unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, 0)
     if rv < 0 {
         require.NoError(t, types.ParsingError(-rv))
     }
@@ -114,7 +114,7 @@ func TestNative_UnquoteError(t *testing.T) {
     ep := -1
     dp := (*rt.GoSlice)(unsafe.Pointer(&d))
     sp := (*rt.GoString)(unsafe.Pointer(&s))
-    rv := __unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, 0)
+    rv := unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, 0)
     assert.Equal(t, -int(types.ERR_EOF), rv)
     assert.Equal(t, 5, ep)
     s = `asdf\gqwer`
@@ -122,7 +122,7 @@ func TestNative_UnquoteError(t *testing.T) {
     ep = -1
     dp = (*rt.GoSlice)(unsafe.Pointer(&d))
     sp = (*rt.GoString)(unsafe.Pointer(&s))
-    rv = __unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, 0)
+    rv = unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, 0)
     assert.Equal(t, -int(types.ERR_INVALID_ESCAPE), rv)
     assert.Equal(t, 5, ep)
     s = `asdf\u1gggqwer`
@@ -130,7 +130,7 @@ func TestNative_UnquoteError(t *testing.T) {
     ep = -1
     dp = (*rt.GoSlice)(unsafe.Pointer(&d))
     sp = (*rt.GoString)(unsafe.Pointer(&s))
-    rv = __unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, 0)
+    rv = unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, 0)
     assert.Equal(t, -int(types.ERR_INVALID_CHAR), rv)
     assert.Equal(t, 7, ep)
     s = `asdf\ud800qwer`
@@ -138,7 +138,7 @@ func TestNative_UnquoteError(t *testing.T) {
     ep = -1
     dp = (*rt.GoSlice)(unsafe.Pointer(&d))
     sp = (*rt.GoString)(unsafe.Pointer(&s))
-    rv = __unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, 0)
+    rv = unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, 0)
     assert.Equal(t, -int(types.ERR_INVALID_UNICODE), rv)
     assert.Equal(t, 6, ep)
     s = `asdf\\ud800qwer`
@@ -146,7 +146,7 @@ func TestNative_UnquoteError(t *testing.T) {
     ep = -1
     dp = (*rt.GoSlice)(unsafe.Pointer(&d))
     sp = (*rt.GoString)(unsafe.Pointer(&s))
-    rv = __unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, types.F_DOUBLE_UNQUOTE)
+    rv = unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, types.F_DOUBLE_UNQUOTE)
     assert.Equal(t, -int(types.ERR_INVALID_UNICODE), rv)
     assert.Equal(t, 7, ep)
     s = `asdf\ud800\ud800qwer`
@@ -154,7 +154,7 @@ func TestNative_UnquoteError(t *testing.T) {
     ep = -1
     dp = (*rt.GoSlice)(unsafe.Pointer(&d))
     sp = (*rt.GoString)(unsafe.Pointer(&s))
-    rv = __unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, 0)
+    rv = unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, 0)
     assert.Equal(t, -int(types.ERR_INVALID_UNICODE), rv)
     assert.Equal(t, 12, ep)
     s = `asdf\\ud800\\ud800qwer`
@@ -162,7 +162,7 @@ func TestNative_UnquoteError(t *testing.T) {
     ep = -1
     dp = (*rt.GoSlice)(unsafe.Pointer(&d))
     sp = (*rt.GoString)(unsafe.Pointer(&s))
-    rv = __unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, types.F_DOUBLE_UNQUOTE)
+    rv = unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, types.F_DOUBLE_UNQUOTE)
     assert.Equal(t, -int(types.ERR_INVALID_UNICODE), rv)
     assert.Equal(t, 14, ep)
 }
@@ -173,7 +173,7 @@ func TestNative_DoubleUnquote(t *testing.T) {
     ep := -1
     dp := (*rt.GoSlice)(unsafe.Pointer(&d))
     sp := (*rt.GoString)(unsafe.Pointer(&s))
-    rv := __unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, types.F_DOUBLE_UNQUOTE)
+    rv := unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, types.F_DOUBLE_UNQUOTE)
     if rv < 0 {
         require.NoError(t, types.ParsingError(-rv))
     }
@@ -188,7 +188,7 @@ func TestNative_UnquoteUnicodeReplacement(t *testing.T) {
     ep := -1
     dp := (*rt.GoSlice)(unsafe.Pointer(&d))
     sp := (*rt.GoString)(unsafe.Pointer(&s))
-    rv := __unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, types.F_UNICODE_REPLACE)
+    rv := unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, types.F_UNICODE_REPLACE)
     if rv < 0 {
         require.NoError(t, types.ParsingError(-rv))
     }
@@ -200,7 +200,7 @@ func TestNative_UnquoteUnicodeReplacement(t *testing.T) {
     ep = -1
     dp = (*rt.GoSlice)(unsafe.Pointer(&d))
     sp = (*rt.GoString)(unsafe.Pointer(&s))
-    rv = __unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, types.F_UNICODE_REPLACE)
+    rv = unquote(sp.Ptr, sp.Len, dp.Ptr, &ep, types.F_UNICODE_REPLACE)
     if rv < 0 {
         require.NoError(t, types.ParsingError(-rv))
     }
@@ -214,7 +214,7 @@ func TestNative_HTMLEscape(t *testing.T) {
     d := make([]byte, 256)
     dp := (*rt.GoSlice)(unsafe.Pointer(&d))
     sp := (*rt.GoString)(unsafe.Pointer(&s))
-    rv := __html_escape(sp.Ptr, sp.Len, dp.Ptr, &dp.Len)
+    rv := html_escape(sp.Ptr, sp.Len, dp.Ptr, &dp.Len)
     if rv < 0 {
         require.NoError(t, types.ParsingError(-rv))
     }
@@ -228,7 +228,7 @@ func TestNative_HTMLEscapeNoMem(t *testing.T) {
     d := make([]byte, 10)
     dp := (*rt.GoSlice)(unsafe.Pointer(&d))
     sp := (*rt.GoString)(unsafe.Pointer(&s))
-    rv := __html_escape(sp.Ptr, sp.Len, dp.Ptr, &dp.Len)
+    rv := html_escape(sp.Ptr, sp.Len, dp.Ptr, &dp.Len)
     assert.Equal(t, -6, rv)
     assert.Equal(t, 5, len(d))
     assert.Equal(t, `hello`, string(d))
@@ -238,11 +238,11 @@ func TestNative_Vstring(t *testing.T) {
     var v types.JsonState
     i := 0
     s := `test"test\n2"`
-    __vstring(&s, &i, &v)
+    vstring(&s, &i, &v)
     assert.Equal(t, 5, i)
     assert.Equal(t, -1, int(v.Ep))
     assert.Equal(t, int64(0), v.Iv)
-    __vstring(&s, &i, &v)
+    vstring(&s, &i, &v)
     assert.Equal(t, 13, i)
     assert.Equal(t, 9, int(v.Ep))
     assert.Equal(t, int64(5), v.Iv)
@@ -252,7 +252,7 @@ func TestNative_VstringEscapeEOF(t *testing.T) {
     var v types.JsonState
     i := 0
     s := `xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxx"x`
-    __vstring(&s, &i, &v)
+    vstring(&s, &i, &v)
     assert.Equal(t, 95, i)
     assert.Equal(t, 63, int(v.Ep))
     assert.Equal(t, int64(0), v.Iv)
@@ -262,42 +262,42 @@ func TestNative_ValidateOne(t *testing.T) {
     {
         p := 0
         s := "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\n\\r\\b\\f😁ſ景\xef\xbf\xbf\xf4\x8f\xbf\xbf\xc2\x80xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\""
-        r := __validate_one(&s, &p, &types.StateMachine{})
+        r := validate_one(&s, &p, &types.StateMachine{})
         assert.Equal(t, len(s), p)
         assert.Equal(t, 0, r)
     }
     {
         p := 0
         s := "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\bxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"x"
-        r := __validate_one(&s, &p, &types.StateMachine{})
+        r := validate_one(&s, &p, &types.StateMachine{})
         assert.Equal(t, 64, p)
         assert.Equal(t, -int(types.ERR_INVALID_CHAR), r)
     }
     {
         p := 0
         s := "\"\x00\"x"
-        r := __validate_one(&s, &p, &types.StateMachine{})
+        r := validate_one(&s, &p, &types.StateMachine{})
         assert.Equal(t, 1, p)
         assert.Equal(t, -int(types.ERR_INVALID_CHAR), r)
     }
     {
         p := 0
         s := "\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\x80xxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"x"
-        r := __validate_one(&s, &p, &types.StateMachine{})
+        r := validate_one(&s, &p, &types.StateMachine{})
         assert.Equal(t, 64, p)
         assert.Equal(t, -int(types.ERR_INVALID_CHAR), r)
     }
     {
         p := 0
         s := "\"\x80\"x"
-        r := __validate_one(&s, &p, &types.StateMachine{})
+        r := validate_one(&s, &p, &types.StateMachine{})
         assert.Equal(t, 1, p)
         assert.Equal(t, -int(types.ERR_INVALID_CHAR), r)
     }
     {
         p := 0
         s := "\"\xed\xbf\xbf\"x"
-        r := __validate_one(&s, &p, &types.StateMachine{})
+        r := validate_one(&s, &p, &types.StateMachine{})
         assert.Equal(t, 1, p)
         assert.Equal(t, -int(types.ERR_INVALID_CHAR), r)
     }
@@ -313,7 +313,7 @@ func TestNative_VstringHangUpOnRandomData(t *testing.T) {
     p := 1
     s := rt.Mem2Str(v)
     var js types.JsonState
-    __vstring(&s, &p, &js)
+    vstring(&s, &p, &js)
     fmt.Printf("js: %s\n", spew.Sdump(js))
 }
 
@@ -321,49 +321,49 @@ func TestNative_Vnumber(t *testing.T) {
     var v types.JsonState
     i := 0
     s := "1234"
-    __vnumber(&s, &i, &v)
+    vnumber(&s, &i, &v)
     assert.Equal(t, 4, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, int64(1234), v.Iv)
     assert.Equal(t, types.V_INTEGER, v.Vt)
     i = 0
     s = "1.234"
-    __vnumber(&s, &i, &v)
+    vnumber(&s, &i, &v)
     assert.Equal(t, 5, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, 1.234, v.Dv)
     assert.Equal(t, types.V_DOUBLE, v.Vt)
     i = 0
     s = "1.234e5"
-    __vnumber(&s, &i, &v)
+    vnumber(&s, &i, &v)
     assert.Equal(t, 7, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, 1.234e5, v.Dv)
     assert.Equal(t, types.V_DOUBLE, v.Vt)
     i = 0
     s = "0.0125"
-    __vnumber(&s, &i, &v)
+    vnumber(&s, &i, &v)
     assert.Equal(t, 6, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, 0.0125, v.Dv)
     assert.Equal(t, types.V_DOUBLE, v.Vt)
     i = 0
     s = "100000000000000000000"
-    __vnumber(&s, &i, &v)
+    vnumber(&s, &i, &v)
     assert.Equal(t, 21, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, 100000000000000000000.0, v.Dv)
     assert.Equal(t, types.V_DOUBLE, v.Vt)
     i = 0
     s = "999999999999999900000"
-    __vnumber(&s, &i, &v)
+    vnumber(&s, &i, &v)
     assert.Equal(t, 21, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, 999999999999999900000.0, v.Dv)
     assert.Equal(t, types.V_DOUBLE, v.Vt)
     i = 0
     s = "-1.234"
-    __vnumber(&s, &i, &v)
+    vnumber(&s, &i, &v)
     assert.Equal(t, 6, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, -1.234, v.Dv)
@@ -374,65 +374,65 @@ func TestNative_Vsigned(t *testing.T) {
     var v types.JsonState
     i := 0
     s := "1234"
-    __vsigned(&s, &i, &v)
+    vsigned(&s, &i, &v)
     assert.Equal(t, 4, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, int64(1234), v.Iv)
     assert.Equal(t, types.V_INTEGER, v.Vt)
     i = 0
     s = "-1234"
-    __vsigned(&s, &i, &v)
+    vsigned(&s, &i, &v)
     assert.Equal(t, 5, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, int64(-1234), v.Iv)
     assert.Equal(t, types.V_INTEGER, v.Vt)
     i = 0
     s = "9223372036854775807"
-    __vsigned(&s, &i, &v)
+    vsigned(&s, &i, &v)
     assert.Equal(t, 19, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, int64(math.MaxInt64), v.Iv)
     assert.Equal(t, types.V_INTEGER, v.Vt)
     i = 0
     s = "-9223372036854775808"
-    __vsigned(&s, &i, &v)
+    vsigned(&s, &i, &v)
     assert.Equal(t, 20, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, int64(math.MinInt64), v.Iv)
     assert.Equal(t, types.V_INTEGER, v.Vt)
     i = 0
     s = "9223372036854775808"
-    __vsigned(&s, &i, &v)
+    vsigned(&s, &i, &v)
     assert.Equal(t, 18, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, types.ValueType(-int(types.ERR_INTEGER_OVERFLOW)), v.Vt)
     i = 0
     s = "-9223372036854775809"
-    __vsigned(&s, &i, &v)
+    vsigned(&s, &i, &v)
     assert.Equal(t, 19, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, types.ValueType(-int(types.ERR_INTEGER_OVERFLOW)), v.Vt)
     i = 0
     s = "1.234"
-    __vsigned(&s, &i, &v)
+    vsigned(&s, &i, &v)
     assert.Equal(t, 1, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, types.ValueType(-int(types.ERR_INVALID_NUMBER_FMT)), v.Vt)
     i = 0
     s = "0.0125"
-    __vsigned(&s, &i, &v)
+    vsigned(&s, &i, &v)
     assert.Equal(t, 1, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, types.ValueType(-int(types.ERR_INVALID_NUMBER_FMT)), v.Vt)
     i = 0
     s = "-1234e5"
-    __vsigned(&s, &i, &v)
+    vsigned(&s, &i, &v)
     assert.Equal(t, 5, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, types.ValueType(-int(types.ERR_INVALID_NUMBER_FMT)), v.Vt)
     i = 0
     s = "-1234e-5"
-    __vsigned(&s, &i, &v)
+    vsigned(&s, &i, &v)
     assert.Equal(t, 5, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, types.ValueType(-int(types.ERR_INVALID_NUMBER_FMT)), v.Vt)
@@ -442,63 +442,63 @@ func TestNative_Vunsigned(t *testing.T) {
     var v types.JsonState
     i := 0
     s := "1234"
-    __vunsigned(&s, &i, &v)
+    vunsigned(&s, &i, &v)
     assert.Equal(t, 4, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, int64(1234), v.Iv)
     assert.Equal(t, types.V_INTEGER, v.Vt)
     i = 0
     s = "18446744073709551615"
-    __vunsigned(&s, &i, &v)
+    vunsigned(&s, &i, &v)
     assert.Equal(t, 20, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, ^int64(0), v.Iv)
     assert.Equal(t, types.V_INTEGER, v.Vt)
     i = 0
     s = "18446744073709551616"
-    __vunsigned(&s, &i, &v)
+    vunsigned(&s, &i, &v)
     assert.Equal(t, 19, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, types.ValueType(-int(types.ERR_INTEGER_OVERFLOW)), v.Vt)
     i = 0
     s = "-1234"
-    __vunsigned(&s, &i, &v)
+    vunsigned(&s, &i, &v)
     assert.Equal(t, 0, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, types.ValueType(-int(types.ERR_INVALID_NUMBER_FMT)), v.Vt)
     i = 0
     s = "1.234"
-    __vunsigned(&s, &i, &v)
+    vunsigned(&s, &i, &v)
     assert.Equal(t, 1, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, types.ValueType(-int(types.ERR_INVALID_NUMBER_FMT)), v.Vt)
     i = 0
     s = "0.0125"
-    __vunsigned(&s, &i, &v)
+    vunsigned(&s, &i, &v)
     assert.Equal(t, 1, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, types.ValueType(-int(types.ERR_INVALID_NUMBER_FMT)), v.Vt)
     i = 0
     s = "1234e5"
-    __vunsigned(&s, &i, &v)
+    vunsigned(&s, &i, &v)
     assert.Equal(t, 4, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, types.ValueType(-int(types.ERR_INVALID_NUMBER_FMT)), v.Vt)
     i = 0
     s = "-1234e5"
-    __vunsigned(&s, &i, &v)
+    vunsigned(&s, &i, &v)
     assert.Equal(t, 0, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, types.ValueType(-int(types.ERR_INVALID_NUMBER_FMT)), v.Vt)
     i = 0
     s = "-1.234e5"
-    __vunsigned(&s, &i, &v)
+    vunsigned(&s, &i, &v)
     assert.Equal(t, 0, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, types.ValueType(-int(types.ERR_INVALID_NUMBER_FMT)), v.Vt)
     i = 0
     s = "-1.234e-5"
-    __vunsigned(&s, &i, &v)
+    vunsigned(&s, &i, &v)
     assert.Equal(t, 0, i)
     assert.Equal(t, 0, int(v.Ep))
     assert.Equal(t, types.ValueType(-int(types.ERR_INVALID_NUMBER_FMT)), v.Vt)
@@ -507,36 +507,36 @@ func TestNative_Vunsigned(t *testing.T) {
 func TestNative_SkipOne(t *testing.T) {
     p := 0
     s := ` {"asdf": [null, true, false, 1, 2.0, -3]}, 1234.5`
-    q := __skip_one(&s, &p, &types.StateMachine{})
+    q := skip_one(&s, &p, &types.StateMachine{})
     assert.Equal(t, 42, p)
     assert.Equal(t, 1, q)
     p = 0
     s = `1 2.5 -3 "asdf\nqwer" true false null {} []`
-    q = __skip_one(&s, &p, &types.StateMachine{})
+    q = skip_one(&s, &p, &types.StateMachine{})
     assert.Equal(t, 1, p)
     assert.Equal(t, 0, q)
-    q = __skip_one(&s, &p, &types.StateMachine{})
+    q = skip_one(&s, &p, &types.StateMachine{})
     assert.Equal(t, 5, p)
     assert.Equal(t, 2, q)
-    q = __skip_one(&s, &p, &types.StateMachine{})
+    q = skip_one(&s, &p, &types.StateMachine{})
     assert.Equal(t, 8, p)
     assert.Equal(t, 6, q)
-    q = __skip_one(&s, &p, &types.StateMachine{})
+    q = skip_one(&s, &p, &types.StateMachine{})
     assert.Equal(t, 21, p)
     assert.Equal(t, 9, q)
-    q = __skip_one(&s, &p, &types.StateMachine{})
+    q = skip_one(&s, &p, &types.StateMachine{})
     assert.Equal(t, 26, p)
     assert.Equal(t, 22, q)
-    q = __skip_one(&s, &p, &types.StateMachine{})
+    q = skip_one(&s, &p, &types.StateMachine{})
     assert.Equal(t, 32, p)
     assert.Equal(t, 27, q)
-    q = __skip_one(&s, &p, &types.StateMachine{})
+    q = skip_one(&s, &p, &types.StateMachine{})
     assert.Equal(t, 37, p)
     assert.Equal(t, 33, q)
-    q = __skip_one(&s, &p, &types.StateMachine{})
+    q = skip_one(&s, &p, &types.StateMachine{})
     assert.Equal(t, 40, p)
     assert.Equal(t, 38, q)
-    q = __skip_one(&s, &p, &types.StateMachine{})
+    q = skip_one(&s, &p, &types.StateMachine{})
     assert.Equal(t, 43, p)
     assert.Equal(t, 41, q)
 }
@@ -548,7 +548,7 @@ func TestNative_SkipOne_Error(t *testing.T) {
         `"asdf`, `"\\\"`,
     }) {
         p := 0
-        q := __skip_one(&s, &p, &types.StateMachine{})
+        q := skip_one(&s, &p, &types.StateMachine{})
         assert.True(t, q < 0)
     }
 }
@@ -556,25 +556,25 @@ func TestNative_SkipOne_Error(t *testing.T) {
 func TestNative_SkipArray(t *testing.T) {
     p := 0
     s := `null, true, false, 1, 2.0, -3, {"asdf": "wqer"}],`
-    __skip_array(&s, &p, &types.StateMachine{})
+    skip_array(&s, &p, &types.StateMachine{})
     assert.Equal(t, p, 48)
 }
 
 func TestNative_SkipObject(t *testing.T) {
     p := 0
     s := `"asdf": "wqer"},`
-    __skip_object(&s, &p, &types.StateMachine{})
+    skip_object(&s, &p, &types.StateMachine{})
     assert.Equal(t, p, 15)
 }
 
 func TestNative_tb_write_i64(t *testing.T) {
     v := int64(0x0102030405060708)
     buf := make([]byte, 0, 4)
-    ret := __tb_write_i64(&buf, v)
+    ret := tb_write_i64(&buf, v)
     assert.Equal(t, uint64(4<<types.ERR_WRAP_SHIFT_CODE)|uint64(types.ERR_OOM_BUF), ret)
     assert.Equal(t, 0, len(buf))
     buf = make([]byte, 0, 9)
-    ret = __tb_write_i64(&buf, v)
+    ret = tb_write_i64(&buf, v)
     assert.Equal(t, []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}, buf)
 }
 
@@ -585,10 +585,10 @@ func TestNative_hm_get(t *testing.T) {
     var ex = "exist"
     var ne = "not-exist"
     hm.Set(ex, p)
-    if ret := __hm_get(hm, &ex); ret != p {
+    if ret := hm_get(hm, &ex); ret != p {
         t.Fatal(ret)
     }
-    if ret := __hm_get(hm, &ne); ret != nil {
+    if ret := hm_get(hm, &ne); ret != nil {
         t.Fatal(ret)
     }
 }
@@ -600,10 +600,10 @@ func TestNative_trie_get(t *testing.T) {
     var ex = "exist"
     var ne = "not-exist"
     tt.Set(ex, p)
-    if ret := __trie_get(tt, &ex); ret != p {
+    if ret := trie_get(tt, &ex); ret != p {
         t.Fatal(ret)
     }
-    if ret := __trie_get(tt, &ne); ret != nil {
+    if ret := trie_get(tt, &ne); ret != nil {
         t.Fatal(ret)
     }
 }
