@@ -498,6 +498,7 @@ func TestThriftEncodeNesting_Raw(t *testing.T) {
 		EnableHttpMapping:  true,
 		EnableValueMapping: true,
 		TracebackRequredOrRootFields: true,
+		ReadHttpValueFallback: true,
 	})
 	nj := convertI642StringNesting(nestingJSON, true)
 	out, err := cv.Do(ctx, nesting, []byte(nj))

@@ -123,7 +123,7 @@ func toFlags(opts conv.Options) (flags uint64) {
 	if opts.WriteOptionalField {
 		flags |= types.F_WRITE_OPTIONAL
 	}
-	if opts.TracebackRequredOrRootFields {
+	if opts.ReadHttpValueFallback {
 		flags |= types.F_TRACE_BACK
 	}
 	return

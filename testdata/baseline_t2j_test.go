@@ -124,7 +124,7 @@ func TestThrift2HTTP_Raw(t *testing.T) {
 
 		opts := conv.Options{}
 		opts.EnableHttpMapping = true
-		opts.HttpMappingAsExtra = true
+		opts.WriteHttpValueFallback = true
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPResponse, http.NewHTTPResponse())
 		cv := t2j.NewBinaryConv(opts)
@@ -163,7 +163,8 @@ func TestThrift2HTTP_Raw(t *testing.T) {
 
 		opts := conv.Options{}
 		opts.EnableHttpMapping = true
-		opts.HttpMappingAsExtra = true
+		opts.WriteHttpValueFallback = true
+		opts.OmitHttpMappingErrors = true
 
 		ctx := context.Background()
 		resp := http.NewHTTPResponse()
@@ -179,12 +180,18 @@ func TestThrift2HTTP_Raw(t *testing.T) {
 		if err := json.Unmarshal(out, v); err != nil {
 			t.Fatal(err)
 		}
-		ls, err := json.Marshal(v.ListI64)
+		dstr := data.String_
+		data.String_ = ""
+		di32 := data.I32
+		data.I32 = 0
+		ls, err := json.Marshal(data.ListI64)
 		require.NoError(t, err)
+		data.ListI64 = nil
+		
 		require.Equal(t, data, v)
+		require.Equal(t, dstr, resp.Header.Get("String"))
+		require.Equal(t, int(di32), resp.StatusCode)
 		require.Equal(t, string(ls), resp.Cookies()[0].Value)
-		require.Equal(t, v.String_, resp.Header.Get("String"))
-		require.Equal(t, int(v.I32), resp.StatusCode)
 
 		opts.EnableValueMapping = true
 		cv = t2j.NewBinaryConv(opts)
@@ -194,10 +201,10 @@ func TestThrift2HTTP_Raw(t *testing.T) {
 		}
 		v = baseline.NewNesting()
 		ret = []byte(convertI642StringNesting(string(ret), false))
-		err = ejson.Unmarshal(ret, v)
+		_ = ejson.Unmarshal(ret, v)
 		require.Equal(t, string(ls), resp.Cookies()[0].Value)
-		require.Equal(t, v.String_, resp.Header.Get("String"))
-		require.Equal(t, int(v.I32), resp.StatusCode)
+		require.Equal(t, dstr, resp.Header.Get("String"))
+		require.Equal(t, int(di32), resp.StatusCode)
 	})
 }
 
@@ -391,6 +398,7 @@ func BenchmarkThrift2HTTP_DynamicGo(t *testing.B) {
 
 		opts := conv.Options{}
 		opts.EnableValueMapping = false
+		opts.OmitHttpMappingErrors = true
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, conv.CtxKeyHTTPResponse, http.NewHTTPResponse())
 		cv := t2j.NewBinaryConv(opts)
@@ -421,6 +429,8 @@ func BenchmarkThrift2HTTP_DynamicGo(t *testing.B) {
 		opts := conv.Options{}
 		opts.EnableHttpMapping = true
 		opts.EnableValueMapping = false
+		opts.OmitHttpMappingErrors = true
+		opts.NoCopyString = true
 
 		ctx := context.Background()
 		resp := http.NewHTTPResponse()
@@ -452,6 +462,8 @@ func BenchmarkThrift2HTTP_DynamicGo(t *testing.B) {
 		opts := conv.Options{}
 		opts.EnableHttpMapping = true
 		opts.EnableValueMapping = true
+		opts.OmitHttpMappingErrors = true
+		opts.NoCopyString = true
 
 		ctx := context.Background()
 		resp := http.NewHTTPResponse()

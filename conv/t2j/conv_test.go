@@ -321,10 +321,11 @@ func TestHttpMappingFallback(t *testing.T) {
 		exp.Heeader = "world"
 		in := make([]byte, exp.BLength())
 		_ = exp.FastWriteNocopy(in, nil)
-		expJSON := `{"Msg":"hello"}`
+		expJSON := `{}`
 		cv.SetOptions(conv.Options{
 			EnableHttpMapping:  true,
-			HttpMappingAsExtra: false,
+			WriteHttpValueFallback: false,
+			OmitHttpMappingErrors: true,
 		})
 		ctx := context.Background()
 		resp := http.NewHTTPResponse()
@@ -343,10 +344,11 @@ func TestHttpMappingFallback(t *testing.T) {
 		exp.Heeader = "world"
 		in := make([]byte, exp.BLength())
 		_ = exp.FastWriteNocopy(in, nil)
-		expJSON := `{"Msg":"hello","Heeader":"world"}`
+		expJSON := `{"Msg":"hello"}`
 		cv.SetOptions(conv.Options{
 			EnableHttpMapping:  true,
-			HttpMappingAsExtra: true,
+			WriteHttpValueFallback: true,
+			OmitHttpMappingErrors: true,
 		})
 		ctx := context.Background()
 		resp := http.NewHTTPResponse()
@@ -509,6 +511,8 @@ func TestJSONString(t *testing.T) {
 
 	cv := NewBinaryConv(conv.Options{
 		EnableHttpMapping: true,
+		WriteHttpValueFallback: true,
+		OmitHttpMappingErrors: true,
 	})
 	ctx := context.Background()
 	resp := http.NewHTTPResponse()
