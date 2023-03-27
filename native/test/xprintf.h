@@ -20,6 +20,8 @@
 #ifndef XPRINTF_H
 #define XPRINTF_H
 
+
+#if (defined (__APPLE__) || defined(__MACH__)) && (defined(__x86_64__) || defined(_M_X64))
 static void __attribute__((naked)) write_syscall(const char *s, size_t n)
 {
     asm volatile(
@@ -36,6 +38,22 @@ static void __attribute__((naked)) write_syscall(const char *s, size_t n)
         "retq"
         "\n");
 }
+#elif defined (__linux__) && (defined(__x86_64__) || defined(_M_X64))
+static void write_syscall(const char *s, size_t n)
+{
+    asm volatile (
+        "syscall"
+        :
+        : "a"((1)), // syscall_nr write
+            "D"(1), // fd
+            "S"(s), // buf
+            "d"(n) // count
+        : "rcx", "r11", "memory");
+}       
+#else
+#error syscall conv unsupported
+#endif
+
 
 static void printch(const char ch)
 {
