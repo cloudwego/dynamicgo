@@ -20,7 +20,7 @@ import subprocess
 import argparse
 
 gbench_prefix = "SONIC_NO_ASYNC_GC=1 go test -benchmem -run=none "
-mainbranch = "master"
+mainbranch = "main"
 
 def run(cmd):
     print(cmd)
