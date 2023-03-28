@@ -238,12 +238,13 @@ void tb_write_message_end(GoSlice *buf)
 
 uint64_t bm_malloc_reqs(GoSlice *cache, ReqBitMap src, ReqBitMap *copy, long p)
 {
+    xprintf("[bm_malloc_reqs oom] malloc, cache.len:%d, cache.cap:%d, src.len:%d\n", cache->len, cache->cap, src.len);
     size_t n = src.len * SIZE_INT64;
     size_t d = cache->len + n;
     if unlikely (d > cache->cap)
     {
-        xprintf("bm_malloc_reqs oom, d:%d, cap:%d\n", d, cache->cap);
-        WRAP_ERR0(ERR_OOM_BM, (d - cache->cap) * SIZE_INT64);
+        xprintf("[bm_malloc_reqs] oom d:%d, cap:%d\n", d, cache->cap);
+        WRAP_ERR0(ERR_OOM_BM, (d - cache->cap));
     }
 
     copy->buf = (uint64_t *)&cache->buf[cache->len];
@@ -253,6 +254,12 @@ uint64_t bm_malloc_reqs(GoSlice *cache, ReqBitMap src, ReqBitMap *copy, long p)
     // xprintf("[bm_malloc_reqs] copy:%n, src:%n \n", copy, &src);
 
     return 0;
+}
+
+void bm_free_reqs(GoSlice *cache, size_t len)
+{
+    xprintf("[bm_free_reqs] free, cache.len: %d, src.len:%d", cache->len, len);
+    cache->len -= (len * SIZE_INT64);
 }
 
 uint64_t j2t_write_unset_fields(J2TStateMachine *self, GoSlice *buf, const tStructDesc *st, ReqBitMap reqs, uint64_t flags, long p)
@@ -271,6 +278,10 @@ uint64_t j2t_write_unset_fields(J2TStateMachine *self, GoSlice *buf, const tStru
             if ((v % 2) != 0)
             {
                 tid id = i * BSIZE_INT64 + j;
+                if (id >= st->ids.len)
+                {
+                    continue;
+                }
                 tFieldDesc *f = (st->ids.buf)[id];
                 // xprintf("[j2t_write_unset_fields] field:%d, f.name:%s\n", (int64_t)id, &f->name);
 
@@ -733,7 +744,7 @@ uint64_t j2t_field_vm(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
                 }                                                                                                    \
                 else                                                                                                 \
                 {                                                                                                    \
-                    J2TExtra ex;                                                                                     \
+                    J2TExtra ex = {};                                                                                \
                     ex.ef.f = f;                                                                                     \
                     uint64_t vm = STATE_VM;                                                                          \
                     if ((flag & F_ENABLE_VM) == 0 || f->vm == VM_NONE)                                               \
@@ -889,6 +900,7 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
                 {
                     // check if all required/default fields got written
                     J2T_STORE(j2t_write_unset_fields(self, buf, vt->ex.es.sd, vt->ex.es.reqs, flag, *p - 1));
+                    bm_free_reqs(&self->reqs_cache, vt->ex.es.reqs.len);
                     // http-mapping enalbed and some fields remain not written
                     if (flag & F_ENABLE_HM && self->field_cache.len > 0)
                     { // return back to go handler
@@ -942,7 +954,7 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
                     }
                     // check if all required/default fields got written
                     J2T_STORE(j2t_write_unset_fields(self, buf, vt->ex.es.sd, vt->ex.es.reqs, flag, *p - 1));
-                    bm_free_reqs(&self->reqs_cache, &vt->ex.es.reqs);
+                    bm_free_reqs(&self->reqs_cache, vt->ex.es.reqs.len);
                     // http-mapping enalbed and some fields remain not written
                     if (flag & F_ENABLE_HM && self->field_cache.len != 0)
                     {
@@ -1111,7 +1123,8 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
             {
                 xprintf("[J2T_VAL] object struct name: %s\n", &dc->st->name);
                 tb_write_struct_begin(buf);
-                v->ex.es.sd = dc->st;
+                J2TExtra_Struct es = {.sd = dc->st};
+                v->ex.es = es;
                 J2T_PUSH(self, J2T_OBJ_0, *p, dc);
                 J2T_STORE(bm_malloc_reqs(&self->reqs_cache, dc->st->reqs, &v->ex.es.reqs, *p));
                 if ((flag & F_ENABLE_HM) != 0 && dc->st->hms.len > 0)
@@ -1122,7 +1135,8 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
             }
             else
             {
-                v->ex.ec.size = 0;
+                J2TExtra_Cont ec = {};
+                v->ex.ec = ec;
                 J2T_STORE_NEXT(tb_write_map_begin(buf, dc->key->type, dc->elem->type, &v->ex.ec.bp)); // pass write-back address bp to v.ex.ec.bp
                 J2T_PUSH(self, J2T_OBJ_0, *p, dc);
             }

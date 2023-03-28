@@ -7,6 +7,7 @@ require (
 	github.com/bytedance/sonic v1.8.6-0.20230323091200-e2ce9c653eea
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311
 	github.com/choleraehyq/pid v0.0.16 // indirect
+	github.com/cloudwego/frugal v0.1.6 // indirect
 	github.com/cloudwego/kitex v0.4.4
 	github.com/cloudwego/thriftgo v0.2.7
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc

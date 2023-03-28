@@ -18,6 +18,7 @@ package thrift
 
 import (
 	"fmt"
+	"runtime"
 	"sync"
 	"unsafe"
 
@@ -163,7 +164,6 @@ func (ft *FieldNameMap) Build() {
 			ft.hash.Set("", empty)
 		}
 	}
-	return
 }
 
 // FieldIDMap is a map from field id to field descriptor
@@ -272,7 +272,6 @@ func (b RequiresBitmap) CopyTo(to *RequiresBitmap) {
 	}
 	*to = (*to)[:l]
 	copy(*to, b)
-	return
 }
 
 // NewRequiresBitmap get bitmap from pool, if pool is empty, create a new one
@@ -288,6 +287,7 @@ func FreeRequiresBitmap(b *RequiresBitmap) {
 	bitmapPool.Put(b)
 }
 
+//go:nocheckptr
 // CheckRequires scan every bit of the bitmap. When a bit is marked, it will:
 //   - if the corresponding field is required-requireness, it reports error
 //   - if the corresponding is not required-requireness but writeDefault is true, it will call handler to handle this field
@@ -320,7 +320,7 @@ func (b RequiresBitmap) CheckRequires(desc *StructDescriptor, writeDefault bool,
 		}
 		s = unsafe.Pointer(uintptr(s) + int64ByteSize)
 	}
-
+	runtime.KeepAlive(s)
 	return nil
 }
 
@@ -354,6 +354,7 @@ func (b RequiresBitmap) HandleRequires(desc *StructDescriptor, writeRquired bool
 		}
 		s = unsafe.Pointer(uintptr(s) + int64ByteSize)
 	}
+	runtime.KeepAlive(s)
 	return nil
 }
 

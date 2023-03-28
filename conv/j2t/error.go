@@ -45,7 +45,7 @@ func getJ2TExtraStruct(fsm *types.J2TStateMachine, offset int) (*thrift.TypeDesc
 	if state == nil {
 		return nil, nil
 	}
-	return (*thrift.TypeDescriptor)(state.TdPointer()), (*_J2TExtra_STRUCT)(unsafe.Pointer(&state.Extra))
+	return (*thrift.TypeDescriptor)(unsafe.Pointer(state.TdPointer())), (*_J2TExtra_STRUCT)(unsafe.Pointer(&state.Extra))
 }
 
 func (self BinaryConv) handleError(ctx context.Context, fsm *types.J2TStateMachine, buf *[]byte, src []byte, req http.RequestGetter, ret uint64, top bool) (cont bool, err error) {

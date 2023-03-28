@@ -191,6 +191,7 @@ typedef struct
     StateMachine sm;
     Int32Slice field_cache;
     FieldVal fval_cache;
+    void *TypeDesc;
 } J2TStateMachine;
 
 #define SIZE_J2TEXTRA sizeof(J2TExtra)

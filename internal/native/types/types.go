@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"sync"
 	"unsafe"
+
 )
 
 const (
@@ -203,9 +204,8 @@ type J2TState struct {
 	Extra    J2TExtra
 }
 
-//go:nocheckptr
-func (self *J2TState) TdPointer() unsafe.Pointer {
-	return unsafe.Pointer(self.TypeDesc)
+func (self *J2TState) TdPointer() uintptr {
+	return uintptr(self.TypeDesc)
 }
 
 type J2T_STATE uint8
@@ -239,8 +239,8 @@ var _J2T_STATEs = []string{
 
 const (
 	J2T_KEY_CACHE_SIZE   = 1024
-	J2T_FIELD_CACHE_SIZE = 256
-	J2T_REQS_CACHE_SIZE  = 256
+	J2T_FIELD_CACHE_SIZE = 4096
+	J2T_REQS_CACHE_SIZE  = 4096
 	J2T_DBUF_SIZE        = 800
 )
 
