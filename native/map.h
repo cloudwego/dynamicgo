@@ -96,7 +96,6 @@ typedef struct
 {
     uint64_t *buf;
     size_t len;
-    size_t cap;
 } ReqBitMap;
 
 bool bm_is_set(ReqBitMap b, tid id);

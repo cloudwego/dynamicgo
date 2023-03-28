@@ -193,7 +193,7 @@ func FreeStateMachine(fsm *StateMachine) {
 	stackPool.Put(fsm)
 }
 
-const _SIZE_J2TEXTRA = 4
+const _SIZE_J2TEXTRA = 3
 
 type J2TExtra [_SIZE_J2TEXTRA]uint64
 

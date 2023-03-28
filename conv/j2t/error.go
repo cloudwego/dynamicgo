@@ -25,6 +25,7 @@ import (
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/internal/json"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
+	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
 )
@@ -37,15 +38,19 @@ func newError(code meta.ErrCode, msg string, err error) error {
 
 type _J2TExtra_STRUCT struct {
 	desc unsafe.Pointer
-	reqs thrift.RequiresBitmap
+	reqs string
 }
 
-func getJ2TExtraStruct(fsm *types.J2TStateMachine, offset int) (*thrift.TypeDescriptor, *_J2TExtra_STRUCT) {
+func getJ2TExtraStruct(fsm *types.J2TStateMachine, offset int) (td *thrift.TypeDescriptor, reqs thrift.RequiresBitmap) {
 	state := fsm.At(offset - 1)
 	if state == nil {
-		return nil, nil
+		return nil, thrift.RequiresBitmap{}
 	}
-	return (*thrift.TypeDescriptor)(unsafe.Pointer(state.TdPointer())), (*_J2TExtra_STRUCT)(unsafe.Pointer(&state.Extra))
+	td = (*thrift.TypeDescriptor)(unsafe.Pointer(state.TdPointer()))
+	je := (*_J2TExtra_STRUCT)(unsafe.Pointer(&state.Extra))
+	v := rt.Str2Mem(je.reqs)
+	reqs = *(*thrift.RequiresBitmap)(unsafe.Pointer(&v))
+	return
 }
 
 func (self BinaryConv) handleError(ctx context.Context, fsm *types.J2TStateMachine, buf *[]byte, src []byte, req http.RequestGetter, ret uint64, top bool) (cont bool, err error) {
@@ -55,14 +60,14 @@ func (self BinaryConv) handleError(ctx context.Context, fsm *types.J2TStateMachi
 	switch e {
 	case types.ERR_HTTP_MAPPING:
 		{
-			desc, ext := getJ2TExtraStruct(fsm, fsm.SP)
-			if desc == nil || ext == nil {
+			desc, reqs := getJ2TExtraStruct(fsm, fsm.SP)
+			if desc == nil {
 				return false, newError(meta.ErrConvert, "invalid json input", nil)
 			}
 			if desc.Type() != thrift.STRUCT {
 				return false, newError(meta.ErrConvert, "invalid descriptor while http mapping", nil)
 			}
-			return true, self.writeHttpRequestToThrift(ctx, req, desc.Struct(), &ext.reqs, buf, false, top)
+			return true, self.writeHttpRequestToThrift(ctx, req, desc.Struct(), reqs, buf, false, top)
 		}
 	case types.ERR_HTTP_MAPPING_END:
 		{
