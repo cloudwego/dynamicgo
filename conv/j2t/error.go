@@ -41,6 +41,7 @@ type _J2TExtra_STRUCT struct {
 	reqs string
 }
 
+//go:nocheckptr
 func getJ2TExtraStruct(fsm *types.J2TStateMachine, offset int) (td *thrift.TypeDescriptor, reqs thrift.RequiresBitmap) {
 	state := fsm.At(offset - 1)
 	if state == nil {
