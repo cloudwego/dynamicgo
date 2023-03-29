@@ -101,8 +101,8 @@
         }              \
     } while (0)
 
-char advance_ns(const GoString *src, long *p);
+char advance_ns(const _GoString *src, long *p);
 
-int64_t advance_dword(const GoString *src, long *p, long dec, int64_t ret, uint32_t val);
+int64_t advance_dword(const _GoString *src, long *p, long dec, int64_t ret, uint32_t val);
 
 #endif // SCANNING_H

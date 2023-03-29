@@ -1,0 +1,7 @@
+{
+    "go.toolsEnvVars": {
+        "LD_LIBRARY_PATH": "${workspaceFolder}/output",
+    },
+    // "go.buildTags": "!sharedlib",
+    "go.buildTags": "sharedlib",
+}

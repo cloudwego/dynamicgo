@@ -83,16 +83,16 @@ typedef struct
 typedef struct
 {
     size_t max_key_len;
-    GoSlice all;
+    _GoSlice all;
     TrieTree *trie;
     HashMap *hash;
 } tFieldNameMap;
 
 typedef struct
 {
-    GoEface go_val;
-    GoString json_val;
-    GoString thrift_binary;
+    _GoEface go_val;
+    _GoString json_val;
+    _GoString thrift_binary;
 } tDefaultValue;
 
 struct tFieldDesc
@@ -104,16 +104,16 @@ struct tFieldDesc
     tid ID;
     tTypeDesc *type;
     tDefaultValue *default_value;
-    GoString name;
-    GoString alias;
-    GoIface value_mappings;
-    GoSlice http_mappings;
+    _GoString name;
+    _GoString alias;
+    _GoIface value_mappings;
+    _GoSlice http_mappings;
 };
 
 typedef struct
 {
     tid base_id;
-    GoString name;
+    _GoString name;
     FieldIdMap ids;
     tFieldNameMap names;
 
@@ -121,14 +121,14 @@ typedef struct
     // while we use `ReqBitMap*` pointer (2 QUAD memory) for purpose of conformity to J2TState.ex.es.reqs,
     // It won't affect the calculating results AS LONG AS IT IS STATICALLY USED.
     ReqBitMap reqs;
-    GoSlice hms;
+    _GoSlice hms;
     void *anns;
 } tStructDesc;
 
 struct tTypeDesc
 {
     ttype type;
-    GoString name;
+    _GoString name;
     tTypeDesc *key;
     tTypeDesc *elem;
     tStructDesc *st;
@@ -185,8 +185,8 @@ typedef struct
 {
     size_t sp;
     JsonState jt;
-    GoSlice reqs_cache;
-    GoSlice key_cache;
+    _GoSlice reqs_cache;
+    _GoSlice key_cache;
     J2TState vt[MAX_RECURSE];
     StateMachine sm;
     Int32Slice field_cache;
@@ -195,9 +195,9 @@ typedef struct
 
 #define SIZE_J2TEXTRA sizeof(J2TExtra)
 
-uint64_t tb_write_i64(GoSlice *buf, int64_t v);
+uint64_t tb_write_i64(_GoSlice *buf, int64_t v);
 
-uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, uint64_t flag);
+uint64_t j2t_fsm_exec(J2TStateMachine *self, _GoSlice *buf, const _GoString *src, uint64_t flag);
 
 #define J2T_VAL 0
 #define J2T_ARR 1
@@ -359,9 +359,9 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
     } while (0)
 
 #define DEBUG_PRINT_STATE(i, sp, p) \
-    xprintf("[DEBUG_PRINT_STATE_%d] STATE{sp:%d, st:%d, jp:%d, td:%s} POS:%d CHAR:%c BUF{\n\tbuf:%l,\n\tlen:%d, cap:%d}\n", i, sp, vt->st, vt->jp, vt->td == NULL ? &(GoString){} : &vt->td->name, p, ch, buf, buf->len, buf->cap);
+    xprintf("[DEBUG_PRINT_STATE_%d] STATE{sp:%d, st:%d, jp:%d, td:%s} POS:%d CHAR:%c BUF{\n\tbuf:%l,\n\tlen:%d, cap:%d}\n", i, sp, vt->st, vt->jp, vt->td == NULL ? &(_GoString){} : &vt->td->name, p, ch, buf, buf->len, buf->cap);
 
 #define DEBUG_PRINT_STATE_EX(i, sp, p) \
-    xprintf("[DEBUG_PRINT_STATE_EX_%d] STATE{sp:%d, st:%d, jp:%d, td:%s, ex:[%d,%d,%d]} POS:%d CHAR:%c BUF{\n\tbuf:%l,\n\tlen:%d, cap:%d}\n", i, sp, vt->st, vt->jp, vt->td == NULL ? &(GoString){} : &vt->td->name, *(uint64_t *)(&vt->ex), *((uint64_t *)(&vt->ex) + 1), *((uint64_t *)(&vt->ex) + 2), p, ch, buf, buf->len, buf->cap);
+    xprintf("[DEBUG_PRINT_STATE_EX_%d] STATE{sp:%d, st:%d, jp:%d, td:%s, ex:[%d,%d,%d]} POS:%d CHAR:%c BUF{\n\tbuf:%l,\n\tlen:%d, cap:%d}\n", i, sp, vt->st, vt->jp, vt->td == NULL ? &(_GoString){} : &vt->td->name, *(uint64_t *)(&vt->ex), *((uint64_t *)(&vt->ex) + 1), *((uint64_t *)(&vt->ex) + 2), p, ch, buf, buf->len, buf->cap);
 
 #endif // THRIFT_H

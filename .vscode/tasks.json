@@ -1,0 +1,64 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+
+        {
+            "label": "Compile native test",
+            "type": "shell",
+            "command": [
+                "clang",
+                "-msse", "-mno-sse4",
+                "-mavx", "-DUSE_AVX=1",
+                "-ggdb3", "-O0",
+                "-mno-avx2", "-DUSE_AVX2=0",
+                
+                "-DDEBUG=1",
+
+                "*.h",
+                "*.c",
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/native/test",
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+
+        {
+            "label": "Compile native as shared lib",
+            "type": "shell",
+            "command": [
+                "clang",
+                "-msse", "-mno-sse4",
+                "-mavx", "-DUSE_AVX=1",
+                "-ggdb3", "-O0",
+                "-mno-avx2", "-DUSE_AVX2=0",
+
+                "-DDEBUG=1",
+                "-shared", "-fPIC",
+                "-o ../output/libnative.so",
+                "-I.",
+
+                "native.c",
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/native",
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+
+    ]
+}

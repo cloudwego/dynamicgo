@@ -118,7 +118,7 @@ static void printhex(uintptr_t v)
 
 #define MAX_BUF_LEN 100
 
-static void printbytes(GoSlice *s)
+static void printbytes(_GoSlice *s)
 {
     printch('[');
     int i = 0;
@@ -136,7 +136,7 @@ static void printbytes(GoSlice *s)
     printch(']');
 }
 
-static void printints(GoSlice *s)
+static void printints(_GoSlice *s)
 {
     printch('[');
     int i = 0;
@@ -149,7 +149,7 @@ static void printints(GoSlice *s)
     printch(']');
 }
 
-static void printgostr(GoString *s)
+static void printgostr(_GoString *s)
 {
     printch('"');
     if (s->len < MAX_BUF_LEN)
@@ -194,7 +194,7 @@ void xprintf(const char *fmt, ...)
         }
         case 's':
         {
-            printgostr(__builtin_va_arg(va, GoString *));
+            printgostr(__builtin_va_arg(va, _GoString *));
             break;
         }
         case 'd':
@@ -219,12 +219,12 @@ void xprintf(const char *fmt, ...)
         }
         case 'l':
         {
-            printbytes(__builtin_va_arg(va, GoSlice *));
+            printbytes(__builtin_va_arg(va, _GoSlice *));
             break;
         }
         case 'n':
         {
-            printints(__builtin_va_arg(va, GoSlice *));
+            printints(__builtin_va_arg(va, _GoSlice *));
             break;
         }
         }

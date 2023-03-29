@@ -22,7 +22,7 @@
 #include <stdint.h>
 #include "test/xprintf.h"
 
-uint64_t buf_malloc(GoSlice *buf, size_t size)
+uint64_t buf_malloc(_GoSlice *buf, size_t size)
 {
     if (size == 0)
     {
@@ -37,7 +37,7 @@ uint64_t buf_malloc(GoSlice *buf, size_t size)
     return 0;
 }
 
-uint64_t tb_write_byte(GoSlice *buf, char v)
+uint64_t tb_write_byte(_GoSlice *buf, char v)
 {
     size_t s = buf->len;
     J2T_ZERO(buf_malloc(buf, 1));
@@ -45,7 +45,7 @@ uint64_t tb_write_byte(GoSlice *buf, char v)
     return 0;
 }
 
-uint64_t tb_write_bool(GoSlice *buf, bool v)
+uint64_t tb_write_bool(_GoSlice *buf, bool v)
 {
     if (v)
     {
@@ -54,7 +54,7 @@ uint64_t tb_write_bool(GoSlice *buf, bool v)
     return tb_write_byte(buf, 0);
 }
 
-uint64_t tb_write_i16(GoSlice *buf, int16_t v)
+uint64_t tb_write_i16(_GoSlice *buf, int16_t v)
 {
     size_t s = buf->len;
     J2T_ZERO(buf_malloc(buf, 2));
@@ -62,7 +62,7 @@ uint64_t tb_write_i16(GoSlice *buf, int16_t v)
     return 0;
 }
 
-uint64_t tb_write_i32(GoSlice *buf, int32_t v)
+uint64_t tb_write_i32(_GoSlice *buf, int32_t v)
 {
     size_t s = buf->len;
     J2T_ZERO(buf_malloc(buf, 4));
@@ -70,7 +70,7 @@ uint64_t tb_write_i32(GoSlice *buf, int32_t v)
     return 0;
 }
 
-uint64_t tb_write_i64(GoSlice *buf, int64_t v)
+uint64_t tb_write_i64(_GoSlice *buf, int64_t v)
 {
     size_t s = buf->len;
     J2T_ZERO(buf_malloc(buf, 8));
@@ -78,13 +78,13 @@ uint64_t tb_write_i64(GoSlice *buf, int64_t v)
     return 0;
 }
 
-uint64_t tb_write_double(GoSlice *buf, double v)
+uint64_t tb_write_double(_GoSlice *buf, double v)
 {
     uint64_t f = *(uint64_t *)(&v);
     return tb_write_i64(buf, f);
 }
 
-uint64_t tb_write_string(GoSlice *buf, const char *v, size_t n)
+uint64_t tb_write_string(_GoSlice *buf, const char *v, size_t n)
 {
     size_t s = buf->len;
     J2T_ZERO(buf_malloc(buf, n + 4));
@@ -94,7 +94,7 @@ uint64_t tb_write_string(GoSlice *buf, const char *v, size_t n)
     return 0;
 }
 
-uint64_t tb_write_binary(GoSlice *buf, const GoSlice v)
+uint64_t tb_write_binary(_GoSlice *buf, const _GoSlice v)
 {
     size_t s = buf->len;
     J2T_ZERO(buf_malloc(buf, v.len + 4));
@@ -103,25 +103,25 @@ uint64_t tb_write_binary(GoSlice *buf, const GoSlice v)
     return 0;
 }
 
-void tb_write_struct_begin(GoSlice *buf)
+void tb_write_struct_begin(_GoSlice *buf)
 {
     return;
 }
 
-uint64_t tb_write_struct_end(GoSlice *buf)
+uint64_t tb_write_struct_end(_GoSlice *buf)
 {
     J2T_ZERO(tb_write_byte(buf, TTYPE_STOP));
     xprintf("[tb_write_struct_end]:%c\n", buf->buf[buf->len - 1]);
     return 0;
 }
 
-uint64_t tb_write_field_begin(GoSlice *buf, ttype type, int16_t id)
+uint64_t tb_write_field_begin(_GoSlice *buf, ttype type, int16_t id)
 {
     J2T_ZERO(tb_write_byte(buf, type));
     return tb_write_i16(buf, id);
 }
 
-uint64_t tb_write_map_n(GoSlice *buf, ttype key, ttype val, int32_t n)
+uint64_t tb_write_map_n(_GoSlice *buf, ttype key, ttype val, int32_t n)
 {
     J2T_ZERO(tb_write_byte(buf, key));
     J2T_ZERO(tb_write_byte(buf, val));
@@ -129,7 +129,7 @@ uint64_t tb_write_map_n(GoSlice *buf, ttype key, ttype val, int32_t n)
     return 0;
 }
 
-uint64_t tb_write_map_begin(GoSlice *buf, ttype key, ttype val, size_t *back)
+uint64_t tb_write_map_begin(_GoSlice *buf, ttype key, ttype val, size_t *back)
 {
     J2T_ZERO(tb_write_byte(buf, key));
     J2T_ZERO(tb_write_byte(buf, val));
@@ -139,14 +139,14 @@ uint64_t tb_write_map_begin(GoSlice *buf, ttype key, ttype val, size_t *back)
     return 0;
 }
 
-void tb_write_map_end(GoSlice *buf, size_t back, size_t size)
+void tb_write_map_end(_GoSlice *buf, size_t back, size_t size)
 {
     xprintf("[tb_write_map_end]: %d, bp pos: %d\n", size, back);
     *(int32_t *)(&buf->buf[back]) = __builtin_bswap32(size);
     return;
 }
 
-uint64_t tb_write_list_begin(GoSlice *buf, ttype elem, size_t *back)
+uint64_t tb_write_list_begin(_GoSlice *buf, ttype elem, size_t *back)
 {
     J2T_ZERO(tb_write_byte(buf, elem));
     *back = buf->len;
@@ -154,21 +154,21 @@ uint64_t tb_write_list_begin(GoSlice *buf, ttype elem, size_t *back)
     return 0;
 }
 
-void tb_write_list_end(GoSlice *buf, size_t back, size_t size)
+void tb_write_list_end(_GoSlice *buf, size_t back, size_t size)
 {
     xprintf("[tb_write_list_end]: %d, bp pos: %d\n", size, back);
     *(int32_t *)(&buf->buf[back]) = __builtin_bswap32(size);
     return;
 }
 
-uint64_t tb_write_list_n(GoSlice *buf, ttype elem, int32_t size)
+uint64_t tb_write_list_n(_GoSlice *buf, ttype elem, int32_t size)
 {
     J2T_ZERO(tb_write_byte(buf, elem));
     J2T_ZERO(tb_write_i32(buf, size));
     return 0;
 }
 
-uint64_t tb_write_default_or_empty(GoSlice *buf, const tFieldDesc *field, long p)
+uint64_t tb_write_default_or_empty(_GoSlice *buf, const tFieldDesc *field, long p)
 {
     if (field->default_value != NULL)
     {
@@ -223,7 +223,7 @@ uint64_t tb_write_default_or_empty(GoSlice *buf, const tFieldDesc *field, long p
     }
 }
 
-uint64_t tb_write_message_begin(GoSlice *buf, const GoString name, int32_t type, int32_t seq)
+uint64_t tb_write_message_begin(_GoSlice *buf, const _GoString name, int32_t type, int32_t seq)
 {
     uint32_t version = THRIFT_VERSION_1 | (uint32_t)type;
     J2T_ZERO(tb_write_i32(buf, version));
@@ -231,12 +231,12 @@ uint64_t tb_write_message_begin(GoSlice *buf, const GoString name, int32_t type,
     return tb_write_i32(buf, seq);
 }
 
-void tb_write_message_end(GoSlice *buf)
+void tb_write_message_end(_GoSlice *buf)
 {
     return;
 }
 
-uint64_t bm_malloc_reqs(GoSlice *cache, ReqBitMap src, ReqBitMap *copy, long p)
+uint64_t bm_malloc_reqs(_GoSlice *cache, ReqBitMap src, ReqBitMap *copy, long p)
 {
     size_t n = src.len * SIZE_INT64;
     size_t d = cache->len + n;
@@ -255,7 +255,7 @@ uint64_t bm_malloc_reqs(GoSlice *cache, ReqBitMap src, ReqBitMap *copy, long p)
     return 0;
 }
 
-uint64_t j2t_write_unset_fields(J2TStateMachine *self, GoSlice *buf, const tStructDesc *st, ReqBitMap reqs, uint64_t flags, long p)
+uint64_t j2t_write_unset_fields(J2TStateMachine *self, _GoSlice *buf, const tStructDesc *st, ReqBitMap reqs, uint64_t flags, long p)
 {
     bool wr_enabled = flags & F_WRITE_REQUIRE;
     bool wd_enabled = flags & F_WRITE_DEFAULT;
@@ -301,7 +301,7 @@ uint64_t j2t_write_unset_fields(J2TStateMachine *self, GoSlice *buf, const tStru
     return 0;
 }
 
-uint64_t j2t_number(GoSlice *buf, const tTypeDesc *desc, const GoString *src, long *p, JsonState *ret)
+uint64_t j2t_number(_GoSlice *buf, const tTypeDesc *desc, const _GoString *src, long *p, JsonState *ret)
 {
     long s = *p;
     vnumber(src, p, ret);
@@ -362,7 +362,7 @@ uint64_t j2t_number(GoSlice *buf, const tTypeDesc *desc, const GoString *src, lo
     WRAP_ERR2(ERR_DISMATCH_TYPE, desc->type, V_INTEGER);
 }
 
-uint64_t j2t_string(GoSlice *buf, const GoString *src, long *p, uint64_t flags)
+uint64_t j2t_string(_GoSlice *buf, const _GoString *src, long *p, uint64_t flags)
 {
     long s = *p;
     int64_t ep;
@@ -396,7 +396,7 @@ uint64_t j2t_string(GoSlice *buf, const GoString *src, long *p, uint64_t flags)
     return 0;
 }
 
-uint64_t j2t_binary(GoSlice *buf, const GoString *src, long *p, uint64_t flags)
+uint64_t j2t_binary(_GoSlice *buf, const _GoString *src, long *p, uint64_t flags)
 {
     long s = *p;
     int64_t ep;
@@ -417,7 +417,7 @@ uint64_t j2t_binary(GoSlice *buf, const GoString *src, long *p, uint64_t flags)
     return 0;
 }
 
-uint64_t j2t_map_key(GoSlice *buf, const char *sp, size_t n, const tTypeDesc *dc, JsonState *js, long p)
+uint64_t j2t_map_key(_GoSlice *buf, const char *sp, size_t n, const tTypeDesc *dc, JsonState *js, long p)
 {
     xprintf("[j2t_map_key]\n");
     switch (dc->type)
@@ -433,7 +433,7 @@ uint64_t j2t_map_key(GoSlice *buf, const char *sp, size_t n, const tTypeDesc *dc
     case TTYPE_I64:
     case TTYPE_DOUBLE:
     {
-        GoString tmp = (GoString){.buf = sp, .len = n};
+        _GoString tmp = {.buf = sp, .len = n};
         long p = 0;
         J2T_ZERO(j2t_number(buf, dc, &tmp, &p, js));
         break;
@@ -444,7 +444,7 @@ uint64_t j2t_map_key(GoSlice *buf, const char *sp, size_t n, const tTypeDesc *dc
     return 0;
 }
 
-tFieldDesc *j2t_find_field_key(const GoString *key, const tStructDesc *st)
+tFieldDesc *j2t_find_field_key(const _GoString *key, const tStructDesc *st)
 {
     xprintf("[j2t_find_field_key] key:%s\t", key);
     if unlikely (st->names.hash != NULL)
@@ -461,7 +461,7 @@ tFieldDesc *j2t_find_field_key(const GoString *key, const tStructDesc *st)
     }
 }
 
-uint64_t j2t_read_key(J2TStateMachine *self, const GoString *src, long *p, const char **spp, size_t *knp)
+uint64_t j2t_read_key(J2TStateMachine *self, const _GoString *src, long *p, const char **spp, size_t *knp)
 {
     long s = *p;
     int64_t ep = -1;
@@ -497,7 +497,7 @@ uint64_t j2t_read_key(J2TStateMachine *self, const GoString *src, long *p, const
     return 0;
 }
 
-uint64_t j2t_field_vm(J2TStateMachine *self, GoSlice *buf, const GoString *src, long *p, J2TState *vt)
+uint64_t j2t_field_vm(J2TStateMachine *self, _GoSlice *buf, const _GoString *src, long *p, J2TState *vt)
 {
     tFieldDesc *f = vt->ex.ef.f;
     xprintf("[j2t_field_vm] f->ID:%d, f->type->type:%d, p:%d \n", f->ID, f->type->type, *p);
@@ -699,7 +699,7 @@ uint64_t j2t_field_vm(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
             {                                                                                                        \
                 pex = &self->vt[self->sp - 2].ex;                                                                    \
             }                                                                                                        \
-            GoString tmp_str = (GoString){.buf = sp, .len = kn};                                                     \
+            _GoString tmp_str = (_GoString){.buf = sp, .len = kn};                                                     \
             tFieldDesc *f = j2t_find_field_key(&tmp_str, dc->st);                                                    \
             if (f == NULL)                                                                                           \
             {                                                                                                        \
@@ -758,7 +758,7 @@ uint64_t j2t_field_vm(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
         }                                                                                                            \
     } while (0)
 
-uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, uint64_t flag)
+uint64_t j2t_fsm_exec(J2TStateMachine *self, _GoSlice *buf, const _GoString *src, uint64_t flag)
 {
     if (self->sp <= 0)
     {

@@ -87,25 +87,24 @@ typedef struct
     char *buf;
     size_t len;
     size_t cap;
-} GoSlice;
-
+} _GoSlice;
 typedef struct
 {
     const char *buf;
     size_t len;
-} GoString;
+} _GoString;
 
 typedef struct
 {
     void *rtyp;
     void *val;
-} GoEface;
+} _GoEface;
 
 typedef struct
 {
     void *itab;
     void *val;
-} GoIface;
+} _GoIface;
 
 typedef struct
 {
@@ -141,24 +140,24 @@ ssize_t unquote(const char *sp, ssize_t nb, char *dp, int64_t *ep, uint64_t flag
 ssize_t html_escape(const char *sp, ssize_t nb, char *dp, ssize_t *dn);
 
 long value(const char *s, size_t n, long p, JsonState *ret, int allow_control);
-void vstring(const GoString *src, long *p, JsonState *ret);
-void vnumber(const GoString *src, long *p, JsonState *ret);
-void vsigned(const GoString *src, long *p, JsonState *ret);
-void vunsigned(const GoString *src, long *p, JsonState *ret);
+void vstring(const _GoString *src, long *p, JsonState *ret);
+void vnumber(const _GoString *src, long *p, JsonState *ret);
+void vsigned(const _GoString *src, long *p, JsonState *ret);
+void vunsigned(const _GoString *src, long *p, JsonState *ret);
 
-long skip_one(const GoString *src, long *p, StateMachine *m);
-long skip_array(const GoString *src, long *p, StateMachine *m);
-long skip_object(const GoString *src, long *p, StateMachine *m);
+long skip_one(const _GoString *src, long *p, StateMachine *m);
+long skip_array(const _GoString *src, long *p, StateMachine *m);
+long skip_object(const _GoString *src, long *p, StateMachine *m);
 
-long skip_string(const GoString *src, long *p);
-long skip_negative(const GoString *src, long *p);
-long skip_positive(const GoString *src, long *p);
+long skip_string(const _GoString *src, long *p);
+long skip_negative(const _GoString *src, long *p);
+long skip_positive(const _GoString *src, long *p);
 
 bool atof_eisel_lemire64(uint64_t mant, int exp10, int sgn, double *val);
 double atof_native(const char *sp, ssize_t nb, char *dbuf, ssize_t cap);
 
 ssize_t utf8_validate(const char *sp, ssize_t nb);
-long validate_string(const GoString *src, long *p);
-long validate_one(const GoString *src, long *p, StateMachine *m);
+long validate_string(const _GoString *src, long *p);
+long validate_one(const _GoString *src, long *p, StateMachine *m);
 
 #endif

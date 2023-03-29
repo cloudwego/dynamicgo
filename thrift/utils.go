@@ -18,6 +18,8 @@ package thrift
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"unsafe"
 
@@ -168,7 +170,9 @@ func (ft *FieldNameMap) Build() {
 
 // FieldIDMap is a map from field id to field descriptor
 type FieldIDMap struct {
-	m   []*FieldDescriptor
+	// m index = field ID
+	m []*FieldDescriptor
+	// all contains list of known fields
 	all []*FieldDescriptor
 }
 
@@ -215,6 +219,22 @@ func (fd *FieldIDMap) Set(id FieldID, f *FieldDescriptor) {
 // RequiresBitmap is a bitmap to mark fields
 type RequiresBitmap []uint64
 
+func (r RequiresBitmap) GoString() string {
+	var sb strings.Builder
+	sb.WriteRune('[')
+	for i, bmv := range r {
+		vconv := strconv.FormatUint(bmv, 2)
+		pad := strings.Repeat("0", 64-len(vconv))
+		sb.WriteString(pad)
+		sb.WriteString(vconv)
+		if i+1 < len(r) {
+			sb.WriteRune(',')
+		}
+	}
+	sb.WriteRune(']')
+	return sb.String()
+}
+
 const (
 	int64BitSize  = 64
 	int64ByteSize = 8
@@ -233,7 +253,7 @@ var bitmapPool = sync.Pool{
 func (b *RequiresBitmap) Set(id FieldID, val Requireness) {
 	i := int(id) / int64BitSize
 	if len(*b) <= i {
-		b.malloc(int32(id))
+		b.malloc(int32(i))
 	}
 	p := unsafe.Pointer(uintptr((*rt.GoSlice)(unsafe.Pointer(b)).Ptr) + uintptr(i)*int64ByteSize)
 	switch val {
@@ -255,6 +275,7 @@ func (b RequiresBitmap) IsSet(id FieldID) bool {
 	return (b[i] & (0b1 << (id % int64BitSize))) != 0
 }
 
+// malloc reallocate RequiresBitmap
 func (b *RequiresBitmap) malloc(id int32) {
 	if n := int32(id / int64BitSize); int(n) >= len(*b) {
 		buf := make([]uint64, n+1, int32((n+1)*2))
@@ -272,7 +293,6 @@ func (b RequiresBitmap) CopyTo(to *RequiresBitmap) {
 	}
 	*to = (*to)[:l]
 	copy(*to, b)
-	return
 }
 
 // NewRequiresBitmap get bitmap from pool, if pool is empty, create a new one
@@ -324,11 +344,12 @@ func (b RequiresBitmap) CheckRequires(desc *StructDescriptor, writeDefault bool,
 	return nil
 }
 
-//go:nocheckptr
 // CheckRequires scan every bit of the bitmap. When a bit is marked, it will:
 //   - if the corresponding field is required-requireness and writeRquired is true, it will call handler to handle this field, otherwise report error
 //   - if the corresponding is default-requireness and writeDefault is true, it will call handler to handle this field
 //   - if the corresponding is optional-requireness and writeOptional is true, it will call handler to handle this field
+//
+//go:nocheckptr
 func (b RequiresBitmap) HandleRequires(desc *StructDescriptor, writeRquired bool, writeDefault bool, writeOptional bool, handler func(field *FieldDescriptor) error) error {
 	// handle bitmap first
 	n := len(b)

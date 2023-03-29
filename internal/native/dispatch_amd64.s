@@ -1,3 +1,6 @@
+//go:build !sharedlib
+// +build !sharedlib
+
 //
 // Copyright 2023 CloudWeGo Authors·
 //

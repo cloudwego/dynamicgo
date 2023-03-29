@@ -55,13 +55,13 @@ static inline char isspace(char ch)
     return ch == ' ' || ch == '\r' || ch == '\n' | ch == '\t';
 }
 
-static inline void vdigits(const GoString *src, long *p, JsonState *ret)
+static inline void vdigits(const _GoString *src, long *p, JsonState *ret)
 {
     --*p;
     vnumber(src, p, ret);
 }
 
-char advance_ns(const GoString *src, long *p)
+char advance_ns(const _GoString *src, long *p)
 {
     size_t vi = *p;
     size_t nb = src->len;
@@ -104,7 +104,7 @@ nospace:
     return src->buf[vi];
 }
 
-int64_t advance_dword(const GoString *src, long *p, long dec, int64_t ret, uint32_t val)
+int64_t advance_dword(const _GoString *src, long *p, long dec, int64_t ret, uint32_t val)
 {
     if (*p > src->len + dec - 4)
     {
@@ -127,7 +127,7 @@ int64_t advance_dword(const GoString *src, long *p, long dec, int64_t ret, uint3
     }
 }
 
-static inline ssize_t advance_string(const GoString *src, long p, int64_t *ep)
+static inline ssize_t advance_string(const _GoString *src, long p, int64_t *ep)
 {
     char ch;
     uint64_t es;
@@ -404,7 +404,7 @@ static inline int _mm256_cchars_mask(__m256i v)
 
 #endif
 
-static inline ssize_t advance_validate_string(const GoString *src, long p, int64_t *ep)
+static inline ssize_t advance_validate_string(const _GoString *src, long p, int64_t *ep)
 {
     char ch;
     uint64_t es;
@@ -667,7 +667,7 @@ static inline ssize_t advance_validate_string(const GoString *src, long p, int64
 long value(const char *s, size_t n, long p, JsonState *ret, int allow_control)
 {
     long q = p;
-    GoString m = {.buf = s, .len = n};
+    _GoString m = {.buf = s, .len = n};
 
     /* parse the next identifier, q is UNSAFE, may cause out-of-bounds accessing */
     switch (advance_ns(&m, &q))
@@ -724,7 +724,7 @@ long value(const char *s, size_t n, long p, JsonState *ret, int allow_control)
     }
 }
 
-void vstring(const GoString *src, long *p, JsonState *ret)
+void vstring(const _GoString *src, long *p, JsonState *ret)
 {
     int64_t v = -1;
     int64_t i = *p;
@@ -955,7 +955,7 @@ static bool inline is_overflow(uint64_t man, int sgn, int exp10)
            ((man >> 63) == 1 && ((uint64_t)sgn & man) != (1ull << 63));
 }
 
-void vnumber(const GoString *src, long *p, JsonState *ret)
+void vnumber(const _GoString *src, long *p, JsonState *ret)
 {
     int sgn = 1;
     uint64_t man = 0; // mantissa for double (float64)
@@ -1082,13 +1082,13 @@ parse_float:
     *p = i;
 }
 
-void vsigned(const GoString *src, long *p, JsonState *ret)
+void vsigned(const _GoString *src, long *p, JsonState *ret)
 {
     int64_t sgn = 1;
     vinteger(int64_t, sgn, sgn = -1)
 }
 
-void vunsigned(const GoString *src, long *p, JsonState *ret)
+void vunsigned(const _GoString *src, long *p, JsonState *ret)
 {
     vinteger(uint64_t, 1, {
         *p = i - 1;
@@ -1131,7 +1131,7 @@ void vunsigned(const GoString *src, long *p, JsonState *ret)
 //     }
 // }
 
-static inline long fsm_exec(StateMachine *self, const GoString *src, long *p, int validate_flag)
+static inline long fsm_exec(StateMachine *self, const _GoString *src, long *p, int validate_flag)
 {
     int vt;
     char ch;
@@ -1534,25 +1534,25 @@ check_index:
     }
 }
 
-long skip_one(const GoString *src, long *p, StateMachine *m)
+long skip_one(const _GoString *src, long *p, StateMachine *m)
 {
     FSM_INIT(m, FSM_VAL);
     return fsm_exec(m, src, p, VALID_DEFAULT);
 }
 
-long skip_array(const GoString *src, long *p, StateMachine *m)
+long skip_array(const _GoString *src, long *p, StateMachine *m)
 {
     FSM_INIT(m, FSM_ARR_0);
     return fsm_exec(m, src, p, VALID_DEFAULT);
 }
 
-long skip_object(const GoString *src, long *p, StateMachine *m)
+long skip_object(const _GoString *src, long *p, StateMachine *m)
 {
     FSM_INIT(m, FSM_OBJ_0);
     return fsm_exec(m, src, p, VALID_DEFAULT);
 }
 
-long skip_string(const GoString *src, long *p)
+long skip_string(const _GoString *src, long *p)
 {
     int64_t v;
     ssize_t q = *p - 1;
@@ -1571,7 +1571,7 @@ long skip_string(const GoString *src, long *p)
     }
 }
 
-long validate_string(const GoString *src, long *p)
+long validate_string(const _GoString *src, long *p)
 {
     int64_t v;
     ssize_t q = *p - 1;
@@ -1596,7 +1596,7 @@ long validate_string(const GoString *src, long *p)
     return q;
 }
 
-long skip_negative(const GoString *src, long *p)
+long skip_negative(const _GoString *src, long *p)
 {
     long i = *p;
     long r = skip_number(src->buf + i, src->len - i);
@@ -1613,7 +1613,7 @@ long skip_negative(const GoString *src, long *p)
     return i - 1;
 }
 
-long skip_positive(const GoString *src, long *p)
+long skip_positive(const _GoString *src, long *p)
 {
     long i = *p - 1;
     long r = skip_number(src->buf + i, src->len - i);
@@ -1630,7 +1630,7 @@ long skip_positive(const GoString *src, long *p)
     return i;
 }
 
-long validate_one(const GoString *src, long *p, StateMachine *m)
+long validate_one(const _GoString *src, long *p, StateMachine *m)
 {
     FSM_INIT(m, FSM_VAL);
     return fsm_exec(m, src, p, VALID_FULL);
