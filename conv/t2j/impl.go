@@ -30,6 +30,10 @@ import (
 	"github.com/cloudwego/dynamicgo/thrift/base"
 )
 
+const (
+	_GUARD_SLICE_FACTOR = 2
+)
+
 //go:noinline
 func wrapError(code meta.ErrCode, msg string, err error) error {
 	// panic(msg)
@@ -66,6 +70,9 @@ func (self *BinaryConv) readResponseBase(ctx context.Context, p *thrift.BinaryPr
 }
 
 func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, out *[]byte, resp http.ResponseSetter) (err error) {
+	//NOTICE: output buffer must be larger than src buffer
+	rt.GuardSlice(out, len(src)*_GUARD_SLICE_FACTOR)
+	
 	var p = thrift.BinaryProtocol{
 		Buf: src,
 	}

@@ -33,7 +33,14 @@ import (
 	"github.com/cloudwego/dynamicgo/thrift/base"
 )
 
+const (
+	_GUARD_SLICE_FACTOR = 1
+)
+
 func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter) error {
+	//NOTICE: output buffer must be larger than src buffer
+	rt.GuardSlice(buf, len(src)*_GUARD_SLICE_FACTOR)
+
 	if self.opts.EnableThriftBase {
 		if f := desc.Struct().GetRequestBase(); f != nil {
 			if err := writeRequestBaseToThrift(ctx, buf, f); err != nil {
