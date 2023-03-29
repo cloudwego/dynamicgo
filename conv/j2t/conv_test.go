@@ -371,9 +371,9 @@ func TestBodyFallbackToHttp(t *testing.T) {
 		err = json.Unmarshal(edata, exp)
 		require.Nil(t, err)
 		cv := NewBinaryConv(conv.Options{
-			EnableHttpMapping:     true,
-			WriteDefaultField:     true,
-			ReadHttpValueFallback: true,
+			EnableHttpMapping:            true,
+			WriteDefaultField:            true,
+			ReadHttpValueFallback:        true,
 			TracebackRequredOrRootFields: true,
 		})
 		ctx := context.Background()
@@ -393,10 +393,10 @@ func TestBodyFallbackToHttp(t *testing.T) {
 		err = json.Unmarshal(edata, exp)
 		require.Nil(t, err)
 		cv := NewBinaryConv(conv.Options{
-			WriteRequireField:     true,
-			EnableHttpMapping:     true,
-			WriteDefaultField:     false,
-			ReadHttpValueFallback: true,
+			WriteRequireField:            true,
+			EnableHttpMapping:            true,
+			WriteDefaultField:            false,
+			ReadHttpValueFallback:        true,
 			TracebackRequredOrRootFields: true,
 		})
 		ctx := context.Background()
@@ -454,9 +454,9 @@ func TestApiBody(t *testing.T) {
 	desc := getExampleDescByName("ApiBodyMethod", true, thrift.Options{})
 	data := []byte(`{"code":1024,"InnerCode":{}}`)
 	cv := NewBinaryConv(conv.Options{
-		EnableHttpMapping:     true,
-		WriteDefaultField:     true,
-		ReadHttpValueFallback: true,
+		EnableHttpMapping:            true,
+		WriteDefaultField:            true,
+		ReadHttpValueFallback:        true,
 		TracebackRequredOrRootFields: true,
 	})
 	ctx := context.Background()
@@ -767,7 +767,7 @@ func TestStateMachineOOM(t *testing.T) {
 		cv := NewBinaryConv(conv.Options{
 			EnableHttpMapping:            true,
 			WriteRequireField:            true,
-			ReadHttpValueFallback: true,
+			ReadHttpValueFallback:        true,
 			TracebackRequredOrRootFields: true,
 		})
 		ctx := context.Background()
@@ -1003,7 +1003,7 @@ func TestHttpMappingFallback(t *testing.T) {
 			Request: hr,
 		}
 		cv := NewBinaryConv(conv.Options{
-			EnableHttpMapping:            true,
+			EnableHttpMapping:     true,
 			ReadHttpValueFallback: true,
 		})
 		ctx := context.Background()
@@ -1060,7 +1060,7 @@ func TestPostFormBody(t *testing.T) {
 		cv := NewBinaryConv(conv.Options{
 			WriteDefaultField:            true,
 			EnableHttpMapping:            true,
-			ReadHttpValueFallback: true,
+			ReadHttpValueFallback:        true,
 			TracebackRequredOrRootFields: true,
 		})
 		ctx := context.Background()
@@ -1118,9 +1118,9 @@ func TestAGWDynamicBody(t *testing.T) {
 	t.Run("no http-mapping", func(t *testing.T) {
 		data := `{"Query":"1","json":[1,2,3],"inner_struct":{"inner_json":{"a":"中文","b":1},"Must":"2"}}`
 		cv := NewBinaryConv(conv.Options{
-			EnableValueMapping:           true,
-			EnableHttpMapping:            false,
-			WriteRequireField:            true,
+			EnableValueMapping:    true,
+			EnableHttpMapping:     false,
+			WriteRequireField:     true,
 			ReadHttpValueFallback: true,
 		})
 		ctx := context.Background()
@@ -1137,7 +1137,7 @@ func TestAGWDynamicBody(t *testing.T) {
 			EnableValueMapping:           true,
 			EnableHttpMapping:            true,
 			WriteRequireField:            true,
-			ReadHttpValueFallback: true,
+			ReadHttpValueFallback:        true,
 			TracebackRequredOrRootFields: true,
 		})
 		ctx := context.Background()
@@ -1176,8 +1176,8 @@ func TestNobodyRequiredFields(t *testing.T) {
 	}
 	desc := p.Functions()["ExampleMethod"].Request().Struct().Fields()[0].Type()
 	cv := NewBinaryConv(conv.Options{
-		EnableHttpMapping:            true,
-		WriteRequireField:            true,
+		EnableHttpMapping:     true,
+		WriteRequireField:     true,
 		ReadHttpValueFallback: true,
 	})
 	ctx := context.Background()
@@ -1422,7 +1422,7 @@ func TestSimpleArgs(t *testing.T) {
 	})
 
 	t.Run("int", func(t *testing.T) {
-		desc :=  getExampleDescByName("I64", true, thrift.Options{})
+		desc := getExampleDescByName("I64", true, thrift.Options{})
 		p := thrift.NewBinaryProtocolBuffer()
 		p.WriteI64(math.MaxInt64)
 		exp := p.Buf

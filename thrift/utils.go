@@ -253,7 +253,7 @@ var bitmapPool = sync.Pool{
 func (b *RequiresBitmap) Set(id FieldID, val Requireness) {
 	i := int(id) / int64BitSize
 	if len(*b) <= i {
-		b.malloc(int32(i))
+		b.malloc(int32(id))
 	}
 	p := unsafe.Pointer(uintptr((*rt.GoSlice)(unsafe.Pointer(b)).Ptr) + uintptr(i)*int64ByteSize)
 	switch val {

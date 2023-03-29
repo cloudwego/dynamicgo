@@ -37,7 +37,7 @@ import (
 )
 
 func getSimpleDesc() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(context.Background(), idlPath)
+	svc, err := thrift.NewDescriptorFromPath(context.Background(), idlPath)
 	if err != nil {
 		panic(err)
 	}
@@ -45,7 +45,7 @@ func getSimpleDesc() *thrift.TypeDescriptor {
 }
 
 func getPartialSimpleDesc() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(context.Background(), idlPath)
+	svc, err := thrift.NewDescriptorFromPath(context.Background(), idlPath)
 	if err != nil {
 		panic(err)
 	}
@@ -53,7 +53,7 @@ func getPartialSimpleDesc() *thrift.TypeDescriptor {
 }
 
 func getNestingDesc() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(context.Background(), idlPath)
+	svc, err := thrift.NewDescriptorFromPath(context.Background(), idlPath)
 	if err != nil {
 		panic(err)
 	}
@@ -61,7 +61,7 @@ func getNestingDesc() *thrift.TypeDescriptor {
 }
 
 func getPartialNestingDesc() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(context.Background(), idlPath)
+	svc, err := thrift.NewDescriptorFromPath(context.Background(), idlPath)
 	if err != nil {
 		panic(err)
 	}
@@ -187,7 +187,7 @@ func TestThrift2HTTP_Raw(t *testing.T) {
 		ls, err := json.Marshal(data.ListI64)
 		require.NoError(t, err)
 		data.ListI64 = nil
-		
+
 		require.Equal(t, data, v)
 		require.Equal(t, dstr, resp.Header.Get("String"))
 		require.Equal(t, int(di32), resp.StatusCode)

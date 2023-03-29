@@ -107,7 +107,7 @@ func TestDynamicgoDeprecated(t *testing.T) {
 }
 
 func TestHttpEndPoints(t *testing.T) {
-	p, err := NewDescritorFromPath(context.Background(), "../testdata/idl/example3.thrift")
+	p, err := NewDescriptorFromPath(context.Background(), "../testdata/idl/example3.thrift")
 	if err != nil {
 		t.Fatal(err)
 	}

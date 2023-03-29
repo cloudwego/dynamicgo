@@ -54,7 +54,7 @@ func TestMain(m *testing.M) {
 }
 
 func getExampleDesc() *TypeDescriptor {
-	svc, err := NewDescritorFromPath(context.Background(), "../testdata/idl/example.thrift")
+	svc, err := NewDescriptorFromPath(context.Background(), "../testdata/idl/example.thrift")
 	if err != nil {
 		panic(err)
 	}

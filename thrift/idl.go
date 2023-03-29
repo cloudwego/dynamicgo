@@ -92,8 +92,8 @@ func absPath(path, includePath string) string {
 	return filepath.Join(filepath.Dir(path), includePath)
 }
 
-// NewDescritorFromPath behaviors like NewDescritorFromPath, besides it uses DefaultOptions.
-func NewDescritorFromPath(ctx context.Context, path string, includeDirs ...string) (*ServiceDescriptor, error) {
+// NewDescriptorFromPath behaviors like NewDescriptorFromPath, besides it uses DefaultOptions.
+func NewDescriptorFromPath(ctx context.Context, path string, includeDirs ...string) (*ServiceDescriptor, error) {
 	return NewDefaultOptions().NewDescritorFromPath(ctx, path, includeDirs...)
 }
 
@@ -609,7 +609,7 @@ func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache c
 			if err != nil {
 				return nil, err
 			}
-			
+
 			// handle annotations
 			ignore := false
 			for _, val := range left {
@@ -637,7 +637,6 @@ func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache c
 			if _f.typ, err = parseType(ctx, field.Type, tree, cache, nextRecursionDepth, opts, nil, parseTarget); err != nil {
 				return nil, err
 			}
-			
 
 			// make default value
 			// WARN: ignore errors here

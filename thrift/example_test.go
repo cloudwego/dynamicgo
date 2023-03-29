@@ -10,7 +10,7 @@ import (
 
 func ExampleNewDescritorFromPath() {
 	// default Options
-	p1, err := NewDescritorFromPath(context.Background(), "../testdata/idl/example.thrift")
+	p1, err := NewDescriptorFromPath(context.Background(), "../testdata/idl/example.thrift")
 	if err != nil {
 		panic(err)
 	}
@@ -90,7 +90,7 @@ func ExampleNewDescritorFromContent() {
 }
 
 func ExampleBinaryProtocol_ReadAnyWithDesc() {
-	p1, err := NewDescritorFromPath(context.Background(), "../testdata/idl/example2.thrift")
+	p1, err := NewDescriptorFromPath(context.Background(), "../testdata/idl/example2.thrift")
 	if err != nil {
 		panic(err)
 	}
