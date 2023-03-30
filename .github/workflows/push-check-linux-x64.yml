@@ -6,10 +6,28 @@ jobs:
   build:
     strategy:
       matrix:
-        go-version: [1.16.x, 1.20.x]
+        go-version: [1.20.x]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+
+      - name: Set up Clang
+        uses: egor-tensin/setup-clang@v1
+        with:
+          version: latest
+          platform: x64
+      - name: Build native shared library
+        run: |
+          mkdir -p output && clang \
+            -msse -mno-sse4 \
+            -mavx -DUSE_AVX=1 \
+            -ggdb3 -O0 \
+            -mno-avx2 -DUSE_AVX2=0 \
+            -DDEBUG=1 \
+            -shared -fPIC -nostdlib \
+            -o output/libnative.so \
+            -Inative \
+            native/native.c
 
       - name: Set up Go
         uses: actions/setup-go@v2
@@ -26,3 +44,7 @@ jobs:
       - name: Unit Test
         run: |
           go test -race ./...
+
+      - name: Unit Test shared lib
+        run: |
+          LD_LIBRARY_PATH=$PWD/output go test -race -tags sharedlib ./...
