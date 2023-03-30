@@ -39,16 +39,23 @@ static void __attribute__((naked)) write_syscall(const char *s, size_t n)
         "\n");
 }
 #elif defined (__linux__) && (defined(__x86_64__) || defined(_M_X64))
-static void write_syscall(const char *s, size_t n)
+static void __attribute__((naked)) write_syscall(const char *s, size_t n)
 {
     asm volatile (
+        "movq %rsi, %rdx" // count -> arg2
+        "\n"
+        "movq %rdi, %rsi" // buf -> arg1
+        "\n"
+        // "movq $1, %rax" // syscall_nr write
+        "movl $1, %edi"
+        "\n"
+        // "movq $1, %rdi" // fd -> arg0
+        "movl $1, %eax"
+        "\n"
         "syscall"
-        :
-        : "a"((1)), // syscall_nr write
-            "D"(1), // fd
-            "S"(s), // buf
-            "d"(n) // count
-        : "rcx", "r11", "memory");
+        "\n"
+        "retq"
+    );
 }       
 #else
 #error syscall conv unsupported
