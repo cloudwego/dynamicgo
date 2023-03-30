@@ -29,7 +29,6 @@
                 "isDefault": true
             }
         },
-
         {
             "label": "Compile native as shared lib",
             "type": "shell",
@@ -41,7 +40,9 @@
                 "-mno-avx2", "-DUSE_AVX2=0",
 
                 "-DDEBUG=1",
-                "-shared", "-fPIC",
+                "-shared", 
+                "-fPIC", 
+                "-nostdlib",
                 "-o ../output/libnative.so",
                 "-I.",
 
@@ -58,7 +59,26 @@
                 "kind": "build",
                 "isDefault": true
             }
-        }
+        },
+
+        {
+            "label": "Check exported function of native shared lib",
+            "type": "shell",
+            "command": [
+                "nm", "-gD", "output/libnative.so",
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}",
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
 
     ]
 }
