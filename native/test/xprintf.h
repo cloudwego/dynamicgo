@@ -42,14 +42,12 @@ static void __attribute__((naked)) write_syscall(const char *s, size_t n)
 static void __attribute__((naked)) write_syscall(const char *s, size_t n)
 {
     asm volatile (
-        "movq %rsi, %rdx" // count -> arg2
+        "movq %rsi, %rdx"
         "\n"
-        "movq %rdi, %rsi" // buf -> arg1
+        "movq %rdi, %rsi"
         "\n"
-        // "movq $1, %rax" // syscall_nr write
         "movl $1, %edi"
         "\n"
-        // "movq $1, %rdi" // fd -> arg0
         "movl $1, %eax"
         "\n"
         "syscall"
