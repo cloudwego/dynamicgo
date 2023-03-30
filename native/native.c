@@ -26,4 +26,5 @@
 #include "base64.c"
 #include "map.c"
 #include "thrift.c"
+#include "thrift_compact.c"
 #include "thrift_skip.c"

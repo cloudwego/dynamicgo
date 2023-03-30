@@ -43,6 +43,7 @@ typedef int32_t tmsg;
 
 typedef uint8_t ttype;
 
+#define TTYPE_EINVAL (ttype)0xff
 #define TTYPE_STOP (ttype)0
 #define TTYPE_VOID (ttype)1
 #define TTYPE_BOOL (ttype)2
@@ -60,6 +61,7 @@ typedef uint8_t ttype;
 #define TTYPE_LIST (ttype)15
 #define TTYPE_UTF8 (ttype)16
 #define TTYPE_UTF16 (ttype)17
+#define TTYPE_LAST TTYPE_UTF16
 
 typedef uint16_t vm_em;
 #define VM_NONE 0
@@ -363,5 +365,66 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, _GoSlice *buf, const _GoString *src
 
 #define DEBUG_PRINT_STATE_EX(i, sp, p) \
     xprintf("[DEBUG_PRINT_STATE_EX_%d] STATE{sp:%d, st:%d, jp:%d, td:%s, ex:[%d,%d,%d]} POS:%d CHAR:%c BUF{\n\tbuf:%l,\n\tlen:%d, cap:%d}\n", i, sp, vt->st, vt->jp, vt->td == NULL ? &(_GoString){} : &vt->td->name, *(uint64_t *)(&vt->ex), *((uint64_t *)(&vt->ex) + 1), *((uint64_t *)(&vt->ex) + 2), p, ch, buf, buf->len, buf->cap);
+
+
+
+
+typedef struct {
+    void* resv0;
+    void* resv1;
+    void* resv2;
+    void* resv3;
+} vt_base;
+
+typedef struct {
+    void (*write_message_begin)();
+    void (*write_message_end)();
+    void (*write_struct_begin)();
+    void (*write_struct_end)();
+    void (*write_field_begin)();
+    void (*write_field_end)();
+    void (*write_field_stop)();
+    void (*write_map_begin)();
+    void (*write_map_end)();
+    void (*write_list_begin)();
+    void (*write_list_end)();
+    void (*write_set_begin)();
+    void (*write_set_end)();
+    void (*write_byte)();
+    void (*write_i16)();
+    void (*write_i32)();
+    void (*write_i64)();
+    void (*write_double)();
+    void (*write_string)();
+    void (*write_binary)();
+} vt_encode;
+// typedef struct {
+//     void (*read_message_begin)();
+//     void (*read_message_end)();
+//     void (*read_struct_begin)();
+//     void (*read_struct_end)();
+//     void (*read_field_begin)();
+//     void (*read_field_end)();
+//     void (*read_field_stop)();
+//     void (*read_map_begin)();
+//     void (*read_map_end)();
+//     void (*read_list_begin)();
+//     void (*read_list_end)();
+//     void (*read_set_begin)();
+//     void (*read_set_end)();
+//     void (*read_byte)();
+//     void (*read_i16)();
+//     void (*read_i32)();
+//     void (*read_i64)();
+//     void (*read_double)();
+//     void (*read_string)();
+//     void (*read_binary)();
+// } vt_decode;
+// // thrift serde virtual table
+// typedef struct {
+//     vt_encode enc;
+//     vt_decode dec;
+// } vt_thrift;
+
 
 #endif // THRIFT_H

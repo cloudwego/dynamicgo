@@ -18,6 +18,7 @@ import (
 #include "native.h"
 #include "thrift.h"
 #include "thrift_skip.h"
+#include "thrift_compact.h"
 */
 import "C"
 
@@ -132,4 +133,18 @@ func TBSkip(st *types.TStateMachine, s *byte, n int, t uint8) int {
 		C.uint8_t(t),
 	)
 	return int(retc)
+}
+
+type tcIenc struct {
+	base    [4]unsafe.Pointer
+	methods [20]unsafe.Pointer
+}
+
+func TCGetIencoder() (ret tcIenc) {
+	retc := C.tc_get_iencoder()
+	if unsafe.Sizeof(retc) != unsafe.Sizeof(ret) {
+		panic("siz not eq")
+	}
+	ret = *(*tcIenc)(unsafe.Pointer(&retc))
+	return
 }
