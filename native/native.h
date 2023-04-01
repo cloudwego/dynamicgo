@@ -62,12 +62,14 @@
 #define ERR_OOM_BM 16
 #define ERR_OOM_BUF 17
 #define ERR_OOM_KEY 18
-#define ERR_OOM_FIELD 22
-#define ERR_OOM_FVAL 23
 #define ERR_HM 19
 #define ERR_HM_END 21
 #define ERR_UNSUPPORT_VM_TYPE 20
+#define ERR_OOM_FIELD 22
+#define ERR_OOM_FVAL 23
 #define ERR_VM_END 24
+#define ERR_OOM_LFID 25 // LastFieldID
+#define ERR_OOM_CWBS 26 // ContainerWriteBackStack
 
 #define MAX_RECURSE 4096
 

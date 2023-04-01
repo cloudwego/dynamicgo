@@ -38,11 +38,9 @@ typedef uint8_t tcompacttype;
 #define TTC_I32ToZigzag(v) (int32_t)( (v << 1) ^ (v >> 31) )
 #define TTC_ZigzagToI32(v) (int32_t)((uint32_t)v>>1) ^ -((uint32_t)v & 1)
 
-typedef struct {
-    int16_t *buf;
-    size_t len;
-    size_t cap;
-} Int16Slice;
+#define AS_TC(p) ((tc_state *)p)
+
+
 typedef struct {
     _GoSlice *buf;
     struct {
@@ -52,13 +50,21 @@ typedef struct {
     } pending_field_write;
     int16_t last_field_id;
     Int16Slice last_field_id_stack;
+    Uint16Slice container_write_back_stack;
 } tc_state;
+
+
+typedef struct {
+    uint64_t (*write_default_or_empty)(tc_state *, const tFieldDesc *, long);
+    uint64_t (*write_data_count)(tc_state *, size_t n);
+    size_t (*write_data_count_max_length)(tc_state *);
+} tc_ienc_extra;
 
 typedef struct {
     // resv0 = J2TStateMachine
-    // resv1 = tc_state
+    // resv1 = buf (output buffer / GoSlice)
     // resv2 = unk
-    // resv3 = unk
+    // resv3 = tc_state
     vt_base base;
 
     uint64_t (*write_message_begin)(tc_state *, const _GoString, int32_t, int32_t);
@@ -68,12 +74,19 @@ typedef struct {
     uint64_t (*write_field_begin)(tc_state *, ttype, int16_t);
     uint64_t (*write_field_end)(tc_state *);
     uint64_t (*write_field_stop)(tc_state *);
-    uint64_t (*write_map_begin)(tc_state *, ttype, ttype, size_t);
-    uint64_t (*write_map_end)(tc_state *);
-    uint64_t (*write_list_begin)(tc_state *, ttype, size_t);
-    uint64_t (*write_list_end)(tc_state *);
-    uint64_t (*write_set_begin)(tc_state *, ttype, size_t);
-    uint64_t (*write_set_end)(tc_state *);
+    
+    uint64_t (*write_map_n)(tc_state *, ttype, ttype, size_t);
+    uint64_t (*write_map_begin)(tc_state *, ttype, ttype, size_t *);
+    uint64_t (*write_map_end)(tc_state *, size_t, size_t);
+
+    uint64_t (*write_list_n)(tc_state *, ttype, size_t);
+    uint64_t (*write_list_begin)(tc_state *, ttype, size_t *);
+    uint64_t (*write_list_end)(tc_state *, size_t, size_t);
+    
+    uint64_t (*write_set_n)(tc_state *, ttype, size_t);
+    uint64_t (*write_set_begin)(tc_state *, ttype, size_t *);
+    uint64_t (*write_set_end)(tc_state *, size_t, size_t);
+
 
     uint64_t (*write_bool)(tc_state *, bool);
     uint64_t (*write_byte)(tc_state *, char);
@@ -83,7 +96,10 @@ typedef struct {
     uint64_t (*write_double)(tc_state *, double);
     uint64_t (*write_string)(tc_state *, const char *, size_t);
     uint64_t (*write_binary)(tc_state *, const _GoSlice);
+
+    tc_ienc_extra extra;
 } tc_ienc;
+
 
 tc_ienc tc_get_iencoder();
 
@@ -97,14 +113,17 @@ uint64_t tc_write_field_begin(tc_state *self, ttype type, int16_t id);
 uint64_t tc_write_field_end(tc_state *self);
 uint64_t tc_write_field_stop(tc_state *self);
 
-uint64_t tc_write_map_begin(tc_state *self, ttype key, ttype val, size_t size);
-uint64_t tc_write_map_end(tc_state *self);
+uint64_t tc_write_map_n(tc_state *self, ttype key, ttype val, size_t size);
+uint64_t tc_write_map_begin(tc_state *self, ttype key, ttype val, size_t *size);
+uint64_t tc_write_map_end(tc_state *self, size_t back_off, size_t vsize);
 
-uint64_t tc_write_list_begin(tc_state *self, ttype elem, size_t size);
-uint64_t tc_write_list_end(tc_state *self);
+uint64_t tc_write_list_n(tc_state *self, ttype elem, size_t size);
+uint64_t tc_write_list_begin(tc_state *self, ttype elem, size_t *backp);
+uint64_t tc_write_list_end(tc_state *self, size_t back_off, size_t vsize);
 
-uint64_t tc_write_set_begin(tc_state *self, ttype elem, size_t size);
-uint64_t tc_write_set_end(tc_state *self);
+uint64_t tc_write_set_n(tc_state *self, ttype elem, size_t size);
+uint64_t tc_write_set_begin(tc_state *self, ttype elem, size_t *backp);
+uint64_t tc_write_set_end(tc_state *self, size_t back_off, size_t vsize);
 
 uint64_t tc_write_bool(tc_state *self, bool v);
 static inline uint64_t tc_write_byte(tc_state *self, char b);

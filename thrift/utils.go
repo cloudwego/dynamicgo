@@ -388,9 +388,10 @@ func errInvalidBitmapId(id FieldID, st *StructDescriptor) error {
 
 // DefaultValue is the default value of a field
 type DefaultValue struct {
-	goValue      interface{}
-	jsonValue    string
-	thriftBinary string
+	goValue       interface{}
+	jsonValue     string
+	thriftBinary  string
+	thriftCompact string
 }
 
 // GoValue return the go runtime representation of the default value
@@ -406,4 +407,9 @@ func (d DefaultValue) JSONValue() string {
 // ThriftBinary return the thrift-binary-encoded representation of the default value
 func (d DefaultValue) ThriftBinary() string {
 	return d.thriftBinary
+}
+
+// ThriftCompact return the thrift-compact-encoded representation of the default value
+func (d DefaultValue) ThriftCompact() string {
+	return d.thriftCompact
 }

@@ -104,5 +104,7 @@
 char advance_ns(const _GoString *src, long *p);
 
 int64_t advance_dword(const _GoString *src, long *p, long dec, int64_t ret, uint32_t val);
+// ssize_t advance_string(const _GoString *src, long p, int64_t *ep);
+static inline ssize_t advance_string(const _GoString *src, long p, int64_t *ep);
 
 #endif // SCANNING_H

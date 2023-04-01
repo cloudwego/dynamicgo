@@ -699,7 +699,7 @@ uint64_t j2t_field_vm(J2TStateMachine *self, _GoSlice *buf, const _GoString *src
             {                                                                                                        \
                 pex = &self->vt[self->sp - 2].ex;                                                                    \
             }                                                                                                        \
-            _GoString tmp_str = (_GoString){.buf = sp, .len = kn};                                                     \
+            _GoString tmp_str = (_GoString){.buf = sp, .len = kn};                                                   \
             tFieldDesc *f = j2t_find_field_key(&tmp_str, dc->st);                                                    \
             if (f == NULL)                                                                                           \
             {                                                                                                        \
@@ -1002,7 +1002,7 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, _GoSlice *buf, const _GoString *src
             }
         }
 
-            /* object keys */
+        /* object keys */
         case J2T_KEY:
         {
             xprintf("[J2T_KEY] 0\n");
@@ -1020,6 +1020,7 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, _GoSlice *buf, const _GoString *src
             continue;
         }
         }
+        
         // skip
         if unlikely (IS_STATE_SKIP(st))
         {
@@ -1163,6 +1164,7 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, _GoSlice *buf, const _GoString *src
             }
             break;
         }
+        
         case 0:
             WRAP_ERR(ERR_EOF, J2T_VAL);
         default:

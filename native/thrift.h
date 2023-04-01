@@ -95,6 +95,7 @@ typedef struct
     _GoEface go_val;
     _GoString json_val;
     _GoString thrift_binary;
+    _GoString thrift_compact;
 } tDefaultValue;
 
 struct tFieldDesc
@@ -163,11 +164,29 @@ typedef union
 
 typedef struct
 {
+    // State
     size_t st;
+    // JsonPos
     size_t jp;
+    // TypeDesc
     const tTypeDesc *td;
+    // Extra
     J2TExtra ex;
 } J2TState;
+
+typedef struct
+{
+    int16_t *buf;
+    size_t len;
+    size_t cap;
+} Int16Slice;
+
+typedef struct
+{
+    int16_t *buf;
+    size_t len;
+    size_t cap;
+} Uint16Slice;
 
 typedef struct
 {
@@ -185,6 +204,7 @@ typedef struct
 
 typedef struct
 {
+    // vt cursor;
     size_t sp;
     JsonState jt;
     _GoSlice reqs_cache;
@@ -193,6 +213,10 @@ typedef struct
     StateMachine sm;
     Int32Slice field_cache;
     FieldVal fval_cache;
+
+    // tcompact last_field_id
+    Int16Slice tc_last_field_id;
+    Uint16Slice tc_container_write_back;
 } J2TStateMachine;
 
 #define SIZE_J2TEXTRA sizeof(J2TExtra)
@@ -370,61 +394,12 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, _GoSlice *buf, const _GoString *src
 
 
 typedef struct {
-    void* resv0;
-    void* resv1;
-    void* resv2;
-    void* resv3;
+    void *resv0;
+    void *resv1;
+    void *resv2;
+    void *resv3;
 } vt_base;
 
-typedef struct {
-    void (*write_message_begin)();
-    void (*write_message_end)();
-    void (*write_struct_begin)();
-    void (*write_struct_end)();
-    void (*write_field_begin)();
-    void (*write_field_end)();
-    void (*write_field_stop)();
-    void (*write_map_begin)();
-    void (*write_map_end)();
-    void (*write_list_begin)();
-    void (*write_list_end)();
-    void (*write_set_begin)();
-    void (*write_set_end)();
-    void (*write_byte)();
-    void (*write_i16)();
-    void (*write_i32)();
-    void (*write_i64)();
-    void (*write_double)();
-    void (*write_string)();
-    void (*write_binary)();
-} vt_encode;
-// typedef struct {
-//     void (*read_message_begin)();
-//     void (*read_message_end)();
-//     void (*read_struct_begin)();
-//     void (*read_struct_end)();
-//     void (*read_field_begin)();
-//     void (*read_field_end)();
-//     void (*read_field_stop)();
-//     void (*read_map_begin)();
-//     void (*read_map_end)();
-//     void (*read_list_begin)();
-//     void (*read_list_end)();
-//     void (*read_set_begin)();
-//     void (*read_set_end)();
-//     void (*read_byte)();
-//     void (*read_i16)();
-//     void (*read_i32)();
-//     void (*read_i64)();
-//     void (*read_double)();
-//     void (*read_string)();
-//     void (*read_binary)();
-// } vt_decode;
-// // thrift serde virtual table
-// typedef struct {
-//     vt_encode enc;
-//     vt_decode dec;
-// } vt_thrift;
 
 
 #endif // THRIFT_H

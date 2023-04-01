@@ -705,6 +705,7 @@ func assertType(expected, but Type) error {
 }
 
 func makeDefaultValue(typ *TypeDescriptor, val *parser.ConstValue, tree *parser.Thrift) (*DefaultValue, error) {
+	// TODO: support for TCompact default value
 	if val == nil {
 		return nil, nil
 	}
