@@ -18,7 +18,10 @@ import (
 #include "native.h"
 #include "thrift.h"
 #include "thrift_skip.h"
+#include "thrift_binary.h"
 #include "thrift_compact.h"
+
+uint64_t j2t_fsm_exec(J2TStateMachine *self, _GoSlice *buf, const _GoString *src, uint64_t flag);
 */
 import "C"
 
@@ -112,8 +115,15 @@ func Unquote(s unsafe.Pointer, nb int, dp unsafe.Pointer, ep *int, flags uint64)
 //go:nosplit
 //go:nocheckptr
 //goland:noinspection GoUnusedParameter
-func J2T_FSM(fsm *types.J2TStateMachine, buf *[]byte, src *string, flag uint64) uint64 {
-	retc := C.j2t_fsm_exec(
+func J2T_FSM_TB(fsm *types.J2TStateMachine, buf *[]byte, src *string, flag uint64) uint64 {
+
+	// retc := C.j2t_fsm_exec(
+	// 	(*C.J2TStateMachine)(unsafe.Pointer(fsm)),
+	// 	(*C._GoSlice)(unsafe.Pointer(buf)),
+	// 	(*C._GoString)(unsafe.Pointer(src)),
+	// 	C.uint64_t(flag),
+	// )
+	retc := C.j2t2_fsm_tb_exec(
 		(*C.J2TStateMachine)(unsafe.Pointer(fsm)),
 		(*C._GoSlice)(unsafe.Pointer(buf)),
 		(*C._GoString)(unsafe.Pointer(src)),
@@ -133,18 +143,4 @@ func TBSkip(st *types.TStateMachine, s *byte, n int, t uint8) int {
 		C.uint8_t(t),
 	)
 	return int(retc)
-}
-
-type tcIenc struct {
-	base    [4]unsafe.Pointer
-	methods [20]unsafe.Pointer
-}
-
-func TCGetIencoder() (ret tcIenc) {
-	retc := C.tc_get_iencoder()
-	if unsafe.Sizeof(retc) != unsafe.Sizeof(ret) {
-		panic("siz not eq")
-	}
-	ret = *(*tcIenc)(unsafe.Pointer(&retc))
-	return
 }

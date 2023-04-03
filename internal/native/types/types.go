@@ -242,6 +242,9 @@ const (
 	J2T_FIELD_CACHE_SIZE = 256
 	J2T_REQS_CACHE_SIZE  = 256
 	J2T_DBUF_SIZE        = 800
+
+	J2T_TC_LAST_FIELD_SIZE = 64 // also called as MAX_STRUCT_DEPTH
+	J2T_TC_CNTR_WB_SIZE    = 256
 )
 
 type J2TStateMachine struct {
@@ -253,6 +256,9 @@ type J2TStateMachine struct {
 	SM              StateMachine
 	FieldCache      []int32
 	FieldValueCache FieldValue
+
+	TcLastFieldID        []int16
+	TcContainerWriteBack []uint16
 }
 
 type FieldValue struct {
@@ -267,6 +273,8 @@ var j2tStackPool = sync.Pool{
 		ret.ReqsCache = make([]byte, 0, J2T_REQS_CACHE_SIZE)
 		ret.KeyCache = make([]byte, 0, J2T_KEY_CACHE_SIZE)
 		ret.FieldCache = make([]int32, 0, J2T_FIELD_CACHE_SIZE)
+		ret.TcLastFieldID = make([]int16, 0, J2T_TC_LAST_FIELD_SIZE)
+		ret.TcContainerWriteBack = make([]uint16, 0, J2T_TC_CNTR_WB_SIZE)
 		// ret.FieldValueCache = make([]FieldValue, 0, J2T_FIELD_CACHE_SIZE)
 		tmp := make([]byte, 0, J2T_DBUF_SIZE)
 		ret.JT.Dbuf = *(**byte)(unsafe.Pointer(&tmp))
