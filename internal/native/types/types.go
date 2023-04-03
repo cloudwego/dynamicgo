@@ -243,8 +243,13 @@ const (
 	J2T_REQS_CACHE_SIZE  = 256
 	J2T_DBUF_SIZE        = 800
 
-	J2T_TC_LAST_FIELD_SIZE = 64 // also called as MAX_STRUCT_DEPTH
-	J2T_TC_CNTR_WB_SIZE    = 256
+	J2T_TC_LAST_FIELD_SIZE = 64  // Also called as MAX_STRUCT_DEPTH
+	J2T_TC_CNTR_WB_SIZE    = 128 // TCompact map,collection type header (ttype) storage
+	// TODO: Do we need to have a scratch temporary buffer for tcompact?
+	// TODO: Since varint encoding length may varies, we need to reserve max length of varint32 (4 bytes)
+	// TODO: Write-back the length and header type at closing of the context.
+	// TODO: Since it could be less than 4 bytes, we need to move written buffer so that
+	// TODO: there will be no unused reserved bytes that we previously use. (compaction)
 )
 
 type J2TStateMachine struct {
