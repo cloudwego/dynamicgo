@@ -58,7 +58,7 @@ typedef uint8_t tcompacttype;
         : 0
 
 typedef struct {
-    _GoSlice *buf;
+    _GoSlice *buf; // SAFETY: DO NOT MOVE
     struct {
         int16_t id;
         ttype type;

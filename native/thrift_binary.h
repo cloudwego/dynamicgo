@@ -10,7 +10,7 @@
 #define TB_THRIFT_VERSION_1 0x80010000ul
 
 typedef struct {
-    _GoSlice *buf;
+    _GoSlice *buf; // SAFETY: DO NOT MOVE
 } tb_state;
 
 TIMPL_IENC(tb_state *, tb_ienc, tb_menc);

@@ -461,40 +461,43 @@ uint64_t tc_write_default_or_empty(tc_state *self, const tFieldDesc *field, long
     }
 }
 
-static const tc_ienc tc_iencoder = {
+static const tc_menc_extra TC_IENC_M_EXTRA = {
+    tc_write_default_or_empty,
+    tc_write_data_count,
+    tc_write_data_count_max_length,
+};
+static const tc_menc TC_IENC_M = {
+    tc_write_message_begin,
+    tc_write_message_end,
+    tc_write_struct_begin,
+    tc_write_struct_end,
+    tc_write_field_begin,
+    tc_write_field_end,
+    tc_write_field_stop,
+    tc_write_map_n,
+    tc_write_map_begin,
+    tc_write_map_end,
+    tc_write_list_n,
+    tc_write_list_begin,
+    tc_write_list_end,
+    tc_write_set_n,
+    tc_write_set_begin,
+    tc_write_set_end,
+    
+    tc_write_bool,
+    tc_write_byte,
+    tc_write_i16,
+    tc_write_i32,
+    tc_write_i64,
+    tc_write_double,
+    tc_write_string,
+    tc_write_binary,
+};
+
+static const tc_ienc TC_IENCODER = {
     .base = {},
-    .method = {
-        tc_write_message_begin,
-        tc_write_message_end,
-        tc_write_struct_begin,
-        tc_write_struct_end,
-        tc_write_field_begin,
-        tc_write_field_end,
-        tc_write_field_stop,
-        tc_write_map_n,
-        tc_write_map_begin,
-        tc_write_map_end,
-        tc_write_list_n,
-        tc_write_list_begin,
-        tc_write_list_end,
-        tc_write_set_n,
-        tc_write_set_begin,
-        tc_write_set_end,
-        
-        tc_write_bool,
-        tc_write_byte,
-        tc_write_i16,
-        tc_write_i32,
-        tc_write_i64,
-        tc_write_double,
-        tc_write_string,
-        tc_write_binary,
-    },
-    .extra = {
-        tc_write_default_or_empty,
-        tc_write_data_count,
-        tc_write_data_count_max_length,
-    },
+    .method = &TC_IENC_M,
+    .extra = &TC_IENC_M_EXTRA,
 };
 
 typedef struct { 
@@ -507,9 +510,10 @@ typedef struct {
 // resv1: VT_OUTBUF     = out buffer
 // resv2 = unk
 // resv3: VT_TC_STATE   = tc_state
+static __always_inline
 tc_ienc tc_get_iencoder(tc_get_iencoder_arg arg)
 {
-    tc_ienc vt = tc_iencoder;
+    tc_ienc vt = TC_IENCODER;
     vt.base.resv2 = NULL;
     VT_J2TSM(vt.base)    = arg.j2tsm;
     VT_OUTBUF(vt.base)   = arg.outbuf;
@@ -540,7 +544,10 @@ uint64_t j2t2_fsm_tc_exec(J2TStateMachine *self, _GoSlice *buf, const _GoString 
 }
 
 // ttype2tcc convert ttype to tcompacttype
-static inline tcompacttype ttype2ttc(ttype type)
+static
+inline
+// __always_inline
+tcompacttype ttype2ttc(ttype type)
 {
     if (type >= TTYPE_LAST)
         return TTYPE_EINVAL;
@@ -575,7 +582,10 @@ static inline tcompacttype ttype2ttc(ttype type)
 }
 
 // ttc2ttype convert tcompacttype to ttype
-static inline ttype ttc2ttype(tcompacttype ttc)
+static
+inline
+// __always_inline
+ttype ttc2ttype(tcompacttype ttc)
 {
     if (ttc >= TTC_LAST)
         return TTC_EINVAL;

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "memops.h"
 #include "native.h"
 #include "thrift.h"
 #include "test/xprintf.h"
@@ -56,7 +57,7 @@ inline uint64_t bm_malloc_reqs(_GoSlice *cache, ReqBitMap src, ReqBitMap *copy, 
 uint64_t j2t2_write_unset_fields(vt_ienc *ienc, const tStructDesc *st, ReqBitMap reqs, uint64_t flags, long p)
 {
     J2TStateMachine *self = VT_J2TSM(ienc->base);
-    _GoSlice *buf = ienc->base.resv1;
+    _GoSlice *buf = VT_OUTBUF(ienc->base);
     void *tproto = VT_TC_STATE(ienc->base);
 
     bool wr_enabled = flags & F_WRITE_REQUIRE;
@@ -64,6 +65,7 @@ uint64_t j2t2_write_unset_fields(vt_ienc *ienc, const tStructDesc *st, ReqBitMap
     bool wo_enabled = flags & F_WRITE_OPTIONAL;
     bool tb_enabled = flags & F_TRACE_BACK;
     uint64_t *s = reqs.buf;
+    // xprintf("[j2t2_write_unset_fields] reqs: %n \n", &reqs);
     for (int i = 0; i < reqs.len; i++)
     {
         uint64_t v = *s;
@@ -89,12 +91,12 @@ uint64_t j2t2_write_unset_fields(vt_ienc *ienc, const tStructDesc *st, ReqBitMap
                 }
                 else if ((wr_enabled && f->required == REQ_REQUIRED) || (wd_enabled && f->required == REQ_DEFAULT) || (wo_enabled && f->required == REQ_OPTIONAL))
                 {
-                    J2T_ZERO(ienc->method.write_field_begin(tproto, f->type->type, f->ID));
-                    J2T_ZERO(ienc->extra.write_default_or_empty(tproto, f, p));
-                    J2T_ZERO(ienc->method.write_field_end(tproto));
+                    J2T_ZERO(ienc->method->write_field_begin(tproto, f->type->type, f->ID));
+                    J2T_ZERO(ienc->extra->write_default_or_empty(tproto, f, p));
+                    J2T_ZERO(ienc->method->write_field_end(tproto));
                 }
-                v >>= 1;
             }
+            v >>= 1;
         }
         s++;
     }
@@ -105,6 +107,7 @@ uint64_t j2t2_write_unset_fields(vt_ienc *ienc, const tStructDesc *st, ReqBitMap
 uint64_t j2t2_number(vt_ienc *ienc, const tTypeDesc *desc, const _GoString *src, long *p, JsonState *ret)
 {
     void *tproto = VT_TC_STATE(ienc->base);
+    
     long s = *p;
     vnumber(src, p, ret);
     xprintf("[j2t2_number] p:%d, ret.vt:%d, ret.iv:%d, ret.dv:%f\n", s, ret->vt, ret->iv, ret->dv);
@@ -114,27 +117,27 @@ uint64_t j2t2_number(vt_ienc *ienc, const tTypeDesc *desc, const _GoString *src,
     switch (desc->type)
     {
     case TTYPE_I08:
-        return ienc->method.write_byte(tproto,
+        return ienc->method->write_byte(tproto,
             ret->vt == V_INTEGER
                 ? (uint8_t)ret->iv
                 : (uint8_t)ret->dv);
     case TTYPE_I16:
-        return ienc->method.write_i16(tproto,
+        return ienc->method->write_i16(tproto,
             ret->vt == V_INTEGER
                 ? (int16_t)ret->iv
                 : (int16_t)ret->dv);
     case TTYPE_I32:
-        return ienc->method.write_i32(tproto,
+        return ienc->method->write_i32(tproto,
             ret->vt == V_INTEGER
                 ? (int32_t)ret->iv
                 : (int32_t)ret->dv);
     case TTYPE_I64:
-        return ienc->method.write_i64(tproto,
+        return ienc->method->write_i64(tproto,
             ret->vt == V_INTEGER
                 ? (int64_t)ret->iv
                 : (int64_t)ret->dv);
     case TTYPE_DOUBLE:
-        return ienc->method.write_double(tproto,
+        return ienc->method->write_double(tproto,
             ret->vt == V_DOUBLE
                 ? (double)ret->dv
                 : (double)((uint64_t)ret->iv));
@@ -144,7 +147,7 @@ uint64_t j2t2_number(vt_ienc *ienc, const tTypeDesc *desc, const _GoString *src,
 
 uint64_t j2t2_string(vt_ienc *ienc, const _GoString *src, long *p, uint64_t flags)
 {
-    _GoSlice *buf = ienc->base.resv1;
+    _GoSlice *buf = VT_OUTBUF(ienc->base);
     void *tproto = VT_TC_STATE(ienc->base);
 
     long s = *p;
@@ -153,30 +156,56 @@ uint64_t j2t2_string(vt_ienc *ienc, const _GoString *src, long *p, uint64_t flag
     J2T_XERR(e, s);
     *p = e;
     size_t n = e - s - 1;
-    xprintf("[j2t_string]s:%d, p:%d, ep:%d, n:%d\n", s, e, ep, n);
+    xprintf("[j2t2_string]s:%d, p:%d, ep:%d, n:%d  branch=%d\n", s, e, ep, n, (bool)(ep >= s && ep < e));
     if unlikely (ep >= s && ep < e)
     {
-        // write length
-        J2T_ZERO(ienc->extra.write_data_count(tproto, n));
+        // Reserve size bytes
+        size_t hdr_off = buf->len;
+        char *hdr = &buf->buf[hdr_off];
+        size_t resv_count = ienc->extra->write_data_count_max_length(tproto);
+        J2T_ZERO( buf_malloc(buf, resv_count) );
         // unescape string
-        size_t o = buf->len;
+        size_t quo_off = buf->len;
         ep = -1;
         J2T_ZERO( buf_malloc(buf, n) );
-        xprintf("[j2t_string] unquote o:%d, n:%d, ep:%d, flags:%d\n", o, n, ep, flags);
-        ssize_t l = unquote(&src->buf[s], n, &buf->buf[o], &ep, flags);
-        xprintf("[j2t_string] unquote end, l:%d\n", l);
+        xprintf("[j2t2_string] unquote o:%d, n:%d, ep:%d, flags:%d\n", quo_off, n, ep, flags);
+        ssize_t l = unquote(&src->buf[s], n, &buf->buf[quo_off], &ep, flags);
+        xprintf("[j2t2_string] unquote end, l:%d\n", l);
         if (l < 0)
             WRAP_ERR(-l, s);
-        buf->len = o + l;
+        // Compacting bytes
+        size_t cur_sz = quo_off+l;
+        _GoSlice tmp = { .buf = hdr, .len = 0, .cap = resv_count };
+        vt_base tmp2 = { .resv0 = &tmp };
+        J2T_ZERO( ienc->extra->write_data_count(&tmp2, l) );
+        size_t delta = resv_count - tmp.len;
+        xprintf("[j2t2_string] compacting "
+            "cur_sz=%d "
+            "resv_count=%d "
+            "resv_wrcnt=%d "
+            "delta=%d"
+            "\n", 
+            cur_sz, resv_count, tmp.len, delta);
+        if (delta > 0)
+        {
+            char *dsp = &hdr[tmp.len];
+            char *ssp = &hdr[resv_count];
+            memcpy2(dsp, ssp, l);
+            buf->len = cur_sz - delta;
+        }
+        else
+        {
+            buf->len = cur_sz;
+        }
     }
     else
-        J2T_ZERO(ienc->method.write_string(tproto, &src->buf[0], src->len));
+        J2T_ZERO(ienc->method->write_string(tproto, &src->buf[s], n));
     return 0;
 }
 
 uint64_t j2t2_binary(vt_ienc *ienc, const _GoString *src, long *p, uint64_t flags)
 {
-    _GoSlice *buf = ienc->base.resv1;
+    _GoSlice *buf = VT_OUTBUF(ienc->base);
     void *tproto = VT_TC_STATE(ienc->base);
 
     long s = *p;
@@ -185,26 +214,51 @@ uint64_t j2t2_binary(vt_ienc *ienc, const _GoString *src, long *p, uint64_t flag
     J2T_XERR(e, s);
     *p = e;
     size_t n = e - s - 1;
-    xprintf("[j2t_binary]s:%d, p:%d, ep:%d, n:%d\n", s, *p, ep, n);
-    // write length
-    J2T_ZERO( ienc->extra.write_data_count(tproto, n) );
+    xprintf("[j2t2_binary]s:%d, p:%d, ep:%d, n:%d\n", s, *p, ep, n);
+    // Reserve size bytes
+    size_t hdr_off = buf->len;
+    char *hdr = &buf->buf[hdr_off];
+    size_t resv_count = ienc->extra->write_data_count_max_length(tproto);
+    J2T_ZERO( buf_malloc(buf, resv_count) );
     // write content
+    size_t b64_off = buf->len;
     ssize_t l = b64decode(buf, &src->buf[s], n, 0);
-    xprintf("[j2t_binary] base64 endm l:%d\n", l);
+    xprintf("[j2t2_binary] base64 endm l:%d\n", l);
     if (l < 0)
         WRAP_ERR(ERR_DECODE_BASE64, -l - 1);
+    // Compacting bytes
+    size_t cur_sz = b64_off+l;
+    _GoSlice tmp = { .buf = hdr, .len = 0, .cap = resv_count };
+    vt_base tmp2 = { .resv0 = &tmp };
+    J2T_ZERO( ienc->extra->write_data_count(&tmp2, l) );
+    size_t delta = resv_count - tmp.len;
+    xprintf("[j2t2_binary] compacting "
+            "cur_sz=%d "
+            "resv_count=%d "
+            "resv_wrcnt=%d "
+            "delta=%d"
+            "\n", 
+            cur_sz, resv_count, tmp.len, delta);
+    if (delta > 0)
+    {
+        char *dsp = &hdr[tmp.len];
+        char *ssp = &hdr[resv_count];
+        memcpy2(dsp, ssp, l);
+        buf->len = cur_sz - delta;
+    }
     return 0;
 }
 
 uint64_t j2t2_map_key(vt_ienc *ienc, const char *sp, size_t n, const tTypeDesc *dc, JsonState *js, long p)
 {
     void *tproto = VT_TC_STATE(ienc->base);
+    
     xprintf("[j2t2_map_key]\n");
     switch (dc->type)
     {
     case TTYPE_STRING:
     {
-        J2T_ZERO(ienc->method.write_string(tproto, sp, n));
+        J2T_ZERO(ienc->method->write_string(tproto, sp, n));
         break;
     }
     case TTYPE_I08:
@@ -236,7 +290,7 @@ tFieldDesc *j2t2_find_field_key(vt_ienc *ienc, const _GoString *key, const tStru
     else
     {
         ret = (tFieldDesc *)trie_get(st->names.trie, key);
-        xprintf("hash field:%x\n", ret);
+        xprintf("trie field:%x\n", ret);
     }
     return ret;
 }
@@ -265,21 +319,21 @@ uint64_t j2t2_read_key(vt_ienc *ienc, const _GoString *src, long *p, const char 
             ssize_t l = unquote(sp, kn, dp, &ep, 0);
             xprintf("[j2t2_read_key] unquote end l:%d\n", l);
             if unlikely (l < 0)
-                WRAP_ERR(-l,  s);
+                WRAP_ERR(-l, s);
             sp = dp;
             kn = l;
         }
     }
     *spp = sp;
     *knp = kn;
-    xprintf("[j2t2_read_key]sp:%c, kn:%d\n", *sp, kn);
+    xprintf("[j2t2_read_key] sp:%c, kn:%d\n", *sp, kn);
     return 0;
 }
 
 uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *vt)
 {
     J2TStateMachine *self = VT_J2TSM(ienc->base);
-    _GoSlice *buf = ienc->base.resv1;
+    _GoSlice *buf = VT_OUTBUF(ienc->base);
     void *tproto = VT_TC_STATE(ienc->base);
 
     tFieldDesc *f = vt->ex.ef.f;
@@ -287,7 +341,7 @@ uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *v
     // if it is inlined value-mapping, write field tag first
     if (f->vm <= VM_INLINE_MAX)
     {
-        J2T_ZERO( ienc->method.write_field_begin(tproto, f->type->type, f->ID) );
+        J2T_ZERO(ienc->method->write_field_begin(tproto, f->type->type, f->ID));
         switch (f->vm)
         {
         case VM_JSCONV:
@@ -295,6 +349,7 @@ uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *v
             char ch = src->buf[*p - 1];
             if (ch == '"')
             {
+                // If the field is a string and value is also a string, we just handle it normally.
                 if (f->type->type == TTYPE_STRING)
                 {
                     J2T_ZERO(j2t2_string(ienc, src, p, 0));
@@ -303,7 +358,7 @@ uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *v
                 if (src->buf[*p] == '"')
                 {
                     // empty string
-                    J2T_ZERO(ienc->extra.write_default_or_empty(tproto, f, *p));
+                    J2T_ZERO(ienc->extra->write_default_or_empty(tproto, f, *p));
                     *p += 1;
                     return 0;
                 }
@@ -315,7 +370,7 @@ uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *v
                 {
                     WRAP_ERR(ERR_INVAL, ch);
                 }
-                // back to begin of number;
+                // back to begin of number
                 *p -= 1;
             }
 
@@ -329,7 +384,7 @@ uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *v
             {
             case TTYPE_STRING:
             {
-                J2T_ZERO(ienc->method.write_string(tproto, &src->buf[0], *p - s));
+                J2T_ZERO(ienc->method->write_string(tproto, &src->buf[s], *p - s));
                 return 0;
             }
             case TTYPE_I64:
@@ -337,7 +392,7 @@ uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *v
                 int64_t v = self->jt.vt == V_INTEGER
                     ? (int64_t)self->jt.iv
                     : (int64_t)self->jt.dv;
-                J2T_ZERO(ienc->method.write_i64(tproto, v));
+                J2T_ZERO(ienc->method->write_i64(tproto, v));
                 break;
             }
             case TTYPE_I32:
@@ -346,7 +401,7 @@ uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *v
                 int32_t v = self->jt.vt == V_INTEGER
                     ? (int32_t)self->jt.iv
                     : (int32_t)self->jt.dv;
-                J2T_ZERO(ienc->method.write_i32(tproto, v));
+                J2T_ZERO(ienc->method->write_i32(tproto, v));
                 break;
             }
             case TTYPE_I16:
@@ -354,7 +409,7 @@ uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *v
                 int16_t v = self->jt.vt == V_INTEGER
                     ? (int16_t)self->jt.iv
                     : (int16_t)self->jt.dv;
-                J2T_ZERO(ienc->method.write_i16(tproto, v));
+                J2T_ZERO(ienc->method->write_i16(tproto, v));
                 break;
             }
             case TTYPE_I08:
@@ -362,7 +417,7 @@ uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *v
                 char v = self->jt.vt == V_INTEGER
                     ? (char)self->jt.iv
                     : (char)self->jt.dv;
-                J2T_ZERO(ienc->method.write_byte(tproto, v));
+                J2T_ZERO(ienc->method->write_byte(tproto, v));
                 break;
             }
             case TTYPE_DOUBLE:
@@ -370,7 +425,7 @@ uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *v
                 double v = self->jt.vt == V_INTEGER
                     ? (double)((uint64_t)self->jt.iv)
                     : (double)self->jt.dv;
-                J2T_ZERO(ienc->method.write_double(tproto, v));
+                J2T_ZERO(ienc->method->write_double(tproto, v));
                 break;
             }
             default:
@@ -488,7 +543,7 @@ uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *v
                         vm = STATE_FIELD;                                                                               \
                         unwindPos = buf->len;                                                                           \
                         lastField = f;                                                                                  \
-                        J2T_STORE(ienc->method.write_field_begin(VT_TC_STATE(ienc->base), f->type->type, f->ID));                \
+                        J2T_STORE(ienc->method->write_field_begin(VT_TC_STATE(ienc->base), f->type->type, f->ID));                \
                     }                                                                                                   \
                     xprintf("[J2T_KEY] vm: %d\n", vm);                                                                  \
                     if (obj0)                                                                                           \
@@ -506,18 +561,22 @@ uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *v
     } while (0)
 
 
-inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag)
+__always_inline
+uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag)
 {
     #define J2TSTATE_CUR    self->vt[self->sp - 1]
     #define J2TSTATE_NEXT   self->vt[self->sp]
 
     J2TStateMachine *self = VT_J2TSM(ienc->base);
     _GoSlice *buf = VT_OUTBUF(ienc->base);
+    void *tproto = VT_TC_STATE(ienc->base);
 
     if (self->sp <= 0)
+    {
         return 0;
+    }
     // Load JSON position from last state
-    long pv = J2TSTATE_CUR.jp;
+    long pv = self->vt[self->sp - 1].jp;
     long *p = &pv;
 
     // for 'null' value backtrace
@@ -525,7 +584,9 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
     size_t unwindPos = 0;
     tFieldDesc *lastField = NULL;
 
-    // run until no more nested values
+    xprintf("[FSM EXEC]: ienc=%x\n", ienc);
+
+    /* Run until no more nested values */
     while (self->sp)
     {
         if unlikely (self->sp >= MAX_RECURSE)
@@ -541,9 +602,9 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
 
         // Advance to next char
         const char ch = advance_ns(src, p);
-        DEBUG_PRINT_STATE(0, self->sp, *p);
+        DEBUG_PRINT_STATE(0, self->sp - 1, *p);
 
-        // check for special types
+        /* check for special types */
         switch (J2T_ST(st))
         {
         
@@ -552,9 +613,9 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
             xprintf("[J2T2_VAL] drop: %d\n", self->sp);
             J2T_DROP(self);
             break;
-        }   
+        }
 
-        // Arrays, first element
+        /* arrays, first element */
         case J2T_ARR_0:
         {
             xprintf("[J2T2_ARR_0] 0\n");
@@ -563,7 +624,7 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
             case ']':
             {
                 xprintf("[J2T2_ARR_0] end\n");
-                J2T_ZERO( ienc->method.write_list_end(VT_TC_STATE(ienc->base), vt->ex.ec.bp, 0) );
+                ienc->method->write_list_end(tproto, vt->ex.ec.bp, 0);
                 J2T_DROP(self);
                 continue;
             }
@@ -580,7 +641,7 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
             }
         }
 
-        // Arrays
+        /* arrays */
         case J2T_ARR:
         {
             xprintf("[J2T2_ARR] 0\n");
@@ -591,7 +652,7 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
                 xprintf("[J2T2_ARR] end\n");
                 if (!null_val)
                 {
-                    // Count last elemnt
+                    // Count last element
                     vt->ex.ec.size += 1;
                 }
                 else
@@ -600,8 +661,8 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
                     null_val = false;
                 }
                 // Since the encoding of list and set, we call only one type's func here.
-                // TODO: add Thrift type choose for corresponding func                
-                J2T_ZERO( ienc->method.write_list_end(VT_TC_STATE(ienc->base), vt->ex.ec.bp, vt->ex.ec.size) );
+                // TODO: add Thrift type choose for corresponding func
+                ienc->method->write_list_end(tproto, vt->ex.ec.bp, vt->ex.ec.size);
                 J2T_DROP(self);
                 continue;
             }
@@ -624,7 +685,7 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
             }
         }
 
-        // objects, first pair
+        /* objects, first pair */
         case J2T_OBJ_0:
         {
             xprintf("[J2T2_OBJ_0] 0\n");
@@ -633,7 +694,7 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
             default:
                 WRAP_ERR2(ERR_INVAL, ch, J2T_OBJ_0);
             
-            // empty object
+            /* empty object */
             case '}':
             {
                 xprintf("[J2T2_OBJ_0] end\n");
@@ -651,18 +712,18 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
                     }
                     else
                     {
-                        J2T_STORE(ienc->method.write_struct_end(VT_TC_STATE(ienc->base)));
+                        J2T_STORE( ienc->method->write_struct_end(tproto));
                     }
                 }
                 else
                 {
-                    J2T_STORE( ienc->method.write_struct_end(VT_TC_STATE(ienc->base)) );
+                    ienc->method->write_map_end(tproto, vt->ex.ec.bp, 0);
                 }
                 J2T_DROP(self);
                 continue;
             }
 
-            //  the quote of the first key
+            /* the quote of the first key */
             case '"':
             {
                 xprintf("[J2T2_OBJ_0] start\n");
@@ -674,7 +735,7 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
             }
         }
 
-        // objects
+        /* objects */
         case J2T_OBJ:
         {
             xprintf("[J2T2_OBJ] 0\n");
@@ -706,7 +767,7 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
                         // NOTICE: should tb_write_struct_end(), then J2T_DROP(self) in Go handler
                     }
                     else
-                        J2T_STORE(ienc->method.write_struct_end(VT_TC_STATE(ienc->base)));
+                        J2T_STORE(ienc->method->write_struct_end(tproto));
                 }
                 else
                 {
@@ -720,7 +781,7 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
                         null_val = false;
                         buf->len = unwindPos;
                     }
-                    ienc->method.write_map_end(VT_TC_STATE(ienc->base), vt->ex.ec.bp, vt->ex.ec.size);
+                    ienc->method->write_map_end(tproto, vt->ex.ec.bp, vt->ex.ec.size);
                 }
                 J2T_DROP(self);
                 continue;
@@ -757,7 +818,7 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
             }
         }
 
-        // object keys
+        /* object keys */
         case J2T_KEY:
         {
             xprintf("[J2T2_KEY] 0\n");
@@ -766,7 +827,7 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
             continue;
         }
 
-        // object element
+        /* object element */
         case J2T_ELEM:
         {
             xprintf("[J2T2_ELEM] 0\n");
@@ -779,7 +840,7 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
         // skip
         if unlikely (IS_STATE_SKIP(st))
         {
-            xprintf("[J2T_VAL] skip: %d\n", *p);
+            xprintf("[J2T2_VAL] skip: %d\n", *p);
             *p -= 1;
             long s = *p;
             self->sm.sp = 0;
@@ -822,32 +883,29 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
             xprintf("[J2T2_VAL] null\n");
             long s = *p;
             J2T_XERR(advance_dword(src, p, 1, *p - 1, VS_NULL), s);
-            if (IS_STATE_FIELD(st) && unlikely(vt->ex.ef.f->required))
+            if (IS_STATE_FIELD(st) && unlikely(vt->ex.ef.f->required == REQ_REQUIRED))
                 WRAP_ERR(ERR_NULL_REQUIRED, vt->ex.ef.f->ID);
             null_val = true;
             break;
         }
-
         case 't':
         {
-            xprintf("[J2T2_VAL] true\n" );
+            xprintf("[J2T2_VAL] true\n");
             long s = *p;
             J2T_XERR(advance_dword(src, p, 1, *p - 1, VS_TRUE), s);
             J2T_EXP(TTYPE_BOOL, dc->type);
-            J2T_STORE_NEXT(ienc->method.write_bool(VT_TC_STATE(ienc->base), true));
+            J2T_STORE_NEXT(ienc->method->write_bool(tproto, true));
             break;
         }
-
         case 'f':
         {
             xprintf("[J2T2_VAL] false\n");
             long s = *p;
-            J2T_XERR(advance_dword(src, p, 1, *p - 1, VS_ALSE), s);
+            J2T_XERR(advance_dword(src, p, 0, *p - 1, VS_ALSE), s);
             J2T_EXP(TTYPE_BOOL, dc->type);
-            J2T_STORE_NEXT(ienc->method.write_bool(VT_TC_STATE(ienc->base), false));
+            J2T_STORE_NEXT(ienc->method->write_bool(tproto, false));
             break;
         }
-        
         case '[':
         {
             xprintf("[J2T2_VAL] array\n");
@@ -858,12 +916,12 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
             v->ex.ec.size = 0;
             xprintf("[J2T_ARRAY]ex size: %d, vt: %d, vt.ex.ec: %d, vt.ex.ec.bp: %d, vt.ex.ec.size: %d\n", sizeof(J2TExtra), vt, &vt->ex.ec, &vt->ex.ec.bp, &vt->ex.ec.size);
             // pass write-back address bp to v.ex.ec.bp
-            J2T_STORE_NEXT( ienc->method.write_list_begin(VT_TC_STATE(ienc->base), dc->elem->type, &v->ex.ec.bp) );
+            J2T_STORE_NEXT(ienc->method->write_list_begin(tproto, dc->elem->type, &v->ex.ec.bp));
             // pass bp to state
             J2T_PUSH_EX(self, J2T_ARR_0, *p, dc, v->ex);
             break;
         }
-        
+
         case '{':
         {
             xprintf("[J2T2_VAL] object\n");
@@ -872,21 +930,21 @@ inline uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag
             if (dc->type == TTYPE_STRUCT)
             {
                 xprintf("[J2T2_VAL] object struct name: %s\n", &dc->st->name);
-                ienc->method.write_struct_begin(VT_TC_STATE(ienc->base));
+                ienc->method->write_struct_begin(tproto);
                 v->ex.es.sd = dc->st;
                 J2T_PUSH(self, J2T_OBJ_0, *p, dc);
                 J2T_STORE(bm_malloc_reqs(&self->reqs_cache, dc->st->reqs, &v->ex.es.reqs, *p));
                 if ((flag & F_ENABLE_HM) != 0 && dc->st->hms.len > 0)
                 {
-                    xprintf("[J2T_VAL] HTTP_MAPPING begin pos: %d\n", *p - 1);
+                    xprintf("[J2T2_VAL] HTTP_MAPPING begin pos: %d\n", *p - 1);
                     WRAP_ERR0(ERR_HM, *p - 1);
                 }
             }
             else
             {
-                v->ex.ec.size = 0;                
+                v->ex.ec.size = 0;
                 // pass write-back address bp to v.ex.ec.bp
-                J2T_STORE_NEXT( ienc->method.write_map_begin(VT_TC_STATE(ienc->base), dc->key->type, dc->elem->type, &v->ex.ec.bp) );
+                J2T_STORE_NEXT(ienc->method->write_map_begin(tproto, dc->key->type, dc->elem->type, &v->ex.ec.bp));
                 J2T_PUSH(self, J2T_OBJ_0, *p, dc);
             }
             break;

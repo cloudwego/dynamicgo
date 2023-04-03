@@ -22,21 +22,6 @@
 #include <stdint.h>
 #include "test/xprintf.h"
 
-uint64_t buf_malloc(_GoSlice *buf, size_t size)
-{
-    if (size == 0)
-    {
-        return 0;
-    }
-    size_t d = buf->len + size;
-    if (d > buf->cap)
-    {
-        WRAP_ERR0(ERR_OOM_BUF, d - buf->cap);
-    }
-    buf->len = d;
-    return 0;
-}
-
 uint64_t tb_write_byte(_GoSlice *buf, char v)
 {
     size_t s = buf->len;
@@ -236,24 +221,6 @@ void tb_write_message_end(_GoSlice *buf)
     return;
 }
 
-uint64_t bm_malloc_reqs(_GoSlice *cache, ReqBitMap src, ReqBitMap *copy, long p)
-{
-    size_t n = src.len * SIZE_INT64;
-    size_t d = cache->len + n;
-    if unlikely (d > cache->cap)
-    {
-        xprintf("bm_malloc_reqs oom, d:%d, cap:%d\n", d, cache->cap);
-        WRAP_ERR0(ERR_OOM_BM, (d - cache->cap) * SIZE_INT64);
-    }
-
-    copy->buf = (uint64_t *)&cache->buf[cache->len];
-    copy->len = src.len;
-    memcpy2((char *)copy->buf, (char *)src.buf, n);
-    cache->len = d;
-    // xprintf("[bm_malloc_reqs] copy:%n, src:%n \n", copy, &src);
-
-    return 0;
-}
 
 uint64_t j2t_write_unset_fields(J2TStateMachine *self, _GoSlice *buf, const tStructDesc *st, ReqBitMap reqs, uint64_t flags, long p)
 {

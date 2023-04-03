@@ -449,8 +449,8 @@ typedef struct {
     TIMPL_MENC(tproto, tname); \
     typedef struct { \
         vt_base base; \
-        tname method; \
-        tname##_extra extra; \
+        const tname *method; \
+        const tname##_extra *extra; \
     } iname
 
 TIMPL_IENC(void *, vt_ienc, vt_menc);

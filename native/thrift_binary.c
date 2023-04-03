@@ -65,9 +65,9 @@ static inline uint64_t tb_write_byte(tb_state *self, char v)
     return _tb_write_byte(self, v);
 }
 
-uint64_t tb_write_bool(tb_state *self, bool value)
+uint64_t tb_write_bool(tb_state *self, bool v)
 {
-    return tb_write_byte(self, value ? 1 : 0);
+    return tb_write_byte(self, v ? 1 : 0);
 }
 
 uint64_t tb_write_i16(tb_state *self, int16_t v)
@@ -104,9 +104,9 @@ uint64_t tb_write_string(tb_state *self, const char *v, size_t n)
 {
     // _GoSlice *buf = self->buf;
     // size_t s = buf->len;
-    size_t off;
+    size_t off; // = buf->len;
     J2T_ZERO( tb_write_data_count(self, n) );
-    // xprintf("[tb_write_string] %c%c%c%c\n", buf->buf[s], buf->buf[s + 1], buf->buf[s + 2], buf->buf[s + 3]);
+    // xprintf("[tb_write_string] siz_enc=[%x,%x,%x,%x]\n", buf->buf[off], buf->buf[off + 1], buf->buf[off + 2], buf->buf[off + 3]);
     // s = buf->len;
     off = self->buf->len;
     J2T_ZERO( tb_buf_malloc(self, n) );
@@ -139,7 +139,7 @@ uint64_t tb_write_struct_begin(tb_state *self)
 uint64_t tb_write_struct_end(tb_state *self)
 {
     J2T_ZERO( tb_write_byte(self, TTYPE_STOP) );
-    xprintf("[tb_write_struct_end]:%c\n", self->buf->buf[self->buf->len - 1]);
+    xprintf("[tb_write_struct_end]:%x\n", self->buf->buf[self->buf->len - 1]);
     return 0;
 }
 
@@ -177,7 +177,6 @@ uint64_t tb_write_map_end(tb_state *self, size_t back_off, size_t vsize)
         .cap = 4,
     };
     J2T_ZERO( _tb_write_data_count(&tmp, vsize) );
-    self->buf->len += tmp.len;
     return 0;
 }
 
@@ -207,7 +206,6 @@ static inline uint64_t tb_write_collection_end(tb_state *self, size_t back_off, 
         .cap = 4,
     };
     J2T_ZERO( _tb_write_data_count(&tmp, vsize));
-    self->buf->len += tmp.len;
     return 0;
 }
 
@@ -293,40 +291,43 @@ uint64_t tb_write_default_or_empty(tb_state *self, const tFieldDesc *field, long
     }
 }
 
-static const tb_ienc tb_iencoder = {
-    .base = {},
-    .method = {
-        tb_write_message_begin,
-        tb_write_message_end,
-        tb_write_struct_begin,
-        tb_write_struct_end,
-        tb_write_field_begin,
-        tb_write_field_end,
-        tb_write_field_stop,
-        tb_write_map_n,
-        tb_write_map_begin,
-        tb_write_map_end,
-        tb_write_list_n,
-        tb_write_list_begin,
-        tb_write_list_end,
-        tb_write_set_n,
-        tb_write_set_begin,
-        tb_write_set_end,
+static const tb_menc_extra TB_IENC_M_EXTRA = {
+    tb_write_default_or_empty,
+    tb_write_data_count,
+    tb_write_data_count_max_length,
+};
+static const tb_menc TB_IENC_M = {
+    tb_write_message_begin,
+    tb_write_message_end,
+    tb_write_struct_begin,
+    tb_write_struct_end,
+    tb_write_field_begin,
+    tb_write_field_end,
+    tb_write_field_stop,
+    tb_write_map_n,
+    tb_write_map_begin,
+    tb_write_map_end,
+    tb_write_list_n,
+    tb_write_list_begin,
+    tb_write_list_end,
+    tb_write_set_n,
+    tb_write_set_begin,
+    tb_write_set_end,
 
-        tb_write_bool,
-        tb_write_byte,
-        tb_write_i16,
-        tb_write_i32,
-        tb_write_i64,
-        tb_write_double,
-        tb_write_string,
-        tb_write_binary,
-    },
-    .extra = {
-        tb_write_default_or_empty,
-        tb_write_data_count,
-        tb_write_data_count_max_length,
-    },
+    tb_write_bool,
+    tb_write_byte,
+    tb_write_i16,
+    tb_write_i32,
+    tb_write_i64,
+    tb_write_double,
+    tb_write_string,
+    tb_write_binary,
+};
+
+static const tb_ienc TB_IENCODER = {
+    .base = {},
+    .method = &TB_IENC_M,
+    .extra = &TB_IENC_M_EXTRA,
 };
 
 typedef struct { 
@@ -339,9 +340,10 @@ typedef struct {
 // resv1: VT_OUTBUF     = out buffer
 // resv2 = unk
 // resv3: VT_TC_STATE   = tc_state
+static __always_inline
 tb_ienc tb_get_iencoder(tb_get_iencoder_arg arg)
 {
-    tb_ienc vt = tb_iencoder;
+    tb_ienc vt = TB_IENCODER;
     vt.base.resv2 = NULL;
     VT_J2TSM(vt.base)    = arg.j2tsm;
     VT_OUTBUF(vt.base)   = arg.outbuf;
