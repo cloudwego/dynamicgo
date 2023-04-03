@@ -89,7 +89,7 @@ func (self *BinaryConv) doNative(ctx context.Context, src []byte, desc *thrift.T
 	fsm.Init(0, unsafe.Pointer(desc))
 
 exec:
-	ret := native.J2T_FSM(fsm, buf, &jp, self.flags)
+	ret := native.J2T_FSM_TB(fsm, buf, &jp, self.flags)
 	if ret != 0 {
 		cont, e := self.handleError(ctx, fsm, buf, src, req, ret, top)
 		if cont && e == nil {

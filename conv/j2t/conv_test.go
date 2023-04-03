@@ -442,7 +442,7 @@ func TestNullJSON2Thrift(t *testing.T) {
 	var m = map[string]interface{}{}
 	err = json.Unmarshal(data, &m)
 	require.Nil(t, err)
-	fmt.Printf("%#v", m)
+	fmt.Printf("%#v\n", m)
 
 	act := null.NewNullStruct()
 	_, err = act.FastRead(out)
@@ -695,7 +695,7 @@ func (mock MockConv) do(self *BinaryConv, ctx context.Context, src []byte, desc 
 	}
 
 exec:
-	ret := native.J2T_FSM(fsm, buf, &jp, flags)
+	ret := native.J2T_FSM_TB(fsm, buf, &jp, flags)
 	if ret != 0 {
 		cont, e := self.handleError(ctx, fsm, buf, src, req, ret, top)
 		if cont && e == nil {
