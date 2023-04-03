@@ -41,9 +41,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Unit Test
-        run: |
-          go test -race ./...
+      # outdated native code, we need to use shared library
+      # as we don't really generate them on CI.
+      # - name: Unit Test
+      #   run: |
+      #     go test -race ./...
 
       - name: Unit Test shared lib
         run: |
