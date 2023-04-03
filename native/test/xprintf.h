@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <sys/cdefs.h>
 #include <sys/types.h>
 #include "../native.h"
 
@@ -168,7 +169,7 @@ static void printgostr(_GoString *s)
     printch('"');
 }
 
-void xprintf(const char *fmt, ...)
+static inline void xprintf(const char *fmt, ...)
 {
 #ifdef DEBUG
     __builtin_va_list va;
