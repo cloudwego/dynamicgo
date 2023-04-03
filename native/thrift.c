@@ -19,7 +19,9 @@
 #include "thrift.h"
 #include "test/xprintf.h"
 
-inline uint64_t buf_malloc(_GoSlice *buf, size_t size)
+// inline 
+__always_inline
+uint64_t buf_malloc(_GoSlice *buf, size_t size)
 {
     if (size == 0)
     {
@@ -34,7 +36,9 @@ inline uint64_t buf_malloc(_GoSlice *buf, size_t size)
     return 0;
 }
 
-inline uint64_t bm_malloc_reqs(_GoSlice *cache, ReqBitMap src, ReqBitMap *copy, long p)
+// inline 
+__always_inline
+uint64_t bm_malloc_reqs(_GoSlice *cache, ReqBitMap src, ReqBitMap *copy, long p)
 {
     size_t n = src.len * SIZE_INT64;
     size_t d = cache->len + n;
@@ -54,11 +58,12 @@ inline uint64_t bm_malloc_reqs(_GoSlice *cache, ReqBitMap src, ReqBitMap *copy, 
 }
 
 
+__always_inline
 uint64_t j2t2_write_unset_fields(vt_ienc *ienc, const tStructDesc *st, ReqBitMap reqs, uint64_t flags, long p)
 {
     J2TStateMachine *self = VT_J2TSM(ienc->base);
     _GoSlice *buf = VT_OUTBUF(ienc->base);
-    void *tproto = VT_TC_STATE(ienc->base);
+    void *tproto = VT_TSTATE(ienc->base);
 
     bool wr_enabled = flags & F_WRITE_REQUIRE;
     bool wd_enabled = flags & F_WRITE_DEFAULT;
@@ -104,9 +109,10 @@ uint64_t j2t2_write_unset_fields(vt_ienc *ienc, const tStructDesc *st, ReqBitMap
     return 0;
 }
 
+__always_inline
 uint64_t j2t2_number(vt_ienc *ienc, const tTypeDesc *desc, const _GoString *src, long *p, JsonState *ret)
 {
-    void *tproto = VT_TC_STATE(ienc->base);
+    void *tproto = VT_TSTATE(ienc->base);
     
     long s = *p;
     vnumber(src, p, ret);
@@ -145,10 +151,11 @@ uint64_t j2t2_number(vt_ienc *ienc, const tTypeDesc *desc, const _GoString *src,
     WRAP_ERR2(ERR_DISMATCH_TYPE, desc->type, V_INTEGER);
 }
 
+__always_inline
 uint64_t j2t2_string(vt_ienc *ienc, const _GoString *src, long *p, uint64_t flags)
 {
     _GoSlice *buf = VT_OUTBUF(ienc->base);
-    void *tproto = VT_TC_STATE(ienc->base);
+    void *tproto = VT_TSTATE(ienc->base);
 
     long s = *p;
     int64_t ep;
@@ -203,10 +210,11 @@ uint64_t j2t2_string(vt_ienc *ienc, const _GoString *src, long *p, uint64_t flag
     return 0;
 }
 
+__always_inline
 uint64_t j2t2_binary(vt_ienc *ienc, const _GoString *src, long *p, uint64_t flags)
 {
     _GoSlice *buf = VT_OUTBUF(ienc->base);
-    void *tproto = VT_TC_STATE(ienc->base);
+    void *tproto = VT_TSTATE(ienc->base);
 
     long s = *p;
     int64_t ep;
@@ -249,9 +257,10 @@ uint64_t j2t2_binary(vt_ienc *ienc, const _GoString *src, long *p, uint64_t flag
     return 0;
 }
 
+__always_inline
 uint64_t j2t2_map_key(vt_ienc *ienc, const char *sp, size_t n, const tTypeDesc *dc, JsonState *js, long p)
 {
-    void *tproto = VT_TC_STATE(ienc->base);
+    void *tproto = VT_TSTATE(ienc->base);
     
     xprintf("[j2t2_map_key]\n");
     switch (dc->type)
@@ -278,6 +287,7 @@ uint64_t j2t2_map_key(vt_ienc *ienc, const char *sp, size_t n, const tTypeDesc *
     return 0;
 }
 
+__always_inline
 tFieldDesc *j2t2_find_field_key(vt_ienc *ienc, const _GoString *key, const tStructDesc *st)
 {
     tFieldDesc *ret;
@@ -295,6 +305,7 @@ tFieldDesc *j2t2_find_field_key(vt_ienc *ienc, const _GoString *key, const tStru
     return ret;
 }
 
+__always_inline
 uint64_t j2t2_read_key(vt_ienc *ienc, const _GoString *src, long *p, const char **spp, size_t *knp)
 {
     J2TStateMachine *self = VT_J2TSM(ienc->base);
@@ -330,11 +341,12 @@ uint64_t j2t2_read_key(vt_ienc *ienc, const _GoString *src, long *p, const char 
     return 0;
 }
 
+__always_inline
 uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *vt)
 {
     J2TStateMachine *self = VT_J2TSM(ienc->base);
     _GoSlice *buf = VT_OUTBUF(ienc->base);
-    void *tproto = VT_TC_STATE(ienc->base);
+    void *tproto = VT_TSTATE(ienc->base);
 
     tFieldDesc *f = vt->ex.ef.f;
     xprintf("[j2t_field_vm] f->ID:%d, f->type->type:%d, p:%d \n", f->ID, f->type->type, *p);
@@ -444,6 +456,7 @@ uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *v
         default:
             WRAP_ERR(ERR_UNSUPPORT_VM_TYPE, f->vm);
         }
+        J2T_ZERO(ienc->method->write_field_end(tproto));
     }
     else
     {
@@ -543,7 +556,7 @@ uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *v
                         vm = STATE_FIELD;                                                                               \
                         unwindPos = buf->len;                                                                           \
                         lastField = f;                                                                                  \
-                        J2T_STORE(ienc->method->write_field_begin(VT_TC_STATE(ienc->base), f->type->type, f->ID));                \
+                        J2T_STORE(ienc->method->write_field_begin(VT_TSTATE(ienc->base), f->type->type, f->ID));                \
                     }                                                                                                   \
                     xprintf("[J2T_KEY] vm: %d\n", vm);                                                                  \
                     if (obj0)                                                                                           \
@@ -569,7 +582,7 @@ uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag)
 
     J2TStateMachine *self = VT_J2TSM(ienc->base);
     _GoSlice *buf = VT_OUTBUF(ienc->base);
-    void *tproto = VT_TC_STATE(ienc->base);
+    void *tproto = VT_TSTATE(ienc->base);
 
     if (self->sp <= 0)
     {
@@ -712,6 +725,7 @@ uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag)
                     }
                     else
                     {
+                        J2T_ZERO( ienc->method->write_field_stop(tproto) );
                         J2T_STORE( ienc->method->write_struct_end(tproto));
                     }
                 }
@@ -767,7 +781,10 @@ uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag)
                         // NOTICE: should tb_write_struct_end(), then J2T_DROP(self) in Go handler
                     }
                     else
+                    {
+                        J2T_ZERO(ienc->method->write_field_stop(tproto));
                         J2T_STORE(ienc->method->write_struct_end(tproto));
+                    }
                 }
                 else
                 {

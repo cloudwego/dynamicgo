@@ -339,7 +339,7 @@ typedef struct {
 // resv0: VT_J2TSM      = J2TStateMachine
 // resv1: VT_OUTBUF     = out buffer
 // resv2 = unk
-// resv3: VT_TC_STATE   = tc_state
+// resv3: VT_TSTATE     = tc_state
 static __always_inline
 tb_ienc tb_get_iencoder(tb_get_iencoder_arg arg)
 {
@@ -347,7 +347,7 @@ tb_ienc tb_get_iencoder(tb_get_iencoder_arg arg)
     vt.base.resv2 = NULL;
     VT_J2TSM(vt.base)    = arg.j2tsm;
     VT_OUTBUF(vt.base)   = arg.outbuf;
-    VT_TB_STATE(vt.base) = arg.tb;
+    VT_TSTATE(vt.base)   = arg.tb;
     return vt; // copy table
 }
 

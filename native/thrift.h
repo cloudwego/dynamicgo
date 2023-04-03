@@ -183,7 +183,7 @@ typedef struct
 
 typedef struct
 {
-    int16_t *buf;
+    uint16_t *buf;
     size_t len;
     size_t cap;
 } Uint16Slice;
@@ -396,8 +396,7 @@ typedef struct {
 
 #define VT_J2TSM(vtb)       (vtb.resv0)
 #define VT_OUTBUF(vtb)      (vtb.resv1)
-#define VT_TC_STATE(vtb)    (vtb.resv3)
-#define VT_TB_STATE(vtb)    (vtb.resv3)
+#define VT_TSTATE(vtb)      (vtb.resv3)
 
 #define TIMPL_MENC_EXTRA(tproto, tname) \
     typedef struct { \

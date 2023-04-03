@@ -19,6 +19,7 @@
 #include "xprintf.h"
 
 #include "../thrift_compact.h"
+#include <stdint.h>
 // #include "example.h"
 
 J2TStateMachine j2t = {};
@@ -29,10 +30,78 @@ _GoSlice buf = (_GoSlice){
 };
 char DBUF[800] = {};
 
+uint64_t test_tcompact()
+{
+    char buf_c[1000];
+    int16_t lfst_c[64];
+    uint16_t cwbs_c[64];
+
+    _GoSlice buf = { .buf = &buf_c[0], .len = 0, .cap = sizeof(buf_c) };
+    Int16Slice lfst = { .buf = &lfst_c[0], .len = 0, .cap = sizeof(lfst_c)/sizeof(int16_t) };
+    Uint16Slice cwbs = { .buf = &cwbs_c[0], .len = 0, .cap = sizeof(cwbs_c)/sizeof(uint16_t)};
+
+    tc_state tc = { 
+        .buf = &buf,
+        .last_field_id = 0,
+        .last_field_id_stack = lfst,
+        .pending_field_write = {
+            .valid = false,
+        },
+        .container_write_back_stack = cwbs,
+    };
+    tc_ienc ienc = tc_get_iencoder((tc_get_iencoder_arg){
+        .j2tsm = 0, .outbuf = &buf, .tc = &tc,
+    });
+    void *tproto = VT_TSTATE(ienc.base);
+
+
+    char rpc_name[] = "GetFavoriteMethod";
+    
+    J2T_ZERO(ienc.method->write_message_begin(tproto,
+        (_GoString){ .buf = &rpc_name[0], .len = sizeof(rpc_name)-1 },
+        TMESSAGE_TYPE_CALL,
+        0));
+
+    // BEGIN ARGS STRUCT
+    J2T_ZERO(ienc.method->write_struct_begin(tproto));
+
+        J2T_ZERO(ienc.method->write_field_begin(tproto, TTYPE_STRUCT, 1));
+            J2T_ZERO(ienc.method->write_struct_begin(tproto));
+
+                J2T_ZERO(ienc.method->write_field_begin(tproto, TTYPE_I32, 1));
+                J2T_ZERO(ienc.method->write_i32(tproto, 7749));
+                J2T_ZERO(ienc.method->write_field_end(tproto));
+            
+                J2T_ZERO(ienc.method->write_field_begin(tproto, TTYPE_LIST, 1));
+            xprintf("---- GoSlice: %l\n", &buf);
+                size_t back_off;
+                J2T_ZERO(ienc.method->write_list_begin(tproto, TTYPE_I32, &back_off));
+                #define LIST_N 10
+                for (int i = 0; i < LIST_N; i++)
+                    J2T_ZERO(ienc.method->write_i32(tproto, i));
+                J2T_ZERO(ienc.method->write_list_end(tproto, back_off, LIST_N));
+            xprintf("---- GoSlice: %l\n", &buf);
+                J2T_ZERO(ienc.method->write_field_end(tproto));
+
+            J2T_ZERO(ienc.method->write_field_stop(tproto));
+            J2T_ZERO(ienc.method->write_struct_end(tproto));
+        J2T_ZERO(ienc.method->write_field_end(tproto));
+    
+    J2T_ZERO(ienc.method->write_field_stop(tproto));
+    J2T_ZERO(ienc.method->write_struct_end(tproto));
+    // END ARGS STRUCT
+    J2T_ZERO(ienc.method->write_message_end(tproto));
+
+    xprintf("GoSlice: %l\n", &buf);
+    return 0;
+}
+
 int main()
 {
-
-    xprintf("%d\n", ttc2ttype(99));
+    uint64_t res;
+    
+    res = test_tcompact();
+    xprintf("test_tcompact: %d\n", res);
 
     // FILE *fp = NULL;
     // fp = fopen("../testdata/twitter.json", "r");

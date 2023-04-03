@@ -216,7 +216,7 @@ uint64_t tc_write_struct_begin(tc_state *self)
     Int16Slice *st = &self->last_field_id_stack;
     size_t off = st->len;
     if (off > st->cap)
-        return ERR_OOM_LFID;
+        WRAP_ERR0(ERR_OOM_LFID, off+1);
     st->buf[off] = self->last_field_id;
     st->len++;
     self->last_field_id = 0;
@@ -226,7 +226,7 @@ uint64_t tc_write_struct_end(tc_state *self)
 {
     Int16Slice *st = &self->last_field_id_stack;
     self->last_field_id = st->len > 0
-        ? st->buf[st->len--]
+        ? st->buf[--st->len]
         : 0;
     return 0;
 }
@@ -509,7 +509,7 @@ typedef struct {
 // resv0: VT_J2TSM      = J2TStateMachine
 // resv1: VT_OUTBUF     = out buffer
 // resv2 = unk
-// resv3: VT_TC_STATE   = tc_state
+// resv3: VT_TSTATE     = tc_state
 static __always_inline
 tc_ienc tc_get_iencoder(tc_get_iencoder_arg arg)
 {
@@ -517,7 +517,7 @@ tc_ienc tc_get_iencoder(tc_get_iencoder_arg arg)
     vt.base.resv2 = NULL;
     VT_J2TSM(vt.base)    = arg.j2tsm;
     VT_OUTBUF(vt.base)   = arg.outbuf;
-    VT_TC_STATE(vt.base) = arg.tc;
+    VT_TSTATE(vt.base)   = arg.tc;
     return vt; // copy table
 }
 

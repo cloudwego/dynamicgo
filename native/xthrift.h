@@ -183,7 +183,7 @@ typedef struct
 
 typedef struct
 {
-    int16_t *buf;
+    uint16_t *buf;
     size_t len;
     size_t cap;
 } Uint16Slice;

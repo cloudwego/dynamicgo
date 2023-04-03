@@ -48,13 +48,14 @@ typedef uint8_t tcompacttype;
 #define TC_CNTR_RPUSH(q,v)                      \
     do                                          \
     {                                           \
-        if (pq->len > pq->cap)                  \
-            WRAP_ERR0(ERR_OOM_CWBS, pq->cap);   \
+        size_t off = pq->len;                   \
+        if (off > pq->cap)                      \
+            WRAP_ERR0(ERR_OOM_CWBS, off+1);     \
         pq->buf[pq->len++] = v;                 \
     } while (0)
 #define TC_CNTR_RPOP(q)     \
     pval = q->len > 0       \
-        ? q->buf[q->len--]  \
+        ? q->buf[--q->len]  \
         : 0
 
 typedef struct {
