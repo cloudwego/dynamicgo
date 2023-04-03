@@ -19,7 +19,9 @@ package thrift
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/meta"
@@ -29,6 +31,23 @@ import (
 )
 
 var tiCompact = thrift_iter.Config{Protocol: thrift_iter.ProtocolCompact, StaticCodegen: false}.Froze()
+
+func TestVarint32(t *testing.T) {
+	buf := make([]byte, 0, 1000)
+	p := CompactProtocol{}
+	p.Buf = buf
+	const N = 10
+	p.WriteListBegin(I32, N)
+	for i := 0; i < N; i++ {
+		p.WriteI32(int32(i))
+	}
+	p.WriteListEnd()
+	fmt.Printf("%+#v\n", p.Buf)
+
+	m := strings.Replace("a5,00,02,04,06,08,0a,0c,0e,10,12", ",", "", -1)
+	ep, _ := hex.DecodeString(m)
+	fmt.Printf("%+#v\n", ep)
+}
 
 func TestCompactUnwrapReply(t *testing.T) {
 
@@ -85,6 +104,7 @@ func TestCompactUnwrapReply(t *testing.T) {
 			}
 			header = append(header, got...)
 			header = append(header, footer...)
+			fmt.Printf("%+#v\n", header)
 			if !bytes.Equal(header, inputBytes) {
 				t.Errorf("WrapCompactMessage() = %s, want %s", hex.EncodeToString(header), hex.EncodeToString(inputBytes))
 			}

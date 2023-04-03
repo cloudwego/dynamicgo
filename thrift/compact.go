@@ -496,8 +496,7 @@ func (p *CompactProtocol) WriteBinary(value []byte) error {
 	return nil
 }
 
-func (p *CompactProtocol) writeVarint32(v int32) (int, error) {
-	var buf [5]byte
+func (p *CompactProtocol) writeVarint32Internal(buf []byte, v int32) (int, error) {
 	idx := 0
 	for {
 		if (v & ^0x7F) == 0 {
@@ -511,7 +510,17 @@ func (p *CompactProtocol) writeVarint32(v int32) (int, error) {
 			v = int32(u >> 7)
 		}
 	}
+	return idx, nil
+}
 
+func (p *CompactProtocol) writeVarint32(v int32) (int, error) {
+	var buf [5]byte
+	var idx int
+	var err error
+	idx, err = p.writeVarint32Internal(buf[:], v)
+	if err != nil {
+		return 0, err
+	}
 	obuf, err := p.malloc(idx)
 	if err != nil {
 		return 0, err
@@ -520,8 +529,7 @@ func (p *CompactProtocol) writeVarint32(v int32) (int, error) {
 	return idx, nil
 }
 
-func (p *CompactProtocol) writeVarint64(v int64) (int, error) {
-	var buf [9]byte
+func (p *CompactProtocol) writeVarint64Internal(buf []byte, v int64) (int, error) {
 	idx := 0
 	for {
 		if (v & ^0x7F) == 0 {
@@ -535,7 +543,17 @@ func (p *CompactProtocol) writeVarint64(v int64) (int, error) {
 			v = int64(u >> 7)
 		}
 	}
+	return idx, nil
+}
 
+func (p *CompactProtocol) writeVarint64(v int64) (int, error) {
+	var buf [9]byte
+	var idx int
+	var err error
+	idx, err = p.writeVarint64Internal(buf[:], v)
+	if err != nil {
+		return 0, err
+	}
 	obuf, err := p.malloc(idx)
 	if err != nil {
 		return 0, err
@@ -1734,6 +1752,96 @@ func (p *CompactProtocol) WriteAnyWithDesc(desc *TypeDescriptor, val interface{}
 }
 
 // TODO: technically impossible to implement EncodeXXX since CompactProtocol is stateful.
+// func (CompactProtocol) EncodeBool(b []byte, v )
+
+// EncodeByte encodes a byte value.
+func (p CompactProtocol) EncodeByte(b []byte, v byte) {
+	b[0] = byte(v)
+}
+
+// EncodeI16 encodes a int16 value.
+func (p CompactProtocol) EncodeI16(b []byte, v int16) (written int) {
+	written, _ = p.writeVarint32Internal(b, p.int32ToZigzag(int32(v)))
+	return
+}
+
+// EncodeI32 encodes a int32 value.
+func (p CompactProtocol) EncodeI32(b []byte, v int32) (written int) {
+	written, _ = p.writeVarint32Internal(b, p.int32ToZigzag(v))
+	return
+}
+
+// EncodeI64 encodes a int64 value.
+func (p CompactProtocol) EncodeI64(b []byte, v int64) (written int) {
+	written, _ = p.writeVarint64Internal(b, v)
+	return
+}
+
+// EncodeDouble encodes a double value.
+func (p CompactProtocol) EncodeDouble(b []byte, v float64) {
+	p.Buf = b
+	p.WriteDouble(v)
+}
+
+// EncodeString encodes a string value.
+func (p CompactProtocol) EncodeString(b []byte, v string) {
+	p.Buf = b
+	p.WriteString(v)
+}
+
+// EncodeBinary encodes a binary value.
+func (p CompactProtocol) EncodeBinary(b []byte, v []byte) {
+	p.Buf = b
+	p.WriteBinary(v)
+}
+
+func (p CompactProtocol) EncodeFieldBegin(b []byte, t Type, id FieldID) {
+	p.Buf = b
+	p.WriteFieldBegin("", t, id)
+}
+
+// TODO: technically impossible to implement EncodeXXX since CompactProtocol is stateful.
+// func (CompactProtocol) DecodeBool(b []byte, v )
+
+func (CompactProtocol) DecodeByte(b []byte) byte {
+	return b[0]
+}
+
+func (p CompactProtocol) DecodeI16(b []byte) int16 {
+	p.Buf = b
+	value, _ := p.ReadI16()
+	return value
+}
+
+func (p CompactProtocol) DecodeI32(b []byte) int32 {
+	p.Buf = b
+	value, _ := p.ReadI32()
+	return value
+}
+
+func (p CompactProtocol) DecodeI64(b []byte) int64 {
+	p.Buf = b
+	value, _ := p.ReadI64()
+	return value
+}
+
+func (p CompactProtocol) DecodeDouble(b []byte) float64 {
+	p.Buf = b
+	value, _ := p.ReadDouble()
+	return value
+}
+
+func (p CompactProtocol) DecodeString(b []byte) string {
+	p.Buf = b
+	value, _ := p.ReadString(false)
+	return value
+}
+
+func (p CompactProtocol) DecodeBytes(b []byte) []byte {
+	p.Buf = b
+	value, _ := p.ReadBinary(false)
+	return value
+}
 
 /**
  * Misc
