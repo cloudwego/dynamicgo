@@ -29,20 +29,63 @@
                 "isDefault": true
             }
         },
+        
+        {
+            "label": "Compile Go test conv/j2t",
+            "type": "shell",
+            "command": [
+                "go",
+                "test",
+                "-race",
+                "-c", 
+                "-tags", "sharedlib",
+                "."
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/conv/j2t",
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+
         {
             "label": "Compile native as shared lib",
             "type": "shell",
             "command": [
                 "clang",
-                "-msse", "-mno-sse4",
-                "-mavx", "-DUSE_AVX=1",
-                "-ggdb3", "-O0",
-                "-mno-avx2", "-DUSE_AVX2=0",
+                
+                // avx
+                // "-msse","-mno-sse4","-mavx","-mno-avx2","-DUSE_AVX=1","-DUSE_AVX2=0",
+                // avx2
+                // "-msse","-mno-sse4","-mavx","-mavx2",   "-DUSE_AVX=0","-DUSE_AVX2=1",
+                // sse (added ssse3)
+                "-msse","-mssse3","-mno-sse4","-mno-avx","-mno-avx2",
 
-                "-DDEBUG=1",
+                "-ggdb3", 
+                "-O0", // For debugging
+                // "-O3", //
+                
+                "-DDEBUG",
                 "-shared", 
                 "-fPIC", 
+                // "-flto",
+
+                "-mno-red-zone",
+                "-fno-asynchronous-unwind-tables",
+                "-fno-builtin",
+                "-fno-exceptions",
+                "-fno-rtti",
+                "-fno-stack-protector",
                 "-nostdlib",
+
+                "-fno-plt",
+                
                 "-o ../output/libnative.so",
                 "-I.",
 
