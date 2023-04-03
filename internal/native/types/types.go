@@ -127,6 +127,9 @@ const (
 	ERR_HTTP_MAPPING_END      ParsingError = 21
 	ERR_UNSUPPORT_VM_TYPE     ParsingError = 20
 	ERR_VALUE_MAPPING_END     ParsingError = 24
+
+	ERR_OOM_LFID ParsingError = 25
+	ERR_OOM_CWBS ParsingError = 26
 )
 
 var _ParsingErrors = []string{
@@ -150,6 +153,8 @@ var _ParsingErrors = []string{
 	ERR_OOM_KEY:               "key cache is not enough",
 	ERR_HTTP_MAPPING:          "http mapping error",
 	ERR_UNSUPPORT_VM_TYPE:     "unsupported value mapping type",
+	ERR_OOM_LFID:              "last field stack is not enough",
+	ERR_OOM_CWBS:              "container write-back stack is not enough",
 }
 
 func (self ParsingError) Error() string {
@@ -342,6 +347,20 @@ const (
 	resizeFactor  = 2
 	int64ByteSize = unsafe.Sizeof(int64(0))
 )
+
+func (ret *J2TStateMachine) GrowContainerWriteBack(n int) {
+	c := cap(ret.TcContainerWriteBack) + n*resizeFactor
+	tmp := make([]uint16, len(ret.TcContainerWriteBack), c)
+	copy(tmp, ret.TcContainerWriteBack)
+	ret.TcContainerWriteBack = tmp
+}
+
+func (ret *J2TStateMachine) GrowLastFieldID(n int) {
+	c := cap(ret.TcLastFieldID) + n*resizeFactor
+	tmp := make([]int16, len(ret.TcLastFieldID), c)
+	copy(tmp, ret.TcLastFieldID)
+	ret.TcLastFieldID = tmp
+}
 
 func (ret *J2TStateMachine) GrowReqCache(n int) {
 	c := cap(ret.ReqsCache) + n*resizeFactor
