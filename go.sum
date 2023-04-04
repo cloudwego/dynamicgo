@@ -81,6 +81,8 @@ github.com/bytedance/sonic v1.8.3-0.20230228111319-6d60889e3b65 h1:3KInivjGZg0rF
 github.com/bytedance/sonic v1.8.3-0.20230228111319-6d60889e3b65/go.mod h1:i736AoUSYt75HyZLoJW9ERYxcy6eaN6h4BZXU064P/U=
 github.com/bytedance/sonic v1.8.6-0.20230323091200-e2ce9c653eea h1:FooH4aknmz8F21F7t1204cOv7NgUl0Q4ZA7qpRrLhVQ=
 github.com/bytedance/sonic v1.8.6-0.20230323091200-e2ce9c653eea/go.mod h1:iG60EbhPuSzx/YfiIpQkPAgpZeKvbRwjldjmnlZnido=
+github.com/bytedance/sonic v1.8.8-0.20230404064522-67dae90c3cc9 h1:nRHiAXrQCwJJCcINUjl+fa3ClfpNX4ixi2pqHZLEAqQ=
+github.com/bytedance/sonic v1.8.8-0.20230404064522-67dae90c3cc9/go.mod h1:iG60EbhPuSzx/YfiIpQkPAgpZeKvbRwjldjmnlZnido=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/cespare/xxhash/v2 v2.1.1/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=

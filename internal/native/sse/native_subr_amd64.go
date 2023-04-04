@@ -7,99 +7,48 @@ import (
 	`github.com/bytedance/sonic/loader`
 )
 
-var Stubs = []loader.GoC{
-    {"_f64toa", &_subr__f64toa, &__f64toa},
-    {"_fsm_exec", &_subr__fsm_exec, &__fsm_exec},
-    {"_hm_get", &_subr__hm_get, &__hm_get},
-    {"_html_escape", &_subr__html_escape, &__html_escape},
-    {"_i64toa", &_subr__i64toa, &__i64toa},
-    {"_j2t_fsm_exec", &_subr__j2t_fsm_exec, &__j2t_fsm_exec},
-    {"_lspace", &_subr__lspace, &__lspace},
-    {"_quote", &_subr__quote, &__quote},
-    {"_skip_array", &_subr__skip_array, &__skip_array},
-    {"_skip_object", &_subr__skip_object, &__skip_object},
-    {"_skip_one", &_subr__skip_one, &__skip_one},
-    {"_tb_skip", &_subr__tb_skip, &__tb_skip},
-    {"_tb_write_i64", &_subr__tb_write_i64, &__tb_write_i64},
-    {"_trie_get", &_subr__trie_get, &__trie_get},
-    {"_u64toa", &_subr__u64toa, &__u64toa},
-    {"_unquote", &_subr__unquote, &__unquote},
-    {"_validate_one", &_subr__validate_one, &__validate_one},
-    {"_value", &_subr__value, &__value},
-    {"_vnumber", &_subr__vnumber, &__vnumber},
-    {"_vsigned", &_subr__vsigned, &__vsigned},
-    {"_vstring", &_subr__vstring, &__vstring},
-    {"_vunsigned", &_subr__vunsigned, &__vunsigned},
-}
-
-var Funcs = []loader.CFunc{
-    {"__native_entry__", 0, 67, 0, nil},
-    {"_f64toa", _entry__f64toa, _size__f64toa, _stack__f64toa, _pcsp__f64toa},
-    {"_format_significand", _entry__format_significand, _size__format_significand, _stack__format_significand, _pcsp__format_significand},
-    {"_format_integer", _entry__format_integer, _size__format_integer, _stack__format_integer, _pcsp__format_integer},
-    {"_fsm_exec", _entry__fsm_exec, _size__fsm_exec, _stack__fsm_exec, _pcsp__fsm_exec},
-    {"_advance_ns", _entry__advance_ns, _size__advance_ns, _stack__advance_ns, _pcsp__advance_ns},
-    {"_validate_string", _entry__validate_string, _size__validate_string, _stack__validate_string, _pcsp__validate_string},
-    {"_utf8_validate", _entry__utf8_validate, _size__utf8_validate, _stack__utf8_validate, _pcsp__utf8_validate},
-    {"_advance_string", _entry__advance_string, _size__advance_string, _stack__advance_string, _pcsp__advance_string},
-    {"_skip_number", _entry__skip_number, _size__skip_number, _stack__skip_number, _pcsp__skip_number},
-    {"_hm_get", _entry__hm_get, _size__hm_get, _stack__hm_get, _pcsp__hm_get},
-    {"_html_escape", _entry__html_escape, _size__html_escape, _stack__html_escape, _pcsp__html_escape},
-    {"_i64toa", _entry__i64toa, _size__i64toa, _stack__i64toa, _pcsp__i64toa},
-    {"_u64toa", _entry__u64toa, _size__u64toa, _stack__u64toa, _pcsp__u64toa},
-    {"_j2t_fsm_exec", _entry__j2t_fsm_exec, _size__j2t_fsm_exec, _stack__j2t_fsm_exec, _pcsp__j2t_fsm_exec},
-    {"_j2t_number", _entry__j2t_number, _size__j2t_number, _stack__j2t_number, _pcsp__j2t_number},
-    {"_vnumber", _entry__vnumber, _size__vnumber, _stack__vnumber, _pcsp__vnumber},
-    {"_atof_eisel_lemire64", _entry__atof_eisel_lemire64, _size__atof_eisel_lemire64, _stack__atof_eisel_lemire64, _pcsp__atof_eisel_lemire64},
-    {"_atof_native", _entry__atof_native, _size__atof_native, _stack__atof_native, _pcsp__atof_native},
-    {"_decimal_to_f64", _entry__decimal_to_f64, _size__decimal_to_f64, _stack__decimal_to_f64, _pcsp__decimal_to_f64},
-    {"_right_shift", _entry__right_shift, _size__right_shift, _stack__right_shift, _pcsp__right_shift},
-    {"_left_shift", _entry__left_shift, _size__left_shift, _stack__left_shift, _pcsp__left_shift},
-    {"_j2t_string", _entry__j2t_string, _size__j2t_string, _stack__j2t_string, _pcsp__j2t_string},
-    {"_unquote", _entry__unquote, _size__unquote, _stack__unquote, _pcsp__unquote},
-    {"_b64decode", _entry__b64decode, _size__b64decode, _stack__b64decode, _pcsp__b64decode},
-    {"_j2t_field_vm", _entry__j2t_field_vm, _size__j2t_field_vm, _stack__j2t_field_vm, _pcsp__j2t_field_vm},
-    {"_tb_write_default_or_empty", _entry__tb_write_default_or_empty, _size__tb_write_default_or_empty, _stack__tb_write_default_or_empty, _pcsp__tb_write_default_or_empty},
-    {"_j2t_write_unset_fields", _entry__j2t_write_unset_fields, _size__j2t_write_unset_fields, _stack__j2t_write_unset_fields, _pcsp__j2t_write_unset_fields},
-    {"_j2t_find_field_key", _entry__j2t_find_field_key, _size__j2t_find_field_key, _stack__j2t_find_field_key, _pcsp__j2t_find_field_key},
-    {"_lspace", _entry__lspace, _size__lspace, _stack__lspace, _pcsp__lspace},
-    {"_quote", _entry__quote, _size__quote, _stack__quote, _pcsp__quote},
-    {"_skip_array", _entry__skip_array, _size__skip_array, _stack__skip_array, _pcsp__skip_array},
-    {"_skip_object", _entry__skip_object, _size__skip_object, _stack__skip_object, _pcsp__skip_object},
-    {"_skip_one", _entry__skip_one, _size__skip_one, _stack__skip_one, _pcsp__skip_one},
-    {"_tb_skip", _entry__tb_skip, _size__tb_skip, _stack__tb_skip, _pcsp__tb_skip},
-    {"_tb_write_i64", _entry__tb_write_i64, _size__tb_write_i64, _stack__tb_write_i64, _pcsp__tb_write_i64},
-    {"_trie_get", _entry__trie_get, _size__trie_get, _stack__trie_get, _pcsp__trie_get},
-    {"_validate_one", _entry__validate_one, _size__validate_one, _stack__validate_one, _pcsp__validate_one},
-    {"_value", _entry__value, _size__value, _stack__value, _pcsp__value},
-    {"_vsigned", _entry__vsigned, _size__vsigned, _stack__vsigned, _pcsp__vsigned},
-    {"_vstring", _entry__vstring, _size__vstring, _stack__vstring, _pcsp__vstring},
-    {"_vunsigned", _entry__vunsigned, _size__vunsigned, _stack__vunsigned, _pcsp__vunsigned},
-}
-
-var (
-    _subr__f64toa       uintptr
-    _subr__fsm_exec     uintptr
-    _subr__hm_get       uintptr
-    _subr__html_escape  uintptr
-    _subr__i64toa       uintptr
-    _subr__j2t_fsm_exec uintptr
-    _subr__lspace       uintptr
-    _subr__quote        uintptr
-    _subr__skip_array   uintptr
-    _subr__skip_object  uintptr
-    _subr__skip_one     uintptr
-    _subr__tb_skip      uintptr
-    _subr__tb_write_i64 uintptr
-    _subr__trie_get     uintptr
-    _subr__u64toa       uintptr
-    _subr__unquote      uintptr
-    _subr__validate_one uintptr
-    _subr__value        uintptr
-    _subr__vnumber      uintptr
-    _subr__vsigned      uintptr
-    _subr__vstring      uintptr
-    _subr__vunsigned    uintptr
+const (
+    _entry__f64toa = 464
+    _entry__format_significand = 48640
+    _entry__format_integer = 3264
+    _entry__fsm_exec = 19536
+    _entry__advance_ns = 12720
+    _entry__validate_string = 21728
+    _entry__utf8_validate = 23152
+    _entry__advance_string = 14944
+    _entry__skip_number = 18288
+    _entry__hm_get = 27952
+    _entry__html_escape = 9216
+    _entry__i64toa = 3696
+    _entry__u64toa = 3824
+    _entry__j2t_fsm_exec = 39280
+    _entry__j2t_number = 34240
+    _entry__vnumber = 15952
+    _entry__atof_eisel_lemire64 = 10496
+    _entry__atof_native = 12048
+    _entry__decimal_to_f64 = 10864
+    _entry__right_shift = 49600
+    _entry__left_shift = 49104
+    _entry__j2t_string = 34896
+    _entry__unquote = 6880
+    _entry__b64decode = 24448
+    _entry__j2t_field_vm = 37584
+    _entry__tb_write_default_or_empty = 31248
+    _entry__j2t_write_unset_fields = 33344
+    _entry__j2t_find_field_key = 36528
+    _entry__lspace = 80
+    _entry__quote = 5136
+    _entry__skip_array = 21488
+    _entry__skip_object = 21552
+    _entry__skip_one = 19488
+    _entry__tb_skip = 47600
+    _entry__tb_write_i64 = 29504
+    _entry__trie_get = 28768
+    _entry__validate_one = 23792
+    _entry__value = 13568
+    _entry__vsigned = 17504
+    _entry__vstring = 14784
+    _entry__vunsigned = 17840
 )
 
 const (
@@ -144,50 +93,6 @@ const (
     _stack__vsigned = 16
     _stack__vstring = 120
     _stack__vunsigned = 8
-)
-
-const (
-    _entry__f64toa = 464
-    _entry__format_significand = 48640
-    _entry__format_integer = 3264
-    _entry__fsm_exec = 19536
-    _entry__advance_ns = 12720
-    _entry__validate_string = 21728
-    _entry__utf8_validate = 23152
-    _entry__advance_string = 14944
-    _entry__skip_number = 18288
-    _entry__hm_get = 27952
-    _entry__html_escape = 9216
-    _entry__i64toa = 3696
-    _entry__u64toa = 3824
-    _entry__j2t_fsm_exec = 39280
-    _entry__j2t_number = 34240
-    _entry__vnumber = 15952
-    _entry__atof_eisel_lemire64 = 10496
-    _entry__atof_native = 12048
-    _entry__decimal_to_f64 = 10864
-    _entry__right_shift = 49600
-    _entry__left_shift = 49104
-    _entry__j2t_string = 34896
-    _entry__unquote = 6880
-    _entry__b64decode = 24448
-    _entry__j2t_field_vm = 37584
-    _entry__tb_write_default_or_empty = 31248
-    _entry__j2t_write_unset_fields = 33344
-    _entry__j2t_find_field_key = 36528
-    _entry__lspace = 80
-    _entry__quote = 5136
-    _entry__skip_array = 21488
-    _entry__skip_object = 21552
-    _entry__skip_one = 19488
-    _entry__tb_skip = 47600
-    _entry__tb_write_i64 = 29504
-    _entry__trie_get = 28768
-    _entry__validate_one = 23792
-    _entry__value = 13568
-    _entry__vsigned = 17504
-    _entry__vstring = 14784
-    _entry__vunsigned = 17840
 )
 
 const (
@@ -799,3 +704,48 @@ var (
         {334, 0},
     }
 )
+
+var Funcs = []loader.CFunc{
+    {"__native_entry__", 0, 67, 0, nil},
+    {"_f64toa", _entry__f64toa, _size__f64toa, _stack__f64toa, _pcsp__f64toa},
+    {"_format_significand", _entry__format_significand, _size__format_significand, _stack__format_significand, _pcsp__format_significand},
+    {"_format_integer", _entry__format_integer, _size__format_integer, _stack__format_integer, _pcsp__format_integer},
+    {"_fsm_exec", _entry__fsm_exec, _size__fsm_exec, _stack__fsm_exec, _pcsp__fsm_exec},
+    {"_advance_ns", _entry__advance_ns, _size__advance_ns, _stack__advance_ns, _pcsp__advance_ns},
+    {"_validate_string", _entry__validate_string, _size__validate_string, _stack__validate_string, _pcsp__validate_string},
+    {"_utf8_validate", _entry__utf8_validate, _size__utf8_validate, _stack__utf8_validate, _pcsp__utf8_validate},
+    {"_advance_string", _entry__advance_string, _size__advance_string, _stack__advance_string, _pcsp__advance_string},
+    {"_skip_number", _entry__skip_number, _size__skip_number, _stack__skip_number, _pcsp__skip_number},
+    {"_hm_get", _entry__hm_get, _size__hm_get, _stack__hm_get, _pcsp__hm_get},
+    {"_html_escape", _entry__html_escape, _size__html_escape, _stack__html_escape, _pcsp__html_escape},
+    {"_i64toa", _entry__i64toa, _size__i64toa, _stack__i64toa, _pcsp__i64toa},
+    {"_u64toa", _entry__u64toa, _size__u64toa, _stack__u64toa, _pcsp__u64toa},
+    {"_j2t_fsm_exec", _entry__j2t_fsm_exec, _size__j2t_fsm_exec, _stack__j2t_fsm_exec, _pcsp__j2t_fsm_exec},
+    {"_j2t_number", _entry__j2t_number, _size__j2t_number, _stack__j2t_number, _pcsp__j2t_number},
+    {"_vnumber", _entry__vnumber, _size__vnumber, _stack__vnumber, _pcsp__vnumber},
+    {"_atof_eisel_lemire64", _entry__atof_eisel_lemire64, _size__atof_eisel_lemire64, _stack__atof_eisel_lemire64, _pcsp__atof_eisel_lemire64},
+    {"_atof_native", _entry__atof_native, _size__atof_native, _stack__atof_native, _pcsp__atof_native},
+    {"_decimal_to_f64", _entry__decimal_to_f64, _size__decimal_to_f64, _stack__decimal_to_f64, _pcsp__decimal_to_f64},
+    {"_right_shift", _entry__right_shift, _size__right_shift, _stack__right_shift, _pcsp__right_shift},
+    {"_left_shift", _entry__left_shift, _size__left_shift, _stack__left_shift, _pcsp__left_shift},
+    {"_j2t_string", _entry__j2t_string, _size__j2t_string, _stack__j2t_string, _pcsp__j2t_string},
+    {"_unquote", _entry__unquote, _size__unquote, _stack__unquote, _pcsp__unquote},
+    {"_b64decode", _entry__b64decode, _size__b64decode, _stack__b64decode, _pcsp__b64decode},
+    {"_j2t_field_vm", _entry__j2t_field_vm, _size__j2t_field_vm, _stack__j2t_field_vm, _pcsp__j2t_field_vm},
+    {"_tb_write_default_or_empty", _entry__tb_write_default_or_empty, _size__tb_write_default_or_empty, _stack__tb_write_default_or_empty, _pcsp__tb_write_default_or_empty},
+    {"_j2t_write_unset_fields", _entry__j2t_write_unset_fields, _size__j2t_write_unset_fields, _stack__j2t_write_unset_fields, _pcsp__j2t_write_unset_fields},
+    {"_j2t_find_field_key", _entry__j2t_find_field_key, _size__j2t_find_field_key, _stack__j2t_find_field_key, _pcsp__j2t_find_field_key},
+    {"_lspace", _entry__lspace, _size__lspace, _stack__lspace, _pcsp__lspace},
+    {"_quote", _entry__quote, _size__quote, _stack__quote, _pcsp__quote},
+    {"_skip_array", _entry__skip_array, _size__skip_array, _stack__skip_array, _pcsp__skip_array},
+    {"_skip_object", _entry__skip_object, _size__skip_object, _stack__skip_object, _pcsp__skip_object},
+    {"_skip_one", _entry__skip_one, _size__skip_one, _stack__skip_one, _pcsp__skip_one},
+    {"_tb_skip", _entry__tb_skip, _size__tb_skip, _stack__tb_skip, _pcsp__tb_skip},
+    {"_tb_write_i64", _entry__tb_write_i64, _size__tb_write_i64, _stack__tb_write_i64, _pcsp__tb_write_i64},
+    {"_trie_get", _entry__trie_get, _size__trie_get, _stack__trie_get, _pcsp__trie_get},
+    {"_validate_one", _entry__validate_one, _size__validate_one, _stack__validate_one, _pcsp__validate_one},
+    {"_value", _entry__value, _size__value, _stack__value, _pcsp__value},
+    {"_vsigned", _entry__vsigned, _size__vsigned, _stack__vsigned, _pcsp__vsigned},
+    {"_vstring", _entry__vstring, _size__vstring, _stack__vstring, _pcsp__vstring},
+    {"_vunsigned", _entry__vunsigned, _size__vunsigned, _stack__vunsigned, _pcsp__vunsigned},
+}
