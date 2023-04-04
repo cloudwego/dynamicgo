@@ -597,7 +597,7 @@ uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag)
     size_t unwindPos = 0;
     tFieldDesc *lastField = NULL;
 
-    xprintf("[FSM EXEC]: ienc=%x\n", ienc);
+    xprintf("[FSM EXEC] ienc->method %x\n", ienc->method);
 
     /* Run until no more nested values */
     while (self->sp)

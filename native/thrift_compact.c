@@ -184,6 +184,7 @@ uint64_t tc_write_string(tc_state *self, const char *v, size_t n)
     size_t off = self->buf->len;
     J2T_ZERO( tc_buf_malloc(self, n) );
     memcpy2(&self->buf->buf[off], v, n);
+    xprintf("[tc_write_string] sz=%d vp=%x\n", n, v);
     return 0;
 }
 uint64_t tc_write_binary(tc_state *self, const _GoSlice v)
@@ -217,6 +218,9 @@ uint64_t tc_write_struct_begin(tc_state *self)
     size_t off = st->len;
     if (off > st->cap)
         WRAP_ERR0(ERR_OOM_LFID, off+1);
+
+    xprintf("[tc_write_struct_begin] push_last_fid=%d\n", self->last_field_id);
+    
     st->buf[off] = self->last_field_id;
     st->len++;
     self->last_field_id = 0;
@@ -228,12 +232,14 @@ uint64_t tc_write_struct_end(tc_state *self)
     self->last_field_id = st->len > 0
         ? st->buf[--st->len]
         : 0;
+    xprintf("[tc_write_struct_end] pop_last_fid=%d\n", self->last_field_id);
     return 0;
 }
 
 
 uint64_t tc_write_field_begin(tc_state *self, ttype type, int16_t id)
 {
+    xprintf("[tc_write_field_begin] ttype=%x id=%d\n", type, id);
     if (type == TTYPE_BOOL)
     {
         // setup pending write for boolean
@@ -246,10 +252,12 @@ uint64_t tc_write_field_begin(tc_state *self, ttype type, int16_t id)
 }
 uint64_t tc_write_field_end(tc_state *self)
 {
+    xprintf("[tc_write_field_end]\n");
     return 0;
 }
 uint64_t tc_write_field_stop(tc_state *self)
 {
+    xprintf("[tc_write_field_stop]\n");
     return tc_write_byte(self, TTC_STOP);
 }
 
@@ -263,16 +271,19 @@ static inline uint64_t _tc_write_map_n(_GoSlice *buf, ttype key, ttype val, size
 }
 uint64_t tc_write_map_n(tc_state *self, ttype key, ttype val, size_t size)
 {
+    xprintf("[tc_write_map_n]\n");
     return _tc_write_map_n(self->buf, key, val, size);
 }
 
-uint64_t tc_write_map_begin(tc_state *self, ttype key, ttype val, size_t *backp)
+uint64_t tc_write_map_begin(tc_state *self, ttype key, ttype elem, size_t *backp)
 {
     Uint16Slice *pq = &self->container_write_back_stack;
     *backp = self->buf->len;
 
+    xprintf("[tc_write_map_begin] k=%x v=%x\n", key, elem);
+
     // store ttype
-    TC_CNTR_RPUSH(pq, TC_CNTR_U16_VAL2(key, val));
+    TC_CNTR_RPUSH(pq, TC_CNTR_U16_VAL2(key, elem));
 
     // get reserved bytes count
     // varint32 max + 1 byte (key, elem type)
@@ -296,6 +307,8 @@ uint64_t tc_write_map_end(tc_state *self, size_t back_off, size_t vsize)
     
     key = (pval&0xff00)>>8;
     elem = pval&0x00ff;
+
+    xprintf("[tc_write_map_end] k=%x v=%x back_off=%d sz=%d\n", key, elem, back_off, vsize);
 
     if likely (vsize == 0)
     {
@@ -523,30 +536,25 @@ tc_ienc tc_get_iencoder(tc_get_iencoder_arg arg)
 
 uint64_t j2t2_fsm_tc_exec(J2TStateMachine *self, _GoSlice *buf, const _GoString *src, uint64_t flag)
 {    
-    tc_state tc = {
-        .buf = buf,
-        .last_field_id = 0,
-        .last_field_id_stack = self->tc_last_field_id,
-        .pending_field_write = {
-            .valid = false,
-        },
-        .container_write_back_stack = self->tc_container_write_back,
-    };
+    tc_state *tc = &self->tcompact;
+    tc->buf = buf;
     
     // Get vTable
     tc_ienc ienc = tc_get_iencoder((tc_get_iencoder_arg){
         .j2tsm  = self,
         .outbuf = buf,
-        .tc     = &tc,
+        .tc     = tc,
     });
+
+    xprintf("[j2t2_fsm_tc_exec] ienc->method %x\n", ienc.method);
 
     return j2t2_fsm_exec((vt_ienc *)&ienc, src, flag);
 }
 
 // ttype2tcc convert ttype to tcompacttype
 static
-inline
-// __always_inline
+// inline
+__always_inline
 tcompacttype ttype2ttc(ttype type)
 {
     if (type >= TTYPE_LAST)
@@ -583,8 +591,8 @@ tcompacttype ttype2ttc(ttype type)
 
 // ttc2ttype convert tcompacttype to ttype
 static
-inline
-// __always_inline
+// inline
+__always_inline
 ttype ttc2ttype(tcompacttype ttc)
 {
     if (ttc >= TTC_LAST)

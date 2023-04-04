@@ -257,6 +257,26 @@ const (
 	// TODO: there will be no unused reserved bytes that we previously use. (compaction)
 )
 
+type TCState struct {
+	_ uintptr
+
+	// SAFETY: KEEP IN-SYNC WITH LAYOUT IN thrift.h AND thrift/compact.go
+	PendingFieldWrite struct {
+		ID    int16
+		Type  byte // thrift.Type
+		Valid bool
+		Value bool
+	}
+
+	LastFieldID      int16
+	LastFieldIDStack []int16
+
+	ContainerWriteBack []uint16
+}
+type TBState struct {
+	_ uintptr
+}
+
 type J2TStateMachine struct {
 	SP              int
 	JT              JsonState
@@ -267,8 +287,9 @@ type J2TStateMachine struct {
 	FieldCache      []int32
 	FieldValueCache FieldValue
 
-	TcLastFieldID        []int16
-	TcContainerWriteBack []uint16
+	// Keep this at last
+	TC TCState
+	// TB TBState
 }
 
 type FieldValue struct {
@@ -283,8 +304,8 @@ var j2tStackPool = sync.Pool{
 		ret.ReqsCache = make([]byte, 0, J2T_REQS_CACHE_SIZE)
 		ret.KeyCache = make([]byte, 0, J2T_KEY_CACHE_SIZE)
 		ret.FieldCache = make([]int32, 0, J2T_FIELD_CACHE_SIZE)
-		ret.TcLastFieldID = make([]int16, 0, J2T_TC_LAST_FIELD_SIZE)
-		ret.TcContainerWriteBack = make([]uint16, 0, J2T_TC_CNTR_WB_SIZE)
+		ret.TC.LastFieldIDStack = make([]int16, 0, J2T_TC_LAST_FIELD_SIZE)
+		ret.TC.ContainerWriteBack = make([]uint16, 0, J2T_TC_CNTR_WB_SIZE)
 		// ret.FieldValueCache = make([]FieldValue, 0, J2T_FIELD_CACHE_SIZE)
 		tmp := make([]byte, 0, J2T_DBUF_SIZE)
 		ret.JT.Dbuf = *(**byte)(unsafe.Pointer(&tmp))
@@ -303,6 +324,11 @@ func FreeJ2TStateMachine(ret *J2TStateMachine) {
 	ret.KeyCache = ret.KeyCache[:0]
 	ret.FieldCache = ret.FieldCache[:0]
 	// ret.FieldValueCache = ret.FieldValueCache[:0]
+
+	ret.TC.LastFieldID = 0
+	ret.TC.LastFieldIDStack = ret.TC.LastFieldIDStack[:0]
+	ret.TC.ContainerWriteBack = ret.TC.ContainerWriteBack[:0]
+
 	j2tStackPool.Put(ret)
 }
 
@@ -349,17 +375,17 @@ const (
 )
 
 func (ret *J2TStateMachine) GrowContainerWriteBack(n int) {
-	c := cap(ret.TcContainerWriteBack) + n*resizeFactor
-	tmp := make([]uint16, len(ret.TcContainerWriteBack), c)
-	copy(tmp, ret.TcContainerWriteBack)
-	ret.TcContainerWriteBack = tmp
+	c := cap(ret.TC.ContainerWriteBack) + n*resizeFactor
+	tmp := make([]uint16, len(ret.TC.ContainerWriteBack), c)
+	copy(tmp, ret.TC.ContainerWriteBack)
+	ret.TC.ContainerWriteBack = tmp
 }
 
 func (ret *J2TStateMachine) GrowLastFieldID(n int) {
-	c := cap(ret.TcLastFieldID) + n*resizeFactor
-	tmp := make([]int16, len(ret.TcLastFieldID), c)
-	copy(tmp, ret.TcLastFieldID)
-	ret.TcLastFieldID = tmp
+	c := cap(ret.TC.LastFieldIDStack) + n*resizeFactor
+	tmp := make([]int16, len(ret.TC.LastFieldIDStack), c)
+	copy(tmp, ret.TC.LastFieldIDStack)
+	ret.TC.LastFieldIDStack = tmp
 }
 
 func (ret *J2TStateMachine) GrowReqCache(n int) {

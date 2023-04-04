@@ -202,6 +202,26 @@ typedef struct
     uint32_t end;
 } FieldVal;
 
+typedef struct {
+    _GoSlice *buf;
+
+    // SAFETY: KEEP IN-SYNC WITH LAYOUT IN thrift.h AND thrift/compact.go
+    struct {
+        int16_t id;
+        ttype type;
+        bool valid;
+        bool _value; // unused. Only for decoder
+    } pending_field_write;
+    
+    int16_t last_field_id;
+    Int16Slice last_field_id_stack;
+    Uint16Slice container_write_back_stack;
+} tc_state;
+
+typedef struct {
+    _GoSlice *buf; // SAFETY: DO NOT MOVE
+} tb_state;
+
 typedef struct
 {
     // vt cursor;
@@ -214,34 +234,33 @@ typedef struct
     Int32Slice field_cache;
     FieldVal fval_cache;
 
-    // tcompact last_field_id
-    Int16Slice tc_last_field_id;
-    Uint16Slice tc_container_write_back;
+    tc_state tcompact;
+    // tb_state tbinary;
 } J2TStateMachine;
 
 #define SIZE_J2TEXTRA sizeof(J2TExtra)
 
-#define J2T_VAL 0
-#define J2T_ARR 1
-#define J2T_OBJ 2
-#define J2T_KEY 3
-#define J2T_ELEM 4
-#define J2T_ARR_0 5
-#define J2T_OBJ_0 6
-#define J2T_VM 16
+#define J2T_VAL     0
+#define J2T_ARR     1
+#define J2T_OBJ     2
+#define J2T_KEY     3
+#define J2T_ELEM    4
+#define J2T_ARR_0   5
+#define J2T_OBJ_0   6
+#define J2T_VM      16
 
 #define J2T_ST(st) ((st)&0xfffful)
 #define J2T_EX(st) ((st)&0xffff0000ul)
 
-#define STATE_FIELD (1ull << 16)
-#define STATE_SKIP (1ull << 17)
-#define STATE_VM (1ull << 18)
-#define IS_STATE_FIELD(st) (st & STATE_FIELD) != 0
-#define IS_STATE_SKIP(st) (st & STATE_SKIP) != 0
-#define IS_STATE_VM(st) (st & STATE_VM) != 0
+#define STATE_FIELD         (1ull << 16)
+#define STATE_SKIP          (1ull << 17)
+#define STATE_VM            (1ull << 18)
+#define IS_STATE_FIELD(st)  (st & STATE_FIELD) != 0
+#define IS_STATE_SKIP(st)   (st & STATE_SKIP) != 0
+#define IS_STATE_VM(st)     (st & STATE_VM) != 0
 
 #define ERR_WRAP_SHIFT_CODE 8
-#define ERR_WRAP_SHIFT_POS 32
+#define ERR_WRAP_SHIFT_POS  32
 
 #define WRAP_ERR_POS(e, v, p)                                                                                                             \
     do                                                                                                                                    \

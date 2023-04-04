@@ -122,16 +122,20 @@ func (p *CompactProtocol) Recycle() {
 
 // CompactProtocol implements the CompactProtocol
 type CompactProtocol struct {
-	Buf     []byte
-	ReadOff int
+	Buf []byte
 
-	LastFieldIDStack []FieldID
-	LastFieldID      FieldID
+	// SAFETY: KEEP IN-SYNC WITH LAYOUT IN thrift.h AND thrift/compact.go
 	PendingBoolField struct {
 		ID    FieldID
-		Value bool
+		Typ   Type
 		Valid bool
+		Value bool
 	}
+
+	LastFieldID      FieldID
+	LastFieldIDStack []FieldID
+
+	ReadOff int
 }
 
 // Reset resets the buffer and read position
@@ -313,6 +317,7 @@ func (p *CompactProtocol) writeFieldBeginInternal(name string, typeID Type, id F
 			return e
 		}
 	}
+	p.LastFieldID = FieldID(cid)
 	return nil
 }
 func (p *CompactProtocol) WriteFieldBegin(name string, typeID Type, id FieldID) error {

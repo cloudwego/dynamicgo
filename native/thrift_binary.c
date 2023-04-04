@@ -364,5 +364,7 @@ uint64_t j2t2_fsm_tb_exec(J2TStateMachine *self, _GoSlice *buf, const _GoString 
         .tb     = &tb,
     });
 
+    xprintf("[j2t2_fsm_tb_exec] ienc->method %x\n", ienc.method);
+
     return j2t2_fsm_exec((vt_ienc *)&ienc, src, flag);
 }

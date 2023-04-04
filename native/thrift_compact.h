@@ -58,17 +58,7 @@ typedef uint8_t tcompacttype;
         ? q->buf[--q->len]  \
         : 0
 
-typedef struct {
-    _GoSlice *buf; // SAFETY: DO NOT MOVE
-    struct {
-        int16_t id;
-        ttype type;
-        bool valid;
-    } pending_field_write;
-    int16_t last_field_id;
-    Int16Slice last_field_id_stack;
-    Uint16Slice container_write_back_stack;
-} tc_state;
+
 
 TIMPL_IENC(tc_state *, tc_ienc, tc_menc);
 // tc_ienc tc_get_iencoder();
