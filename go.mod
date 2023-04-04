@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/apache/thrift v0.13.0
-	github.com/bytedance/sonic v1.8.8-0.20230404064522-67dae90c3cc9
+	github.com/bytedance/sonic v1.8.8-0.20230404092359-6ce8eeb1bf15
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311
 	github.com/choleraehyq/pid v0.0.16 // indirect
 	github.com/cloudwego/frugal v0.1.6 // indirect
