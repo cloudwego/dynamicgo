@@ -21,10 +21,13 @@ jobs:
           mkdir -p output && clang \
             -msse -mno-sse4 \
             -mavx -DUSE_AVX=1 \
-            -ggdb3 -O0 \
             -mno-avx2 -DUSE_AVX2=0 \
+            -ggdb3 -O0 \
             -DDEBUG=1 \
             -shared -fPIC -nostdlib \
+            -mno-red-zone -fno-asynchronous-unwind-tables -fno-builtin \
+            -fno-exceptions -fno-rtti -fno-stack-protector \
+            -flto -fno-plt -fno-builtin-memcpy \
             -o output/libnative.so \
             -Inative \
             native/native.c
