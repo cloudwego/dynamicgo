@@ -239,7 +239,7 @@ uint64_t tc_write_struct_end(tc_state *self)
 
 uint64_t tc_write_field_begin(tc_state *self, ttype type, int16_t id)
 {
-    xprintf("[tc_write_field_begin] ttype=%x id=%d\n", type, id);
+    xprintf("[tc_write_field_begin] ttype=%d id=%d\n", type, id);
     if (type == TTYPE_BOOL)
     {
         // setup pending write for boolean
