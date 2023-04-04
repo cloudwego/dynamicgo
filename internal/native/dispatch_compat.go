@@ -1,5 +1,5 @@
-//go:build go1.16 && amd64
-// +build go1.16,amd64
+//go:build !go1.16 || !amd64
+// +build !go1.16 !amd64
 
 /*
  * Copyright 2023 CloudWeGo Authors.
@@ -22,11 +22,6 @@ package native
 import (
 	"unsafe"
 
-	"github.com/bytedance/sonic/loader"
-	"github.com/cloudwego/dynamicgo/internal/cpu"
-	"github.com/cloudwego/dynamicgo/internal/native/avx"
-	"github.com/cloudwego/dynamicgo/internal/native/avx2"
-	"github.com/cloudwego/dynamicgo/internal/native/sse"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
 )
@@ -116,42 +111,4 @@ func J2T_FSM(fsm *types.J2TStateMachine, buf *[]byte, src *string, flag uint64) 
 //go:nosplit
 func TBSkip(st *types.TStateMachine, s *byte, n int, t uint8) (ret int) {
 	return __TB_Skip(rt.NoEscape(unsafe.Pointer(st)), rt.NoEscape(unsafe.Pointer(s)), n, t)
-}
-
-var stubs = []loader.GoC{
-    {"_f64toa", nil, &__F64toa},
-    {"_i64toa", nil, &__I64toa},
-    {"_u64toa", nil, &__U64toa},
-    {"_quote", nil, &__Quote},
-    {"_unquote", nil, &__Unquote},
-    {"_html_escape", nil, &__HTMLEscape},
-    {"_value", nil, &__Value},
-    {"_skip_one", nil, &__SkipOne},
-    {"_validate_one", nil, &__ValidateOne},
-    {"_j2t_fsm_exec", nil, &__J2T_FSM},
-    {"_tb_skip", nil, &__TB_Skip},
-}
-
-func useAVX() {
-    loader.WrapGoC(avx.Text__native_entry__, avx.Funcs, stubs, "avx", "avx/native.c")
-}
-
-func useAVX2() {
-    loader.WrapGoC(avx2.Text__native_entry__, avx2.Funcs, stubs, "avx2", "avx2/native.c")
-}
-
-func useSSE() {
-    loader.WrapGoC(sse.Text__native_entry__, sse.Funcs, stubs, "sse", "sse/native.c")
-}
-
-func init() {
-	if cpu.HasAVX2 {
-		useAVX2()
-	} else if cpu.HasAVX {
-		useAVX()
-	} else if cpu.HasSSE {
-		useSSE()
-	} else {
-		panic("Unsupported CPU, maybe it's too old to run Sonic.")
-	}
 }
