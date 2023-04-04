@@ -116,14 +116,6 @@ func TestCompactWriteDefault(t *testing.T) {
 	})
 	protoF := xthrift.NewTCompactProtocol
 
-	// cv := j2t.NewBinaryConv(conv.Options{
-	// 	WriteDefaultField: true,
-	// 	EnableHttpMapping: true,
-	// })
-	// protoF := func(trans xthrift.TTransport) *xthrift.TBinaryProtocol {
-	// 	return xthrift.NewTBinaryProtocol(trans, true, true)
-	// }
-
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
 	out, err := cv.Do(ctx, desc, data)
@@ -132,19 +124,32 @@ func TestCompactWriteDefault(t *testing.T) {
 	require.Nil(t, err)
 	act := example3.NewExampleReq()
 
+	// consume out buffer
+	tin := xthrift.NewStreamTransportR(bytes.NewReader(out))
+	pin := protoF(tin)
+	err = act.Read(pin)
+	require.Equal(t, tin.RemainingBytes(), ^uint64(0))
+	// _, err = act.FastRead(out)
+
+	(&spew.ConfigState{
+		Indent:                  "\t",
+		MaxDepth:                0,
+		DisableMethods:          true,
+		DisablePointerMethods:   false,
+		DisablePointerAddresses: false,
+		DisableCapacities:       false,
+		ContinueOnMethod:        false,
+		SortKeys:                false,
+		SpewKeys:                false,
+	}).Dump(act)
+	require.NoError(t, err)
+	require.Equal(t, exp, act)
+
 	var oout bytes.Buffer
 	pout := protoF(xthrift.NewStreamTransportW(&oout))
 	err = act.Write(pout)
 	require.NoError(t, err)
 	pout.Flush(nil)
-	fmt.Printf("encode: %+#v\n", oout.Bytes())
-
-	// p := thrift.NewCompactProtocol(out)
-	pin := protoF(xthrift.NewStreamTransportR(bytes.NewReader(out)))
-	err = act.Read(pin)
-	// _, err = act.FastRead(out)
-
-	spew.Dump(act)
-	require.NoError(t, err)
-	require.Equal(t, exp, act)
+	fmt.Printf("encode_athrift: %+#v\nencode_nthrift: %+#v\n",
+		oout.Bytes(), out)
 }

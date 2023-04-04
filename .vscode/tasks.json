@@ -53,6 +53,30 @@
                 "isDefault": true
             }
         },
+        {
+            "label": "Compile Go test conv/j2t/compact_test",
+            "type": "shell",
+            "command": [
+                "go",
+                "test",
+                "-race",
+                "-c", 
+                "-o", "j2t.test",
+                "-tags", "sharedlib",
+                "./compact_test"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/conv/j2t",
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
 
         {
             "label": "Compile native as shared lib",
@@ -85,6 +109,7 @@
                 "-nostdlib",
 
                 "-fno-plt",
+                "-fno-builtin-memcpy",
                 
                 "-o ../output/libnative.so",
                 "-I.",
