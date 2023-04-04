@@ -21,6 +21,7 @@ import (
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
+	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
 	_ "github.com/cloudwego/dynamicgo/thrift/annotation"
@@ -68,13 +69,13 @@ func (self *CompactConv) Do(ctx context.Context, desc *thrift.TypeDescriptor, jb
 			return nil, newError(meta.ErrInvalidParam, "EnableHttpMapping but no http response in context", nil)
 		}
 	}
-
-	err = self.do(ctx, jbytes, desc, buf, req)
+	fsm := types.NewJ2TStateMachine()
+	err = self.do(ctx, fsm, jbytes, desc, buf, req)
 	if err == nil && len(*buf) > 0 {
 		tbytes = make([]byte, len(*buf))
 		copy(tbytes, *buf)
 	}
-
+	types.FreeJ2TStateMachine(fsm)
 	conv.FreeBytes(buf)
 	return
 }
@@ -94,5 +95,8 @@ func (self *CompactConv) DoInto(ctx context.Context, desc *thrift.TypeDescriptor
 			return newError(meta.ErrInvalidParam, "EnableHttpMapping but no http response in context", nil)
 		}
 	}
-	return self.do(ctx, jbytes, desc, buf, req)
+	fsm := types.NewJ2TStateMachine()
+	err = self.do(ctx, fsm, jbytes, desc, buf, req)
+	types.FreeJ2TStateMachine(fsm)
+	return
 }

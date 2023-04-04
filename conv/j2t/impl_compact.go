@@ -33,7 +33,7 @@ import (
 	"github.com/cloudwego/dynamicgo/thrift/base"
 )
 
-func (self *CompactConv) do(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter) error {
+func (self *CompactConv) do(ctx context.Context, fsm *types.J2TStateMachine, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter) error {
 	if self.opts.EnableThriftBase {
 		if f := desc.Struct().GetRequestBase(); f != nil {
 			if err := writeRequestBaseToThrift(ctx, buf, f); err != nil {
@@ -50,7 +50,7 @@ func (self *CompactConv) do(ctx context.Context, src []byte, desc *thrift.TypeDe
 			st.Requires().CopyTo(reqs)
 			// check if any http-mapping exists
 			if desc.Struct().HttpMappingFields() != nil {
-				if err := self.writeHttpRequestToThrift(ctx, req, st, reqs, buf, true, true); err != nil {
+				if err := self.writeHttpRequestToThrift(ctx, fsm, req, st, reqs, buf, true, true); err != nil {
 					return err
 				}
 			}
@@ -59,7 +59,7 @@ func (self *CompactConv) do(ctx context.Context, src []byte, desc *thrift.TypeDe
 			// we should only check opts.BackTraceRequireOrTopField to decide whether to traceback
 			err := reqs.HandleRequires(st, self.opts.ReadHttpValueFallback, self.opts.ReadHttpValueFallback, self.opts.ReadHttpValueFallback, func(f *thrift.FieldDescriptor) error {
 				val, _ := tryGetValueFromHttp(req, f.Alias())
-				if err := self.writeStringValue(ctx, buf, f, val, meta.EncodingJSON, req); err != nil {
+				if err := self.writeStringValue(ctx, fsm, buf, f, val, meta.EncodingJSON, req); err != nil {
 					return err
 				}
 				return nil
@@ -80,12 +80,11 @@ func (self *CompactConv) do(ctx context.Context, src []byte, desc *thrift.TypeDe
 		src = json.EncodeString(buf, rt.Mem2Str(src))
 	}
 
-	return self.doNative(ctx, src, desc, buf, req, true)
+	return self.doNative(ctx, fsm, src, desc, buf, req, true)
 }
 
-func (self *CompactConv) doNative(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool) (err error) {
+func (self *CompactConv) doNative(ctx context.Context, fsm *types.J2TStateMachine, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool) (err error) {
 	jp := rt.Mem2Str(src)
-	fsm := types.NewJ2TStateMachine()
 	fsm.Init(0, unsafe.Pointer(desc))
 
 exec:
@@ -100,13 +99,27 @@ exec:
 	}
 
 ret:
-	types.FreeJ2TStateMachine(fsm)
 	runtime.KeepAlive(desc)
 	return
 }
 
-func (self *CompactConv) writeStringValue(ctx context.Context, buf *[]byte, f *thrift.FieldDescriptor, val string, enc meta.Encoding, req http.RequestGetter) error {
-	p := thrift.CompactProtocol{Buf: *buf}
+func (self *CompactConv) writeStringValue(ctx context.Context, fsm *types.J2TStateMachine, buf *[]byte, f *thrift.FieldDescriptor, val string, enc meta.Encoding, req http.RequestGetter) error {
+	lastFieldIDStackPtr := (*[]thrift.FieldID)(unsafe.Pointer(&fsm.TC.LastFieldIDStack))
+	lastFieldIDPtr := (*thrift.FieldID)(unsafe.Pointer(&fsm.TC.LastFieldID))
+	pendingBoolWritePtr := (*struct {
+		ID    thrift.FieldID
+		Typ   thrift.Type
+		Valid bool
+		Value bool
+	})(unsafe.Pointer(&fsm.TC.PendingFieldWrite))
+
+	p := thrift.CompactProtocol{
+		Buf:              *buf,
+		LastFieldIDStack: *lastFieldIDStackPtr,
+		LastFieldID:      *lastFieldIDPtr,
+		PendingBoolField: *pendingBoolWritePtr,
+	}
+
 	if val == "" {
 		if !self.opts.WriteRequireField && f.Required() == thrift.RequiredRequireness {
 			// requred field not found, return error
@@ -130,6 +143,7 @@ func (self *CompactConv) writeStringValue(ctx context.Context, buf *[]byte, f *t
 		}
 		// not http-encoded value, write directly into buf
 		if enc == meta.EncodingThriftBinary {
+			// TODO: not sure what's this
 			p.Buf = append(p.Buf, val...)
 			goto BACK
 		} else if enc != meta.EncodingJSON {
@@ -137,7 +151,7 @@ func (self *CompactConv) writeStringValue(ctx context.Context, buf *[]byte, f *t
 		}
 		if ft := f.Type(); ft.Type().IsComplex() && isJsonString(val) {
 			// for nested type, we regard it as a json string and convert it directly
-			if err := self.doNative(ctx, rt.Str2Mem(val), ft, &p.Buf, req, false); err != nil {
+			if err := self.doNative(ctx, fsm, rt.Str2Mem(val), ft, &p.Buf, req, false); err != nil {
 				return newError(meta.ErrConvert, fmt.Sprintf("failed to convert value of field '%s'", f.Name()), err)
 			}
 		} else if err := p.WriteStringWithDesc(val, ft, self.opts.DisallowUnknownField, !self.opts.NoBase64Binary); err != nil {
@@ -146,6 +160,12 @@ func (self *CompactConv) writeStringValue(ctx context.Context, buf *[]byte, f *t
 	}
 BACK:
 	*buf = p.Buf
+
+	// Save back to FSM
+	*lastFieldIDPtr = p.LastFieldID
+	*lastFieldIDStackPtr = p.LastFieldIDStack
+	*pendingBoolWritePtr = p.PendingBoolField
+
 	return nil
 }
 
@@ -166,7 +186,7 @@ func writeCompactRequestBaseToThrift(ctx context.Context, buf *[]byte, field *th
 	return nil
 }
 
-func (self *CompactConv) writeHttpRequestToThrift(ctx context.Context, req http.RequestGetter, desc *thrift.StructDescriptor, reqs *thrift.RequiresBitmap, buf *[]byte, nobody bool, top bool) (err error) {
+func (self *CompactConv) writeHttpRequestToThrift(ctx context.Context, fsm *types.J2TStateMachine, req http.RequestGetter, desc *thrift.StructDescriptor, reqs *thrift.RequiresBitmap, buf *[]byte, nobody bool, top bool) (err error) {
 	if req == nil {
 		return newError(meta.ErrInvalidParam, "http request is nil", nil)
 	}
@@ -208,7 +228,7 @@ func (self *CompactConv) writeHttpRequestToThrift(ctx context.Context, req http.
 		}
 
 		reqs.Set(f.ID(), thrift.OptionalRequireness)
-		if err := self.writeStringValue(ctx, buf, f, val, httpEnc, req); err != nil {
+		if err := self.writeStringValue(ctx, fsm, buf, f, val, httpEnc, req); err != nil {
 			return err
 		}
 	}
@@ -236,7 +256,7 @@ func (self *CompactConv) handleUnmatchedFields(ctx context.Context, fsm *types.J
 			// try get value from http
 			val, _ = tryGetValueFromHttp(req, f.Alias())
 		}
-		if err := self.writeStringValue(ctx, buf, f, val, meta.EncodingJSON, req); err != nil {
+		if err := self.writeStringValue(ctx, fsm, buf, f, val, meta.EncodingJSON, req); err != nil {
 			return false, err
 		}
 	}
