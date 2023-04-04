@@ -496,6 +496,66 @@ func (p *CompactProtocol) WriteBinary(value []byte) error {
 	return nil
 }
 
+// WriteDefaultOrEmpty write defaultvalue if any, otherwise write zero value
+func (p *CompactProtocol) WriteDefaultOrEmpty(field *FieldDescriptor) error {
+	if dv := field.DefaultValue(); dv != nil {
+		p.Buf = append(p.Buf, dv.ThriftCompact()...)
+		return nil
+	}
+	return p.WriteEmpty(field.Type())
+}
+
+// WriteEmpty write zero value
+func (p *CompactProtocol) WriteEmpty(desc *TypeDescriptor) error {
+	switch desc.Type() {
+	case BOOL:
+		return p.WriteBool(false)
+	case BYTE:
+		return p.WriteByte(0)
+	case I16:
+		return p.WriteI16(0)
+	case I32:
+		return p.WriteI32(0)
+	case I64:
+		return p.WriteI64(0)
+	case DOUBLE:
+		return p.WriteDouble(0)
+	case STRING:
+		return p.WriteString("")
+	case LIST, SET:
+		if err := p.WriteListBegin(desc.Elem().Type(), 0); err != nil {
+			return err
+		}
+		return p.WriteListEnd()
+	case MAP:
+		if err := p.WriteMapBegin(desc.Key().Type(), desc.Elem().Type(), 0); err != nil {
+			return err
+		}
+		return p.WriteMapEnd()
+	case STRUCT:
+		if err := p.WriteStructBegin(""); err != nil {
+			return err
+		}
+		for _, f := range desc.Struct().Fields() {
+			if f.Required() == OptionalRequireness {
+				continue
+			}
+			if err := p.WriteFieldBegin(f.Name(), f.Type().Type(), f.ID()); err != nil {
+				return err
+			}
+			if err := p.WriteEmpty(f.Type()); err != nil {
+				return err
+			}
+			if err := p.WriteFieldEnd(); err != nil {
+				return err
+			}
+		}
+		return p.WriteStructEnd()
+	default:
+		return errors.New("invalid type")
+	}
+}
+
 func (p *CompactProtocol) writeVarint32Internal(buf []byte, v int32) (int, error) {
 	idx := 0
 	for {
