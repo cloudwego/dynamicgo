@@ -106,7 +106,7 @@ ret:
 }
 
 func (self *CompactConv) writeStringValue(ctx context.Context, buf *[]byte, f *thrift.FieldDescriptor, val string, enc meta.Encoding, req http.RequestGetter) error {
-	p := thrift.BinaryProtocol{Buf: *buf}
+	p := thrift.CompactProtocol{Buf: *buf}
 	if val == "" {
 		if !self.opts.WriteRequireField && f.Required() == thrift.RequiredRequireness {
 			// requred field not found, return error
