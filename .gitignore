@@ -5,3 +5,4 @@ output
 *.gch
 *.dSYM
 *.profile
+.env
