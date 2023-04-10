@@ -36,7 +36,7 @@ import (
 func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter) error {
 	if self.opts.EnableThriftBase {
 		if f := desc.Struct().GetRequestBase(); f != nil {
-			if err := writeRequestBaseToThrift(ctx, buf, f); err != nil {
+			if err := self.writeRequestBaseToThrift(ctx, buf, f); err != nil {
 				return err
 			}
 		}
@@ -158,7 +158,7 @@ BACK:
 	return nil
 }
 
-func writeRequestBaseToThrift(ctx context.Context, buf *[]byte, field *thrift.FieldDescriptor) error {
+func (self *BinaryConv) writeRequestBaseToThrift(ctx context.Context, buf *[]byte, field *thrift.FieldDescriptor) error {
 	bobj := ctx.Value(conv.CtxKeyThriftReqBase)
 	if bobj != nil {
 		if b, ok := bobj.(*base.Base); ok && b != nil {
