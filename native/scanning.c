@@ -43,7 +43,7 @@ static inline uint64_t add32(uint64_t v1, uint64_t v2, uint64_t *vo)
 static inline uint64_t add64(uint64_t v1, uint64_t v2, uint64_t *vo)
 {
     uint64_t v;
-    uint64_t c = __builtin_uaddll_overflow(v1, v2, &v);
+    uint64_t c = __builtin_uaddll_overflow(v1, v2, (unsigned long long *)&v);
 
     /* set the carry */
     *vo = c;

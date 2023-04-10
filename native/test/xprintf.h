@@ -215,7 +215,7 @@ static inline void xprintf(const char *fmt, ...)
         }
         case 'c':
         {
-            printch(__builtin_va_arg(va, const char));
+            printch(__builtin_va_arg(va, int));
             break;
         }
         case 'x':
