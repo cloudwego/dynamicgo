@@ -39,7 +39,7 @@ const (
 	// max length varint32 seqId + max length varint32 size RPC name
 
 	compactMsgVarint32MaxLen    = 5
-	compactMsgVarint64MaxLen    = 9
+	compactMsgVarint64MaxLen    = 10
 	compactMsgHeaderMaxFixedLen = 1 + 1 + compactMsgVarint32MaxLen + compactMsgVarint32MaxLen
 	compactMsgFooterFixedLen    = 8 // sparse
 
@@ -579,7 +579,7 @@ func (p *CompactProtocol) writeVarint32Internal(buf []byte, v int32) (int, error
 }
 
 func (p *CompactProtocol) writeVarint32(v int32) (int, error) {
-	var buf [5]byte
+	var buf [compactMsgVarint32MaxLen]byte
 	var idx int
 	var err error
 	idx, err = p.writeVarint32Internal(buf[:], v)
@@ -612,7 +612,7 @@ func (p *CompactProtocol) writeVarint64Internal(buf []byte, v int64) (int, error
 }
 
 func (p *CompactProtocol) writeVarint64(v int64) (int, error) {
-	var buf [9]byte
+	var buf [compactMsgVarint64MaxLen]byte
 	var idx int
 	var err error
 	idx, err = p.writeVarint64Internal(buf[:], v)

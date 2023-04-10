@@ -8,7 +8,7 @@
 // #define TTC_MAX_STRUCT_DEPTH 8
 
 #define TC_VARINT32_BUF_SZ  (size_t)5
-#define TC_VARINT64_BUF_SZ  (size_t)9
+#define TC_VARINT64_BUF_SZ  (size_t)10
 
 #define TTC_PROTOCOL_ID         0x082
 #define TTC_VERSION             1
