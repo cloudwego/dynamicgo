@@ -61,12 +61,12 @@
                 "test",
                 "-race",
                 "-c", 
-                "-o", "j2t.test",
+                // "-o", "j2t.test",
                 "-tags", "sharedlib",
-                "./compact_test"
+                "."
             ],
             "options": {
-                "cwd": "${workspaceFolder}/conv/j2t",
+                "cwd": "${workspaceFolder}/conv/j2t/compact_test",
             },
             "presentation": {
                 "reveal": "always",
@@ -92,8 +92,8 @@
                 "-msse","-mssse3","-mno-sse4","-mno-avx","-mno-avx2",
 
                 "-ggdb3", 
-                "-O0", // For debugging
-                // "-O3", //
+                // "-O0", // For debugging
+                "-O3", //
                 
                 "-DDEBUG",
                 "-shared", 

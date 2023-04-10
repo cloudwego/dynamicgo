@@ -41,6 +41,31 @@
             ]
         },
         {
+            "name": "(gdb) Launch conv/j2t/compact_test compiled test",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/conv/j2t/compact_test/compact_test.test",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/conv/j2t/compact_test",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "envFile": "${workspaceFolder}/.env",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        {
             "type": "lldb",
             "request": "launch",
             "name": "(lldb) Launch conv/j2t compiled test",
@@ -51,6 +76,18 @@
                 "LD_LIBRARY_PATH": "${workspaceFolder}/output",
             },
             "cwd": "${workspaceFolder}/conv/j2t"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "(lldb) Launch conv/j2t/compact_test compiled test",
+            "program": "${workspaceFolder}/conv/j2t/compact_test/compact_test.test",
+            "args": [],
+            "env": {
+                "GOGC": "off",
+                "LD_LIBRARY_PATH": "${workspaceFolder}/output",
+            },
+            "cwd": "${workspaceFolder}/conv/j2t/compact_test"
         },
         {
             "type": "lldb",
