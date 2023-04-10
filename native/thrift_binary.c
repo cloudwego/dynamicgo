@@ -145,13 +145,20 @@ uint64_t tb_write_struct_end(tb_state *self)
 
 uint64_t tb_write_field_begin(tb_state *self, ttype type, int16_t id)
 {
+    xprintf("[tb_write_field_begin] ttype=%d id=%d\n", type, id);
     J2T_ZERO( tb_write_byte(self, type) );
     return tb_write_i16(self, id);
 }
 uint64_t tb_write_field_end(tb_state *self)
-{ return 0; }
+{ 
+    xprintf("[tb_write_field_end]\n");
+    return 0;
+}
 uint64_t tb_write_field_stop(tb_state *self)
-{ return 0; }
+{ 
+    xprintf("[tb_write_field_stop]\n");
+    return 0;
+}
 
 uint64_t tb_write_map_n(tb_state *self, ttype key, ttype val, size_t n)
 {
@@ -237,6 +244,7 @@ uint64_t tb_write_set_end(tb_state *self, size_t back_off, size_t vsize)
 
 uint64_t tb_write_default_or_empty(tb_state *self, const tFieldDesc *field, long p)
 {
+    tTypeDesc *desc = field->type;
     if (field->default_value != NULL)
     {
         xprintf("[tb_write_default_or_empty] json_val: %s\n", &field->default_value->json_val);
@@ -247,7 +255,8 @@ uint64_t tb_write_default_or_empty(tb_state *self, const tFieldDesc *field, long
             field->default_value->thrift_binary.buf, n);
         return 0;
     }
-    tTypeDesc *desc = field->type;
+    else
+        xprintf("[tc_write_default_or_empty] type=%d\n", desc->type);
     switch (desc->type)
     {
     case TTYPE_BOOL:
@@ -291,10 +300,20 @@ uint64_t tb_write_default_or_empty(tb_state *self, const tFieldDesc *field, long
     }
 }
 
+tid tb_set_last_field_id(tb_state *self, tid id)
+{
+    return id;
+}
+
+tid tb_get_last_field_id(tb_state *self)
+{ return -1; }
+
 static const tb_menc_extra TB_IENC_M_EXTRA = {
     tb_write_default_or_empty,
     tb_write_data_count,
     tb_write_data_count_max_length,
+    tb_set_last_field_id,
+    tb_get_last_field_id,
 };
 static const tb_menc TB_IENC_M = {
     tb_write_message_begin,
