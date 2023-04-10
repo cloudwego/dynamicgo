@@ -35,11 +35,15 @@ import (
 
 func (self *CompactConv) do(ctx context.Context, fsm *types.J2TStateMachine, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter) error {
 	if self.opts.EnableThriftBase {
-		if f := desc.Struct().GetRequestBase(); f != nil {
-			if err := writeRequestBaseToThrift(ctx, buf, f); err != nil {
-				return err
-			}
-		}
+		// TODO: Figure out how to inject Thrift field to J2T FSM.
+		// TODO: This need to happend before native C Thrift encoder doing WriteStructBegin
+		// TODO: Because that function will save lastFieldID to a stack and set it to 0.
+		println("!!! EnableThriftBase for Compact is disabled. !!!")
+		// if f := desc.Struct().GetRequestBase(); f != nil {
+		// 	if err := self.writeRequestBaseToThrift(ctx, fsm, buf, f); err != nil {
+		// 		return err
+		// 	}
+		// }
 	}
 
 	if len(src) == 0 {
@@ -88,10 +92,14 @@ func (self *CompactConv) doNative(ctx context.Context, fsm *types.J2TStateMachin
 	fsm.Init(0, unsafe.Pointer(desc))
 
 exec:
+	// var pSave thrift.CompactProtocol
+	// self.getCompactProtocol(fsm, &pSave) // save state
 	ret := native.J2T_FSM_TC(fsm, buf, &jp, self.flags)
 	if ret != 0 {
 		cont, e := self.handleError(ctx, fsm, buf, src, req, ret, top)
 		if cont && e == nil {
+			// apply back saved state if there's an error.
+			// self.saveCompactProtocol(fsm, &pSave)
 			goto exec
 		}
 		err = e
@@ -103,7 +111,7 @@ ret:
 	return
 }
 
-func (self *CompactConv) writeStringValue(ctx context.Context, fsm *types.J2TStateMachine, buf *[]byte, f *thrift.FieldDescriptor, val string, enc meta.Encoding, req http.RequestGetter) error {
+func (self *CompactConv) getCompactProtocol(fsm *types.J2TStateMachine, p *thrift.CompactProtocol) {
 	lastFieldIDStackPtr := (*[]thrift.FieldID)(unsafe.Pointer(&fsm.TC.LastFieldIDStack))
 	lastFieldIDPtr := (*thrift.FieldID)(unsafe.Pointer(&fsm.TC.LastFieldID))
 	pendingBoolWritePtr := (*struct {
@@ -113,12 +121,52 @@ func (self *CompactConv) writeStringValue(ctx context.Context, fsm *types.J2TSta
 		Value bool
 	})(unsafe.Pointer(&fsm.TC.PendingFieldWrite))
 
-	p := thrift.CompactProtocol{
-		Buf:              *buf,
-		LastFieldIDStack: *lastFieldIDStackPtr,
-		LastFieldID:      *lastFieldIDPtr,
-		PendingBoolField: *pendingBoolWritePtr,
+	p.LastFieldIDStack = *lastFieldIDStackPtr
+	p.LastFieldID = *lastFieldIDPtr
+	p.PendingBoolField = *pendingBoolWritePtr
+
+}
+func (self *CompactConv) saveCompactProtocol(fsm *types.J2TStateMachine, p *thrift.CompactProtocol) {
+	lastFieldIDStackPtr := (*[]thrift.FieldID)(unsafe.Pointer(&fsm.TC.LastFieldIDStack))
+	lastFieldIDPtr := (*thrift.FieldID)(unsafe.Pointer(&fsm.TC.LastFieldID))
+	pendingBoolWritePtr := (*struct {
+		ID    thrift.FieldID
+		Typ   thrift.Type
+		Valid bool
+		Value bool
+	})(unsafe.Pointer(&fsm.TC.PendingFieldWrite))
+	// Save back to FSM
+	*lastFieldIDPtr = p.LastFieldID
+	*lastFieldIDStackPtr = p.LastFieldIDStack
+	*pendingBoolWritePtr = p.PendingBoolField
+}
+
+func (self *CompactConv) writeRequestBaseToThrift(ctx context.Context, fsm *types.J2TStateMachine, buf *[]byte, field *thrift.FieldDescriptor) error {
+	bobj := ctx.Value(conv.CtxKeyThriftReqBase)
+	if bobj != nil {
+		if b, ok := bobj.(*base.Base); ok && b != nil {
+			var p thrift.CompatCompactProtocol
+			self.getCompactProtocol(fsm, &p.CompactProtocol)
+			p.Buf = *buf
+
+			p.CompactProtocol.WriteFieldBegin(field.Name(), field.Type().Type(), field.ID())
+			if err := b.Write(&p); err != nil {
+				return err
+			}
+			p.CompactProtocol.WriteFieldEnd()
+
+			*buf = p.RawBuf()
+			self.saveCompactProtocol(fsm, &p.CompactProtocol)
+		}
 	}
+	return nil
+}
+
+func (self *CompactConv) writeStringValue(ctx context.Context, fsm *types.J2TStateMachine, buf *[]byte, f *thrift.FieldDescriptor, val string, enc meta.Encoding, req http.RequestGetter) error {
+	var p thrift.CompactProtocol
+	var savePState = true
+	self.getCompactProtocol(fsm, &p)
+	p.Buf = *buf
 
 	if val == "" {
 		if !self.opts.WriteRequireField && f.Required() == thrift.RequiredRequireness {
@@ -137,6 +185,9 @@ func (self *CompactConv) writeStringValue(ctx context.Context, fsm *types.J2TSta
 		if err := p.WriteDefaultOrEmpty(f); err != nil {
 			return newError(meta.ErrWrite, fmt.Sprintf("failed to write empty value of field '%s'", f.Name()), err)
 		}
+		if err := p.WriteFieldEnd(); err != nil {
+			return newError(meta.ErrWrite, fmt.Sprintf("failed to write field end '%s'", f.Name()), err)
+		}
 	} else {
 		if err := p.WriteFieldBegin(f.Name(), f.Type().Type(), f.ID()); err != nil {
 			return newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' tag", f.Name()), err)
@@ -154,18 +205,19 @@ func (self *CompactConv) writeStringValue(ctx context.Context, fsm *types.J2TSta
 			if err := self.doNative(ctx, fsm, rt.Str2Mem(val), ft, &p.Buf, req, false); err != nil {
 				return newError(meta.ErrConvert, fmt.Sprintf("failed to convert value of field '%s'", f.Name()), err)
 			}
+			savePState = false // don't need to save TSTATE
 		} else if err := p.WriteStringWithDesc(val, ft, self.opts.DisallowUnknownField, !self.opts.NoBase64Binary); err != nil {
 			return newError(meta.ErrConvert, fmt.Sprintf("failed to write field '%s' value", f.Name()), err)
+		}
+		if err := p.WriteFieldEnd(); err != nil {
+			return newError(meta.ErrWrite, fmt.Sprintf("failed to write field end '%s'", f.Name()), err)
 		}
 	}
 BACK:
 	*buf = p.Buf
-
-	// Save back to FSM
-	*lastFieldIDPtr = p.LastFieldID
-	*lastFieldIDStackPtr = p.LastFieldIDStack
-	*pendingBoolWritePtr = p.PendingBoolField
-
+	if savePState {
+		self.saveCompactProtocol(fsm, &p)
+	}
 	return nil
 }
 
@@ -256,13 +308,21 @@ func (self *CompactConv) handleUnmatchedFields(ctx context.Context, fsm *types.J
 			// try get value from http
 			val, _ = tryGetValueFromHttp(req, f.Alias())
 		}
+		_ = val
 		if err := self.writeStringValue(ctx, fsm, buf, f, val, meta.EncodingJSON, req); err != nil {
 			return false, err
 		}
 	}
 
-	// write STRUCT end
-	*buf = append(*buf, byte(thrift.STOP))
+	// At this point, the TProtocol state now is in `WriteStructBegin` state
+	// So we need to close it by calling `WriteFieldStop` and `WriteStructEnd`.
+	var p thrift.CompactProtocol
+	p.Buf = *buf
+	self.getCompactProtocol(fsm, &p)
+	p.WriteFieldStop()
+	p.WriteStructEnd()
+	*buf = p.Buf
+	self.saveCompactProtocol(fsm, &p)
 
 	// clear field cache
 	fsm.FieldCache = fsm.FieldCache[:0]
