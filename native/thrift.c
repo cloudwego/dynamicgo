@@ -70,7 +70,7 @@ uint64_t j2t2_write_unset_fields(vt_ienc *ienc, const tStructDesc *st, ReqBitMap
     bool wo_enabled = flags & F_WRITE_OPTIONAL;
     bool tb_enabled = flags & F_TRACE_BACK;
     uint64_t *s = reqs.buf;
-    // xprintf("[j2t2_write_unset_fields] reqs: %n \n", &reqs);
+    xprintf("[j2t2_write_unset_fields] reqs: %n \n", &reqs);
     for (int i = 0; i < reqs.len; i++)
     {
         uint64_t v = *s;
@@ -80,26 +80,31 @@ uint64_t j2t2_write_unset_fields(vt_ienc *ienc, const tStructDesc *st, ReqBitMap
             {
                 tid id = i * BSIZE_INT64 + j;
                 tFieldDesc *f = (st->ids.buf)[id];
-                // xprintf("[j2t_write_unset_fields] field:%d, f.name:%s\n", (int64_t)id, &f->name);
+                xprintf("[j2t2_write_unset_fields] field:%d, f.name:%s  <<<<[\n", (int64_t)id, &f->name);
 
                 // NOTICE: if traceback is enabled AND (field is required OR current state is root layer),
                 // return field id to traceback field value from http-mapping in Go.
                 if (tb_enabled && (f->required == REQ_REQUIRED || self->sp == 1))
                 {
+                    xprintf("[j2t2_write_unset_fields] put to field_cache\n");
                     if (self->field_cache.len >= self->field_cache.cap)
                         WRAP_ERR0(ERR_OOM_FIELD, p);
                     self->field_cache.buf[self->field_cache.len++] = f->ID;
                 }
                 else if (!wr_enabled && f->required == REQ_REQUIRED)
                 {
+                    xprintf("[j2t2_write_unset_fields] RET ERR_NULL_REQUIRED\n");
                     WRAP_ERR_POS(ERR_NULL_REQUIRED, id, p);
                 }
                 else if ((wr_enabled && f->required == REQ_REQUIRED) || (wd_enabled && f->required == REQ_DEFAULT) || (wo_enabled && f->required == REQ_OPTIONAL))
                 {
+                    xprintf("[j2t2_write_unset_fields] write field\n");
                     J2T_ZERO(ienc->method->write_field_begin(tproto, f->type->type, f->ID));
                     J2T_ZERO(ienc->extra->write_default_or_empty(tproto, f, p));
                     J2T_ZERO(ienc->method->write_field_end(tproto));
                 }
+
+                xprintf("[j2t2_write_unset_fields] ]>>>>\n");
             }
             v >>= 1;
         }
@@ -492,6 +497,7 @@ uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *v
         if (dc->type == TTYPE_MAP)                                                                                      \
         {                                                                                                               \
             unwindPos = buf->len;                                                                                       \
+            unwindField.id = ienc->extra->get_last_field_id(tproto);                                                                                   \
             J2T_STORE(j2t2_map_key(ienc, sp, kn, dc->key, &self->jt, *p));                                             \
             if (obj0)                                                                                                   \
             {                                                                                                           \
@@ -555,8 +561,9 @@ uint64_t j2t2_field_vm(vt_ienc *ienc, const _GoString *src, long *p, J2TState *v
                     {                                                                                                   \
                         vm = STATE_FIELD;                                                                               \
                         unwindPos = buf->len;                                                                           \
+                        unwindField.id = ienc->extra->get_last_field_id(tproto);                                                                         \
                         lastField = f;                                                                                  \
-                        J2T_STORE(ienc->method->write_field_begin(VT_TSTATE(ienc->base), f->type->type, f->ID));                \
+                        J2T_STORE(ienc->method->write_field_begin(VT_TSTATE(ienc->base), f->type->type, f->ID));        \
                     }                                                                                                   \
                     xprintf("[J2T_KEY] vm: %d\n", vm);                                                                  \
                     if (obj0)                                                                                           \
@@ -594,6 +601,9 @@ uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag)
 
     // for 'null' value backtrace
     bool null_val = false;
+    struct {
+        tid id;
+    } unwindField = { .id = 0 };
     size_t unwindPos = 0;
     tFieldDesc *lastField = NULL;
 
@@ -768,6 +778,7 @@ uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag)
                         null_val = false;
                         bm_set_req(vt->ex.es.reqs, lastField->ID, lastField->required);
                         buf->len = unwindPos;
+                        ienc->extra->set_last_field_id(tproto, unwindField.id);
                     }
                     // Check if all required/default fields got written
                     J2T_STORE(j2t2_write_unset_fields(ienc, vt->ex.es.sd, vt->ex.es.reqs, flag, *p - 1));
@@ -797,6 +808,7 @@ uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag)
                         // Last element value is null, so must rewind to written key.
                         null_val = false;
                         buf->len = unwindPos;
+                        ienc->extra->set_last_field_id(tproto, unwindField.id);
                     }
                     ienc->method->write_map_end(tproto, vt->ex.ec.bp, vt->ex.ec.size);
                 }
@@ -816,6 +828,7 @@ uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag)
                     {
                         null_val = false;
                         buf->len = unwindPos;
+                        ienc->extra->set_last_field_id(tproto, unwindField.id);
                     }
                 }
                 else
@@ -825,6 +838,7 @@ uint64_t j2t2_fsm_exec(vt_ienc *ienc, const _GoString *src, uint64_t flag)
                         null_val = false;
                         bm_set_req(vt->ex.es.reqs, lastField->ID, lastField->required);
                         buf->len = unwindPos;
+                        ienc->extra->set_last_field_id(tproto, unwindField.id);
                     }
                 }
                 J2T_PUSH(self, J2T_KEY, *p, dc);

@@ -113,6 +113,7 @@ uint64_t _tc_write_field(tc_state *self, ttype type, int64_t id, uint8_t type_ov
     tcompacttype type_to_write = type_override == 0xFF
         ? ttype2ttc(type)
         : (tcompacttype)type_override;
+    xprintf("[_tc_write_field] last_fid=%d fid=%d delta=%d\n", self->last_field_id, id, delta);
     if (id > self->last_field_id && delta <= 0x0F)
     {
         // write_byte( field_id_delta | type )
@@ -420,7 +421,9 @@ uint64_t tc_write_set_end(tc_state *self, size_t back_off, size_t vsize)
 uint64_t tc_write_default_or_empty(tc_state *self, const tFieldDesc *field, long p)
 {
     _GoSlice *buf = self->buf;
-    if (field->default_value != NULL)
+    tTypeDesc *desc = field->type;
+
+    if (field->default_value != NULL && desc->type != TTYPE_BOOL) // Except bool.
     {
         xprintf("[tc_write_default_or_empty] json_val: %s\n", &field->default_value->json_val);
         size_t n = field->default_value->thrift_compact.len;
@@ -430,7 +433,8 @@ uint64_t tc_write_default_or_empty(tc_state *self, const tFieldDesc *field, long
             field->default_value->thrift_compact.buf, n);
         return 0;
     }
-    tTypeDesc *desc = field->type;
+    else
+        xprintf("[tc_write_default_or_empty] type=%d\n", desc->type);
     switch (desc->type)
     {
     case TTYPE_BOOL:
@@ -474,10 +478,23 @@ uint64_t tc_write_default_or_empty(tc_state *self, const tFieldDesc *field, long
     }
 }
 
+tid tc_set_last_field_id(tc_state *self, tid id)
+{
+    xprintf("[tc_set_last_field_id] id=%d\n", id);
+    return (self->last_field_id = id);
+}
+
+tid tc_get_last_field_id(tc_state *self)
+{
+    return self->last_field_id;
+}
+
 static const tc_menc_extra TC_IENC_M_EXTRA = {
     tc_write_default_or_empty,
     tc_write_data_count,
     tc_write_data_count_max_length,
+    tc_set_last_field_id,
+    tc_get_last_field_id,
 };
 static const tc_menc TC_IENC_M = {
     tc_write_message_begin,

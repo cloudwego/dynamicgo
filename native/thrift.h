@@ -403,7 +403,12 @@ typedef struct
     xprintf("[DEBUG_PRINT_STATE_%d] STATE{sp:%d, st:%d, jp:%d, td:%s} POS:%d CHAR:%c BUF{\n\tbuf:%l,\n\tlen:%d, cap:%d}\n", i, sp, vt->st, vt->jp, vt->td == NULL ? &(_GoString){} : &vt->td->name, p, ch, buf, buf->len, buf->cap);
 
 #define DEBUG_PRINT_STATE_EX(i, sp, p) \
-    xprintf("[DEBUG_PRINT_STATE_EX_%d] STATE{sp:%d, st:%d, jp:%d, td:%s, ex:[%d,%d,%d]} POS:%d CHAR:%c BUF{\n\tbuf:%l,\n\tlen:%d, cap:%d}\n", i, sp, vt->st, vt->jp, vt->td == NULL ? &(_GoString){} : &vt->td->name, *(uint64_t *)(&vt->ex), *((uint64_t *)(&vt->ex) + 1), *((uint64_t *)(&vt->ex) + 2), p, ch, buf, buf->len, buf->cap);
+    xprintf("[DEBUG_PRINT_STATE_EX_%d] " \
+        "STATE{sp:%d, st:%d, jp:%d, td:%s, ex:[%d,%d,%d]} " \
+        "POS:%d CHAR:%c BUF{\n\tbuf:%l,\n\tlen:%d, cap:%d}\n", \
+        i, \
+        sp, vt->st, vt->jp, vt->td == NULL ? &(_GoString){} : &vt->td->name, \
+        *(uint64_t *)(&vt->ex), *((uint64_t *)(&vt->ex) + 1), *((uint64_t *)(&vt->ex) + 2), p, ch, buf, buf->len, buf->cap);
 
 
 typedef struct {
@@ -422,6 +427,8 @@ typedef struct {
         uint64_t    (*write_default_or_empty)(tproto, const tFieldDesc *, long); \
         uint64_t    (*write_data_count)(tproto, size_t n); \
         size_t      (*write_data_count_max_length)(tproto); \
+        tid         (*set_last_field_id)(tproto,tid); \
+        tid         (*get_last_field_id)(tproto); \
     } tname
 
 #define TIMPL_MENC_BASE(tproto, tname) \
