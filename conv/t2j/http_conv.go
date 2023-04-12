@@ -59,7 +59,7 @@ func (h HTTPConv) Do(ctx context.Context, resp http.ResponseSetter, tbytes []byt
 	}
 	var stDef *thrift.TypeDescriptor
 	// not a reply struct, cannot be decoded
-	_, rTyp, _, respID, tbytes, err := thrift.UnwrapBinaryMessage(h.proto, tbytes)
+	_, rTyp, _, respID, tbytes, err := thrift.UnwrapBinaryMessage(tbytes)
 	if err != nil {
 		return wrapError(meta.ErrRead, "", err)
 	}
@@ -102,7 +102,7 @@ func (h HTTPConv) DoInto(ctx context.Context, resp http.ResponseSetter, tbytes [
 	}
 	var stDef *thrift.TypeDescriptor
 	// not a reply struct, cannot be decoded
-	_, rTyp, _, respID, tbytes, err := thrift.UnwrapBinaryMessage(h.proto, tbytes)
+	_, rTyp, _, respID, tbytes, err := thrift.UnwrapBinaryMessage(tbytes)
 	if err != nil {
 		return wrapError(meta.ErrRead, "", err)
 	}
