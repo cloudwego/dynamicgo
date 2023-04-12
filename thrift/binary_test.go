@@ -110,7 +110,7 @@ func TestBinaryUnwrapReply(t *testing.T) {
 				t.Fatalf("failed to marshal want bytes %s", err)
 			}
 			//
-			_, _, _, _, got, err := UnwrapBinaryMessage(tt.args.proto, inputBytes)
+			_, _, _, _, got, err := UnwrapBinaryMessage(inputBytes)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UnwrapReply() error = %v, wantErr %v", err, tt.wantErr)
 				return
