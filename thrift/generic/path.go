@@ -404,7 +404,7 @@ func (self *PathNode) Load(recurse bool, opts *Options) error {
 	return self.scanChildren(&p, recurse, opts)
 }
 
-// Fork copy self and its children to a new PathNode
+// Fork deeply copy self and its children to a new PathNode
 func (self PathNode) Fork() PathNode {
 	n := PathNode{
 		Path: self.Path,
@@ -414,6 +414,19 @@ func (self PathNode) Fork() PathNode {
 		n.Next = append(n.Next, c.Fork())
 	}
 	return n
+}
+
+// CopyTo deeply copy self and its children to a PathNode
+func (self PathNode) CopyTo(to *PathNode) {
+	to.Path = self.Path
+	to.Node = self.Node
+	if cap(to.Next) < len(self.Next) {
+		to.Next = make([]PathNode, len(self.Next))
+	}
+	to.Next = to.Next[:len(self.Next)]
+	for i, c := range self.Next {
+		c.CopyTo(&to.Next[i])
+	}
 }
 
 // ResetValue resets self's node and its children's node
