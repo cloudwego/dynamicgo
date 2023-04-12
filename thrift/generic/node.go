@@ -157,6 +157,32 @@ func NewNodeBinary(val []byte) Node {
 	return NewNode(thrift.STRING, buf)
 }
 
+// NewTypedNode creates a new Node with the given typ,
+// including element type (for LIST/SET/MAP) and key type (for MAP)
+func NewTypedNode(typ thrift.Type, et thrift.Type, kt thrift.Type) (ret Node){
+	if !typ.Valid() {
+		panic("invalid node type")
+	}
+	switch typ {
+	case thrift.LIST, thrift.SET:
+		if !et.Valid() {
+			panic("invalid element type")
+		}
+		ret.et = et
+	case thrift.MAP:
+		if !et.Valid() {
+			panic("invalid element type")
+		}
+		if !kt.Valid() {
+			panic("invalid key type")
+		}
+		ret.et = et
+		ret.kt = kt
+	}
+	ret.t = typ
+	return 
+}
+
 // Fork forks the node to a new node, copy underlying data as well
 func (self Node) Fork() Node {
 	ret := self
