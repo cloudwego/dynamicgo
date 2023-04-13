@@ -62,4 +62,20 @@ type Options struct {
 	// Fields()/GetMany()/Gets()/Indexies()) to clear out all nodes
 	// in passed []PathNode first
 	ClearDirtyValues bool
+
+	// StoreChildrenById indicates to store children node by id when call Node.Children() or PathNode.Load().
+	// When field id exceeds StoreChildrenByIdShreshold, children node will be stored sequentially after the threshold.
+	StoreChildrenById bool
+
+	// StoreChildrenByHash indicates to store children node by str hash (mod parent's size) when call Node.Children() or PathNode.Load().
+	StoreChildrenByHash bool
 }
+
+var (
+	// StoreChildrenByIdShreshold is the maximum id to store children node by id.
+	StoreChildrenByIdShreshold  = 256
+
+	// StoreChildrenByIdShreshold is the minimum id to store children node by hash.
+	StoreChildrenByIntHashShreshold = DefaultNodeSliceCap
+)
+

@@ -189,7 +189,7 @@ func WrapBinaryBody(body []byte, methodName string, msgTyp TMessageType, structI
 }
 
 // UnwrapBinaryMessage unwraps the message parameters from the buf
-func UnwrapBinaryMessage(proto meta.Encoding, buf []byte) (name string, callType TMessageType, seqID int32, structID FieldID, body []byte, err error) {
+func UnwrapBinaryMessage(buf []byte) (name string, callType TMessageType, seqID int32, structID FieldID, body []byte, err error) {
 	var reader = BinaryProtocol{
 		Buf: buf,
 	}

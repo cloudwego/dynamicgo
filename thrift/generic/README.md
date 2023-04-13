@@ -22,6 +22,7 @@ import "github.com/cloudwego/dynamicgo/thrift/generic"
   - [func NewNodeInt32(val int32) Node](<#func-newnodeint32>)
   - [func NewNodeInt64(val int64) Node](<#func-newnodeint64>)
   - [func NewNodeString(val string) Node](<#func-newnodestring>)
+  - [func NewTypedNode(typ thrift.Type, et thrift.Type, kt thrift.Type) (ret Node)](<#func-newtypednode>)
   - [func (self Node) Binary() ([]byte, error)](<#func-node-binary>)
   - [func (self Node) Bool() (bool, error)](<#func-node-bool>)
   - [func (self Node) Byte() (byte, error)](<#func-node-byte>)
@@ -81,12 +82,21 @@ import "github.com/cloudwego/dynamicgo/thrift/generic"
 - [type PathNode](<#type-pathnode>)
   - [func NewPathNode() *PathNode](<#func-newpathnode>)
   - [func (self *PathNode) Assgin(recurse bool, opts *Options) error](<#func-pathnode-assgin>)
+  - [func (self *PathNode) Check() error](<#func-pathnode-check>)
+  - [func (self PathNode) CopyTo(to *PathNode)](<#func-pathnode-copyto>)
+  - [func (self PathNode) Error() string](<#func-pathnode-error>)
+  - [func (self *PathNode) Field(id thrift.FieldID, opts *Options) *PathNode](<#func-pathnode-field>)
   - [func (self PathNode) Fork() PathNode](<#func-pathnode-fork>)
+  - [func (self *PathNode) GetByInt(key int, opts *Options) *PathNode](<#func-pathnode-getbyint>)
+  - [func (self *PathNode) GetByStr(key string, opts *Options) *PathNode](<#func-pathnode-getbystr>)
   - [func (self *PathNode) Load(recurse bool, opts *Options) error](<#func-pathnode-load>)
   - [func (self PathNode) Marshal(opt *Options) (out []byte, err error)](<#func-pathnode-marshal>)
   - [func (self PathNode) MarshalIntoBuffer(out *[]byte, opt *Options) error](<#func-pathnode-marshalintobuffer>)
   - [func (self *PathNode) ResetAll()](<#func-pathnode-resetall>)
   - [func (self *PathNode) ResetValue()](<#func-pathnode-resetvalue>)
+  - [func (self *PathNode) SetByInt(key int, val Node, opts *Options) (bool, error)](<#func-pathnode-setbyint>)
+  - [func (self *PathNode) SetByStr(key string, val Node, opts *Options) (bool, error)](<#func-pathnode-setbystr>)
+  - [func (self *PathNode) SetField(id thrift.FieldID, val Node, opts *Options) (bool, error)](<#func-pathnode-setfield>)
 - [type PathType](<#type-pathtype>)
 - [type Value](<#type-value>)
   - [func NewValue(desc *thrift.TypeDescriptor, src []byte) Value](<#func-newvalue>)
@@ -114,6 +124,16 @@ var (
     // DefaultNodeSliceCap is the default capacity of a Node or NodePath slice
     // Usually, a Node or NodePath slice is used to store intermediate or consequential elements of a generic API like Children()|Interface()|SetMany()
     DefaultNodeSliceCap = 16
+)
+```
+
+```go
+var (
+    // StoreChildrenByIdShreshold is the maximum id to store children node by id.
+    StoreChildrenByIdShreshold = 256
+
+    // StoreChildrenByIdShreshold is the minimum id to store children node by hash.
+    StoreChildrenByIntHashShreshold = DefaultNodeSliceCap
 )
 ```
 
@@ -222,6 +242,14 @@ func NewNodeString(val string) Node
 ```
 
 NewNodeString converts a string value to a STRING node
+
+### func NewTypedNode
+
+```go
+func NewTypedNode(typ thrift.Type, et thrift.Type, kt thrift.Type) (ret Node)
+```
+
+NewTypedNode creates a new Node with the given typ, including element type \(for LIST/SET/MAP\) and key type \(for MAP\)
 
 ### func \(Node\) Binary
 
@@ -578,6 +606,13 @@ type Options struct {
     // Fields()/GetMany()/Gets()/Indexies()) to clear out all nodes
     // in passed []PathNode first
     ClearDirtyValues bool
+
+    // StoreChildrenById indicates to store children node by id when call Node.Children() or PathNode.Load().
+    // When field id exceeds StoreChildrenByIdShreshold, children node will be stored sequentially after the threshold.
+    StoreChildrenById bool
+
+    // StoreChildrenByHash indicates to store children node by str hash (mod parent's size) when call Node.Children() or PathNode.Load().
+    StoreChildrenByHash bool
 }
 ```
 
@@ -731,13 +766,67 @@ func (self *PathNode) Assgin(recurse bool, opts *Options) error
 
 Assgin assigns self's raw Value according to its Next Path, which must be set before calling this method.
 
+### func \(\*PathNode\) Check
+
+```go
+func (self *PathNode) Check() error
+```
+
+Check returns non\-nil error if the PathNode has error
+
+### func \(PathNode\) CopyTo
+
+```go
+func (self PathNode) CopyTo(to *PathNode)
+```
+
+CopyTo deeply copy self and its children to a PathNode
+
+### func \(PathNode\) Error
+
+```go
+func (self PathNode) Error() string
+```
+
+Error returns non\-empty string if the PathNode has error
+
+### func \(\*PathNode\) Field
+
+```go
+func (self *PathNode) Field(id thrift.FieldID, opts *Options) *PathNode
+```
+
+Field get the child node by field id. Only support STRUCT.
+
+If opts.StoreChildrenById is true, it will try to use id \(O\(1\)\) as index to search the key. However, if the struct fields have changed, it may fallback to O\(n\) search.
+
 ### func \(PathNode\) Fork
 
 ```go
 func (self PathNode) Fork() PathNode
 ```
 
-Fork copy self and its children to a new PathNode
+Fork deeply copy self and its children to a new PathNode
+
+### func \(\*PathNode\) GetByInt
+
+```go
+func (self *PathNode) GetByInt(key int, opts *Options) *PathNode
+```
+
+GetByInt get the child node by integer. Only support MAP with integer\-type key.
+
+If opts.StoreChildrenByHash is true, it will try to use hash \(O\(1\)\) to search the key. However, if the map size has changed, it may fallback to O\(n\) search.
+
+### func \(\*PathNode\) GetByStr
+
+```go
+func (self *PathNode) GetByStr(key string, opts *Options) *PathNode
+```
+
+GetByInt get the child node by string. Only support MAP with string\-type key.
+
+If opts.StoreChildrenByHash is true, it will try to use hash \(O\(1\)\) to search the key. However, if the map size has changed, it may fallback to O\(n\) search.
 
 ### func \(\*PathNode\) Load
 
@@ -817,6 +906,36 @@ func (self *PathNode) ResetValue()
 ```
 
 ResetValue resets self's node and its children's node
+
+### func \(\*PathNode\) SetByInt
+
+```go
+func (self *PathNode) SetByInt(key int, val Node, opts *Options) (bool, error)
+```
+
+SetByInt set the child node by integer. Only support MAP with integer\-type key. If the key already exists, it will be overwritten and return true.
+
+If opts.StoreChildrenByHash is true, it will try to use hash \(O\(1\)\) to search the key. However, if the map hash size has changed, it may fallback to O\(n\) search.
+
+### func \(\*PathNode\) SetByStr
+
+```go
+func (self *PathNode) SetByStr(key string, val Node, opts *Options) (bool, error)
+```
+
+SetByStr set the child node by string. Only support MAP with string\-type key. If the key already exists, it will be overwritten and return true.
+
+If opts.StoreChildrenByHash is true, it will try to use hash \(O\(1\)\) to search the key. However, if the map hash size has changed, it may fallback to O\(n\) search.
+
+### func \(\*PathNode\) SetField
+
+```go
+func (self *PathNode) SetField(id thrift.FieldID, val Node, opts *Options) (bool, error)
+```
+
+SetField set the child node by field id. Only support STRUCT. If the key already exists, it will be overwritten and return true.
+
+If opts.StoreChildrenById is true, it will try to use id \(O\(1\)\) as index to search the key. However, if the struct fields have changed, it may fallback to O\(n\) search.
 
 ## type PathType
 

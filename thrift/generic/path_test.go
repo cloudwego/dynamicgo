@@ -19,10 +19,12 @@ package generic
 import (
 	"encoding/hex"
 	"reflect"
+	"strconv"
 	"testing"
 
 	// "github.com/cloudwego/dynamicgo/meta"
 
+	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/base"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/example2"
 	"github.com/cloudwego/dynamicgo/testdata/sample"
 
@@ -74,6 +76,126 @@ func TestChildren(t *testing.T) {
 		}, &opts, false)
 		require.True(t, DeepEqual(exp, act))
 		require.True(t, DeepEqual(act, exp))
+	})
+
+	t.Run("StoreChildrenById", func(t *testing.T) {
+		children := make([]PathNode, 0)
+		opts := Options{}
+		opts.StoreChildrenById = true
+		err := v.Children(&children, true, &opts)
+		require.NoError(t, err)
+		require.Equal(t, 257, len(children))
+		// get
+		require.Equal(t, thrift.STRING, children[desc.Struct().Fields()[0].ID()].Node.Type())
+		base := children[desc.Struct().Fields()[2].ID()]
+		require.Equal(t, thrift.STRUCT, base.Node.Type())
+		require.Equal(t, thrift.STRUCT, base.Field(thrift.FieldID(255), &opts).Node.Type())
+		// set
+		var testByte byte = 123
+		exist, err := base.SetField(2, NewNodeByte(testByte), &opts)
+		require.NoError(t, err)
+		require.True(t, exist)
+		exist, err = base.SetField(299, NewNodeByte(testByte), &opts)
+		require.NoError(t, err)
+		require.False(t, exist)
+		// get again
+		require.Equal(t, thrift.STRUCT, base.Field(thrift.FieldID(255), &opts).Node.Type())
+
+		// marshal
+		out, err := base.Marshal(&opts)
+		require.NoError(t, err)
+		act := example2.NewInnerBase()
+		_, err = act.FastRead(out)
+		require.NoError(t, err)
+		require.Equal(t, testByte, byte(act.Byte))
+	})
+
+	t.Run("StoreChildrenByHash", func(t *testing.T) {
+		opts := Options{}
+		exp := example2.NewExampleReq()
+		exp.Base = base.NewBase()
+		exp.Base.Extra = map[string]string{}
+		for i := 0; i < 100; i++ {
+			exp.Base.Extra[strconv.Itoa(i)] = strconv.Itoa(i)
+		}
+		exp.InnerBase = example2.NewInnerBase()
+		exp.InnerBase.MapInt32String = map[int32]string{}
+		for i := 0; i < 100; i++ {
+			exp.InnerBase.MapInt32String[int32(i)] = strconv.Itoa(i)
+		}
+		in := make([]byte, exp.BLength())
+		exp.FastWriteNocopy(in, nil)
+		x := NewValue(getExampleDesc(), in)
+
+		// load
+		children := make([]PathNode, 0)
+		opts.StoreChildrenByHash = true
+		opts.StoreChildrenById = true
+		err := x.Children(&children, true, &opts)
+		require.NoError(t, err)
+
+		// get str key
+		con := &children[255].Next[6]
+		require.Nil(t, con.GetByStr("c", &opts))
+		pv := con.GetByStr("0", &opts)
+		require.NotNil(t, pv)
+		v, err := pv.Interface(&opts)
+		require.NoError(t, err)
+		require.Equal(t, "0", v)
+		
+		// set str key
+		exist, err := con.SetByStr("0", NewNodeString("123"), &opts)
+		require.NoError(t, err)
+		require.True(t, exist)
+		exist, err = con.SetByStr("299", NewNodeString("123"), &opts)
+		require.NoError(t, err)
+		require.False(t, exist)
+
+		// get str key again
+		pv = con.GetByStr("0", &opts)
+		require.NotNil(t, pv)
+		v, err = pv.Interface(&opts)
+		require.NoError(t, err)
+		require.Equal(t, "123", v)
+
+		// get int key
+		con2 := &children[3].Next[12]
+		require.Nil(t, con2.GetByInt(299, &opts))
+		pv = con2.GetByInt(0, &opts)
+		require.NotNil(t, pv)
+		v, err = pv.Interface(&opts)
+		require.NoError(t, err)
+		require.Equal(t, "0", v)
+
+		// set int key
+		exist, err = con2.SetByInt(0, NewNodeString("123"), &opts)
+		require.NoError(t, err)
+		require.True(t, exist)
+		exist, err = con2.SetByInt(299, NewNodeString("123"), &opts)
+		require.NoError(t, err)
+		require.False(t, exist)
+
+		// get int key again
+		pv = con2.GetByInt(0, &opts)
+		require.NotNil(t, pv)
+		v, err = pv.Interface(&opts)
+		require.NoError(t, err)
+		require.Equal(t, "123", v)
+
+		// marshal
+		r := PathNode{
+			Node: x.Node,
+			Next: children,
+		}
+		out, err := r.Marshal(&opts)
+		require.NoError(t, err)
+		act := example2.NewExampleReq()
+		_, err = act.FastRead(out)
+		require.NoError(t, err)
+		require.Equal(t, "123", act.Base.Extra["0"])
+		require.Equal(t, "123", act.Base.Extra["299"])
+		require.Equal(t, "123", act.InnerBase.MapInt32String[0])
+		require.Equal(t, "123", act.InnerBase.MapInt32String[299])
 	})
 }
 

@@ -92,6 +92,19 @@ func errValue(code meta.ErrCode, msg string, err error) Value {
 	}
 }
 
+//go:noinline
+func errPathNode(code meta.ErrCode, msg string, err error) *PathNode {
+	// panic(code.Behavior())
+	e := meta.NewError(meta.NewErrorCode(code, meta.THRIFT), msg, err).(meta.Error)
+	return &PathNode{
+			Node: Node{
+			t: thrift.ERROR,
+			l: int(code),
+			v: unsafe.Pointer(&e),
+		},
+	}
+}
+
 // IsEmpty tells if the node is thrift.STOP
 func (self Node) IsEmpty() bool {
 	return self.t == thrift.STOP
