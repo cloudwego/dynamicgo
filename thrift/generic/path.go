@@ -23,6 +23,7 @@ import (
 	"sync"
 	"unsafe"
 
+	"github.com/cloudwego/dynamicgo/internal/caching"
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
@@ -603,6 +604,15 @@ func (self PathNode) marshal(p *thrift.BinaryProtocol, opts *Options) error {
 	return err
 }
 
+func guardPathNodeSlice(con *[]PathNode, l int) {
+	c := cap(*con)
+	if l >= c {
+		tmp := make([]PathNode, len(*con), l + DefaultNodeSliceCap)
+		copy(tmp, *con)
+		*con = tmp
+	}
+}
+
 type pnSlice struct {
 	a []PathNode
 	b []PathNode
@@ -624,18 +634,13 @@ func (self pnSlice) Less(i, j int) bool {
 func (self *pnSlice) Sort() {
 	sort.Sort(self)
 }
-
 func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *thrift.BinaryProtocol, recurse bool, opts *Options, et thrift.Type) (*PathNode, error) {
 	var con = *in
 	var l = *lp
-	var c = *cp
-	if l == c {
-		c = c + DefaultNodeSliceCap
-		tmp := make([]PathNode, l, c)
-		copy(tmp, con)
-		con = tmp
+	guardPathNodeSlice(&con, l)
+	if l >= len(con) {
+		con = con[:l+1]
 	}
-	con = con[:l+1]
 	v := &con[l]
 	l += 1
 
@@ -667,8 +672,291 @@ func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *thrift.Bi
 
 	*in = con
 	*lp = l
-	*cp = c
+	*cp = cap(con)
 	return v, nil
+}
+
+// Error returns non-empty string if the PathNode has error
+func (self PathNode) Error() string {
+	return self.Node.Error()
+}
+
+// Check returns non-nil error if the PathNode has error
+func (self *PathNode) Check() error {
+	if self == nil {
+		return errNotFound
+	}
+	if self.Node.t == thrift.ERROR {
+		return self
+	}
+	return nil
+}
+
+func (self *PathNode) should(op string, t thrift.Type) *PathNode {
+	if self == nil {
+		return errPathNode(meta.ErrNotFound, op, nil)
+	}
+	if self.Node.t != t {
+		return errPathNode(meta.ErrDismatchType, op, nil)
+	}
+	return nil
+}
+
+func (self *PathNode) should2(op string, t thrift.Type, t2 thrift.Type) *PathNode {
+	if self == nil {
+		return errPathNode(meta.ErrNotFound, op, nil)
+	}
+	if self.Node.t != t && self.Node.t != t2{
+		return errPathNode(meta.ErrDismatchType, op, nil)
+	}
+	return nil
+}
+
+func getStrHash(next *[]PathNode, key string, N int) *PathNode {
+	h := int(caching.StrHash(key) % uint64(N))
+	s := (*PathNode)(rt.IndexPtr(*(*unsafe.Pointer)(unsafe.Pointer(next)), sizePathNode, h))
+	for s.Path.t == PathStrKey {
+		if s.Path.str() == key {
+			return s
+		}
+		h = (h + 1) % N
+		s = (*PathNode)(unsafe.Pointer(uintptr(unsafe.Pointer(s)) + sizePathNode))
+	}
+	return nil
+}
+
+func seekIntHash(next unsafe.Pointer, key uint64, N int) int {
+	h := int(key % uint64(N))
+	s := (*PathNode)(rt.IndexPtr(next, sizePathNode, h))
+	for s.Path.t != 0 {
+		h = (h + 1) % N
+		s = (*PathNode)(rt.AddPtr(unsafe.Pointer(s), sizePathNode))
+	}
+	return h
+}
+
+func getIntHash(next *[]PathNode, key uint64, N int) *PathNode {
+	h := int(key % uint64(N))
+	s := (*PathNode)(rt.IndexPtr(*(*unsafe.Pointer)(unsafe.Pointer(next)), sizePathNode, h))
+	for s.Path.t == PathIntKey {
+		if uint64(s.Path.int()) == key {
+			return s
+		}
+		h = (h + 1) % N
+		s = (*PathNode)(rt.AddPtr(unsafe.Pointer(s), sizePathNode))
+	}
+	return nil
+}
+
+// GetByInt get the child node by string. Only support MAP with string-type key.
+//
+// If opts.StoreChildrenByHash is true, it will try to use hash (O(1)) to search the key.
+// However, if the map size has changed, it may fallback to O(n) search.
+func (self *PathNode) GetByStr(key string, opts *Options) *PathNode {
+	if err := self.should("GetStrKey() only support MAP", thrift.MAP); err != nil {
+		return err
+	}
+	if self.Node.kt != thrift.STRING {
+		return errPathNode(meta.ErrDismatchType, "GetStrKey() only support MAP with string key", nil)
+	}
+	// fast path: use hash to find the key.
+	if opts.StoreChildrenByHash {
+		n, _ := self.Node.len()
+		N := n*2
+		// TODO: cap may change after Set. Use better way to store hash size
+		if cap(self.Next) >= N {
+			if s := getStrHash(&self.Next, key, N); s != nil {
+				return s
+			}
+		}
+		// not find, maybe hash size has changed, try to search from the beginning.
+	}
+	for i := range self.Next {
+		v := &self.Next[i]
+		if v.Path.t == PathStrKey && v.Path.str() == key {
+			return v
+		}
+	}
+	return nil
+}
+
+// SetByStr set the child node by string. Only support MAP with string-type key.
+// If the key already exists, it will be overwritten and return true.
+// 
+// If opts.StoreChildrenByHash is true, it will try to use hash (O(1)) to search the key.
+// However, if the map hash size has changed, it may fallback to O(n) search.
+func (self *PathNode) SetByStr(key string, val Node, opts *Options) (bool, error) {
+	if err := self.should("SetStrKey() only support MAP", thrift.MAP); err != nil {
+		return false, err
+	}
+	if self.Node.kt != thrift.STRING {
+		return false, errPathNode(meta.ErrDismatchType, "GetStrKey() only support MAP with string key", nil)
+	}
+	// fast path: use hash to find the key.
+	if opts.StoreChildrenByHash {
+		n, _ := self.Node.len()
+		N := n*2
+		// TODO: cap may change after Set. Use better way to store hash size
+		if cap(self.Next) >= N {
+			if s := getStrHash(&self.Next, key, N); s != nil {
+				s.Node = val
+				return true, nil
+			}
+		}
+		// not find, maybe hash size has changed, try to search from the beginning.
+	}
+	for i := range self.Next {
+		v := &self.Next[i]
+		if v.Path.t == PathStrKey && v.Path.str() == key {
+			v.Node = val
+			return true, nil
+		}
+	}
+	self.Next = append(self.Next, PathNode{
+		Path: NewPathStrKey(key),
+		Node: val,
+	})
+	return false, nil
+}
+
+// GetByInt get the child node by integer. Only support MAP with integer-type key.
+//	
+// If opts.StoreChildrenByHash is true, it will try to use hash (O(1)) to search the key.
+// However, if the map size has changed, it may fallback to O(n) search.
+func (self *PathNode) GetByInt(key int, opts *Options) *PathNode {
+	if err := self.should("GetByInt() only support MAP", thrift.MAP); err != nil {
+		return err
+	}
+	if !self.Node.kt.IsInt() {
+		return errPathNode(meta.ErrDismatchType, "GetByInt() only support MAP with integer key", nil)
+	}
+	// fast path: use hash to find the key.
+	if opts.StoreChildrenByHash {
+		// TODO: size may change after Set. Use better way to store hash size
+		n, _ := self.Node.len()
+		N := n*2
+		if cap(self.Next) >= N {
+			if s := getIntHash(&self.Next, uint64(key), N); s != nil {
+				return s
+			}
+		}
+		// not find, maybe hash size has changed, try to search from the beginning.
+	}
+	for i := range self.Next {
+		v := &self.Next[i]
+		if v.Path.t == PathIntKey && v.Path.int() == key {
+			return v
+		}
+	}
+	return nil
+}
+
+// SetByInt set the child node by integer. Only support MAP with integer-type key.
+// If the key already exists, it will be overwritten and return true.
+//
+// If opts.StoreChildrenByHash is true, it will try to use hash (O(1)) to search the key.
+// However, if the map hash size has changed, it may fallback to O(n) search.
+func (self *PathNode) SetByInt(key int, val Node, opts *Options) (bool, error) {
+	if err := self.should("SetByInt() only support MAP", thrift.MAP); err != nil {
+		return false, err
+	}
+	if !self.Node.kt.IsInt() {
+		return false, errPathNode(meta.ErrDismatchType, "SetByInt() only support MAP with integer key", nil)
+	}
+	// fast path: use hash to find the key.
+	if opts.StoreChildrenByHash {
+		n, _ := self.Node.len()
+		N := n*2
+		if cap(self.Next) >= N {
+			if s := getIntHash(&self.Next, uint64(key), N); s != nil {
+				s.Node = val
+				return true, nil
+			}
+		}
+		// not find, maybe hash size has changed, try to search from the beginning.
+	}
+	for i := range self.Next {
+		v := &self.Next[i]
+		if v.Path.t == PathIntKey && v.Path.int() == key {
+			v.Node = val
+			return true, nil
+		}
+	}
+	self.Next = append(self.Next, PathNode{
+		Path: NewPathIntKey(key),
+		Node: val,
+	})
+	return false, nil
+}
+
+// Field get the child node by field id. Only support STRUCT.
+//
+// If opts.StoreChildrenById is true, it will try to use id (O(1)) as index to search the key.
+// However, if the struct fields have changed, it may fallback to O(n) search.
+func (self *PathNode) Field(id thrift.FieldID, opts *Options) *PathNode {
+	if err := self.should("GetById() only support STRUCT", thrift.STRUCT); err != nil {
+		return err
+	}
+	// fast path: use id to find the key.
+	if opts.StoreChildrenById && int(id) <= StoreChildrenByIdShreshold {
+		v := &self.Next[id]
+		if v.Path.t != 0 && v.Path.id() == id {
+			return v
+		}
+	}
+	// slow path: use linear search to find the id.
+	for i := StoreChildrenByIdShreshold; i < len(self.Next); i++ {
+		v := &self.Next[i]
+		if v.Path.t == PathFieldId && v.Path.id() == id {
+			return v
+		}
+	} 
+	for i := 0; i < len(self.Next) && i<StoreChildrenByIdShreshold; i++ {
+		v := &self.Next[i]
+		if v.Path.t == PathFieldId && v.Path.id() == id {
+			return v
+		}
+	}
+	return nil
+}
+
+// SetField set the child node by field id. Only support STRUCT.
+// If the key already exists, it will be overwritten and return true.
+//
+// If opts.StoreChildrenById is true, it will try to use id (O(1)) as index to search the key.
+// However, if the struct fields have changed, it may fallback to O(n) search.
+func (self *PathNode) SetField(id thrift.FieldID, val Node, opts *Options) (bool, error) {
+	if err := self.should("GetById() only support STRUCT", thrift.STRUCT); err != nil {
+		return false, err
+	}
+	// fast path: use id to find the key.
+	if opts.StoreChildrenById && int(id) <= StoreChildrenByIdShreshold {
+		v := &self.Next[id]
+		exist := v.Path.t != 0
+		v.Node = val
+		return exist, nil
+	}
+	// slow path: use linear search to find the id.
+	for i := StoreChildrenByIdShreshold; i < len(self.Next); i++ {
+		v := &self.Next[i]
+		if v.Path.t == PathFieldId && v.Path.id() == id {
+			v.Node = val
+			return true, nil
+		}
+	}
+	for i := 0; i < len(self.Next) && i<StoreChildrenByIdShreshold; i++ {
+		v := &self.Next[i]
+		if v.Path.t == PathFieldId && v.Path.id() == id {
+			v.Node = val
+			return true, nil
+		}
+	}
+	// not find, append to the end.
+	self.Next = append(self.Next, PathNode{
+		Path: NewPathFieldId(id),
+		Node: val,
+	})
+	return false, nil
 }
 
 func (self *PathNode) scanChildren(p *thrift.BinaryProtocol, recurse bool, opts *Options) error {
@@ -678,6 +966,7 @@ func (self *PathNode) scanChildren(p *thrift.BinaryProtocol, recurse bool, opts 
 	l := len(con)
 	c := cap(con)
 
+	var tp = StoreChildrenByIdShreshold
 	switch self.Node.t {
 	case thrift.STRUCT:
 		// name, err := p.ReadStructBegin()
@@ -688,6 +977,16 @@ func (self *PathNode) scanChildren(p *thrift.BinaryProtocol, recurse bool, opts 
 			}
 			if et == thrift.STOP {
 				break
+			}
+			// OPT: store children by id here, thus we can use id as index to access children.
+			if opts.StoreChildrenById {
+				// if id is larger than the threshold, we store children after the threshold.
+				if int(id) < StoreChildrenByIdShreshold {
+					l = int(id)
+				} else {
+					l = tp
+					tp += 1
+				}
 			}
 			v, err = self.handleChild(&con, &l, &c, p, recurse, opts, et)
 			if err != nil {
@@ -713,13 +1012,29 @@ func (self *PathNode) scanChildren(p *thrift.BinaryProtocol, recurse bool, opts 
 		if e != nil {
 			return errNode(meta.ErrRead, "", e)
 		}
+
 		self.et = et
 		self.kt = kt
+		var conAddr unsafe.Pointer
+		var N int
+
 		if kt == thrift.STRING {
+			// fast path: use hash to store the key.
+			if opts.StoreChildrenByHash && size > StoreChildrenByIntHashShreshold {
+				// NOTE: we use original count*2 as the capacity of the hash table.
+				N = size*2
+				guardPathNodeSlice(&con, N-1)
+				conAddr = *(*unsafe.Pointer)(unsafe.Pointer(&con))
+				c = N
+			}
 			for i := 0; i < size; i++ {
 				key, e := p.ReadString(false)
 				if e != nil {
 					return errNode(meta.ErrRead, "", e)
+				}
+				// fast path: use hash to store the key.
+				if N != 0 {
+					l = seekIntHash(conAddr, caching.StrHash(key), N)
 				}
 				v, err = self.handleChild(&con, &l, &c, p, recurse, opts, et)
 				if err != nil {
@@ -728,10 +1043,22 @@ func (self *PathNode) scanChildren(p *thrift.BinaryProtocol, recurse bool, opts 
 				v.Path = NewPathStrKey(key)
 			}
 		} else if kt.IsInt() {
+			// fast path: use hash to store the key.
+			if opts.StoreChildrenByHash && size > StoreChildrenByIntHashShreshold {
+				// NOTE: we use original count*2 as the capacity of the hash table.
+				N = size*2
+				guardPathNodeSlice(&con, N-1)
+				conAddr = *(*unsafe.Pointer)(unsafe.Pointer(&con))
+				c = N
+			}
 			for i := 0; i < size; i++ {
 				key, e := p.ReadInt(kt)
 				if e != nil {
 					return errNode(meta.ErrRead, "", e)
+				}
+				// fast path: use hash to store the key.
+				if N != 0 {
+					l = seekIntHash(conAddr, uint64(key), N)
 				}
 				v, err = self.handleChild(&con, &l, &c, p, recurse, opts, et)
 				if err != nil {
