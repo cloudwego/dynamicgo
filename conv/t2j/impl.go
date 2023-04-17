@@ -18,6 +18,7 @@ package t2j
 
 import (
 	"context"
+	ejson "encoding/json"
 	"fmt"
 
 	"github.com/cloudwego/dynamicgo/conv"
@@ -28,6 +29,15 @@ import (
 	"github.com/cloudwego/dynamicgo/thrift"
 	"github.com/cloudwego/dynamicgo/thrift/base"
 )
+
+type fieldSetter func(field *thrift.FieldDescriptor, val interface{}) error
+
+func getMapFieldSetter(st map[string]interface{}) fieldSetter {
+	return func(field *thrift.FieldDescriptor, val interface{}) error {
+		st[field.Name()] = val
+		return nil
+	}
+}
 
 //go:noinline
 func wrapError(code meta.ErrCode, msg string, err error) error {
@@ -82,6 +92,8 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 	r := thrift.NewRequiresBitmap()
 	desc.Struct().Requires().CopyTo(r)
 	comma := false
+
+	existExceptionField := false
 
 	for {
 		_, typeId, id, e := p.ReadFieldBegin()
@@ -139,6 +151,12 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 		*out = json.EncodeString(*out, field.Alias())
 		*out = json.EncodeObjectColon(*out)
 
+		if self.opts.ConvertException && id != 0 {
+			existExceptionField = true
+			// reset out
+			*out = []byte{}
+		}
+
 		if self.opts.EnableValueMapping && field.ValueMapping() != nil {
 			err = field.ValueMapping().Read(ctx, &p, field, out)
 			if err != nil {
@@ -150,6 +168,10 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 				return unwrapError(fmt.Sprintf("converting field %s of STRUCT %s failed", field.Name(), desc.Type()), err)
 			}
 		}
+
+		if existExceptionField {
+			break
+		}
 	}
 
 	if err = self.handleUnsets(r, desc.Struct(), out, comma, ctx, resp); err != nil {
@@ -157,7 +179,16 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 	}
 
 	thrift.FreeRequiresBitmap(r)
-	*out = json.EncodeObjectEnd(*out)
+	if existExceptionField && err == nil {
+		var exception map[string]interface{}
+		err = ejson.Unmarshal(*out, &exception)
+		if err != nil {
+			return err
+		}
+		err = fmt.Errorf("%#v", exception)
+	} else {
+		*out = json.EncodeObjectEnd(*out)
+	}
 	return err
 }
 

@@ -282,6 +282,28 @@ func TestAGWBodyDynamic(t *testing.T) {
 	require.Equal(t, (`{"Int64":1,"Xjson":"{\"b\":1}"}`), string(out))
 }
 
+func TestException(t *testing.T) {
+	cv := NewBinaryConv(conv.Options{
+		ConvertException: true,
+	})
+	desc := thrift.FnWholeResponse(thrift.GetFnDescFromFile("testdata/idl/example3.thrift", "ExampleMethod", thrift.Options{}))
+
+	exp := example3.NewExampleServiceExampleMethodResult()
+	success := example3.NewExampleResp()
+	success.Status = 202
+	exception := example3.NewException()
+	exception.Code = 400
+	exception.Msg = "this is an exception"
+	exp.Success = success
+	exp.Err = exception
+	ctx := context.Background()
+	in := make([]byte, exp.BLength())
+	_ = exp.FastWriteNocopy(in, nil)
+	_, err := cv.Do(ctx, desc, in)
+	require.Error(t, err)
+	require.Equal(t, err.Error(), `map[string]interface {}{"code":400, "msg":"this is an exception"}`)
+}
+
 func TestInt2String(t *testing.T) {
 	cv := NewBinaryConv(conv.Options{
 		EnableValueMapping: true,
@@ -323,9 +345,9 @@ func TestHttpMappingFallback(t *testing.T) {
 		_ = exp.FastWriteNocopy(in, nil)
 		expJSON := `{}`
 		cv.SetOptions(conv.Options{
-			EnableHttpMapping:  true,
+			EnableHttpMapping:      true,
 			WriteHttpValueFallback: false,
-			OmitHttpMappingErrors: true,
+			OmitHttpMappingErrors:  true,
 		})
 		ctx := context.Background()
 		resp := http.NewHTTPResponse()
@@ -346,9 +368,9 @@ func TestHttpMappingFallback(t *testing.T) {
 		_ = exp.FastWriteNocopy(in, nil)
 		expJSON := `{"Msg":"hello"}`
 		cv.SetOptions(conv.Options{
-			EnableHttpMapping:  true,
+			EnableHttpMapping:      true,
 			WriteHttpValueFallback: true,
-			OmitHttpMappingErrors: true,
+			OmitHttpMappingErrors:  true,
 		})
 		ctx := context.Background()
 		resp := http.NewHTTPResponse()
@@ -510,9 +532,9 @@ func TestJSONString(t *testing.T) {
 	_ = exp.FastWriteNocopy(in, nil)
 
 	cv := NewBinaryConv(conv.Options{
-		EnableHttpMapping: true,
+		EnableHttpMapping:      true,
 		WriteHttpValueFallback: true,
-		OmitHttpMappingErrors: true,
+		OmitHttpMappingErrors:  true,
 	})
 	ctx := context.Background()
 	resp := http.NewHTTPResponse()
@@ -634,7 +656,6 @@ func TestOptionalDefaultValue(t *testing.T) {
 		require.Equal(t, `""`, resp.Response.Header.Get("f"))
 	})
 }
-
 
 func TestSimpleArgs(t *testing.T) {
 	cv := NewBinaryConv(conv.Options{})
