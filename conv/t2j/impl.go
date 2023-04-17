@@ -30,15 +30,6 @@ import (
 	"github.com/cloudwego/dynamicgo/thrift/base"
 )
 
-type fieldSetter func(field *thrift.FieldDescriptor, val interface{}) error
-
-func getMapFieldSetter(st map[string]interface{}) fieldSetter {
-	return func(field *thrift.FieldDescriptor, val interface{}) error {
-		st[field.Name()] = val
-		return nil
-	}
-}
-
 //go:noinline
 func wrapError(code meta.ErrCode, msg string, err error) error {
 	// panic(msg)
