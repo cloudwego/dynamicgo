@@ -172,8 +172,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 	thrift.FreeRequiresBitmap(r)
 	if existExceptionField && err == nil {
 		var exception map[string]interface{}
-		err = ejson.Unmarshal(*out, &exception)
-		if err != nil {
+		if err := ejson.Unmarshal(*out, &exception); err != nil {
 			return err
 		}
 		err = fmt.Errorf("%#v", exception)
