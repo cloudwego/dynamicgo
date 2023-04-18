@@ -142,6 +142,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 		*out = json.EncodeString(*out, field.Alias())
 		*out = json.EncodeObjectColon(*out)
 
+		// handle a thrift exception field. the id of a thrift exception field is non-zero
 		if self.opts.ConvertException && id != 0 {
 			existExceptionField = true
 			// reset out to get only exception field data

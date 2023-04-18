@@ -91,7 +91,7 @@ type Options struct {
 	// UseNativeSkip indicates if using thrift.SkipNative() or thrift.SkipGo()
 	UseNativeSkip bool
 
-	// ConvertException indicates if it returns error for exception fields
+	// ConvertException indicates that it returns error for thrift exception fields when doing BinaryConv t2j
 	ConvertException bool
 }
 
