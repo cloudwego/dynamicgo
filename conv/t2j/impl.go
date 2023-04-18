@@ -18,7 +18,7 @@ package t2j
 
 import (
 	"context"
-	ejson "encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/cloudwego/dynamicgo/conv"
@@ -144,8 +144,8 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 
 		if self.opts.ConvertException && id != 0 {
 			existExceptionField = true
-			// reset out
-			*out = []byte{}
+			// reset out to get only exception field data
+			*out = (*out)[:0]
 		}
 
 		if self.opts.EnableValueMapping && field.ValueMapping() != nil {
@@ -171,11 +171,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 
 	thrift.FreeRequiresBitmap(r)
 	if existExceptionField && err == nil {
-		var exception map[string]interface{}
-		if err := ejson.Unmarshal(*out, &exception); err != nil {
-			return err
-		}
-		err = fmt.Errorf("%#v", exception)
+		err = errors.New(string(*out))
 	} else {
 		*out = json.EncodeObjectEnd(*out)
 	}

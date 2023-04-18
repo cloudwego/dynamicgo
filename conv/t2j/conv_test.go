@@ -301,7 +301,7 @@ func TestException(t *testing.T) {
 	_ = exp.FastWriteNocopy(in, nil)
 	_, err := cv.Do(ctx, desc, in)
 	require.Error(t, err)
-	require.Equal(t, err.Error(), `map[string]interface {}{"code":400, "msg":"this is an exception"}`)
+	require.Equal(t, err.Error(), `{"code":400,"msg":"this is an exception"}`)
 }
 
 func TestInt2String(t *testing.T) {
