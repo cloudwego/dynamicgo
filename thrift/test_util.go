@@ -43,7 +43,7 @@ func FnResponse(fn *FunctionDescriptor) *TypeDescriptor {
 	return fn.Response().Struct().FieldById(0).Type()
 }
 
-// FnResponse get the normal response type
+// FnWholeResponse get the normal response type
 func FnWholeResponse(fn *FunctionDescriptor) *TypeDescriptor {
 	// let-it-fail: it panic when something is nil
 	return fn.Response()
