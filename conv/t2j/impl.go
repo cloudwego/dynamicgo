@@ -18,6 +18,7 @@ package t2j
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/cloudwego/dynamicgo/conv"
@@ -83,6 +84,8 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 	desc.Struct().Requires().CopyTo(r)
 	comma := false
 
+	existExceptionField := false
+
 	for {
 		_, typeId, id, e := p.ReadFieldBegin()
 		if e != nil {
@@ -139,6 +142,13 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 		*out = json.EncodeString(*out, field.Alias())
 		*out = json.EncodeObjectColon(*out)
 
+		// handle a thrift exception field. the id of a thrift exception field is non-zero
+		if self.opts.ConvertException && id != 0 {
+			existExceptionField = true
+			// reset out to get only exception field data
+			*out = (*out)[:0]
+		}
+
 		if self.opts.EnableValueMapping && field.ValueMapping() != nil {
 			err = field.ValueMapping().Read(ctx, &p, field, out)
 			if err != nil {
@@ -150,6 +160,10 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 				return unwrapError(fmt.Sprintf("converting field %s of STRUCT %s failed", field.Name(), desc.Type()), err)
 			}
 		}
+
+		if existExceptionField {
+			break
+		}
 	}
 
 	if err = self.handleUnsets(r, desc.Struct(), out, comma, ctx, resp); err != nil {
@@ -157,7 +171,11 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 	}
 
 	thrift.FreeRequiresBitmap(r)
-	*out = json.EncodeObjectEnd(*out)
+	if existExceptionField && err == nil {
+		err = errors.New(string(*out))
+	} else {
+		*out = json.EncodeObjectEnd(*out)
+	}
 	return err
 }
 
