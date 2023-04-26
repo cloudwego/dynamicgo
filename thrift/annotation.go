@@ -46,7 +46,7 @@ type Annotation interface {
 	//   AnnoKindKeyMapping: KeyMapping interface
 	//   AnnoKindKeyMapping: ValueMapping interface
 	//   AnnoKindOptionMapping: OptionMapping interface
-	Make(ctx context.Context,values []parser.Annotation, desc interface{}) (handler interface{}, err error)
+	Make(ctx context.Context, values []parser.Annotation, desc interface{}) (handler interface{}, err error)
 }
 
 // AnnoID is the unique id of an annotation, which is composed of kind, scope and type:
@@ -227,6 +227,17 @@ func FindAnnotationMapper(key string, scope AnnoScope) AnnotationMapper {
 		return nil
 	}
 	return m[scope]
+}
+
+func RemoveAnnotationMapper(scope AnnoScope, keys ...string) {
+	for _, key := range keys {
+		m := annotationMapper[key]
+		if m != nil {
+			if _, ok := m[scope]; ok {
+				delete(m, scope)
+			}
+		}
+	}
 }
 
 //------------------------------- IDL processing logic -------------------------------
