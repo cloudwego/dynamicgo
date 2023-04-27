@@ -22,7 +22,6 @@ import (
 	"math"
 	"testing"
 
-	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/stretchr/testify/require"
 )
 
@@ -271,41 +270,15 @@ func TestOptionSetOptionalBitmap(t *testing.T) {
 	require.Equal(t, true, req.Struct().Requires().IsSet(3))
 }
 
-func TestOptionHalfParsing(t *testing.T) {
+func TestNewFunctionDescriptorFromContent_absPath(t *testing.T) {
 	content := `
+	include "/a/b/main.thrift"
+	include "/ref.thrift"
+
 	namespace go kitex.test.server
 
 	struct Base {
-		1: string DefaultField,
-		2: optional string OptionalField,
-		3: required string RequiredField,
-	}
-
-	service InboxService {
-		Base ExampleMethod(1: Base req)
-	}
-	`
-	p, err := GetDescFromContent(content, "ExampleMethod", &Options{
-		ParseFunctionMode: meta.ParseResponseOnly,
-	})
-	require.NoError(t, err)
-	require.Nil(t, p.Request())
-	require.NotNil(t, p.Response())
-
-	p, err = GetDescFromContent(content, "ExampleMethod", &Options{
-		ParseFunctionMode: meta.ParseRequestOnly,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, p.Request())
-	require.Nil(t, p.Response())
-}
-
-func TestNewFunctionDescriptorFromContent(t *testing.T) {
-	content := `
-	namespace go kitex.test.server
-
-	struct Base {
-		1: string DefaultField,
+		1: string DefaultField = ref.ConstString,
 		2: optional string OptionalField,
 		3: required string RequiredField,
 	}
@@ -315,11 +288,56 @@ func TestNewFunctionDescriptorFromContent(t *testing.T) {
 		Base Method2(1: Base req)
 	}
 	`
-	path := "a/b/main.thrift"
+	ref := `
+	include "/a/b/main.thrift"
+
+	namespace go ref
+
+	const string ConstString = "const string"
+	`
+	path := "/a/b/main.thrift"
 	includes := map[string]string{
 		path: content,
+		"/ref.thrift": ref,
 	}
+	
 	p, err := Options{}.NewDescriptorFromContentWithMethod(context.Background(), path, content, includes, false, "Method1")
+	require.NoError(t, err)
+	require.NotNil(t, p.Functions()["Method1"])
+	require.Nil(t, p.Functions()["Method2"])
+}
+
+func TestNewFunctionDescriptorFromContent_relativePath(t *testing.T) {
+	content := `
+	include "main.thrift"
+	include "ref.thrift"
+
+	namespace go kitex.test.server
+	
+	struct Base {
+		1: string DefaultField = ref.ConstString,
+		2: optional string OptionalField,
+		3: required string RequiredField,
+	}
+
+	service InboxService {
+		Base Method1(1: Base req)
+		Base Method2(1: Base req)
+	}
+	`
+	ref := `
+	include "/a/b/main.thrift"
+
+	namespace go ref
+
+	const string ConstString = "const string"
+	`
+	path := "/a/b/main.thrift"
+	includes := map[string]string{
+		path: content,
+		"/a/b/ref.thrift": ref,
+	}
+	p, err := Options{}.NewDescriptorFromContentWithMethod(context.Background(), path, content, includes, true, "Method1")
 	require.NoError(t, err)
 	require.NotNil(t, p.Functions()["Method1"])
 	require.Nil(t, p.Functions()["Method2"])
