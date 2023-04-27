@@ -1,3 +1,4 @@
+include "example.thrift"
 
 namespace go ref
 

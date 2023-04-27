@@ -1,5 +1,6 @@
 include "base.thrift"
 include "deep/deep.ref.thrift"
+include "example.thrift"
 include "ref.thrift"
 namespace go example
 
