@@ -1,6 +1,8 @@
 *.out
 *.test
 output
-.vscode
+# .vscode
+*.gch
 *.dSYM
 *.profile
+.env

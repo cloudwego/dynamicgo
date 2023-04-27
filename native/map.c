@@ -19,7 +19,7 @@
 #include "map.h"
 #include "test/xprintf.h"
 
-uint32_t hash_DJB32(const GoString str)
+uint32_t hash_DJB32(const _GoString str)
 {
     uint32_t hash = 5381ul;
     for (int i = 0; i < str.len; i++)
@@ -29,7 +29,7 @@ uint32_t hash_DJB32(const GoString str)
     return hash;
 }
 
-void *hm_get(const HashMap *self, const GoString *key)
+void *hm_get(const HashMap *self, const _GoString *key)
 {
     uint32_t h = hash_DJB32(*key);
     uint32_t p = h % self->N;
@@ -51,7 +51,7 @@ void *hm_get(const HashMap *self, const GoString *key)
     return NULL;
 }
 
-void hm_set(HashMap *self, const GoString *key, void *val)
+void hm_set(HashMap *self, const _GoString *key, void *val)
 {
     uint32_t h = hash_DJB32(*key);
     uint32_t p = h % self->N;
@@ -84,7 +84,7 @@ uint8_t ascii2int(const unsigned char c)
     return (uint8_t)(c - CHAR_POINT);
 }
 
-void *trie_get(const TrieTree *self, const GoString *key)
+void *trie_get(const TrieTree *self, const _GoString *key)
 {
     // xprintf("[trie_get] key:%s\n", key);
     if (key->len == 0)
@@ -93,8 +93,8 @@ void *trie_get(const TrieTree *self, const GoString *key)
     }
 
     size_t l = key->len - 1;
-    GoSlice fs = self->node.index;
-    GoSlice ls = *self->node.leaves;
+    _GoSlice fs = self->node.index;
+    _GoSlice ls = *self->node.leaves;
 
     for (int s = 0; s < self->positions.len; s++)
     {
@@ -133,7 +133,7 @@ void *trie_get(const TrieTree *self, const GoString *key)
     return NULL;
 }
 
-void bm_free_reqs(GoSlice *cache, ReqBitMap *reqs)
+void bm_free_reqs(_GoSlice *cache, ReqBitMap *reqs)
 {
     cache->len -= reqs->len;
 }

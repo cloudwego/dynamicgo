@@ -27,41 +27,42 @@ const size_t EXMAPLE_MAX_KEY_LEN = 12;
 
 tTypeDesc STRING_DESC = {
     .type = TTYPE_STRING,
-    .name = (GoString){.buf = "string", .len = 6},
+    .name = (_GoString){.buf = "string", .len = 6},
 };
 
 tTypeDesc INT32_DESC = {
     .type = TTYPE_I32,
-    .name = (GoString){.buf = "i32", .len = 3},
+    .name = (_GoString){.buf = "i32", .len = 3},
 };
 
 tTypeDesc EXTRA_DESC = {
     .type = TTYPE_I32,
-    .name = (GoString){.buf = "map", .len = 3},
+    .name = (_GoString){.buf = "map", .len = 3},
     .key = &STRING_DESC,
     .elem = &STRING_DESC,
 };
 
 tTypeDesc BASE_DESC = {
-    .is_base = true,
+    // .is_base = true,
     .type = TTYPE_STRUCT,
-    .name = (GoString){.buf = "struct", .len = 6},
+    .name = (_GoString){.buf = "struct", .len = 6},
     .st = &(tStructDesc){
-        .name = (GoString){.buf = "Base", .len = 4},
-        .ids = (GoSlice){
-            .buf = (char *)(&(tFieldDesc *[7]){}), //TODO
-            .cap = 7,
-            .len = 7,
-        },
+        .name = (_GoString){.buf = "Base", .len = 4},
+        // TODO: compile error
+        // .ids = (_GoSlice){
+        //     .buf = (char *)(&(tFieldDesc *[7]){}), //TODO
+        //     .cap = 7,
+        //     .len = 7,
+        // },
         .names = (tFieldNameMap){
             .trie = &(TrieTree){
-                .positions = (GoSlice){
+                .positions = (_GoSlice){
                     .buf = (char *)(&(size_t[1]){1}), // o,a,d,l,r,x
                     .cap = 1,
                     .len = 1,
                 },
                 .node = (TrieNode){
-                    .index = (GoSlice){
+                    .index = (_GoSlice){
                         .buf = (char *)(&(TrieNode[127]){}), //TODO: o,a,d,l,r,x
                         .cap = 127,
                         .len = 127,
@@ -82,70 +83,71 @@ tTypeDesc BASE_DESC = {
 tFieldDesc BASE_FIELD_1 = {
     .required = REQ_DEFAULT,
     .ID = 1,
-    .name = (GoString){.buf = "LogID", .len = 5},
-    .alias = (GoString){.buf = "log_id", .len = 5},
+    .name = (_GoString){.buf = "LogID", .len = 5},
+    .alias = (_GoString){.buf = "log_id", .len = 5},
     .type = &STRING_DESC,
 };
 
 tFieldDesc BASE_FIELD_2 = {
     .required = REQ_DEFAULT,
     .ID = 2,
-    .name = (GoString){.buf = "Caller", .len = 6},
-    .alias = (GoString){.buf = "caller", .len = 6},
+    .name = (_GoString){.buf = "Caller", .len = 6},
+    .alias = (_GoString){.buf = "caller", .len = 6},
     .type = &STRING_DESC,
 };
 
 tFieldDesc BASE_FIELD_3 = {
     .required = REQ_DEFAULT,
     .ID = 3,
-    .name = (GoString){.buf = "Addr", .len = 4},
-    .alias = (GoString){.buf = "addr", .len = 4},
+    .name = (_GoString){.buf = "Addr", .len = 4},
+    .alias = (_GoString){.buf = "addr", .len = 4},
     .type = &STRING_DESC,
 };
 
 tFieldDesc BASE_FIELD_4 = {
     .required = REQ_DEFAULT,
     .ID = 4,
-    .name = (GoString){.buf = "Client", .len = 6},
-    .alias = (GoString){.buf = "Client", .len = 6},
+    .name = (_GoString){.buf = "Client", .len = 6},
+    .alias = (_GoString){.buf = "Client", .len = 6},
     .type = &STRING_DESC,
 };
 
 tFieldDesc BASE_FIELD_5 = {
     .required = REQ_OPTIONAL,
     .ID = 5,
-    .name = (GoString){.buf = "TrafficEnv", .len = 10},
-    .alias = (GoString){.buf = "traffic_env", .len = 11},
+    .name = (_GoString){.buf = "TrafficEnv", .len = 10},
+    .alias = (_GoString){.buf = "traffic_env", .len = 11},
     .type = &STRING_DESC,
 };
 
 tFieldDesc BASE_FIELD_6 = {
     .required = REQ_OPTIONAL,
     .ID = 6,
-    .name = (GoString){.buf = "Extra", .len = 5},
-    .alias = (GoString){.buf = "extra", .len = 5},
+    .name = (_GoString){.buf = "Extra", .len = 5},
+    .alias = (_GoString){.buf = "extra", .len = 5},
     .type = &EXTRA_DESC,
 };
 
 tTypeDesc EXAMPLE_DESC = {
-    .name = (GoString){.buf = "struct", .len = 6},
+    .name = (_GoString){.buf = "struct", .len = 6},
     .type = TTYPE_STRUCT,
     .st = &(tStructDesc){
-        .name = (GoString){.buf = "ExampleReq", .len = 10},
-        .ids = (GoSlice){
-            .buf = (char *)(&(tFieldDesc *[256]){}), //TODO
-            .cap = 256,
-            .len = 256,
-        },
+        .name = (_GoString){.buf = "ExampleReq", .len = 10},
+        // TODO: compile error
+        // .ids = (_GoSlice){
+        //     .buf = (char *)(&(tFieldDesc *[256]){}), //TODO
+        //     .cap = 256,
+        //     .len = 256,
+        // },
         .names = (tFieldNameMap){
             .trie = &(TrieTree){
-                .positions = (GoSlice){
+                .positions = (_GoSlice){
                     .buf = (char *)(&(size_t[1]){0}), // M,I,B
                     .cap = 1,
                     .len = 1,
                 },
                 .node = (TrieNode){
-                    .index = (GoSlice){
+                    .index = (_GoSlice){
                         .buf = (char *)(&(TrieNode[127]){}), //TODO
                         .cap = 127,
                         .len = 127,
@@ -166,31 +168,31 @@ tTypeDesc EXAMPLE_DESC = {
 tFieldDesc EXAMPLE_FIELD_1 = {
     .required = REQ_OPTIONAL,
     .ID = 1,
-    .name = (GoString){.buf = "Msg", .len = 3},
-    .alias = (GoString){.buf = "msg", .len = 3},
+    .name = (_GoString){.buf = "Msg", .len = 3},
+    .alias = (_GoString){.buf = "msg", .len = 3},
     .type = &STRING_DESC,
 };
 
 tFieldDesc EXAMPLE_FIELD_3 = {
     .required = REQ_DEFAULT,
     .ID = 3,
-    .name = (GoString){.buf = "InnerBase", .len = 9},
-    .alias = (GoString){.buf = "inner_base", .len = 10},
+    .name = (_GoString){.buf = "InnerBase", .len = 9},
+    .alias = (_GoString){.buf = "inner_base", .len = 10},
     .type = &INT32_DESC,
 };
 
 tFieldDesc EXAMPLE_FIELD_255 = {
     .required = REQ_REQUIRED,
     .ID = 255,
-    .name = (GoString){.buf = "Base", .len = 4},
-    .alias = (GoString){.buf = "base", .len = 4},
+    .name = (_GoString){.buf = "Base", .len = 4},
+    .alias = (_GoString){.buf = "base", .len = 4},
     .type = &BASE_DESC,
 };
 
 TrieNode EXAMPLE_TN_1 = {
-    .leaves = &(GoSlice){
+    .leaves = &(_GoSlice){
         .buf = (char *)&(Pair){
-            .key = (GoString){.buf = "Msg", .len = 3},
+            .key = (_GoString){.buf = "Msg", .len = 3},
             .val = &EXAMPLE_FIELD_1,
         },
         .len = 1,
@@ -199,9 +201,9 @@ TrieNode EXAMPLE_TN_1 = {
 };
 
 TrieNode EXAMPLE_TN_3 = {
-    .leaves = &(GoSlice){
+    .leaves = &(_GoSlice){
         .buf = (char *)&(Pair){
-            .key = (GoString){.buf = "InnerBase", .len = 9},
+            .key = (_GoString){.buf = "InnerBase", .len = 9},
             .val = &EXAMPLE_FIELD_3,
         },
         .len = 1,
@@ -210,9 +212,9 @@ TrieNode EXAMPLE_TN_3 = {
 };
 
 TrieNode EXAMPLE_TN_255 = {
-    .leaves = &(GoSlice){
+    .leaves = &(_GoSlice){
         .buf = (char *)&(Pair){
-            .key = (GoString){.buf = "Base", .len = 4},
+            .key = (_GoString){.buf = "Base", .len = 4},
             .val = &EXAMPLE_FIELD_255,
         },
         .len = 1,
@@ -220,12 +222,12 @@ TrieNode EXAMPLE_TN_255 = {
     },
 };
 
-#define SIZE_GO_SLICE sizeof(GoSlice)
+#define SIZE_GO_SLICE sizeof(_GoSlice)
 
 TrieNode BASE_TN_1 = {
-    .leaves = &(GoSlice){
+    .leaves = &(_GoSlice){
         .buf = (char *)&(Pair){
-            .key = (GoString){.buf = "LogID", .len = 5},
+            .key = (_GoString){.buf = "LogID", .len = 5},
             .val = &BASE_FIELD_1,
         },
         .len = 1,
@@ -234,9 +236,9 @@ TrieNode BASE_TN_1 = {
 };
 
 TrieNode BASE_TN_2 = {
-    .leaves = &(GoSlice){
+    .leaves = &(_GoSlice){
         .buf = (char *)&(Pair){
-            .key = (GoString){.buf = "Caller", .len = 6},
+            .key = (_GoString){.buf = "Caller", .len = 6},
             .val = &BASE_FIELD_2,
         },
         .len = 1,
@@ -245,9 +247,9 @@ TrieNode BASE_TN_2 = {
 };
 
 TrieNode BASE_TN_3 = {
-    .leaves = &(GoSlice){
+    .leaves = &(_GoSlice){
         .buf = (char *)&(Pair){
-            .key = (GoString){.buf = "Addr", .len = 4},
+            .key = (_GoString){.buf = "Addr", .len = 4},
             .val = &BASE_FIELD_3,
         },
         .len = 1,
@@ -256,9 +258,9 @@ TrieNode BASE_TN_3 = {
 };
 
 TrieNode BASE_TN_4 = {
-    .leaves = &(GoSlice){
+    .leaves = &(_GoSlice){
         .buf = (char *)&(Pair){
-            .key = (GoString){.buf = "Client", .len = 6},
+            .key = (_GoString){.buf = "Client", .len = 6},
             .val = &BASE_FIELD_4,
         },
         .len = 1,
@@ -267,9 +269,9 @@ TrieNode BASE_TN_4 = {
 };
 
 TrieNode BASE_TN_5 = {
-    .leaves = &(GoSlice){
+    .leaves = &(_GoSlice){
         .buf = (char *)&(Pair){
-            .key = (GoString){.buf = "TrafficEnv", .len = 10},
+            .key = (_GoString){.buf = "TrafficEnv", .len = 10},
             .val = &BASE_FIELD_5,
         },
         .len = 1,
@@ -278,9 +280,9 @@ TrieNode BASE_TN_5 = {
 };
 
 TrieNode BASE_TN_6 = {
-    .leaves = &(GoSlice){
+    .leaves = &(_GoSlice){
         .buf = (char *)&(Pair){
-            .key = (GoString){.buf = "Extra", .len = 5},
+            .key = (_GoString){.buf = "Extra", .len = 5},
             .val = &BASE_FIELD_6,
         },
         .len = 1,

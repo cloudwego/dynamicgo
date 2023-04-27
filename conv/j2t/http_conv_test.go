@@ -33,7 +33,7 @@ import (
 )
 
 func getFnDescByPathName(t *testing.T, filePath, fnName string) *thrift.FunctionDescriptor {
-	svc, err := thrift.NewDescritorFromPath(context.Background(), util_test.MustGitPath(filePath))
+	svc, err := thrift.NewDescriptorFromPath(context.Background(), util_test.MustGitPath(filePath))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,9 +110,9 @@ func TestHTTPConv_Do(t *testing.T) {
 			convIns := NewHTTPConv(tt.proto, tt.fn)
 			gotTbytes := make([]byte, 0, 1)
 			err := convIns.DoInto(context.Background(), tt.req, &gotTbytes, conv.Options{
-				WriteRequireField:            true,
-				ReadHttpValueFallback:        true,
-				EnableHttpMapping:            true,
+				WriteRequireField:     true,
+				ReadHttpValueFallback: true,
+				EnableHttpMapping:     true,
 			})
 			spew.Dump(gotTbytes)
 			if (err != nil) != tt.wantErr {

@@ -129,7 +129,7 @@ func countHelper(count *int, ps []PathNode) {
 }
 
 func getExampleDesc() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(context.Background(), exampleIDLPath)
+	svc, err := thrift.NewDescriptorFromPath(context.Background(), exampleIDLPath)
 	if err != nil {
 		panic(err)
 	}
@@ -137,7 +137,7 @@ func getExampleDesc() *thrift.TypeDescriptor {
 }
 
 func getExamplePartialDesc() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(context.Background(), exampleIDLPath)
+	svc, err := thrift.NewDescriptorFromPath(context.Background(), exampleIDLPath)
 	if err != nil {
 		panic(err)
 	}

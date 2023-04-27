@@ -52,7 +52,7 @@ func ExampleBinaryConv_Do() {
 
 func ExampleHTTPConv_DoInto() {
 	// get function descriptor
-	svc, err := thrift.NewDescritorFromPath(context.Background(), exampleIDLPath)
+	svc, err := thrift.NewDescriptorFromPath(context.Background(), exampleIDLPath)
 	if err != nil {
 		panic(err)
 	}

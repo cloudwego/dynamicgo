@@ -28,7 +28,7 @@ import (
 )
 
 func TestHTTPConv_Do(t *testing.T) {
-	svc, err := thrift.NewDescritorFromPath(context.Background(), util_test.MustGitPath("testdata/idl/example4.thrift"))
+	svc, err := thrift.NewDescriptorFromPath(context.Background(), util_test.MustGitPath("testdata/idl/example4.thrift"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -77,7 +77,7 @@ func GetDescByName(method string, isReq bool) *thrift.TypeDescriptor {
 }
 
 func getExamplePartialDesc() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(context.Background(), util_test.MustGitPath("testdata/idl/example3.thrift"))
+	svc, err := thrift.NewDescriptorFromPath(context.Background(), util_test.MustGitPath("testdata/idl/example3.thrift"))
 	if err != nil {
 		panic(err)
 	}
@@ -85,7 +85,7 @@ func getExamplePartialDesc() *thrift.TypeDescriptor {
 }
 
 func getExampleInt2Float() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(context.Background(), util_test.MustGitPath("testdata/idl/example3.thrift"))
+	svc, err := thrift.NewDescriptorFromPath(context.Background(), util_test.MustGitPath("testdata/idl/example3.thrift"))
 	if err != nil {
 		panic(err)
 	}
@@ -93,7 +93,7 @@ func getExampleInt2Float() *thrift.TypeDescriptor {
 }
 
 func getExamplePartialDesc2() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(context.Background(), util_test.MustGitPath("testdata/idl/example3.thrift"))
+	svc, err := thrift.NewDescriptorFromPath(context.Background(), util_test.MustGitPath("testdata/idl/example3.thrift"))
 	if err != nil {
 		panic(err)
 	}
@@ -101,7 +101,7 @@ func getExamplePartialDesc2() *thrift.TypeDescriptor {
 }
 
 func getExampleErrorDesc() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(context.Background(), util_test.MustGitPath("testdata/idl/example3.thrift"))
+	svc, err := thrift.NewDescriptorFromPath(context.Background(), util_test.MustGitPath("testdata/idl/example3.thrift"))
 	if err != nil {
 		panic(err)
 	}
@@ -109,7 +109,7 @@ func getExampleErrorDesc() *thrift.TypeDescriptor {
 }
 
 func getExampleFallbackDesc() *thrift.TypeDescriptor {
-	svc, err := thrift.NewDescritorFromPath(context.Background(), util_test.MustGitPath("testdata/idl/example3.thrift"))
+	svc, err := thrift.NewDescriptorFromPath(context.Background(), util_test.MustGitPath("testdata/idl/example3.thrift"))
 	if err != nil {
 		panic(err)
 	}

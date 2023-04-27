@@ -25,7 +25,7 @@
 typedef struct
 {
     uint32_t hash;
-    GoString key;
+    _GoString key;
     void *val;
 } Entry;
 
@@ -39,26 +39,26 @@ typedef struct
 typedef struct
 {
     void *val;
-    GoString key;
+    _GoString key;
 } Pair;
 
 typedef struct
 {
-    GoSlice *leaves;
-    GoSlice index;
+    _GoSlice *leaves;
+    _GoSlice index;
 } TrieNode;
 
 typedef struct
 {
     size_t count;
-    GoSlice positions;
+    _GoSlice positions;
     void *empty;
     TrieNode node;
 } TrieTree;
 
-void hm_set(HashMap *self, const GoString *key, void *val);
-void *hm_get(const HashMap *self, const GoString *key);
-void *trie_get(const TrieTree *self, const GoString *key);
+void hm_set(HashMap *self, const _GoString *key, void *val);
+void *hm_get(const HashMap *self, const _GoString *key);
+void *trie_get(const TrieTree *self, const _GoString *key);
 
 typedef uint16_t tid;
 
@@ -99,7 +99,7 @@ typedef struct
     size_t cap;
 } ReqBitMap;
 
-void bm_free_reqs(GoSlice *cache, ReqBitMap *reqs);
+void bm_free_reqs(_GoSlice *cache, ReqBitMap *reqs);
 bool bm_is_set(ReqBitMap b, tid id);
 void bm_set_req(ReqBitMap b, tid id, req_em req);
 

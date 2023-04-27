@@ -31,7 +31,7 @@ bool memeq(const void *dp, const void *sp, size_t nb)
 {
     for (int i = 0; i < nb; i++)
     {
-        if (*(char *)(dp + i) != *(char *)(sp + i))
+        if (*(char *)((char *)dp + i) != *(char *)((char *)sp + i))
         {
             return false;
         }

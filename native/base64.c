@@ -35,8 +35,8 @@
 
 /** Exported Functions **/
 
-void b64encode(GoSlice *out, const GoSlice *src, int mode);
-ssize_t b64decode(GoSlice *out, const char *src, size_t nb, int mode);
+void b64encode(_GoSlice *out, const _GoSlice *src, int mode);
+ssize_t b64decode(_GoSlice *out, const char *src, size_t nb, int mode);
 
 /** Encoder Helper Functions **/
 
@@ -170,7 +170,7 @@ static inline __m256i encode_avx2(__m128i v0, __m128i v1, const uint8_t *tab)
 
 /** Function Implementations **/
 
-void b64encode(GoSlice *out, const GoSlice *src, int mode)
+void b64encode(_GoSlice *out, const _GoSlice *src, int mode)
 {
     char *ob = out->buf + out->len;
     char *op = out->buf + out->len;
@@ -656,7 +656,7 @@ static inline int64_t decode_block(
     return 0;
 }
 
-ssize_t b64decode(GoSlice *out, const char *src, size_t nb, int mode)
+ssize_t b64decode(_GoSlice *out, const char *src, size_t nb, int mode)
 {
     int ep;
     __m256i vv;

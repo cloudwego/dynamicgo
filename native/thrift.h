@@ -20,51 +20,53 @@
 #ifndef THRIFT_H
 #define THRIFT_H
 
-#define F_ALLOW_UNKNOWN 1ull
-#define F_WRITE_DEFAULT (1ull << 1)
-#define F_ENABLE_VM (1ull << 2)
-#define F_ENABLE_HM (1ull << 3)
-#define F_ENABLE_I2S (1ull << 4)
-#define F_WRITE_REQUIRE (1ull << 5)
-#define F_NO_BASE64 (1ull << 6)
-#define F_WRITE_OPTIONAL (1ull << 7)
-#define F_TRACE_BACK (1ull << 8)
+#define F_ALLOW_UNKNOWN     1ull
+#define F_WRITE_DEFAULT     (1ull << 1)
+#define F_ENABLE_VM         (1ull << 2)
+#define F_ENABLE_HM         (1ull << 3)
+#define F_ENABLE_I2S        (1ull << 4)
+#define F_WRITE_REQUIRE     (1ull << 5)
+#define F_NO_BASE64         (1ull << 6)
+#define F_WRITE_OPTIONAL    (1ull << 7)
+#define F_TRACE_BACK        (1ull << 8)
 
 #define THRIFT_VERSION_MASK 0xffff0000ul
-#define THRIFT_VERSION_1 0x80010000ul
+#define THRIFT_VERSION_1    0x80010000ul
 
 typedef int32_t tmsg;
 
-#define TMESSAGE_TYPE_INVALID 0
-#define TMESSAGE_TYPE_CALL 1
-#define TMESSAGE_TYPE_REPLY 2
+#define TMESSAGE_TYPE_INVALID   0
+#define TMESSAGE_TYPE_CALL      1
+#define TMESSAGE_TYPE_REPLY     2
 #define TMESSAGE_TYPE_EXCEPTION 3
-#define TMESSAGE_TYPE_ONEWAY 4
+#define TMESSAGE_TYPE_ONEWAY    4
 
 typedef uint8_t ttype;
 
-#define TTYPE_STOP (ttype)0
-#define TTYPE_VOID (ttype)1
-#define TTYPE_BOOL (ttype)2
-#define TTYPE_BYTE (ttype)3
-#define TTYPE_I08 (ttype)3
-#define TTYPE_DOUBLE (ttype)4
-#define TTYPE_I16 (ttype)6
-#define TTYPE_I32 (ttype)8
-#define TTYPE_I64 (ttype)10
-#define TTYPE_STRING (ttype)11
-#define TTYPE_UTF7 (ttype)11
-#define TTYPE_STRUCT (ttype)12
-#define TTYPE_MAP (ttype)13
-#define TTYPE_SET (ttype)14
-#define TTYPE_LIST (ttype)15
-#define TTYPE_UTF8 (ttype)16
-#define TTYPE_UTF16 (ttype)17
+#define TTYPE_EINVAL    (ttype)0xff
+#define TTYPE_STOP      (ttype)0
+#define TTYPE_VOID      (ttype)1
+#define TTYPE_BOOL      (ttype)2
+#define TTYPE_BYTE      (ttype)3
+#define TTYPE_I08       (ttype)3
+#define TTYPE_DOUBLE    (ttype)4
+#define TTYPE_I16       (ttype)6
+#define TTYPE_I32       (ttype)8
+#define TTYPE_I64       (ttype)10
+#define TTYPE_STRING    (ttype)11
+#define TTYPE_UTF7      (ttype)11
+#define TTYPE_STRUCT    (ttype)12
+#define TTYPE_MAP       (ttype)13
+#define TTYPE_SET       (ttype)14
+#define TTYPE_LIST      (ttype)15
+#define TTYPE_UTF8      (ttype)16
+#define TTYPE_UTF16     (ttype)17
+#define TTYPE_LAST      TTYPE_UTF16+1
 
 typedef uint16_t vm_em;
-#define VM_NONE 0
-#define VM_JSCONV 101 // NOTICE: must be same with internal/native/types.VM_JSCONV
-#define VM_INLINE_MAX 255
+#define VM_NONE         0
+#define VM_JSCONV       101 // NOTICE: must be same with internal/native/types.VM_JSCONV
+#define VM_INLINE_MAX   255
 
 typedef struct tTypeDesc tTypeDesc;
 
@@ -83,16 +85,17 @@ typedef struct
 typedef struct
 {
     size_t max_key_len;
-    GoSlice all;
+    _GoSlice all;
     TrieTree *trie;
     HashMap *hash;
 } tFieldNameMap;
 
 typedef struct
 {
-    GoEface go_val;
-    GoString json_val;
-    GoString thrift_binary;
+    _GoEface go_val;
+    _GoString json_val;
+    _GoString thrift_binary;
+    _GoString thrift_compact;
 } tDefaultValue;
 
 struct tFieldDesc
@@ -104,16 +107,16 @@ struct tFieldDesc
     tid ID;
     tTypeDesc *type;
     tDefaultValue *default_value;
-    GoString name;
-    GoString alias;
-    GoIface value_mappings;
-    GoSlice http_mappings;
+    _GoString name;
+    _GoString alias;
+    _GoIface value_mappings;
+    _GoSlice http_mappings;
 };
 
 typedef struct
 {
     tid base_id;
-    GoString name;
+    _GoString name;
     FieldIdMap ids;
     tFieldNameMap names;
 
@@ -121,14 +124,14 @@ typedef struct
     // while we use `ReqBitMap*` pointer (2 QUAD memory) for purpose of conformity to J2TState.ex.es.reqs,
     // It won't affect the calculating results AS LONG AS IT IS STATICALLY USED.
     ReqBitMap reqs;
-    GoSlice hms;
+    _GoSlice hms;
     void *anns;
 } tStructDesc;
 
 struct tTypeDesc
 {
     ttype type;
-    GoString name;
+    _GoString name;
     tTypeDesc *key;
     tTypeDesc *elem;
     tStructDesc *st;
@@ -161,11 +164,29 @@ typedef union
 
 typedef struct
 {
+    // State
     size_t st;
+    // JsonPos
     size_t jp;
+    // TypeDesc
     const tTypeDesc *td;
+    // Extra
     J2TExtra ex;
 } J2TState;
+
+typedef struct
+{
+    int16_t *buf;
+    size_t len;
+    size_t cap;
+} Int16Slice;
+
+typedef struct
+{
+    uint16_t *buf;
+    size_t len;
+    size_t cap;
+} Uint16Slice;
 
 typedef struct
 {
@@ -181,45 +202,65 @@ typedef struct
     uint32_t end;
 } FieldVal;
 
+typedef struct {
+    _GoSlice *buf;
+
+    // SAFETY: KEEP IN-SYNC WITH LAYOUT IN thrift.h AND thrift/compact.go
+    struct {
+        int16_t id;
+        ttype type;
+        bool valid;
+        bool _value; // unused. Only for decoder
+    } pending_field_write;
+    
+    int16_t last_field_id;
+    Int16Slice last_field_id_stack;
+    Uint16Slice container_write_back_stack;
+} tc_state;
+
+typedef struct {
+    _GoSlice *buf; // SAFETY: DO NOT MOVE
+} tb_state;
+
 typedef struct
 {
+    // vt cursor;
     size_t sp;
     JsonState jt;
-    GoSlice reqs_cache;
-    GoSlice key_cache;
+    _GoSlice reqs_cache;
+    _GoSlice key_cache;
     J2TState vt[MAX_RECURSE];
     StateMachine sm;
     Int32Slice field_cache;
     FieldVal fval_cache;
+
+    tc_state tcompact;
+    // tb_state tbinary;
 } J2TStateMachine;
 
 #define SIZE_J2TEXTRA sizeof(J2TExtra)
 
-uint64_t tb_write_i64(GoSlice *buf, int64_t v);
-
-uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, uint64_t flag);
-
-#define J2T_VAL 0
-#define J2T_ARR 1
-#define J2T_OBJ 2
-#define J2T_KEY 3
-#define J2T_ELEM 4
-#define J2T_ARR_0 5
-#define J2T_OBJ_0 6
-#define J2T_VM 16
+#define J2T_VAL     0
+#define J2T_ARR     1
+#define J2T_OBJ     2
+#define J2T_KEY     3
+#define J2T_ELEM    4
+#define J2T_ARR_0   5
+#define J2T_OBJ_0   6
+#define J2T_VM      16
 
 #define J2T_ST(st) ((st)&0xfffful)
 #define J2T_EX(st) ((st)&0xffff0000ul)
 
-#define STATE_FIELD (1ull << 16)
-#define STATE_SKIP (1ull << 17)
-#define STATE_VM (1ull << 18)
-#define IS_STATE_FIELD(st) (st & STATE_FIELD) != 0
-#define IS_STATE_SKIP(st) (st & STATE_SKIP) != 0
-#define IS_STATE_VM(st) (st & STATE_VM) != 0
+#define STATE_FIELD         (1ull << 16)
+#define STATE_SKIP          (1ull << 17)
+#define STATE_VM            (1ull << 18)
+#define IS_STATE_FIELD(st)  (st & STATE_FIELD) != 0
+#define IS_STATE_SKIP(st)   (st & STATE_SKIP) != 0
+#define IS_STATE_VM(st)     (st & STATE_VM) != 0
 
 #define ERR_WRAP_SHIFT_CODE 8
-#define ERR_WRAP_SHIFT_POS 32
+#define ERR_WRAP_SHIFT_POS  32
 
 #define WRAP_ERR_POS(e, v, p)                                                                                                             \
     do                                                                                                                                    \
@@ -359,9 +400,88 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
     } while (0)
 
 #define DEBUG_PRINT_STATE(i, sp, p) \
-    xprintf("[DEBUG_PRINT_STATE_%d] STATE{sp:%d, st:%d, jp:%d, td:%s} POS:%d CHAR:%c BUF{\n\tbuf:%l,\n\tlen:%d, cap:%d}\n", i, sp, vt->st, vt->jp, vt->td == NULL ? &(GoString){} : &vt->td->name, p, ch, buf, buf->len, buf->cap);
+    xprintf("[DEBUG_PRINT_STATE_%d] STATE{sp:%d, st:%d, jp:%d, td:%s} POS:%d CHAR:%c BUF{\n\tbuf:%l,\n\tlen:%d, cap:%d}\n", i, sp, vt->st, vt->jp, vt->td == NULL ? &(_GoString){} : &vt->td->name, p, ch, buf, buf->len, buf->cap);
 
 #define DEBUG_PRINT_STATE_EX(i, sp, p) \
-    xprintf("[DEBUG_PRINT_STATE_EX_%d] STATE{sp:%d, st:%d, jp:%d, td:%s, ex:[%d,%d,%d]} POS:%d CHAR:%c BUF{\n\tbuf:%l,\n\tlen:%d, cap:%d}\n", i, sp, vt->st, vt->jp, vt->td == NULL ? &(GoString){} : &vt->td->name, *(uint64_t *)(&vt->ex), *((uint64_t *)(&vt->ex) + 1), *((uint64_t *)(&vt->ex) + 2), p, ch, buf, buf->len, buf->cap);
+    xprintf("[DEBUG_PRINT_STATE_EX_%d] " \
+        "STATE{sp:%d, st:%d, jp:%d, td:%s, ex:[%d,%d,%d]} " \
+        "POS:%d CHAR:%c BUF{\n\tbuf:%l,\n\tlen:%d, cap:%d}\n", \
+        i, \
+        sp, vt->st, vt->jp, vt->td == NULL ? &(_GoString){} : &vt->td->name, \
+        *(uint64_t *)(&vt->ex), *((uint64_t *)(&vt->ex) + 1), *((uint64_t *)(&vt->ex) + 2), p, ch, buf, buf->len, buf->cap);
+
+
+typedef struct {
+    void *resv0;
+    void *resv1;
+    void *resv2;
+    void *resv3;
+} vt_base;
+
+#define VT_J2TSM(vtb)       (vtb.resv0)
+#define VT_OUTBUF(vtb)      (vtb.resv1)
+#define VT_TSTATE(vtb)      (vtb.resv3)
+
+#define TIMPL_MENC_EXTRA(tproto, tname) \
+    typedef struct { \
+        uint64_t    (*write_default_or_empty)(tproto, const tFieldDesc *, long); \
+        uint64_t    (*write_data_count)(tproto, size_t n); \
+        size_t      (*write_data_count_max_length)(tproto); \
+        tid         (*set_last_field_id)(tproto,tid); \
+        tid         (*get_last_field_id)(tproto); \
+    } tname
+
+#define TIMPL_MENC_BASE(tproto, tname) \
+    typedef struct { \
+        uint64_t (*write_message_begin)(tproto, const _GoString, int32_t, int32_t); \
+        uint64_t (*write_message_end)(tproto); \
+        uint64_t (*write_struct_begin)(tproto); \
+        uint64_t (*write_struct_end)(tproto); \
+        uint64_t (*write_field_begin)(tproto, ttype, int16_t); \
+        uint64_t (*write_field_end)(tproto); \
+        uint64_t (*write_field_stop)(tproto); \
+        \
+        uint64_t (*write_map_n)(tproto, ttype, ttype, size_t); \
+        uint64_t (*write_map_begin)(tproto, ttype, ttype, size_t *); \
+        uint64_t (*write_map_end)(tproto, size_t, size_t); \
+        \
+        uint64_t (*write_list_n)(tproto, ttype, size_t); \
+        uint64_t (*write_list_begin)(tproto, ttype, size_t *); \
+        uint64_t (*write_list_end)(tproto, size_t, size_t); \
+        \
+        uint64_t (*write_set_n)(tproto, ttype, size_t); \
+        uint64_t (*write_set_begin)(tproto, ttype, size_t *); \
+        uint64_t (*write_set_end)(tproto, size_t, size_t); \
+        \
+        uint64_t (*write_bool)(tproto, bool); \
+        uint64_t (*write_byte)(tproto, char); \
+        uint64_t (*write_i16)(tproto, int16_t); \
+        uint64_t (*write_i32)(tproto, int32_t); \
+        uint64_t (*write_i64)(tproto, int64_t); \
+        uint64_t (*write_double)(tproto, double); \
+        uint64_t (*write_string)(tproto, const char *, size_t); \
+        uint64_t (*write_binary)(tproto, const _GoSlice); \
+    } tname
+
+#define TIMPL_MENC(tproto, tname) \
+    TIMPL_MENC_EXTRA(tproto, tname##_extra); \
+    TIMPL_MENC_BASE(tproto, tname);
+
+
+#define TIMPL_IENC(tproto, iname, tname) \
+    /* Interface implementation of (iname) */ \
+    \
+    TIMPL_MENC(tproto, tname); \
+    typedef struct { \
+        vt_base base; \
+        const tname *method; \
+        const tname##_extra *extra; \
+    } iname
+
+TIMPL_IENC(void *, vt_ienc, vt_menc);
+
+uint64_t buf_malloc(_GoSlice *buf, size_t size);
+uint64_t bm_malloc_reqs(_GoSlice *cache, ReqBitMap src, ReqBitMap *copy, long p);
+uint64_t j2t2_fsm_exec(vt_ienc *self, const _GoString *src, uint64_t flag);
 
 #endif // THRIFT_H

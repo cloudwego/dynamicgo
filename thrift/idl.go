@@ -92,8 +92,8 @@ func absPath(path, includePath string) string {
 	return filepath.Join(filepath.Dir(path), includePath)
 }
 
-// NewDescritorFromPath behaviors like NewDescritorFromPath, besides it uses DefaultOptions.
-func NewDescritorFromPath(ctx context.Context, path string, includeDirs ...string) (*ServiceDescriptor, error) {
+// NewDescriptorFromPath behaviors like NewDescriptorFromPath, besides it uses DefaultOptions.
+func NewDescriptorFromPath(ctx context.Context, path string, includeDirs ...string) (*ServiceDescriptor, error) {
 	return NewDefaultOptions().NewDescritorFromPath(ctx, path, includeDirs...)
 }
 
@@ -619,7 +619,7 @@ func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache c
 			if err != nil {
 				return nil, err
 			}
-			
+
 			// handle annotations
 			ignore := false
 			for _, val := range left {
@@ -647,7 +647,6 @@ func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache c
 			if _f.typ, err = parseType(ctx, field.Type, tree, cache, nextRecursionDepth, opts, nil, parseTarget); err != nil {
 				return nil, err
 			}
-			
 
 			// make default value
 			// WARN: ignore errors here
@@ -716,6 +715,7 @@ func assertType(expected, but Type) error {
 }
 
 func makeDefaultValue(typ *TypeDescriptor, val *parser.ConstValue, tree *parser.Thrift) (*DefaultValue, error) {
+	// TODO: support for TCompact default value
 	if val == nil {
 		return nil, nil
 	}
@@ -729,10 +729,13 @@ func makeDefaultValue(typ *TypeDescriptor, val *parser.ConstValue, tree *parser.
 			p := BinaryProtocol{Buf: make([]byte, 0, 4)}
 			p.WriteInt(typ.typ, int(v))
 			jbuf := json.EncodeInt64(make([]byte, 0, 8), v)
+			cp := CompactProtocol{Buf: make([]byte, 0, 10)}
+			cp.WriteInt(typ.typ, int(v))
 			return &DefaultValue{
-				goValue:      v,
-				jsonValue:    rt.Mem2Str(jbuf),
-				thriftBinary: rt.Mem2Str(p.Buf),
+				goValue:       v,
+				jsonValue:     rt.Mem2Str(jbuf),
+				thriftBinary:  rt.Mem2Str(p.Buf),
+				thriftCompact: rt.Mem2Str(cp.RawBuf()),
 			}, nil
 		}
 	case parser.ConstType_ConstDouble:
@@ -744,10 +747,13 @@ func makeDefaultValue(typ *TypeDescriptor, val *parser.ConstValue, tree *parser.
 			tbuf := make([]byte, 8)
 			BinaryEncoding{}.EncodeDouble(tbuf, v)
 			jbuf := json.EncodeFloat64(make([]byte, 0, 8), v)
+			cp := CompactProtocol{Buf: make([]byte, 0, 8)}
+			cp.WriteDouble(v)
 			return &DefaultValue{
-				goValue:      v,
-				jsonValue:    rt.Mem2Str(jbuf),
-				thriftBinary: rt.Mem2Str(tbuf),
+				goValue:       v,
+				jsonValue:     rt.Mem2Str(jbuf),
+				thriftBinary:  rt.Mem2Str(tbuf),
+				thriftCompact: rt.Mem2Str(cp.RawBuf()),
 			}, nil
 		}
 	case parser.ConstType_ConstLiteral:
@@ -759,10 +765,13 @@ func makeDefaultValue(typ *TypeDescriptor, val *parser.ConstValue, tree *parser.
 			tbuf := make([]byte, len(v)+4)
 			BinaryEncoding{}.EncodeString(tbuf, v)
 			jbuf := json.EncodeString(make([]byte, 0, len(v)+2), v)
+			cp := CompactProtocol{Buf: make([]byte, 0, len(v)+compactMsgVarint32MaxLen)}
+			cp.WriteString(v)
 			return &DefaultValue{
-				goValue:      v,
-				jsonValue:    rt.Mem2Str(jbuf),
-				thriftBinary: rt.Mem2Str(tbuf),
+				goValue:       v,
+				jsonValue:     rt.Mem2Str(jbuf),
+				thriftBinary:  rt.Mem2Str(tbuf),
+				thriftCompact: rt.Mem2Str(cp.RawBuf()),
 			}, nil
 		}
 	case parser.ConstType_ConstIdentifier:
@@ -772,15 +781,17 @@ func makeDefaultValue(typ *TypeDescriptor, val *parser.ConstValue, tree *parser.
 		if typ.typ == BOOL {
 			if v := strings.ToLower(x); v == "true" {
 				return &DefaultValue{
-					goValue:      true,
-					jsonValue:    "true",
-					thriftBinary: string([]byte{0x01}),
+					goValue:       true,
+					jsonValue:     "true",
+					thriftBinary:  string([]byte{0x01}),
+					thriftCompact: string([]byte{COMPACT_BOOLEAN_TRUE}), // bare boolean
 				}, nil
 			} else if v == "false" {
 				return &DefaultValue{
-					goValue:      false,
-					jsonValue:    "false",
-					thriftBinary: string([]byte{0x00}),
+					goValue:       false,
+					jsonValue:     "false",
+					thriftBinary:  string([]byte{0x00}),
+					thriftCompact: string([]byte{COMPACT_BOOLEAN_FALSE}), // bare boolean
 				}, nil
 			}
 		}
@@ -822,10 +833,13 @@ func makeDefaultValue(typ *TypeDescriptor, val *parser.ConstValue, tree *parser.
 				p := BinaryProtocol{Buf: make([]byte, 0, 4)}
 				p.WriteInt(typ.typ, int(v))
 				jbuf := json.EncodeInt64(make([]byte, 0, 8), v)
+				cp := CompactProtocol{Buf: make([]byte, 0, 10)}
+				cp.WriteInt(typ.typ, int(v))
 				return &DefaultValue{
-					goValue:      v,
-					jsonValue:    rt.Mem2Str(jbuf),
-					thriftBinary: rt.Mem2Str(p.Buf),
+					goValue:       v,
+					jsonValue:     rt.Mem2Str(jbuf),
+					thriftBinary:  rt.Mem2Str(p.Buf),
+					thriftCompact: rt.Mem2Str(cp.RawBuf()),
 				}, nil
 			}
 		}

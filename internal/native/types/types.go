@@ -127,6 +127,9 @@ const (
 	ERR_HTTP_MAPPING_END      ParsingError = 21
 	ERR_UNSUPPORT_VM_TYPE     ParsingError = 20
 	ERR_VALUE_MAPPING_END     ParsingError = 24
+
+	ERR_OOM_LFID ParsingError = 25
+	ERR_OOM_CWBS ParsingError = 26
 )
 
 var _ParsingErrors = []string{
@@ -150,6 +153,8 @@ var _ParsingErrors = []string{
 	ERR_OOM_KEY:               "key cache is not enough",
 	ERR_HTTP_MAPPING:          "http mapping error",
 	ERR_UNSUPPORT_VM_TYPE:     "unsupported value mapping type",
+	ERR_OOM_LFID:              "last field stack is not enough",
+	ERR_OOM_CWBS:              "container write-back stack is not enough",
 }
 
 func (self ParsingError) Error() string {
@@ -242,7 +247,35 @@ const (
 	J2T_FIELD_CACHE_SIZE = 256
 	J2T_REQS_CACHE_SIZE  = 256
 	J2T_DBUF_SIZE        = 800
+
+	J2T_TC_LAST_FIELD_SIZE = 64  // Also called as MAX_STRUCT_DEPTH
+	J2T_TC_CNTR_WB_SIZE    = 128 // TCompact map,collection type header (ttype) storage
+	// TODO: Do we need to have a scratch temporary buffer for tcompact?
+	// TODO: Since varint encoding length may varies, we need to reserve max length of varint32 (4 bytes)
+	// TODO: Write-back the length and header type at closing of the context.
+	// TODO: Since it could be less than 4 bytes, we need to move written buffer so that
+	// TODO: there will be no unused reserved bytes that we previously use. (compaction)
 )
+
+type TCState struct {
+	_ uintptr
+
+	// SAFETY: KEEP IN-SYNC WITH LAYOUT IN thrift.h AND thrift/compact.go
+	PendingFieldWrite struct {
+		ID    int16
+		Type  byte // thrift.Type
+		Valid bool
+		Value bool
+	}
+
+	LastFieldID      int16
+	LastFieldIDStack []int16
+
+	ContainerWriteBack []uint16
+}
+type TBState struct {
+	_ uintptr
+}
 
 type J2TStateMachine struct {
 	SP              int
@@ -253,6 +286,10 @@ type J2TStateMachine struct {
 	SM              StateMachine
 	FieldCache      []int32
 	FieldValueCache FieldValue
+
+	// Keep this at last
+	TC TCState
+	// TB TBState
 }
 
 type FieldValue struct {
@@ -267,6 +304,8 @@ var j2tStackPool = sync.Pool{
 		ret.ReqsCache = make([]byte, 0, J2T_REQS_CACHE_SIZE)
 		ret.KeyCache = make([]byte, 0, J2T_KEY_CACHE_SIZE)
 		ret.FieldCache = make([]int32, 0, J2T_FIELD_CACHE_SIZE)
+		ret.TC.LastFieldIDStack = make([]int16, 0, J2T_TC_LAST_FIELD_SIZE)
+		ret.TC.ContainerWriteBack = make([]uint16, 0, J2T_TC_CNTR_WB_SIZE)
 		// ret.FieldValueCache = make([]FieldValue, 0, J2T_FIELD_CACHE_SIZE)
 		tmp := make([]byte, 0, J2T_DBUF_SIZE)
 		ret.JT.Dbuf = *(**byte)(unsafe.Pointer(&tmp))
@@ -285,6 +324,11 @@ func FreeJ2TStateMachine(ret *J2TStateMachine) {
 	ret.KeyCache = ret.KeyCache[:0]
 	ret.FieldCache = ret.FieldCache[:0]
 	// ret.FieldValueCache = ret.FieldValueCache[:0]
+
+	ret.TC.LastFieldID = 0
+	ret.TC.LastFieldIDStack = ret.TC.LastFieldIDStack[:0]
+	ret.TC.ContainerWriteBack = ret.TC.ContainerWriteBack[:0]
+
 	j2tStackPool.Put(ret)
 }
 
@@ -329,6 +373,20 @@ const (
 	resizeFactor  = 2
 	int64ByteSize = unsafe.Sizeof(int64(0))
 )
+
+func (ret *J2TStateMachine) GrowContainerWriteBack(n int) {
+	c := cap(ret.TC.ContainerWriteBack) + n*resizeFactor
+	tmp := make([]uint16, len(ret.TC.ContainerWriteBack), c)
+	copy(tmp, ret.TC.ContainerWriteBack)
+	ret.TC.ContainerWriteBack = tmp
+}
+
+func (ret *J2TStateMachine) GrowLastFieldID(n int) {
+	c := cap(ret.TC.LastFieldIDStack) + n*resizeFactor
+	tmp := make([]int16, len(ret.TC.LastFieldIDStack), c)
+	copy(tmp, ret.TC.LastFieldIDStack)
+	ret.TC.LastFieldIDStack = tmp
+}
 
 func (ret *J2TStateMachine) GrowReqCache(n int) {
 	c := cap(ret.ReqsCache) + n*resizeFactor
