@@ -21,21 +21,20 @@ SRC_FILE		:= native/native.c
 
 CPU_avx			:= amd64
 CPU_avx2		:= amd64
-CPU_sse  		:= amd64
+CPU_sse		    := amd64
 
-TMPL_avx		:= fastint_amd64_test fastfloat_amd64_test native_amd64_test recover_amd64_test
-TMPL_avx2		:= fastint_amd64_test fastfloat_amd64_test native_amd64_test recover_amd64_test
-TMPL_sse 		:= fastint_amd64_test fastfloat_amd64_test native_amd64_test recover_amd64_test
+TMPL_avx		:= fastint_amd64_test fastfloat_amd64_test native_amd64_test native_export_amd64
+TMPL_avx2		:= fastint_amd64_test fastfloat_amd64_test native_amd64_test native_export_amd64
+TMPL_sse		:= fastint_amd64_test fastfloat_amd64_test native_amd64_test native_export_amd64
 
-CFLAGS_avx		:= -msse -mno-sse4 -mavx -mpclmul -mno-avx2 -mstack-alignment=0 -DUSE_AVX=1 -DUSE_AVX2=0
-CFLAGS_avx2		:= -msse -mno-sse4 -mavx -mpclmul -mavx2 -mstack-alignment=0 -DUSE_AVX=1 -DUSE_AVX2=1
-CFLAGS_sse		:= -msse -mno-sse4 -mno-avx -mno-avx2 -mpclmul
+CFLAGS_avx		:= -msse -mno-sse4 -mavx -mno-avx2 -DUSE_AVX=1 -DUSE_AVX2=0
+CFLAGS_avx2		:= -msse -mno-sse4 -mavx -mavx2    -DUSE_AVX=0 -DUSE_AVX2=1
+CFLAGS_sse		:= -msse -mno-sse4 -mno-avx -mno-avx2
 
 CC_amd64		:= clang
 ASM2ASM_amd64	:= tools/asm2asm/asm2asm.py
 
 CFLAGS			:= -mno-red-zone
-CFLAGS			+= -target x86_64-apple-macos11
 CFLAGS			+= -fno-asynchronous-unwind-tables
 CFLAGS			+= -fno-builtin
 CFLAGS			+= -fno-exceptions
@@ -43,8 +42,6 @@ CFLAGS			+= -fno-rtti
 CFLAGS			+= -fno-stack-protector
 CFLAGS			+= -nostdlib
 CFLAGS			+= -O3
-CFLAGS			+= -Wall
-# CFLAGS			+= -ggdb3 -g
 
 NATIVE_SRC		:= $(wildcard native/*.h)
 NATIVE_SRC		+= $(wildcard native/*.c)
@@ -67,7 +64,7 @@ define build_arch
 	$(eval @cpu		:= $(value CPU_$(1)))
 	$(eval @deps	:= $(foreach tmpl,$(value TMPL_$(1)),${OUT_DIR}/$(1)/${tmpl}.go))
 	$(eval @asmin	:= ${TMP_DIR}/$(1)/native.s)
-	$(eval @asmout	:= ${OUT_DIR}/$(1)/native_text_${@cpu}.go)
+	$(eval @asmout	:= ${OUT_DIR}/$(1)/native_${@cpu}.s)
 	$(eval @stubin	:= ${OUT_DIR}/native_${@cpu}.tmpl)
 	$(eval @stubout	:= ${OUT_DIR}/$(1)/native_${@cpu}.go)
 
@@ -76,7 +73,8 @@ $(1): ${@asmout} ${@deps}
 ${@asmout}: ${@stubout} ${NATIVE_SRC}
 	mkdir -p ${TMP_DIR}/$(1)
 	$${CC_${@cpu}} $${CFLAGS} $${CFLAGS_$(1)} -S -o ${TMP_DIR}/$(1)/native.s ${SRC_FILE}
-	python3 $${ASM2ASM_${@cpu}} -r ${@stubout} ${TMP_DIR}/$(1)/native.s
+	python3 $${ASM2ASM_${@cpu}} ${@asmout} ${TMP_DIR}/$(1)/native.s
+	asmfmt -w ${@asmout}
 
 $(eval $(call 	\
 	build_tmpl,	\
@@ -100,10 +98,8 @@ endef
 all: ${ARCH}
 
 clean:
-	for arch in ${ARCH}; do \
-		rm -vfr ${TMP_DIR}/$${arch}; \
-		rm -vfr ${OUT_DIR}/$${arch}; \
-	done
+	rm -vfr ${TMP_DIR}/{sse,avx,avx2}
+	rm -vfr ${OUT_DIR}/{sse,avx,avx2}
 
 $(foreach 								\
 	arch,								\
