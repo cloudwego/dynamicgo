@@ -85,6 +85,10 @@ github.com/bytedance/sonic v1.8.8-0.20230404064522-67dae90c3cc9 h1:nRHiAXrQCwJJC
 github.com/bytedance/sonic v1.8.8-0.20230404064522-67dae90c3cc9/go.mod h1:iG60EbhPuSzx/YfiIpQkPAgpZeKvbRwjldjmnlZnido=
 github.com/bytedance/sonic v1.8.8-0.20230404092359-6ce8eeb1bf15 h1:EeQMf0/JUMwRNFI+Fk/V2hIEUHM9sUCO8ZVtY1sILN0=
 github.com/bytedance/sonic v1.8.8-0.20230404092359-6ce8eeb1bf15/go.mod h1:iG60EbhPuSzx/YfiIpQkPAgpZeKvbRwjldjmnlZnido=
+github.com/bytedance/sonic v1.8.8-0.20230419034651-e0ea8078fc10 h1:W+KbcBXlMqtXhu6LlR5kD1qzqtdGaWm7SN5umTZpqJs=
+github.com/bytedance/sonic v1.8.8-0.20230419034651-e0ea8078fc10/go.mod h1:iG60EbhPuSzx/YfiIpQkPAgpZeKvbRwjldjmnlZnido=
+github.com/bytedance/sonic v1.8.9-0.20230508021422-8b816d0a93b3 h1:kybw2yhbKlkU2bIlv+1JTFbX6NQ7aRMbHFL0G938vjo=
+github.com/bytedance/sonic v1.8.9-0.20230508021422-8b816d0a93b3/go.mod h1:iG60EbhPuSzx/YfiIpQkPAgpZeKvbRwjldjmnlZnido=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/cespare/xxhash/v2 v2.1.1/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
