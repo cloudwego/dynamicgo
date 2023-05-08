@@ -9,27 +9,27 @@ package avx
 func __native_entry__() uintptr
 
 var (
-    _subr__f64toa       = __native_entry__() + 480
-    _subr__hm_get       = __native_entry__() + 27776
-    _subr__html_escape  = __native_entry__() + 9200
-    _subr__i64toa       = __native_entry__() + 3760
-    _subr__j2t_fsm_exec = __native_entry__() + 39520
-    _subr__lspace       = __native_entry__() + 80
-    _subr__quote        = __native_entry__() + 5152
-    _subr__skip_array   = __native_entry__() + 21328
-    _subr__skip_object  = __native_entry__() + 21392
-    _subr__skip_one     = __native_entry__() + 19328
-    _subr__tb_skip      = __native_entry__() + 47648
-    _subr__tb_write_i64 = __native_entry__() + 29344
-    _subr__trie_get     = __native_entry__() + 28592
-    _subr__u64toa       = __native_entry__() + 3872
-    _subr__unquote      = __native_entry__() + 6864
-    _subr__validate_one = __native_entry__() + 23552
-    _subr__value        = __native_entry__() + 13504
-    _subr__vnumber      = __native_entry__() + 15872
-    _subr__vsigned      = __native_entry__() + 17408
-    _subr__vstring      = __native_entry__() + 14720
-    _subr__vunsigned    = __native_entry__() + 17728
+    _subr__f64toa       uintptr = __native_entry__() + 480
+    _subr__hm_get       uintptr = __native_entry__() + 27776
+    _subr__html_escape  uintptr = __native_entry__() + 9200
+    _subr__i64toa       uintptr = __native_entry__() + 3760
+    _subr__j2t_fsm_exec uintptr = __native_entry__() + 39584
+    _subr__lspace       uintptr = __native_entry__() + 80
+    _subr__quote        uintptr = __native_entry__() + 5152
+    _subr__skip_array   uintptr = __native_entry__() + 21328
+    _subr__skip_object  uintptr = __native_entry__() + 21392
+    _subr__skip_one     uintptr = __native_entry__() + 19328
+    _subr__tb_skip      uintptr = __native_entry__() + 47920
+    _subr__tb_write_i64 uintptr = __native_entry__() + 29328
+    _subr__trie_get     uintptr = __native_entry__() + 28592
+    _subr__u64toa       uintptr = __native_entry__() + 3872
+    _subr__unquote      uintptr = __native_entry__() + 6864
+    _subr__validate_one uintptr = __native_entry__() + 23552
+    _subr__value        uintptr = __native_entry__() + 13504
+    _subr__vnumber      uintptr = __native_entry__() + 15872
+    _subr__vsigned      uintptr = __native_entry__() + 17408
+    _subr__vstring      uintptr = __native_entry__() + 14720
+    _subr__vunsigned    uintptr = __native_entry__() + 17728
 )
 
 const (
@@ -37,18 +37,18 @@ const (
     _stack__hm_get = 16
     _stack__html_escape = 72
     _stack__i64toa = 16
-    _stack__j2t_fsm_exec = 624
+    _stack__j2t_fsm_exec = 592
     _stack__lspace = 8
     _stack__quote = 56
-    _stack__skip_array = 144
-    _stack__skip_object = 144
-    _stack__skip_one = 144
+    _stack__skip_array = 216
+    _stack__skip_object = 216
+    _stack__skip_one = 216
     _stack__tb_skip = 48
     _stack__tb_write_i64 = 8
     _stack__trie_get = 32
     _stack__u64toa = 8
     _stack__unquote = 88
-    _stack__validate_one = 144
+    _stack__validate_one = 216
     _stack__value = 312
     _stack__vnumber = 240
     _stack__vsigned = 16

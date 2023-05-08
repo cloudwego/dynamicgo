@@ -25,6 +25,7 @@ import (
 	stdh "net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	athrift "github.com/apache/thrift/lib/go/thrift"
@@ -39,7 +40,6 @@ import (
 	gthrift "github.com/cloudwego/kitex/pkg/generic/thrift"
 	"github.com/cloudwego/kitex/pkg/remote"
 	bthrift "github.com/cloudwego/kitex/pkg/remote/codec/thrift"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
 )
 
@@ -421,7 +421,7 @@ func convertI642StringNesting(js string, itoa bool) string {
 	return e
 }
 
-func TestThriftEncodeSimple_Raw(t *testing.T) {
+func TestJSON2Thrift_Simple(t *testing.T) {
 	_, err := ejson.Marshal(baseline.Simple{})
 	if err != nil {
 		t.Fatal(err)
@@ -441,13 +441,56 @@ func TestThriftEncodeSimple_Raw(t *testing.T) {
 	ctx := context.Background()
 	out, err := cv.Do(ctx, simple, []byte(nj))
 	require.Nil(t, err)
-	spew.Dump(out)
 
 	stru := baseline.NewSimple()
 	if _, err := stru.FastRead(out); err != nil {
 		t.Fatal(err)
 	}
 	require.Equal(t, stru2, stru)
+}
+
+var Concurrency = 1000
+
+func TestJSON2Thrift_Simple_Parallel(t *testing.T) {
+	_, err := ejson.Marshal(baseline.Simple{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	desc := getSimpleDesc()
+	stru2 := baseline.NewSimple()
+	if err := sonic.UnmarshalString(simpleJSON, stru2); err != nil {
+		t.Fatal(err)
+	}
+	nj := convertI642StringSimple(simpleJSON)
+
+	cv := j2t.NewBinaryConv(conv.Options{
+		WriteDefaultField:  true,
+		EnableValueMapping: true,
+	})
+
+	wg := sync.WaitGroup{}
+	for i := 0; i < Concurrency; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("panic: %d\n%s", i, nj)
+				}
+			}()
+			defer wg.Done()
+			ctx := context.Background()
+			out, err := cv.Do(ctx, desc, []byte(nj))
+			require.Nil(t, err)
+
+			stru := baseline.NewSimple()
+			if _, err := stru.FastRead(out); err != nil {
+				t.Fatal(err)
+			}
+			require.Equal(t, stru2, stru)
+		}(i)
+	}
+
+	wg.Wait()
 }
 
 // func TestThriftEncodeNesting_Load(t *testing.T) {
@@ -483,11 +526,11 @@ func TestThriftEncodeSimple_Raw(t *testing.T) {
 // 	// fmt.Printf("%#v", *stru)
 // }
 
-func TestThriftEncodeNesting_Raw(t *testing.T) {
+func TestHTTP2Thrift_Nesting(t *testing.T) {
 	nesting := getNestingDesc()
 	// fmt.Printf("%#v", nesting)
 	stru2 := baseline.NewNesting()
-	if err := sonic.UnmarshalString(nestingJSON, stru2); err != nil {
+	if err := ejson.Unmarshal([]byte(nestingJSON), stru2); err != nil {
 		t.Fatal(err)
 	}
 
@@ -511,7 +554,49 @@ func TestThriftEncodeNesting_Raw(t *testing.T) {
 
 	require.Equal(t, stru2, stru)
 	// fmt.Printf("%#v", *stru)
+}
 
+func TestHTTP2Thrift_Nesting_Parallel(t *testing.T) {
+	nesting := getNestingDesc()
+	// fmt.Printf("%#v", nesting)
+
+	cv := j2t.NewBinaryConv(conv.Options{
+		WriteDefaultField:  true,
+		EnableHttpMapping:  true,
+		EnableValueMapping: true,
+		TracebackRequredOrRootFields: true,
+		ReadHttpValueFallback: true,
+		OmitHttpMappingErrors: true,
+	})
+	nj := convertI642StringNesting(nestingJSON, true)
+	println(nj)
+
+	wg := sync.WaitGroup{}
+	for i := 0; i < Concurrency; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("panic: %d\n", i)
+				}
+			}()
+			defer wg.Done()
+			stru2 := baseline.NewNesting()
+			if err := ejson.Unmarshal([]byte(nestingJSON), stru2); err != nil {
+				t.Fatal(err)
+			}
+			req := getSampleHttpRequest(stru2, nestingJSON)
+			ctx := context.WithValue(context.Background(), conv.CtxKeyHTTPRequest, req)
+			out, err := cv.Do(ctx, nesting, []byte(nj))
+			require.Nil(t, err)
+			stru := baseline.NewNesting()
+			if _, err := stru.FastRead(out); err != nil {
+				t.Fatal(err)
+			}
+			require.Equal(t, stru2, stru)
+		}(i)
+	}
+	wg.Wait()
 }
 
 // func BenchmarkJSON2Thrift_DynamicGo_Load(b *testing.B) {

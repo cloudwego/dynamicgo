@@ -76,7 +76,6 @@ const size_t SIZE_PAIR = sizeof(Pair);
 
 uint8_t ascii2int(const unsigned char c)
 {
-    xprintf("c:%d CHAR_POINT:%d\n", (uint8_t)c, (uint8_t)CHAR_POINT);
     if (c < CHAR_POINT)
     {
         return (uint8_t)(255 + c - CHAR_POINT);
@@ -124,18 +123,12 @@ void *trie_get(const TrieTree *self, const GoString *key)
     for (int i = 0; i < ls.len; i++)
     {
         Pair *v = (Pair *)(ls.buf + i * SIZE_PAIR);
-        xprintf("[trie_get] v.key:%s, v.val:%x\n", &v->key, v->val);
         if (key->len == v->key.len && memeq(key->buf, v->key.buf, key->len))
         {
             return v->val;
         }
     }
     return NULL;
-}
-
-void bm_free_reqs(GoSlice *cache, ReqBitMap *reqs)
-{
-    cache->len -= reqs->len;
 }
 
 bool bm_is_set(ReqBitMap b, tid id)

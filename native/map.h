@@ -96,10 +96,8 @@ typedef struct
 {
     uint64_t *buf;
     size_t len;
-    size_t cap;
 } ReqBitMap;
 
-void bm_free_reqs(GoSlice *cache, ReqBitMap *reqs);
 bool bm_is_set(ReqBitMap b, tid id);
 void bm_set_req(ReqBitMap b, tid id, req_em req);
 

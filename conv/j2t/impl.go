@@ -33,7 +33,14 @@ import (
 	"github.com/cloudwego/dynamicgo/thrift/base"
 )
 
+const (
+	_GUARD_SLICE_FACTOR = 1
+)
+
 func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter) error {
+	//NOTICE: output buffer must be larger than src buffer
+	rt.GuardSlice(buf, len(src)*_GUARD_SLICE_FACTOR)
+
 	if self.opts.EnableThriftBase {
 		if f := desc.Struct().GetRequestBase(); f != nil {
 			if err := writeRequestBaseToThrift(ctx, buf, f); err != nil {
@@ -50,7 +57,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 			st.Requires().CopyTo(reqs)
 			// check if any http-mapping exists
 			if desc.Struct().HttpMappingFields() != nil {
-				if err := self.writeHttpRequestToThrift(ctx, req, st, reqs, buf, true, true); err != nil {
+				if err := self.writeHttpRequestToThrift(ctx, req, st, *reqs, buf, true, true); err != nil {
 					return err
 				}
 			}
@@ -175,7 +182,7 @@ func writeRequestBaseToThrift(ctx context.Context, buf *[]byte, field *thrift.Fi
 	return nil
 }
 
-func (self *BinaryConv) writeHttpRequestToThrift(ctx context.Context, req http.RequestGetter, desc *thrift.StructDescriptor, reqs *thrift.RequiresBitmap, buf *[]byte, nobody bool, top bool) (err error) {
+func (self *BinaryConv) writeHttpRequestToThrift(ctx context.Context, req http.RequestGetter, desc *thrift.StructDescriptor, reqs thrift.RequiresBitmap, buf *[]byte, nobody bool, top bool) (err error) {
 	if req == nil {
 		return newError(meta.ErrInvalidParam, "http request is nil", nil)
 	}

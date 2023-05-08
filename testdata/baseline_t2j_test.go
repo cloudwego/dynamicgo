@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	ejson "encoding/json"
+	"sync"
 	"testing"
 
 	athrift "github.com/apache/thrift/lib/go/thrift"
@@ -68,7 +69,7 @@ func getPartialNestingDesc() *thrift.TypeDescriptor {
 	return svc.Functions()["PartialNestingMethod"].Request().Struct().FieldByKey("req").Type()
 }
 
-func TestThrift2JSON_DynamicGo(t *testing.T) {
+func TestThrift2JSON(t *testing.T) {
 	t.Run("small", func(t *testing.T) {
 		ctx := context.Background()
 		desc := getSimpleDesc()
@@ -113,7 +114,79 @@ func TestThrift2JSON_DynamicGo(t *testing.T) {
 	})
 }
 
-func TestThrift2HTTP_Raw(t *testing.T) {
+func TestThrift2JSON_Parallel(t *testing.T) {
+	t.Run("small", func(t *testing.T) {
+		ctx := context.Background()
+		desc := getSimpleDesc()
+		data := getSimpleValue()
+		cv := t2j.NewBinaryConv(conv.Options{})
+		in := make([]byte, data.BLength())
+		if err := data.FastWriteNocopy(in, nil); err <= 0 {
+			t.Fatal(err)
+		}
+
+		wg := sync.WaitGroup{}
+		for i := 0; i < Concurrency; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer func() {
+					if r := recover(); r != nil {
+						t.Fatalf("panic: %d\n", i)
+					}
+				}()
+				defer wg.Done()
+
+				ret, err := cv.Do(ctx, desc, in)
+				if err != nil {
+					t.Fatal(err)
+				}
+				// println(string(ret))
+				var v = baseline.NewSimple()
+				if err := ejson.Unmarshal(ret, v); err != nil {
+					t.Fatal(err)
+				}
+				require.Equal(t, data, v)
+			}(i)
+		}
+		wg.Wait()
+	})
+	t.Run("medium", func(t *testing.T) {
+		ctx := context.Background()
+		desc := getNestingDesc()
+		data := getNestingValue()
+		cv := t2j.NewBinaryConv(conv.Options{})
+		in := make([]byte, data.BLength())
+		if err := data.FastWriteNocopy(in, nil); err <= 0 {
+			t.Fatal(err)
+		}
+
+		wg := sync.WaitGroup{}
+		for i := 0; i < Concurrency; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer func() {
+					if r := recover(); r != nil {
+						t.Fatalf("panic: %d\n", i)
+					}
+				}()
+				defer wg.Done()
+				ret, err := cv.Do(ctx, desc, in)
+				if err != nil {
+					t.Fatal(err)
+				}
+				// println(string(ret))
+				var v = baseline.NewNesting()
+				if err := json.Unmarshal(ret, v); err != nil {
+					t.Fatal(err)
+				}
+				require.Equal(t, data, v)
+			}(i)
+		}
+		wg.Wait()
+	})
+}
+
+func TestThrift2HTTP(t *testing.T) {
 	t.Run("small", func(t *testing.T) {
 		desc := getSimpleDesc()
 		data := getSimpleValue()
@@ -205,6 +278,95 @@ func TestThrift2HTTP_Raw(t *testing.T) {
 		require.Equal(t, string(ls), resp.Cookies()[0].Value)
 		require.Equal(t, dstr, resp.Header.Get("String"))
 		require.Equal(t, int(di32), resp.StatusCode)
+	})
+}
+
+func TestThrift2HTTP_Parallel(t *testing.T) {
+	t.Run("small", func(t *testing.T) {
+		desc := getSimpleDesc()
+		opts := conv.Options{}
+		opts.EnableHttpMapping = true
+		opts.WriteHttpValueFallback = true
+		cv := t2j.NewBinaryConv(opts)
+
+		wg := sync.WaitGroup{}
+		for i := 0; i < Concurrency; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer func() {
+					if r := recover(); r != nil {
+						t.Fatalf("panic: %d\n", i)
+					}
+				}()
+				defer wg.Done()
+				data := getSimpleValue()
+				in := make([]byte, data.BLength())
+				if err := data.FastWriteNocopy(in, nil); err <= 0 {
+					t.Fatal(err)
+				}
+				ctx := context.Background()
+				ctx = context.WithValue(ctx, conv.CtxKeyHTTPResponse, http.NewHTTPResponse())
+				out, err := cv.Do(ctx, desc, in)
+				require.NoError(t, err)
+				var v = baseline.NewSimple()
+				if err := ejson.Unmarshal(out, v); err != nil {
+					t.Fatal(err)
+				}
+				require.Equal(t, data, v)
+			}(i)
+		}
+		wg.Wait()
+	})
+
+	t.Run("medium", func(t *testing.T) {
+		desc := getNestingDesc()
+		opts := conv.Options{}
+		opts.EnableHttpMapping = true
+		opts.WriteHttpValueFallback = true
+		opts.OmitHttpMappingErrors = true
+		cv := t2j.NewBinaryConv(opts)
+
+		wg := sync.WaitGroup{}
+		for i := 0; i < Concurrency; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer func() {
+					if r := recover(); r != nil {
+						t.Fatalf("panic: %d\n", i)
+					}
+				}()
+				defer wg.Done()
+				data := getNestingValue()
+				in := make([]byte, data.BLength())
+				if err := data.FastWriteNocopy(in, nil); err <= 0 {
+					t.Fatal(err)
+				}
+				ctx := context.Background()
+				resp := http.NewHTTPResponse()
+				ctx = context.WithValue(ctx, conv.CtxKeyHTTPResponse, resp)
+				out, err := cv.Do(ctx, desc, in)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var v = baseline.NewNesting()
+				if err := json.Unmarshal(out, v); err != nil {
+					t.Fatal(err)
+				}
+				dstr := data.String_
+				data.String_ = ""
+				di32 := data.I32
+				data.I32 = 0
+				ls, err := json.Marshal(data.ListI64)
+				require.NoError(t, err)
+				data.ListI64 = nil
+				
+				require.Equal(t, data, v)
+				require.Equal(t, dstr, resp.Header.Get("String"))
+				require.Equal(t, int(di32), resp.StatusCode)
+				require.Equal(t, string(ls), resp.Cookies()[0].Value)
+			}(i)
+		}
+		wg.Wait()
 	})
 }
 

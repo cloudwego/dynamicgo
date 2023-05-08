@@ -1,0 +1,34 @@
+name: Compatibility Test
+
+on: push
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        go-version: [1.15.x, 1.20.x]
+        os: [ARM64, X64]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Unit Test
+        run: |
+          go test -race github.com/cloudwego/dynamicgo/thrift
+          go test -race github.com/cloudwego/dynamicgo/thrift/annotation
+          go test -race github.com/cloudwego/dynamicgo/thrift/generic
+          go test -race github.com/cloudwego/dynamicgo/conv/t2j
+          go test -race github.com/cloudwego/dynamicgo/http
+          go test -race github.com/cloudwego/dynamicgo/internal/json
