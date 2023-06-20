@@ -3352,7 +3352,7 @@ func (p *JSONObject) FastRead(buf []byte) (int, error) {
 				}
 			}
 		case 2:
-			if fieldTypeId == thrift.I64 {
+			if fieldTypeId == thrift.BYTE {
 				l, err = p.FastReadField2(buf[offset:])
 				offset += l
 				if err != nil {
@@ -3417,7 +3417,7 @@ func (p *JSONObject) FastReadField1(buf []byte) (int, error) {
 func (p *JSONObject) FastReadField2(buf []byte) (int, error) {
 	offset := 0
 
-	if v, l, err := bthrift.Binary.ReadI64(buf[offset:]); err != nil {
+	if v, l, err := bthrift.Binary.ReadByte(buf[offset:]); err != nil {
 		return offset, err
 	} else {
 		offset += l
@@ -3468,8 +3468,8 @@ func (p *JSONObject) fastWriteField1(buf []byte, binaryWriter bthrift.BinaryWrit
 
 func (p *JSONObject) fastWriteField2(buf []byte, binaryWriter bthrift.BinaryWriter) int {
 	offset := 0
-	offset += bthrift.Binary.WriteFieldBegin(buf[offset:], "B", thrift.I64, 2)
-	offset += bthrift.Binary.WriteI64(buf[offset:], p.B)
+	offset += bthrift.Binary.WriteFieldBegin(buf[offset:], "B", thrift.BYTE, 2)
+	offset += bthrift.Binary.WriteByte(buf[offset:], p.B)
 
 	offset += bthrift.Binary.WriteFieldEnd(buf[offset:])
 	return offset
@@ -3486,8 +3486,8 @@ func (p *JSONObject) field1Length() int {
 
 func (p *JSONObject) field2Length() int {
 	l := 0
-	l += bthrift.Binary.FieldBeginLength("B", thrift.I64, 2)
-	l += bthrift.Binary.I64Length(p.B)
+	l += bthrift.Binary.FieldBeginLength("B", thrift.BYTE, 2)
+	l += bthrift.Binary.ByteLength(p.B)
 
 	l += bthrift.Binary.FieldEndLength()
 	return l

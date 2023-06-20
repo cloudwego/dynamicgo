@@ -101,7 +101,7 @@ func ExampleBinaryProtocol_ReadAnyWithDesc() {
 	}
 
 	p := NewBinaryProtocol(data)
-	v, err := p.ReadAnyWithDesc(example2ReqDesc, false, false, true)
+	v, err := p.ReadAnyWithDesc(example2ReqDesc, false, false, false, true)
 	if err != nil {
 		panic(err)
 	}

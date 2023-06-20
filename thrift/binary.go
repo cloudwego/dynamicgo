@@ -65,7 +65,7 @@ var (
 	errInvalidDataType   = meta.NewError(meta.ErrRead, "invalid data type", nil)
 	errUnknonwField      = meta.NewError(meta.ErrUnknownField, "unknown field", nil)
 	errUnsupportedType   = meta.NewError(meta.ErrUnsupportedType, "unsupported type", nil)
-	errNotImplemented    = meta.NewError(meta.ErrNotImplemented, "not implemted path", nil)
+	errNotImplemented    = meta.NewError(meta.ErrNotImplemented, "not implemted type", nil)
 )
 
 // must be strict read & strict write
@@ -995,7 +995,7 @@ func (p *BinaryProtocol) EncodeText(desc *TypeDescriptor, buf *[]byte, byteAsUin
 			if !useFieldName {
 				*buf = json.EncodeInt64(*buf, int64(id))
 			} else {
-				*buf = json.EncodeString(*buf, field.Alias())
+				*buf = append(*buf, field.Alias()...)
 			}
 			*buf = append(*buf, ':')
 			if err := p.EncodeText(field.Type(), buf, byteAsUint8, disallowUnknown, base64Binary, useFieldName, asJson); err != nil {
@@ -1016,14 +1016,21 @@ func (p *BinaryProtocol) EncodeText(desc *TypeDescriptor, buf *[]byte, byteAsUin
 //   - MAP will be converted to map[string]interface{} or map[int]interface{}
 //     or map[interface{}]interface (depends on its key type)
 //   - STRUCT will be converted to map[FieldID]interface{}
-func (p *BinaryProtocol) ReadAnyWithDesc(desc *TypeDescriptor, copyString bool, disallowUnknonw bool, useFieldName bool) (interface{}, error) {
+func (p *BinaryProtocol) ReadAnyWithDesc(desc *TypeDescriptor, byteAsUint8 bool, copyString bool, disallowUnknonw bool, useFieldName bool) (interface{}, error) {
 	switch desc.Type() {
 	case STOP:
 		return nil, nil
 	case BOOL:
 		return p.ReadBool()
 	case BYTE:
-		return p.ReadByte()
+		v, e := p.ReadByte()
+		if e != nil {
+			return nil, e
+		}
+		if !byteAsUint8 {
+			return int8(v), nil
+		}
+		return v, nil
 	case I16:
 		return p.ReadI16()
 	case I32:
@@ -1049,7 +1056,7 @@ func (p *BinaryProtocol) ReadAnyWithDesc(desc *TypeDescriptor, copyString bool, 
 		}
 		ret := make([]interface{}, 0, size)
 		for i := 0; i < size; i++ {
-			v, e := p.ReadAnyWithDesc(et, copyString, disallowUnknonw, useFieldName)
+			v, e := p.ReadAnyWithDesc(et, byteAsUint8, copyString, disallowUnknonw, useFieldName)
 			if e != nil {
 				return nil, e
 			}
@@ -1073,7 +1080,7 @@ func (p *BinaryProtocol) ReadAnyWithDesc(desc *TypeDescriptor, copyString bool, 
 				if e != nil {
 					return nil, e
 				}
-				vv, e := p.ReadAnyWithDesc(et, copyString, disallowUnknonw, useFieldName)
+				vv, e := p.ReadAnyWithDesc(et, byteAsUint8, copyString, disallowUnknonw, useFieldName)
 				if e != nil {
 					return nil, e
 				}
@@ -1087,7 +1094,7 @@ func (p *BinaryProtocol) ReadAnyWithDesc(desc *TypeDescriptor, copyString bool, 
 				if e != nil {
 					return nil, e
 				}
-				vv, e := p.ReadAnyWithDesc(et, copyString, disallowUnknonw, useFieldName)
+				vv, e := p.ReadAnyWithDesc(et, byteAsUint8, copyString, disallowUnknonw, useFieldName)
 				if e != nil {
 					return nil, e
 				}
@@ -1097,11 +1104,11 @@ func (p *BinaryProtocol) ReadAnyWithDesc(desc *TypeDescriptor, copyString bool, 
 		} else {
 			m := make(map[interface{}]interface{})
 			for i := 0; i < size; i++ {
-				kv, e := p.ReadAnyWithDesc(desc.Key(), copyString, disallowUnknonw, useFieldName)
+				kv, e := p.ReadAnyWithDesc(desc.Key(), byteAsUint8, copyString, disallowUnknonw, useFieldName)
 				if e != nil {
 					return nil, e
 				}
-				vv, e := p.ReadAnyWithDesc(et, copyString, disallowUnknonw, useFieldName)
+				vv, e := p.ReadAnyWithDesc(et, byteAsUint8, copyString, disallowUnknonw, useFieldName)
 				if e != nil {
 					return nil, e
 				}
@@ -1151,7 +1158,7 @@ func (p *BinaryProtocol) ReadAnyWithDesc(desc *TypeDescriptor, copyString bool, 
 				}
 				continue
 			}
-			vv, err := p.ReadAnyWithDesc(next.Type(), copyString, disallowUnknonw, useFieldName)
+			vv, err := p.ReadAnyWithDesc(next.Type(), byteAsUint8, copyString, disallowUnknonw, useFieldName)
 			if err != nil {
 				return nil, err
 			}

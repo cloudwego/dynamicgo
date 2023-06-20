@@ -65,8 +65,8 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 			// since this case it always for top-level fields,
 			// we should only check opts.BackTraceRequireOrTopField to decide whether to traceback
 			err := reqs.HandleRequires(st, self.opts.ReadHttpValueFallback, self.opts.ReadHttpValueFallback, self.opts.ReadHttpValueFallback, func(f *thrift.FieldDescriptor) error {
-				val, _ := tryGetValueFromHttp(req, f.Alias())
-				if err := self.writeStringValue(ctx, buf, f, val, meta.EncodingJSON, req); err != nil {
+				val, _, enc := tryGetValueFromHttp(req, f.Alias())
+				if err := self.writeStringValue(ctx, buf, f, val, enc, req); err != nil {
 					return err
 				}
 				return nil
@@ -116,9 +116,14 @@ func isJsonString(val string) bool {
 	if len(val) < 2 {
 		return false
 	}
-	s := val[0]
-	e := val[len(val)-1]
-	return (s == '{' && e == '}') || (s == '[' && e == ']')
+	
+	c := json.SkipBlank(val, 0) 
+	if c < 0 {
+		return false
+	}
+	s := val[c]
+	e := val[len(val)-1] //FIXME: may need exist blank
+	return (s == '{' && e == '}') || (s == '[' && e == ']') || (s == '"' && e == '"')
 }
 
 func (self *BinaryConv) writeStringValue(ctx context.Context, buf *[]byte, f *thrift.FieldDescriptor, val string, enc meta.Encoding, req http.RequestGetter) error {
@@ -148,16 +153,18 @@ func (self *BinaryConv) writeStringValue(ctx context.Context, buf *[]byte, f *th
 		if enc == meta.EncodingThriftBinary {
 			p.Buf = append(p.Buf, val...)
 			goto BACK
-		} else if enc != meta.EncodingJSON {
-			return newError(meta.ErrUnsupportedType, fmt.Sprintf("unsupported encoding type %d of field '%s'", enc, f.Name()), nil)
-		}
-		if ft := f.Type(); ft.Type().IsComplex() && isJsonString(val) {
+		} else if enc == meta.EncodingText || !f.Type().Type().IsComplex() || !isJsonString(val) {
+			if err := p.WriteStringWithDesc(val, f.Type(), self.opts.DisallowUnknownField, !self.opts.NoBase64Binary); err != nil {
+				return newError(meta.ErrConvert, fmt.Sprintf("failed to write field '%s' value", f.Name()), err)
+			}
+		} else if enc == meta.EncodingJSON {
 			// for nested type, we regard it as a json string and convert it directly
-			if err := self.doNative(ctx, rt.Str2Mem(val), ft, &p.Buf, req, false); err != nil {
+			if err := self.doNative(ctx, rt.Str2Mem(val), f.Type(), &p.Buf, req, false); err != nil {
 				return newError(meta.ErrConvert, fmt.Sprintf("failed to convert value of field '%s'", f.Name()), err)
 			}
-		} else if err := p.WriteStringWithDesc(val, ft, self.opts.DisallowUnknownField, !self.opts.NoBase64Binary); err != nil {
-			return newError(meta.ErrConvert, fmt.Sprintf("failed to write field '%s' value", f.Name()), err)
+		// try text encoding, see thrift.EncodeText
+		} else {
+			return newError(meta.ErrConvert, fmt.Sprintf("unsupported http-mapping encoding %v for '%s'", enc, f.Name()), nil)
 		}
 	}
 BACK:
@@ -248,11 +255,12 @@ func (self *BinaryConv) handleUnmatchedFields(ctx context.Context, fsm *types.J2
 			continue
 		}
 		var val string
+		var enc = meta.EncodingText
 		if self.opts.TracebackRequredOrRootFields && (top || f.Required() == thrift.RequiredRequireness) {
 			// try get value from http
-			val, _ = tryGetValueFromHttp(req, f.Alias())
+			val, _, enc = tryGetValueFromHttp(req, f.Alias())
 		}
-		if err := self.writeStringValue(ctx, buf, f, val, meta.EncodingJSON, req); err != nil {
+		if err := self.writeStringValue(ctx, buf, f, val, enc, req); err != nil {
 			return false, err
 		}
 	}
@@ -274,26 +282,26 @@ func (self *BinaryConv) handleUnmatchedFields(ctx context.Context, fsm *types.J2
 }
 
 // searching sequence: url -> [post] -> query -> header -> [body root]
-func tryGetValueFromHttp(req http.RequestGetter, key string) (string, bool) {
+func tryGetValueFromHttp(req http.RequestGetter, key string) (string, bool, meta.Encoding) {
 	if req == nil {
-		return "", false
+		return "", false, meta.EncodingText
 	}
 	if v := req.GetParam(key); v != "" {
-		return v, true
+		return v, true, meta.EncodingJSON
 	}
 	if v := req.GetQuery(key); v != "" {
-		return v, true
+		return v, true, meta.EncodingJSON
 	}
 	if v := req.GetHeader(key); v != "" {
-		return v, true
+		return v, true, meta.EncodingJSON
 	}
 	if v := req.GetCookie(key); v != "" {
-		return v, true
+		return v, true, meta.EncodingJSON
 	}
 	if v := req.GetMapBody(key); v != "" {
-		return v, true
+		return v, true, meta.EncodingJSON
 	}
-	return "", false
+	return "", false, meta.EncodingText
 }
 
 func (self *BinaryConv) handleValueMapping(ctx context.Context, fsm *types.J2TStateMachine, desc *thrift.StructDescriptor, buf *[]byte, pos int, src []byte) (bool, error) {

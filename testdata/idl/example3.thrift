@@ -88,7 +88,7 @@ struct ExampleInt2Float {
 
 struct JSONObject {
     1: string A (go.tag="json:\"a\""),
-    2: i64 B (go.tag="json:\"b\""),
+    2: i8 B (go.tag="json:\"b\""),
 }
 
 struct ExampleJSONString {
