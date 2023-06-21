@@ -30,6 +30,9 @@ const (
 	EncodingThriftCompact
 	// EncodingProtobuf is protobuf protocol
 	EncodingProtobuf
+	
+	// text encoding, see thrift/binary.go::EncodeText()
+	EncodingText
 )
 
 // String returns the string representation of Encoding
@@ -43,6 +46,8 @@ func (p Encoding) String() string {
 		return "ThriftBinary"
 	case EncodingProtobuf:
 		return "Protobuf"
+	case EncodingText:
+		return "Text"
 	default:
 		return "Unknown"
 	}

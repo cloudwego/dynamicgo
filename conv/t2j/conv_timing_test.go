@@ -95,6 +95,7 @@ func BenchmarkThrift2HTTP_Parallel_DynamicGo(b *testing.B) {
 	conv := NewBinaryConv(conv.Options{
 		EnableValueMapping: true,
 		EnableHttpMapping:  true,
+		OmitHttpMappingErrors: true,
 	})
 	in := getExample3Data()
 	ctx := context.Background()

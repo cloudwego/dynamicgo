@@ -4148,7 +4148,7 @@ func (p *ExampleInt2Float) Field32767DeepEqual(src float64) bool {
 
 type JSONObject struct {
 	A string `thrift:"A,1" json:"a"`
-	B int64  `thrift:"B,2" json:"b"`
+	B int8   `thrift:"B,2" json:"b"`
 }
 
 func NewJSONObject() *JSONObject {
@@ -4159,13 +4159,13 @@ func (p *JSONObject) GetA() (v string) {
 	return p.A
 }
 
-func (p *JSONObject) GetB() (v int64) {
+func (p *JSONObject) GetB() (v int8) {
 	return p.B
 }
 func (p *JSONObject) SetA(val string) {
 	p.A = val
 }
-func (p *JSONObject) SetB(val int64) {
+func (p *JSONObject) SetB(val int8) {
 	p.B = val
 }
 
@@ -4204,7 +4204,7 @@ func (p *JSONObject) Read(iprot thrift.TProtocol) (err error) {
 				}
 			}
 		case 2:
-			if fieldTypeId == thrift.I64 {
+			if fieldTypeId == thrift.BYTE {
 				if err = p.ReadField2(iprot); err != nil {
 					goto ReadFieldError
 				}
@@ -4253,7 +4253,7 @@ func (p *JSONObject) ReadField1(iprot thrift.TProtocol) error {
 }
 
 func (p *JSONObject) ReadField2(iprot thrift.TProtocol) error {
-	if v, err := iprot.ReadI64(); err != nil {
+	if v, err := iprot.ReadByte(); err != nil {
 		return err
 	} else {
 		p.B = v
@@ -4312,10 +4312,10 @@ WriteFieldEndError:
 }
 
 func (p *JSONObject) writeField2(oprot thrift.TProtocol) (err error) {
-	if err = oprot.WriteFieldBegin("B", thrift.I64, 2); err != nil {
+	if err = oprot.WriteFieldBegin("B", thrift.BYTE, 2); err != nil {
 		goto WriteFieldBeginError
 	}
-	if err := oprot.WriteI64(p.B); err != nil {
+	if err := oprot.WriteByte(p.B); err != nil {
 		return err
 	}
 	if err = oprot.WriteFieldEnd(); err != nil {
@@ -4357,7 +4357,7 @@ func (p *JSONObject) Field1DeepEqual(src string) bool {
 	}
 	return true
 }
-func (p *JSONObject) Field2DeepEqual(src int64) bool {
+func (p *JSONObject) Field2DeepEqual(src int8) bool {
 
 	if p.B != src {
 		return false

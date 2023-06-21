@@ -522,10 +522,10 @@ func TestJSONString(t *testing.T) {
 	exp := example3.NewExampleJSONString()
 	eobj := &example3.JSONObject{
 		A: "1",
-		B: 2,
+		B: -1,
 	}
 	exp.Header = eobj
-	exp.Header2 = map[int32]string{1: "1", 2: "2"}
+	exp.Header2 = map[int32]string{1: "1"}
 	exp.Cookie = &example3.JSONObject{}
 	exp.Cookie2 = []int32{1, 2}
 	in := make([]byte, exp.BLength())
@@ -653,7 +653,7 @@ func TestOptionalDefaultValue(t *testing.T) {
 		assert.Equal(t, exp, act)
 		require.Equal(t, "1.2", resp.Response.Header.Get("c"))
 		require.Equal(t, "const string", resp.Response.Cookies()[0].Value)
-		require.Equal(t, `""`, resp.Response.Header.Get("f"))
+		require.Equal(t, ``, resp.Response.Header.Get("f"))
 	})
 }
 
@@ -679,4 +679,42 @@ func TestSimpleArgs(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, strconv.Itoa(math.MaxInt64), string(out))
 	})
+}
+
+func TestConvThrift2HTTP_KitexApiHeader(t *testing.T) {
+	// annotation.RegisterHttpMaping(annotation.APIHeader, annotation.HttpMapingHandler{Req:annotation.ApiHeaderRequest, Resp:annotation.ApiheaderKitexResponse, Enc:annotation.ApiHeaderKitexEncoding})
+	
+	desc := thrift.FnResponse(thrift.GetFnDescFromFile("testdata/idl/example3.thrift", "JSONStringMethod", thrift.Options{}))
+	exp := example3.NewExampleJSONString()
+	eobj := &example3.JSONObject{
+		A: "1",
+		B: -1,
+	}
+	exp.Header = eobj
+	exp.Header2 = map[int32]string{1: "1"}
+	exp.Cookie = &example3.JSONObject{}
+	exp.Cookie2 = []int32{1, 2}
+	in := make([]byte, exp.BLength())
+	_ = exp.FastWriteNocopy(in, nil)
+
+	cv := NewBinaryConv(conv.Options{
+		EnableHttpMapping:      true,
+		WriteHttpValueFallback: true,
+		OmitHttpMappingErrors:  true,
+		UseKitexHttpEncoding: true,
+	})
+	ctx := context.Background()
+	resp := http.NewHTTPResponse()
+	ctx = context.WithValue(ctx, conv.CtxKeyHTTPResponse, resp)
+	out, err := cv.Do(ctx, desc, in)
+	require.NoError(t, err)
+
+	// act := example3.NewExampleJSONString()
+	require.Equal(t, "{\"Query\":{},\"Query2\":[]}", string(out))
+	require.Equal(t, "map[a:1 b:-1]", resp.Response.Header.Get("header"))
+	require.Equal(t, "map[1:1]", resp.Response.Header.Get("header2"))
+	require.Equal(t, "map[a: b:0]", resp.Cookies()[0].Value)
+	require.Equal(t, "1,2", resp.Cookies()[1].Value)
+
+	// annotation.RegisterHttpMaping(annotation.APIHeader, annotation.HttpMapingHandler{Req:annotation.ApiHeaderRequest, Resp: annotation.ApiHeaderResponse, Enc:annotation.ApiHeaderEncoding})
 }

@@ -93,6 +93,9 @@ type Options struct {
 
 	// ConvertException indicates that it returns error for thrift exception fields when doing BinaryConv t2j
 	ConvertException bool
+
+	// UseKitexHttpEncoding indicating using kitex's text encoding to output complex http values
+	UseKitexHttpEncoding bool
 }
 
 var bufPool = sync.Pool{

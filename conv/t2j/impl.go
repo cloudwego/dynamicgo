@@ -24,6 +24,7 @@ import (
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/internal/json"
+	"github.com/cloudwego/dynamicgo/internal/primitive"
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
@@ -36,7 +37,7 @@ const (
 
 //go:noinline
 func wrapError(code meta.ErrCode, msg string, err error) error {
-	// panic(msg)
+	// panic(meta.NewError(meta.NewErrorCode(code, meta.THRIFT2JSON), msg, err))
 	return meta.NewError(meta.NewErrorCode(code, meta.THRIFT2JSON), msg, err)
 }
 
@@ -393,30 +394,16 @@ func (self *BinaryConv) handleUnsets(b *thrift.RequiresBitmap, desc *thrift.Stru
 		// check if field has http mapping
 		var ok = false
 		if hms := field.HTTPMappings(); self.opts.EnableHttpMapping && hms != nil {
-			tmp := make([]byte, 0, conv.DefaulHttpValueBufferSizeForJSON)
-			if err := writeDefaultOrEmpty(field, &tmp); err != nil {
-				return err
+			// make a default thrift value
+			p := thrift.BinaryProtocol{Buf: make([]byte, 0, conv.DefaulHttpValueBufferSizeForJSON)};
+			if err := p.WriteDefaultOrEmpty(field); err != nil {
+				return wrapError(meta.ErrWrite, fmt.Sprintf("encoding field '%s' default value failed", field.Name()), err)
 			}
-			val := rt.Mem2Str(tmp)
-			for _, hm := range hms {
-				if enc := hm.Encoding(); enc == meta.EncodingJSON {
-					if e := hm.Response(ctx, resp, field, val); e == nil {
-						ok = true
-						break
-					} else if !self.opts.OmitHttpMappingErrors {
-						return e
-					}
-				} else if enc == meta.EncodingThriftBinary {
-					// no thrift data, pass empty string to http mapping
-					if e := hm.Response(ctx, resp, field, ""); e == nil {
-						ok = true
-						break
-					} else if !self.opts.OmitHttpMappingErrors {
-						return e
-					}
-				} else {
-					return wrapError(meta.ErrUnsupportedType, fmt.Sprintf("unknown http mapping encoding %d", enc), nil)
-				}
+			// convert it into http
+			var err error
+			ok, err = self.writeHttpValue(ctx, resp, &p, field)
+			if err != nil {
+				return err
 			}
 		}
 		if ok {
@@ -527,59 +514,75 @@ func (self *BinaryConv) buildinTypeToKey(p *thrift.BinaryProtocol, dest *thrift.
 }
 
 func (self *BinaryConv) writeHttpValue(ctx context.Context, resp http.ResponseSetter, p *thrift.BinaryProtocol, field *thrift.FieldDescriptor) (ok bool, err error) {
-	var val string
-	var start = p.Read
-	if ft := field.Type(); ft.Type().IsComplex() {
-		// for nested type, convert it to a new JSON string
-		tmp := make([]byte, 0, conv.DefaulHttpValueBufferSizeForJSON)
-		err := self.doRecurse(ctx, ft, &tmp, resp, p)
-		if err != nil {
-			return false, unwrapError(fmt.Sprintf("mapping field %s failed, thrift pos:%d", field.Name(), p.Read), err)
-		}
-		val = rt.Mem2Str(tmp)
-	} else if ft.Type() == thrift.STRING && !ft.IsBinary() {
-		// special case for string, refer it directly from thrift
-		val, err = p.ReadString(!self.opts.NoCopyString)
-		if err != nil {
-			return false, wrapError(meta.ErrRead, "", err)
-		}
-	} else {
-		// scalar type, convert it to a generic string
-		tmp := make([]byte, 0, conv.DefaulHttpValueBufferSizeForScalar)
-		if err = p.ReadStringWithDesc(field.Type(), &tmp, self.opts.ByteAsUint8, self.opts.DisallowUnknownField, !self.opts.NoBase64Binary); err != nil {
-			return false, wrapError(meta.ErrRead, "", err)
-		}
-		val = rt.Mem2Str(tmp)
-	}
-
-	var rawVal string
+	var thriftVal []byte
+	var jsonVal []byte
+	var textVal []byte
+	
 	for _, hm := range field.HTTPMappings() {
-		if enc := hm.Encoding(); enc == meta.EncodingJSON {
-			// NOTICE: ignore error if the value is not set
-			if e := hm.Response(ctx, resp, field, val); e == nil {
-				ok = true
-				break
-			} else if !self.opts.OmitHttpMappingErrors {
-				return false, e
-			}
-		} else if enc == meta.EncodingThriftBinary {
+		var val []byte
+		enc := hm.Encoding();
+
+		if enc == meta.EncodingThriftBinary {
 			// raw encoding, check if raw value is set
-			if rawVal == "" {
-				//  skip the value and save it if for later use
-				p.Read = start
+			if thriftVal == nil {
+				var start = p.Read
 				if err := p.Skip(field.Type().Type(), self.opts.UseNativeSkip); err != nil {
 					return false, wrapError(meta.ErrRead, "", err)
 				}
-				rawVal = rt.Mem2Str((p.Buf[start:p.Read]))
+				val = p.Buf[start:p.Read]
+				thriftVal = val
+			} else {
+				val = thriftVal
 			}
-			if e := hm.Response(ctx, resp, field, rawVal); e == nil {
-				ok = true
-				break
-			} else if !self.opts.OmitHttpMappingErrors {
-				return false, e
+
+		} else if enc == meta.EncodingText || !field.Type().Type().IsComplex() { // not complex value, must use text encoding
+			if textVal == nil {
+				tmp := make([]byte, 0, conv.DefaulHttpValueBufferSizeForJSON)
+				err = p.ReadStringWithDesc(field.Type(), &tmp, self.opts.ByteAsUint8, self.opts.DisallowUnknownField, !self.opts.NoBase64Binary)
+				if err != nil {
+					return false, unwrapError(fmt.Sprintf("reading thrift value of '%s' failed, thrift pos:%d", field.Name(), p.Read), err)
+				}
+				val = tmp
+				textVal = val 
+			} else {
+				val = textVal
+			} 
+		} else if self.opts.UseKitexHttpEncoding {
+			// kitex http encoding fallback
+			if textVal == nil {
+				obj, err := p.ReadAnyWithDesc(field.Type(), self.opts.ByteAsUint8, !self.opts.NoCopyString, self.opts.DisallowUnknownField, true)
+				if err != nil {
+					return false, unwrapError(fmt.Sprintf("reading thrift value of '%s' failed, thrift pos:%d", field.Name(), p.Read), err)
+				}
+				textVal = rt.Str2Mem(primitive.KitexToString(obj))
+				val = textVal
+			} else {
+				val = textVal
+			} 
+		} else if enc == meta.EncodingJSON {
+			// for nested type, convert it to a new JSON string
+			if jsonVal == nil {
+				tmp := make([]byte, 0, conv.DefaulHttpValueBufferSizeForJSON)
+				err := self.doRecurse(ctx, field.Type(), &tmp, resp, p)
+				if err != nil {
+					return false, unwrapError(fmt.Sprintf("mapping field %s failed, thrift pos:%d", field.Name(), p.Read), err)
+				}
+				val = tmp
+				jsonVal = val
+			} else {
+				val = jsonVal
 			}
+			
 		} else {
-			return false, wrapError(meta.ErrUnsupportedType, fmt.Sprintf("unsupported http mapping encoding %d", enc), nil)
+			return false, wrapError(meta.ErrConvert, fmt.Sprintf("unsuported http-value encoding %v of field '%s'", enc, field.Name()), nil)
+		}
+
+		// NOTICE: ignore error if the value is not set
+		if e := hm.Response(ctx, resp, field, rt.Mem2Str(val)); e == nil {
+			ok = true
+			break
+		} else if !self.opts.OmitHttpMappingErrors {
+			return false, e
 		}
 	}
 	return
