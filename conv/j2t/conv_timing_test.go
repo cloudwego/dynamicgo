@@ -24,11 +24,6 @@ import (
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/example3"
 
-	// "github.com/cloudwego/dynamicgo/thrift"
-	// athrift "github.com/apache/thrift/lib/go/thrift"
-	// kg "github.com/cloudwego/kitex/pkg/generic"
-	// kd "github.com/cloudwego/kitex/pkg/generic/descriptor"
-	// gthrift "github.com/cloudwego/kitex/pkg/generic/thrift"
 	"github.com/stretchr/testify/require"
 )
 
@@ -129,46 +124,3 @@ func BenchmarkConvHTTP2Thrift_Parallel_DynamicGo(b *testing.B) {
 		}
 	})
 }
-
-// func getKitexGenericDesc() *kd.ServiceDescriptor {
-// 	p, err := kg.NewThriftFileProvider(exampleIDLPath)
-// 	if err != nil {
-// 		panic(err.Error())
-// 	}
-// 	return <-p.Provide()
-// }
-
-// func wrapKitexGenericRequestPayload(in []byte) []byte {
-// 	out := make([]byte, 0, len(in)+4)
-// 	p := thrift.NewBinaryProtocol(out)
-// 	p.WriteFieldBegin("", athrift.STRUCT, 1)
-// 	p.Buf = append(p.Buf, in...)
-// 	p.WriteFieldEnd()
-// 	p.WriteStructEnd()
-// 	return p.Buf
-// }
-
-// func BenchmarkThriftMarshalAll_KitexGeneric(b *testing.B) {
-// 	b.Run("sequential", func(b *testing.B) {
-// 		data := string(getExampleData())
-// 		svcDsc := getKitexGenericDesc()
-// 		var _args kg.Args
-// 		_args.Method = "ExampleMethod"
-// 		_args.Request = string(data)
-// 		codec, err := gthrift.NewWriteJSON(svcDsc, "ExampleMethod", true)
-// 		if err != nil {
-// 			b.Fatal(err)
-// 		}
-// 		var mm = athrift.NewTMemoryBuffer()
-// 		bc := athrift.NewTBinaryProtocol(mm, false, true)
-// 		if err := codec.Write(context.Background(), bc, data, nil); err != nil {
-// 			b.Fatal(err)
-// 		}
-
-// 		b.ResetTimer()
-// 		for i := 0; i < b.N; i++ {
-// 			mm.Reset()
-// 			_ = codec.Write(context.Background(), bc, data, nil)
-// 		}
-// 	})
-// }

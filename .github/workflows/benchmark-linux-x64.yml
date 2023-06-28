@@ -25,7 +25,9 @@ jobs:
       
       - name: Testdata
         run: |
+          go get -t github.com/cloudwego/dynamicgo/testdata
           go get github.com/json-iterator/go@latest
+          go get github.com/thrift-iterator/go@latest
           go get github.com/cloudwego/kitex/pkg/remote/codec/thrift@latest
           go get github.com/cloudwego/kitex/pkg/generic@latest
           go get github.com/cloudwego/frugal@latest
