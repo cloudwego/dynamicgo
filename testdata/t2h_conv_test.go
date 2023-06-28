@@ -14,20 +14,21 @@
  * limitations under the License.
  */
 
-package t2j
+package testdata
 
 import (
 	"context"
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/conv"
+	"github.com/cloudwego/dynamicgo/conv/t2j"
 	"github.com/cloudwego/dynamicgo/internal/util_test"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHTTPConv_Do(t *testing.T) {
+func TestThrift2HTTPConv_Do(t *testing.T) {
 	svc, err := thrift.NewDescritorFromPath(context.Background(), util_test.MustGitPath("testdata/idl/example4.thrift"))
 	if err != nil {
 		t.Fatal(err)
@@ -39,14 +40,14 @@ func TestHTTPConv_Do(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		conv    *HTTPConv
+		conv    *t2j.HTTPConv
 		tbytes  []byte
 		wantErr bool
 		want    util_test.Resp
 	}{
 		{
 			name: "example4",
-			conv: NewHTTPConv(meta.EncodingThriftBinary, fn),
+			conv: t2j.NewHTTPConv(meta.EncodingThriftBinary, fn),
 			tbytes: util_test.MustDecodeHex(
 				t,
 				"80010002000000114765744661766f726974654d6574686f64000000130c00000c000108000100001e450f00020b00000002"+

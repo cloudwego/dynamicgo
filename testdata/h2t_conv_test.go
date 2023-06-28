@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-package j2t
+package testdata
 
 import (
 	"context"
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/conv"
+	"github.com/cloudwego/dynamicgo/conv/j2t"
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/internal/util_test"
 	"github.com/cloudwego/dynamicgo/meta"
@@ -44,7 +45,7 @@ func getFnDescByPathName(t *testing.T, filePath, fnName string) *thrift.Function
 	return fn
 }
 
-func TestHTTPConv_Do(t *testing.T) {
+func TestHTTP2ThriftConv_Do(t *testing.T) {
 	t.Parallel()
 	getFavoriteFn := getFnDescByPathName(t, "testdata/idl/example4.thrift", "GetFavoriteMethod")
 
@@ -107,7 +108,7 @@ func TestHTTPConv_Do(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			convIns := NewHTTPConv(tt.proto, tt.fn)
+			convIns := j2t.NewHTTPConv(tt.proto, tt.fn)
 			gotTbytes := make([]byte, 0, 1)
 			err := convIns.DoInto(context.Background(), tt.req, &gotTbytes, conv.Options{
 				WriteRequireField:            true,
