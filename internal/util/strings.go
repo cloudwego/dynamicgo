@@ -17,11 +17,10 @@
 package util
 
 import (
-	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/cloudwego/dynamicgo/meta"
+	"github.com/fatih/structtag"
 	"github.com/iancoleman/strcase"
 )
 
@@ -54,18 +53,33 @@ func ToLowerCamelCase(name string) string {
 }
 
 func SplitTagOptions(tag string) (ret []string, err error) {
-	kv := strings.Trim(tag, " ")
-	i := strings.Index(kv, ":")
-	if i <= 0 {
-		return nil, fmt.Errorf("invalid go tag: %s", tag)
-	}
-	ret = append(ret, kv[:i])
-	v, err := strconv.Unquote(kv[i+1:])
+	tags, err := structtag.Parse(tag)
 	if err != nil {
-		return ret, err
+		// try replace `\"`
+		tag = strings.Replace(tag, `\"`, `"`, -1)
+		tags, err = structtag.Parse(tag)
+		if err != nil {
+			return nil, err
+		}
 	}
-	vs := strings.Split(v, ",")
-	ret = append(ret, vs...)
+	// kv := strings.Trim(tag,  "\n\b\t\r")
+	// i := strings.Index(kv, ":")
+	// if i <= 0 {
+	// 	return nil, fmt.Errorf("invalid go tag: %s", tag)
+	// }
+	// ret = append(ret, kv[:i])
+	// val := strings.Trim(kv[i+1:], "\n\b\t\r")
+
+	// v, err := strconv.Unquote(kv[i+1:])
+	// if err != nil {
+	// 	return ret, err
+	// }
+	// vs := strings.Split(v, ",")
+	// ret = append(ret, vs...)
+	for _, t := range tags.Tags() {
+		ret = append(ret, t.Key)
+		ret = append(ret, t.Name)
+	}
 	return ret, nil
 }
 

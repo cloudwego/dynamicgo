@@ -97,10 +97,7 @@ func TestHTTP2ThriftConv_Do(t *testing.T) {
 				Arguments: general.Struct{
 					1: general.Struct{
 						1: int32(7749),
-						255: general.Struct{
-							1: int32(0),
-							2: general.List(nil),
-						},
+						255: general.Struct{},
 					},
 				},
 			},
