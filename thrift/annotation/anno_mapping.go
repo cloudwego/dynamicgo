@@ -44,7 +44,7 @@ func (m goTagMapper) Map(ctx context.Context, anns []parser.Annotation, desc int
 			}
 			switch kv[0] {
 			case "json":
-				if err := handleGoJSON(kv, &ret); err != nil {
+				if err := handleGoJSON(kv[1], &ret); err != nil {
 					return nil, nil, err
 				}
 			}
@@ -53,13 +53,10 @@ func (m goTagMapper) Map(ctx context.Context, anns []parser.Annotation, desc int
 	return
 }
 
-func handleGoJSON(kv []string, ret *[]parser.Annotation) error {
-	if len(kv) < 2 {
-		return fmt.Errorf("invalid json tag: %v", kv)
-	}
+func handleGoJSON(name string, ret *[]parser.Annotation) error {
 	*ret = append(*ret, parser.Annotation{
 		Key:    APIKeyName,
-		Values: []string{kv[1]},
+		Values: []string{name},
 	})
 	return nil
 }
