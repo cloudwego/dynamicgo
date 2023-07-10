@@ -1682,25 +1682,33 @@ func (p *BinaryProtocol) SkipGo(fieldType Type, maxDepth int) (err error) {
 	}
 	switch fieldType {
 	case BOOL:
-		_, err = p.ReadBool()
+		err = p.skip(1)
 		return
 	case BYTE:
-		_, err = p.ReadByte()
+		err = p.skip(1)
 		return
 	case I16:
-		_, err = p.ReadI16()
+		err = p.skip(2)
 		return
 	case I32:
-		_, err = p.ReadI32()
+		err = p.skip(4)
 		return
 	case I64:
-		_, err = p.ReadI64()
+		err = p.skip(8)
 		return
 	case DOUBLE:
-		_, err = p.ReadDouble()
+		err = p.skip(8)
 		return
 	case STRING:
-		_, err = p.ReadString(false)
+		size, e := p.ReadI32()
+		if e != nil {
+			return e
+		}
+		if size < 0 || int(size) > len(p.Buf)-p.Read {
+			err = errInvalidDataSize
+			return
+		}
+		err = p.skip(int(size))
 		return
 	case STRUCT:
 		// if _, err = p.ReadStructBegin(); err != nil {
@@ -1723,7 +1731,7 @@ func (p *BinaryProtocol) SkipGo(fieldType Type, maxDepth int) (err error) {
 			if err != nil {
 				return err
 			}
-			p.ReadFieldEnd()
+			// p.ReadFieldEnd()
 		}
 		return p.ReadStructEnd()
 	case MAP:
@@ -1752,7 +1760,7 @@ func (p *BinaryProtocol) SkipGo(fieldType Type, maxDepth int) (err error) {
 				}
 			}
 		}
-		return p.ReadMapEnd()
+		return nil
 	case SET, LIST:
 		elemType, size, err := p.ReadListBegin()
 		if err != nil {
@@ -1775,7 +1783,7 @@ func (p *BinaryProtocol) SkipGo(fieldType Type, maxDepth int) (err error) {
 				}
 			}
 		}
-		return p.ReadListEnd()
+		return nil
 	default:
 		return
 	}
@@ -1796,6 +1804,22 @@ func (p *BinaryProtocol) next(size int) ([]byte, error) {
 	ret := (p.Buf)[p.Read:d]
 	p.Read = d
 	return ret, nil
+}
+
+func (p *BinaryProtocol) skip(size int) error {
+	if size < 0 {
+		panic(errors.New("invalid size"))
+	} else if size == 0 {
+		return nil
+	}
+
+	l := len(p.Buf)
+	d := p.Read + size
+	if d > l {
+		return io.EOF
+	}
+	p.Read = d
+	return nil
 }
 
 // BinaryEncoding is the implementation of Encoding for binary encoding.
