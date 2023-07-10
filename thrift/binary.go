@@ -502,23 +502,7 @@ func (p *BinaryProtocol) WriteEmpty(desc *TypeDescriptor) error {
 		}
 		return p.WriteMapEnd()
 	case STRUCT:
-		if err := p.WriteStructBegin(""); err != nil {
-			return err
-		}
-		for _, f := range desc.Struct().Fields() {
-			if f.Required() == OptionalRequireness {
-				continue
-			}
-			if err := p.WriteFieldBegin(f.Name(), f.Type().Type(), f.ID()); err != nil {
-				return err
-			}
-			if err := p.WriteEmpty(f.Type()); err != nil {
-				return err
-			}
-			if err := p.WriteFieldEnd(); err != nil {
-				return err
-			}
-		}
+		// NOTICE: to avoid self-cycled type dead loop here, just write empty struct
 		return p.WriteStructEnd()
 	default:
 		return errors.New("invalid type")
