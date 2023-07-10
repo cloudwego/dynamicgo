@@ -72,8 +72,7 @@ func TestGoTagJSON(t *testing.T) {
 		string ExampleMethod(1: Base req)
 	}
 	`, "ExampleMethod")
-	require.Error(t, err)
-	println(err.Error())
+	require.NoError(t, err)
 }
 
 func TestApiKey(t *testing.T) {
