@@ -17,6 +17,8 @@
 package generic
 
 import (
+	"fmt"
+
 	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
@@ -244,6 +246,153 @@ func (it *mapIterator) NextInt(useNative bool) (keyStart int, keyInt int, start 
 }
 
 // Foreach scan each element of a complex type (LIST/SET/MAP/STRUCT),
+// and call handler sequentially with corresponding path and value
+func (self Value) Foreach(handler func(path Path, val Value) bool, opts *Options) error {
+	switch self.t {
+	case thrift.STRUCT:
+		it := self.iterFields()
+		if it.Err != nil {
+			return it.Err
+		}
+		for it.HasNext() {
+			id, typ, start, end := it.Next(opts.UseNativeSkip)
+			if it.Err != nil {
+				return it.Err
+			}
+			f := self.Desc.Struct().FieldById(id)
+			if f == nil {
+				if opts.DisallowUnknow {
+					return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", id), nil)
+				}
+				continue
+			}
+			if f.Type().Type() != typ {
+				return wrapError(meta.ErrDismatchType, fmt.Sprintf("field %d type %v mismatch read type %v", id, f.Type().Type(), typ), nil)
+			}
+			v := self.slice(start, end, f.Type())
+			var p Path
+			if opts.IterateStructByName && f != nil {
+				p = NewPathFieldName(f.Name())
+			} else {
+				p = NewPathFieldId(id)
+			}
+			if !handler(p, v) {
+				return nil
+			}
+		}
+	case thrift.LIST, thrift.SET:
+		it := self.iterElems()
+		if it.Err != nil {
+			return it.Err
+		}
+		et := self.Desc.Elem()
+		for i := 0; it.HasNext(); i++ {
+			start, end := it.Next(opts.UseNativeSkip)
+			if it.Err != nil {
+				return it.Err
+			}
+			v := self.slice(start, end, et)
+			p := NewPathIndex(i)
+			if !handler(p, v) {
+				return nil
+			}
+		}
+	case thrift.MAP:
+		it := self.iterPairs()
+		if it.Err != nil {
+			return it.Err
+		}
+		kt := self.Desc.Key()
+		if kt.Type() != it.kt {
+			return wrapError(meta.ErrDismatchType, "dismatched descriptor key type and binary type", nil)
+		}
+		et := self.Desc.Elem()
+		if et.Type() != it.et {
+			return wrapError(meta.ErrDismatchType, "dismatched descriptor elem type and binary type", nil)
+		}
+		if kt.Type() == thrift.STRING {
+			for i := 0; it.HasNext(); i++ {
+				_, keyString, start, end := it.NextStr(opts.UseNativeSkip)
+				if it.Err != nil {
+					return it.Err
+				}
+				v := self.slice(start, end, et)
+				p := NewPathStrKey(keyString)
+				if !handler(p, v) {
+					return nil
+				}
+			}
+		} else if kt.Type().IsInt() {
+			for i := 0; it.HasNext(); i++ {
+				_, keyInt, start, end := it.NextInt(opts.UseNativeSkip)
+				if it.Err != nil {
+					return it.Err
+				}
+				v := self.slice(start, end, et)
+				p := NewPathIntKey(keyInt)
+				if !handler(p, v) {
+					return nil
+				}
+			}
+		} else {
+			for i := 0; it.HasNext(); i++ {
+				_, keyBin, start, end := it.NextBin(opts.UseNativeSkip)
+				if it.Err != nil {
+					return it.Err
+				}
+				v := self.slice(start, end, et)
+				p := NewPathBinKey(keyBin)
+				if !handler(p, v) {
+					return nil
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// ForeachKV scan each element of a MAP type, and call handler sequentially with corresponding key and value
+func (self Value) ForeachKV(handler func(key Value, val Value) bool, opts *Options) error {
+	if err := self.should("MAP", thrift.MAP); err != "" {
+		return wrapError(meta.ErrUnsupportedType, err, nil)
+	}
+	switch self.t {
+	case thrift.MAP:
+		p := thrift.BinaryProtocol{Buf: self.raw()}
+		kt, et, size, e := p.ReadMapBegin()
+		if e != nil {
+			return errNode(meta.ErrRead, "", nil)
+		}
+		kd := self.Desc.Key()
+		if kd.Type() != kt {
+			return wrapError(meta.ErrDismatchType, "dismatched descriptor key type and binary type", nil)
+		}
+		ed := self.Desc.Elem()
+		if ed.Type() != et {
+			return wrapError(meta.ErrDismatchType, "dismatched descriptor elem type and binary type", nil)
+		}
+		for i := 0; i < size; i++ {
+			ks := p.Read
+			if err := p.Skip(kt, opts.UseNativeSkip); err != nil {
+				return errNode(meta.ErrRead, "", nil)
+			}
+			key := self.slice(ks, p.Read, kd)
+			es := p.Read
+			if err := p.Skip(et, opts.UseNativeSkip); err != nil {
+				return errNode(meta.ErrRead, "", nil)
+			}
+			val := self.slice(es, p.Read, ed)
+			if !handler(key, val) {
+				return nil
+			}
+		}
+		return nil
+	default:
+		return errNode(meta.ErrUnsupportedType, "", nil)
+	}
+}
+
+// Foreach scan each element of a complex type (LIST/SET/MAP/STRUCT),
 // and call handler sequentially with corresponding path and node
 func (self Node) Foreach(handler func(path Path, node Node) bool, opts *Options) error {
 	switch self.t {
@@ -257,23 +406,9 @@ func (self Node) Foreach(handler func(path Path, node Node) bool, opts *Options)
 			if it.Err != nil {
 				return it.Err
 			}
-			// f := self.d.Struct().FieldById(id)
-			// if f == nil {
-			// 	if opts.DisallowUnknow {
-			// 		return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", id), nil)
-			// 	}
-			// 	continue
-			// }
-			// if f.Type().Type() != typ {
-			// 	return wrapError(meta.ErrDismatchType, fmt.Sprintf("field %d type %v mismatch read type %v", id, f.Type().Type(), typ), nil)
-			// }
 			v := self.slice(start, end, typ)
 			var p Path
-			// if opts.StructByName && f != nil {
-			// 	p = NewPathFieldName(f.Name())
-			// } else {
 			p = NewPathFieldId(id)
-			// }
 			if !handler(p, v) {
 				return nil
 			}
