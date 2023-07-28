@@ -48,7 +48,7 @@ type Options struct {
 	//  WARNING: this will promote performance when thrift value to be skipped is large, but may decrease preformance when thrift value is small.
 	UseNativeSkip bool
 
-	// MapStructById indicates to use field id as map key instead of when call Node.Interface() on STRUCT type.
+	// MapStructById indicates to use FieldId instead of int as map key instead of when call Node.Interface() on STRUCT type.
 	MapStructById bool
 
 	// CastStringAsBinary indicates to cast STRING type to []byte when call Node.Interface()/Map().

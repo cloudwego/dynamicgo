@@ -24,7 +24,9 @@ import (
 )
 
 func TestForeach(t *testing.T) {
-	var iterOpts = &Options{}
+	var iterOpts = &Options{
+		IterateStructByName: true,
+	}
 
 	desc := getExampleDesc()
 	data := getExampleData()
@@ -98,16 +100,20 @@ func TestForeach(t *testing.T) {
 		}
 		require.NoError(t, root.Foreach(handler, iterOpts))
 
+		handler2 := func(path Path, val Value) bool {
+			require.True(t, path.Type() == PathFieldName)
+			t.Logf("handler2: %v", path)
+			return true
+		}
+		vv := root.GetByPath(NewPathFieldName("InnerBase"))
+		require.Nil(t, vv.Check())
+		require.NoError(t, vv.Foreach(handler2, iterOpts))
+
 		cout := 0
 		handler3 := func(path Path, val Value) bool {
 			cout += 1
 			return false
 		}
-		vv := root.GetByPath(NewPathFieldName("InnerBase"))
-		require.Nil(t, vv.Check())
-		require.NoError(t, vv.Foreach(handler3, iterOpts))
-		require.Equal(t, 1, cout)
-
 		cout = 0
 		vv = root.GetByPath(PathExampleListInt32...)
 		require.Nil(t, vv.Check())
