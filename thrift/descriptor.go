@@ -21,6 +21,7 @@ import (
 
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/cloudwego/dynamicgo/http"
+	"github.com/cloudwego/thriftgo/parser"
 )
 
 const (
@@ -150,8 +151,9 @@ func (d TypeDescriptor) Type() Type {
 }
 
 // Name returns the name of the descriptor
-//   for struct, it is the struct name;
-//   for build-in type, it is the type name.
+//
+//	for struct, it is the struct name;
+//	for build-in type, it is the type name.
 func (d TypeDescriptor) Name() string {
 	return d.name
 }
@@ -179,7 +181,7 @@ type StructDescriptor struct {
 	names       FieldNameMap
 	requires    RequiresBitmap
 	hmFields    []*FieldDescriptor
-	annotations map[string][]string
+	annotations []parser.Annotation
 }
 
 // GetRequestBase returns the base.Base field of a STRUCT
@@ -235,6 +237,10 @@ func (s StructDescriptor) Requires() RequiresBitmap {
 	return s.requires
 }
 
+func (s StructDescriptor) Annotations() []parser.Annotation {
+	return s.annotations
+}
+
 // FieldById finds the field by field id
 func (s StructDescriptor) FieldById(id FieldID) *FieldDescriptor {
 	return s.ids.Get(id)
@@ -265,6 +271,7 @@ type FieldDescriptor struct {
 	alias            string // alias name
 	valueMapping     ValueMapping
 	httpMappings     []HttpMapping
+	annotations      []parser.Annotation
 }
 
 // func (f FieldDescriptor) IsException() bool {
@@ -321,6 +328,10 @@ func (f FieldDescriptor) ValueMapping() ValueMapping {
 	return f.valueMapping
 }
 
+func (f FieldDescriptor) Annotations() []parser.Annotation {
+	return f.annotations
+}
+
 // DefaultValue returns the default value of a field
 func (f FieldDescriptor) DefaultValue() *DefaultValue {
 	return f.defaultValue
@@ -334,7 +345,7 @@ type FunctionDescriptor struct {
 	response       *TypeDescriptor
 	name           string
 	endpoints      []http.Endpoint
-	annotations    map[string][]string
+	annotations    []parser.Annotation
 }
 
 // Name returns the name of the function
@@ -370,7 +381,7 @@ func (f FunctionDescriptor) Endpoints() []http.Endpoint {
 }
 
 // Annotations returns the annotations of the function
-func (f FunctionDescriptor) Annotations() map[string][]string {
+func (f FunctionDescriptor) Annotations() []parser.Annotation {
 	return f.annotations
 }
 
@@ -378,7 +389,7 @@ func (f FunctionDescriptor) Annotations() map[string][]string {
 type ServiceDescriptor struct {
 	name        string
 	functions   map[string]*FunctionDescriptor
-	annotations map[string][]string
+	annotations []parser.Annotation
 }
 
 // Name returns the name of the service
@@ -401,7 +412,7 @@ func (s *ServiceDescriptor) LookupFunctionByMethod(method string) (*FunctionDesc
 }
 
 // Annotations returns the annotations of a service
-func (s ServiceDescriptor) Annotations() map[string][]string {
+func (s ServiceDescriptor) Annotations() []parser.Annotation {
 	return s.annotations
 }
 

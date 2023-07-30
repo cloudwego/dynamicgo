@@ -108,6 +108,7 @@ struct tFieldDesc
     GoString alias;
     GoIface value_mappings;
     GoSlice http_mappings;
+    GoSlice annotations;
 };
 
 typedef struct
@@ -122,7 +123,7 @@ typedef struct
     // It won't affect the calculating results AS LONG AS IT IS STATICALLY USED.
     ReqBitMap reqs;
     GoSlice hms;
-    void *anns;
+    GoSlice annotations;
 } tStructDesc;
 
 struct tTypeDesc
