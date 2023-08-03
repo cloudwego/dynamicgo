@@ -51,9 +51,9 @@ type Annotation interface {
 
 // AnnoID is the unique id of an annotation, which is composed of kind, scope and type:
 //
-//   0xff000000: AnnoKind
-//   0x00ff0000: AnnoScope
-//   0x0000ffff: AnnoType
+//	0xff000000: AnnoKind
+//	0x00ff0000: AnnoScope
+//	0x0000ffff: AnnoType
 type AnnoID uint32
 
 func MakeAnnoID(kind AnnoKind, scope AnnoScope, typ AnnoType) AnnoID {
@@ -198,10 +198,11 @@ func makeAnnotation(ctx context.Context, anns []parser.Annotation, scope AnnoSco
 
 // AnnotationMapper is used to convert a annotation to equivalent annotations
 // desc is specific to its registered AnnoScope:
-//   AnnoScopeService: desc is *parser.Service
-//   AnnoScopeFunction: desc is *parser.Function
-//   AnnoScopeStruct: desc is *parser.StructLike
-//   AnnoScopeField: desc is *parser.Field
+//
+//	AnnoScopeService: desc is *parser.Service
+//	AnnoScopeFunction: desc is *parser.Function
+//	AnnoScopeStruct: desc is *parser.StructLike
+//	AnnoScopeField: desc is *parser.Field
 type AnnotationMapper interface {
 	// Map map a annotation to equivalent annotations
 	Map(ctx context.Context, ann []parser.Annotation, desc interface{}, opt Options) (cur []parser.Annotation, next []parser.Annotation, err error)
@@ -411,12 +412,15 @@ func handleNativeFieldAnnotation(ann parser.Annotation, f *FieldDescriptor, pars
 
 // copyAnnotations copy annotations from parser to descriptor
 // WARN: this MUST be used before passing any annotation from parser to descriptor
-func copyAnnotationValues(cont map[string][]string, anns []*parser.Annotation) {
-	for _, ann := range anns {
+func copyAnnotationValues(anns []*parser.Annotation) []parser.Annotation {
+	ret := make([]parser.Annotation, len(anns))
+	for i, ann := range anns {
 		tmp := make([]string, len(ann.Values))
 		copy(tmp, ann.Values)
-		cont[ann.Key] = tmp
+		ret[i].Values = tmp
+		ret[i].Key = ann.Key
 	}
+	return ret
 }
 
 // injectAnnotation injects next annotation by appending.
@@ -435,6 +439,6 @@ func injectAnnotations(origin *[]*parser.Annotation, next []parser.Annotation) e
 }
 
 var (
-	ctxIsBodyRoot = "isBodyRoot"
+	ctxIsBodyRoot    = "isBodyRoot"
 	CtxKeyIsBodyRoot = &ctxIsBodyRoot
 )

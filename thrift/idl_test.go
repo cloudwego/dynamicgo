@@ -22,6 +22,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/cloudwego/thriftgo/parser"
 	"github.com/stretchr/testify/require"
 )
 
@@ -127,8 +128,8 @@ func TestBypassAnnotatio(t *testing.T) {
 	namespace go kitex.test.server
 
 	service InboxService {
-		string ExampleMethod(1: string req) (anno.test = "中文1", anno.test = "中文2")
-	} (anno.test = "中文1", anno.test = "中文2")
+		string ExampleMethod(1: string req) (anno1 = "", anno.test = "中文1", anno.test = "中文2")
+	} (anno1 = "", anno.test = "中文1", anno.test = "中文2")
 	`
 
 	includes := map[string]string{
@@ -138,8 +139,8 @@ func TestBypassAnnotatio(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	require.Equal(t, []string{"中文1", "中文2"}, p.Annotations()["anno.test"])
-	require.Equal(t, []string{"中文1", "中文2"}, p.Functions()["ExampleMethod"].Annotations()["anno.test"])
+	require.Equal(t, []parser.Annotation{{Key: "anno1", Values: []string{""}}, {Key: "anno.test", Values: []string{"中文1", "中文2"}}}, p.Annotations())
+	require.Equal(t, []parser.Annotation{{Key: "anno1", Values: []string{""}}, {Key: "anno.test", Values: []string{"中文1", "中文2"}}}, p.Functions()["ExampleMethod"].Annotations())
 }
 
 func GetDescFromContent(content string, method string, opts *Options) (*FunctionDescriptor, error) {
@@ -297,10 +298,10 @@ func TestNewFunctionDescriptorFromContent_absPath(t *testing.T) {
 	`
 	path := "/a/b/main.thrift"
 	includes := map[string]string{
-		path: content,
+		path:          content,
 		"/ref.thrift": ref,
 	}
-	
+
 	p, err := Options{}.NewDescriptorFromContentWithMethod(context.Background(), path, content, includes, false, "Method1")
 	require.NoError(t, err)
 	require.NotNil(t, p.Functions()["Method1"])
@@ -334,7 +335,7 @@ func TestNewFunctionDescriptorFromContent_relativePath(t *testing.T) {
 	`
 	path := "/a/b/main.thrift"
 	includes := map[string]string{
-		path: content,
+		path:              content,
 		"/a/b/ref.thrift": ref,
 	}
 	p, err := Options{}.NewDescriptorFromContentWithMethod(context.Background(), path, content, includes, true, "Method1")

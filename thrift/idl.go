@@ -181,7 +181,7 @@ func parseIDLContent(path, content string, includes map[string]string, isAbsIncl
 	return tree, nil
 }
 
-func refIncludes(tree *parser.Thrift, path string, done map[string]*parser.Thrift,  includes map[string]*parser.Thrift, isAbsIncludePath bool) error {
+func refIncludes(tree *parser.Thrift, path string, done map[string]*parser.Thrift, includes map[string]*parser.Thrift, isAbsIncludePath bool) error {
 	done[path] = tree
 	for _, i := range tree.Includes {
 		p := i.Path
@@ -218,7 +218,7 @@ func parse(ctx context.Context, tree *parser.Thrift, mode meta.ParseServiceMode,
 
 	sDsc := &ServiceDescriptor{
 		functions:   map[string]*FunctionDescriptor{},
-		annotations: map[string][]string{},
+		annotations: []parser.Annotation{},
 	}
 
 	structsCache := compilingCache{}
@@ -239,7 +239,7 @@ func parse(ctx context.Context, tree *parser.Thrift, mode meta.ParseServiceMode,
 	for _, svc := range svcs {
 		sopts := opts
 		// pass origin annotations
-		copyAnnotationValues(sDsc.annotations, svc.Annotations)
+		sDsc.annotations = copyAnnotationValues(svc.Annotations)
 		// handle thrid-party annotations
 		anns, _, next, err := mapAnnotations(ctx, svc.Annotations, AnnoScopeService, svc, sopts)
 		if err != nil {
@@ -340,7 +340,7 @@ func addFunction(ctx context.Context, fn *parser.Function, tree *parser.Thrift, 
 		}
 	}
 
-	annos := make(map[string][]string, len(fn.Annotations))
+	annos := copyAnnotationValues(fn.Annotations)
 	// handle thrid-party annotations
 	anns, _, nextAnns, err := mapAnnotations(ctx, fn.Annotations, AnnoScopeFunction, fn, opts)
 	if err != nil {
@@ -448,7 +448,6 @@ func addFunction(ctx context.Context, fn *parser.Function, tree *parser.Thrift, 
 		endpoints:      enpdoints,
 		annotations:    annos,
 	}
-	copyAnnotationValues(fnDsc.annotations, fn.Annotations)
 	sDsc.functions[fn.Name] = fnDsc
 	return nil
 }
@@ -546,6 +545,9 @@ func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache c
 			return nil, fmt.Errorf("missing type: %s", typeName)
 		}
 
+		// copy original annotations
+		oannos := copyAnnotationValues(st.Annotations)
+
 		// inject previous annotations
 		injectAnnotations((*[]*parser.Annotation)(&st.Annotations), nextAnns)
 
@@ -559,12 +561,9 @@ func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache c
 				ids:         FieldIDMap{},
 				names:       FieldNameMap{},
 				requires:    make(RequiresBitmap, len(st.Fields)),
-				annotations: make(map[string][]string, len(st.Annotations)),
+				annotations: oannos,
 			},
 		}
-
-		// copy original annotations
-		copyAnnotationValues(ty.struc.annotations, st.Annotations)
 
 		if recursionDepth == 0 {
 			ctx = context.WithValue(ctx, CtxKeyIsBodyRoot, true)
@@ -611,6 +610,7 @@ func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache c
 				id:             FieldID(field.ID),
 				name:           field.Name,
 				alias:          field.Name,
+				annotations:    copyAnnotationValues(field.Annotations),
 			}
 
 			// inject previous annotations
@@ -619,7 +619,7 @@ func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache c
 			if err != nil {
 				return nil, err
 			}
-			
+
 			// handle annotations
 			ignore := false
 			for _, val := range left {
@@ -647,7 +647,6 @@ func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache c
 			if _f.typ, err = parseType(ctx, field.Type, tree, cache, nextRecursionDepth, opts, nil, parseTarget); err != nil {
 				return nil, err
 			}
-			
 
 			// make default value
 			// WARN: ignore errors here

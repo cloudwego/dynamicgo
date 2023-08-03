@@ -45,10 +45,10 @@ type Options struct {
 	NotCheckRequireNess bool
 
 	// UseNativeSkip indicates to use native.Skip (instead of go.Skip) method to skip thrift value
-	// WARN: this will promote performance when thrift value to be skipped is large, but may decrease preformance when thrift value is small.
+	//  WARNING: this will promote performance when thrift value to be skipped is large, but may decrease preformance when thrift value is small.
 	UseNativeSkip bool
 
-	// MapStructById indicates to use field id as map key instead of when call Node.Interface() on STRUCT type.
+	// MapStructById indicates to use FieldId instead of int as map key instead of when call Node.Interface() on STRUCT type.
 	MapStructById bool
 
 	// CastStringAsBinary indicates to cast STRING type to []byte when call Node.Interface()/Map().
@@ -69,6 +69,9 @@ type Options struct {
 
 	// StoreChildrenByHash indicates to store children node by str hash (mod parent's size) when call Node.Children() or PathNode.Load().
 	StoreChildrenByHash bool
+
+	// IterateStructByName indicates `Value.Foreach()` API to pass PathFieldName instead of PathFieldId to handler.
+	IterateStructByName bool
 }
 
 var (
