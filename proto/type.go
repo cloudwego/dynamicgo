@@ -12,15 +12,25 @@ const (
 	Fixed32Type    WireType = 5
 	Fixed64Type    WireType = 1
 	BytesType      WireType = 2
-	StartGroupType WireType = 3	 // deprecated
-	EndGroupType   WireType = 4  // deprecated
+	StartGroupType WireType = 3 // deprecated
+	EndGroupType   WireType = 4 // deprecated
+)
+
+const (
+	_ = -iota
+	ErrCodeTruncated
+	ErrCodeFieldNumber
+	ErrCodeOverflow
+	ErrCodeReserved
+	ErrCodeEndGroup
+	ErrCodeRecursionDepth
 )
 
 // proto message kind
 type ProtoKind = protoreflect.Kind
 
 const (
-	DoubleKind   ProtoKind = iota + 1
+	DoubleKind ProtoKind = iota + 1
 	FloatKind
 	Int64Kind
 	Uint64Kind
@@ -56,15 +66,15 @@ const (
 	STRING  Type = 9
 	GROUP   Type = 10 // deprecated
 	MESSAGE Type = 11
-	BYTE	Type = 12
+	BYTE    Type = 12
 	UINT32  Type = 13
-	ENUM	Type = 14
-	SFIX32	Type = 15
-	SFIX64	Type = 16
+	ENUM    Type = 14
+	SFIX32  Type = 15
+	SFIX64  Type = 16
 	SINT32  Type = 17
 	SINT64  Type = 18
-	LIST	Type = 19
-	MAP		Type = 20
+	LIST    Type = 19
+	MAP     Type = 20
 	ERROR   Type = 255
 )
 
