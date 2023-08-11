@@ -30,7 +30,7 @@ const (
 	EncodingThriftCompact
 	// EncodingProtobuf is protobuf protocol
 	EncodingProtobuf
-	
+
 	// text encoding, see thrift/binary.go::EncodeText()
 	EncodingText
 )
@@ -65,6 +65,12 @@ const (
 	JSON2THRIFT Category = 0x11
 	// dynamicgo/conv/t2j
 	THRIFT2JSON Category = 0x12
+	// dynamicgo/proto
+	PROTOBUF Category = 0x03
+	// dynamicgo/conv/j2p
+	JSON2PROTOBUF Category = 0x13
+	// dynamicgo/conv/p2j
+	PROTOBUF2JSON Category = 0x14
 )
 
 // String returns the string representation of Category
@@ -78,6 +84,12 @@ func (ec Category) String() string {
 		return "THRIFT-TO-JSON"
 	case THRIFT:
 		return "THRIFT"
+	case PROTOBUF:
+		return "PROTOBUF"
+	case JSON2PROTOBUF:
+		return "JSON-TO-PROTOBUF"
+	case PROTOBUF2JSON:
+		return "PROTOBUF-TO-JSON"
 	default:
 		return "CATEGORY " + strconv.Itoa(int(ec))
 	}
