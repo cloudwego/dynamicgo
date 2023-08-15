@@ -6,7 +6,7 @@ import (
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/meta"
-	"github.com/cloudwego/dynamicgo/thrift"
+	"github.com/cloudwego/dynamicgo/proto"
 )
 
 type BinaryConv2 struct {
@@ -29,7 +29,7 @@ func (self *BinaryConv2) SetOptions(opts conv.Options) {
 // ctx is the context, which can be used to pass arguments as below:
 //   - conv.CtxKeyHTTPResponse: http.ResponseSetter as http request
 //   - conv.CtxKeyThriftRespBase: thrift.Base as base metadata of thrift response
-func (self *BinaryConv2) Do(ctx context.Context, desc *thrift.TypeDescriptor, tbytes []byte) (json []byte, err error) {
+func (self *BinaryConv2) Do(ctx context.Context, desc *proto.MessageDescriptor, tbytes []byte) (json []byte, err error) {
 	buf := conv.NewBytes()
 
 	var resp http.ResponseSetter
