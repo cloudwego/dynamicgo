@@ -16,6 +16,30 @@ type Node struct {
 	l  int
 }
 
+// Fork forks the node to a new node, copy underlying data as well
+func (self Node) Fork() Node {
+	ret := self
+	buf := make([]byte, self.l, self.l)
+	copy(buf, rt.BytesFrom(self.v, self.l, self.l))
+	ret.v = rt.GetBytePtr(buf)
+	return ret
+}
+
+// Type returns the thrift type of the node
+func (self Node) Type() proto.Type {
+	return self.t
+}
+
+// ElemType returns the thrift type of a LIST/SET/MAP node's element
+func (self Node) ElemType() proto.Type {
+	return self.et
+}
+
+// KeyType returns the thrift type of a MAP node's key
+func (self Node) KeyType() proto.Type {
+	return self.kt
+}
+
 func (self Node) slice(s int, e int, t proto.Type) Node {
 	ret := Node{
 		t: t,
@@ -35,7 +59,7 @@ func (self Node) offset() unsafe.Pointer {
 	return rt.AddPtr(self.v, uintptr(self.l))
 }
 
-
+// NewNode method: creates a new node from a byte slice
 func NewNode(t proto.Type, src []byte) Node {
 	ret := Node{
 		t: t,
@@ -176,6 +200,4 @@ func NewComplexNode(t proto.Type, et proto.Type, kt proto.Type) (ret Node){
 	ret.t = t
 	return
 }
-
-
 

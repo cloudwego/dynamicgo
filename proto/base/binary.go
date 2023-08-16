@@ -292,14 +292,58 @@ func (p *BinaryProtocol) WriteEnum(value proto.EnumNumber) error {
 /**
  * WriteList
  */
-func (p *BinaryProtocol) WriteList() error {
+func (p *BinaryProtocol) WriteList(desc proto.FieldDescriptor,val interface{}) error {
+	vs, ok := val.([]interface{})
+	if !ok {
+		return errDismatchPrimitive
+	}
+	// packed List bytes format: [tag][length][T(L)V][value][value]...
+	if desc.IsPacked() && len(vs) > 0 {
+		p.AppendTag(desc.Number(), proto.BytesType)
+		var pos int
+		p.Buf, pos = appendSpeculativeLength(p.Buf)
+		for _, v := range vs {
+
+			if err := p.WriteAnyWithDesc(desc, v, true, false, true); err != nil {
+				return err
+			}
+		}
+		p.Buf = finishSpeculativeLength(p.Buf, pos)
+		return nil
+	}
+
+	// unpacked List bytes format: [T(L)V][T(L)V]...
+	kind := desc.Kind()
+	for _, v := range vs {
+		// share the same field number for Tag
+		p.AppendTag(desc.Number(), wireTypes[kind])
+		if err := p.WriteAnyWithDesc(desc, v, true, false, true); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 /**
  * WriteMap
  */
-func (p *BinaryProtocol) WriteMap() error {
+func (p *BinaryProtocol) WriteMap(desc proto.FieldDescriptor, val interface{}) error {
+	MapKey := desc.MapKey()
+	MapValue := desc.MapValue()
+	vs, ok := val.(map[interface{}]interface{})
+	if !ok {
+		return errDismatchPrimitive
+	}
+
+	for k, v := range vs {
+		p.AppendTag(desc.Number(), proto.BytesType)
+		var pos int
+		p.Buf, pos = appendSpeculativeLength(p.Buf)
+		p.WriteAnyWithDesc(MapKey, k, true, false, true)
+		p.WriteAnyWithDesc(MapValue, v, true, false, true)
+		p.Buf = finishSpeculativeLength(p.Buf, pos)
+	}
+
 	return nil
 }
 
@@ -327,10 +371,10 @@ func (p *BinaryProtocol) WriteMessageSlow(desc proto.FieldDescriptor, vs map[str
 // to make room).
 const speculativeLength = 1
 
-func appendSpeculativeLength(b []byte) int {
+func appendSpeculativeLength(b []byte) ([]byte, int) {
 	pos := len(b)
 	b = append(b, "\x00\x00\x00\x00"[:speculativeLength]...)
-	return pos
+	return b, pos
 }
 
 func finishSpeculativeLength(b []byte, pos int) []byte {
@@ -354,9 +398,9 @@ func finishSpeculativeLength(b []byte, pos int) []byte {
 func (p *BinaryProtocol) WriteAnyWithDesc(desc proto.FieldDescriptor, val interface{}, cast bool, disallowUnknown bool, useFieldName bool) error {
 	switch {
 	case desc.IsList():
-		return p.WriteList()
+		return p.WriteList(desc, val)
 	case desc.IsMap():
-		return p.WriteMap()
+		return p.WriteMap(desc,val)
 	default:
 		if e := p.AppendTag(proto.Number(desc.Number()), wireTypes[desc.Kind()]); e != nil {
 			return meta.NewError(meta.ErrWrite, "AppendTag failed", nil)
@@ -529,7 +573,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd proto.FieldDescriptor, val int
 		if !ok {
 			return errDismatchPrimitive
 		}
-		pos = appendSpeculativeLength(p.Buf)
+		p.Buf, pos = appendSpeculativeLength(p.Buf)
 		err = p.WriteMessageSlow(fd, vs, cast, disallowUnknown, useFieldName)
 		if err != nil {
 			return err
@@ -725,13 +769,20 @@ func (p *BinaryProtocol) ReadLength() (int, error) {
 }
 
 // ReadString
-func (p *BinaryProtocol) ReadString() (string, error) {
-	value, n := protowire.BinaryDecoder{}.DecodeBytes((p.Buf)[p.Read:])
+func (p *BinaryProtocol) ReadString(copy bool) (value string, err error) {
+	bytes, n := protowire.BinaryDecoder{}.DecodeBytes((p.Buf)[p.Read:])
 	if n < 0 {
 		return "", errDecodeField
 	}
-	_, err := p.next(n)
-	return string(value), err
+	if copy {
+		value = string(bytes)
+	} else {
+		v := (*rt.GoString)(unsafe.Pointer(&value))
+		v.Ptr = rt.IndexPtr(*(*unsafe.Pointer)(unsafe.Pointer(&p.Buf)), byteTypeSize, p.Read)
+		v.Len = int(n)
+	}
+	
+	return
 }
 
 // ReadEnum
