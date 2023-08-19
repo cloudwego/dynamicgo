@@ -32,7 +32,7 @@ func unwrapError(msg string, err error) error {
 	}
 }
 
-func (self *BinaryConv2) do(ctx context.Context, src []byte, desc *proto.MessageDescriptor, out *[]byte, resp http.ResponseSetter) (err error) {
+func (self *ProtoConv) do(ctx context.Context, src []byte, desc *proto.MessageDescriptor, out *[]byte, resp http.ResponseSetter) (err error) {
 	rt.GuardSlice(out, len(src)*_GUARD_SLICE_FACTOR)
 	var p = base.BinaryProtocol{
 		Buf: src,
@@ -93,10 +93,10 @@ func (self *BinaryConv2) do(ctx context.Context, src []byte, desc *proto.Message
 }
 
 // parse MessageField recursive
-func (self *BinaryConv2) doRecurse(ctx context.Context, fd *proto.FieldDescriptor, out *[]byte, resp http.ResponseSetter, p *base.BinaryProtocol, typeId proto.WireType) error {
+func (self *ProtoConv) doRecurse(ctx context.Context, fd *proto.FieldDescriptor, out *[]byte, resp http.ResponseSetter, p *base.BinaryProtocol, typeId proto.WireType) error {
 	switch {
 	case (*fd).IsList():
-		return nil
+		return self.unmarshalList(ctx, resp, p, typeId, out, fd)
 	case (*fd).IsMap():
 		return nil
 	default:
@@ -302,7 +302,7 @@ func (self *BinaryConv2) doRecurse(ctx context.Context, fd *proto.FieldDescripto
 }
 
 // parse Singular MessageType
-func (self *BinaryConv2) unmarshalSingular(ctx context.Context, resp http.ResponseSetter, p *base.BinaryProtocol, typeId proto.WireType, out *[]byte, fd *proto.FieldDescriptor) (err error) {
+func (self *ProtoConv) unmarshalSingular(ctx context.Context, resp http.ResponseSetter, p *base.BinaryProtocol, typeId proto.WireType, out *[]byte, fd *proto.FieldDescriptor) (err error) {
 	switch (*fd).Kind() {
 	case protoreflect.BoolKind:
 		v, e := p.ReadBool()
@@ -452,4 +452,16 @@ func (self *BinaryConv2) unmarshalSingular(ctx context.Context, resp http.Respon
 		return wrapError(meta.ErrUnsupportedType, fmt.Sprintf("unknown descriptor type %s", (*fd).Kind()), nil)
 	}
 	return
+}
+
+// parse ListType
+func (self *ProtoConv) unmarshalList(ctx context.Context, resp http.ResponseSetter, p *base.BinaryProtocol, typeId proto.WireType, out *[]byte, fd *proto.FieldDescriptor) (err error) {
+	data, err := p.ReadAnyWithDesc(fd, true, false, false)
+	if err != nil {
+		*out = json.EncodeArrayBegin(*out)
+		// write json ...
+
+		*out = json.EncodeArrayEnd(*out)
+	}
+	return nil
 }

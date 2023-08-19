@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"math"
-	"reflect"
 	"sync"
 	"unicode/utf8"
 	"unsafe"
@@ -22,9 +21,8 @@ import (
 const (
 	defaultBufferSize = 4096
 	growBufferFactor  = 1
+	defaultListSize   = 10
 )
-
-var byteType = rt.UnpackType(reflect.TypeOf(byte(0)))
 
 // map from proto.ProtoKind to proto.WireType
 var wireTypes = map[proto.ProtoKind]proto.WireType{
@@ -163,6 +161,23 @@ func (p *BinaryProtocol) ConsumeTag() (proto.Number, proto.WireType, int, error)
 	return num, typ, n, err
 }
 
+// ConsumeTag parses b as a varint-encoded tag, reporting its length.
+func (p *BinaryProtocol) ConsumeTagWithoutMove() (proto.Number, proto.WireType, int, error) {
+	v, n := protowire.ConsumeVarint((p.Buf)[p.Read:])
+	if n < 0 {
+		return 0, 0, n, errInvalidTag
+	}
+	if v>>3 > uint64(math.MaxInt32) {
+		return -1, 0, n, errUnknonwField
+	}
+	num, typ := proto.Number(v>>3), proto.WireType(v&7)
+	if num < proto.MinValidNumber {
+		return 0, 0, n, errCodeFieldNumber
+	}
+	return num, typ, n, nil
+}
+
+
 // WriteBool
 func (p *BinaryProtocol) WriteBool(value bool) error {
 	if value {
@@ -292,19 +307,20 @@ func (p *BinaryProtocol) WriteEnum(value proto.EnumNumber) error {
 /**
  * WriteList
  */
-func (p *BinaryProtocol) WriteList(desc proto.FieldDescriptor,val interface{}) error {
+func (p *BinaryProtocol) WriteList(desc *proto.FieldDescriptor, val interface{}) error {
 	vs, ok := val.([]interface{})
 	if !ok {
 		return errDismatchPrimitive
 	}
-	// packed List bytes format: [tag][length][T(L)V][value][value]...
-	if desc.IsPacked() && len(vs) > 0 {
-		p.AppendTag(desc.Number(), proto.BytesType)
+	// packed List bytes format: [tag][length][(L)V][value][value]...
+	fd := *desc
+	if fd.IsPacked() && len(vs) > 0 {
+		p.AppendTag(fd.Number(), proto.BytesType)
 		var pos int
 		p.Buf, pos = appendSpeculativeLength(p.Buf)
 		for _, v := range vs {
 
-			if err := p.WriteAnyWithDesc(desc, v, true, false, true); err != nil {
+			if err := p.WriteBaseTypeWithDesc(desc,v,true,false,true); err != nil {
 				return err
 			}
 		}
@@ -313,11 +329,11 @@ func (p *BinaryProtocol) WriteList(desc proto.FieldDescriptor,val interface{}) e
 	}
 
 	// unpacked List bytes format: [T(L)V][T(L)V]...
-	kind := desc.Kind()
+	kind := fd.Kind()
 	for _, v := range vs {
 		// share the same field number for Tag
-		p.AppendTag(desc.Number(), wireTypes[kind])
-		if err := p.WriteAnyWithDesc(desc, v, true, false, true); err != nil {
+		p.AppendTag(fd.Number(), wireTypes[kind])
+		if err := p.WriteBaseTypeWithDesc(desc,v,true,false,true); err != nil {
 			return err
 		}
 	}
@@ -326,21 +342,24 @@ func (p *BinaryProtocol) WriteList(desc proto.FieldDescriptor,val interface{}) e
 
 /**
  * WriteMap
+ * Map bytes format: [Pairtag][Pairlength][keyTag(L)V][valueTag(L)V] [Pairtag][Pairlength][T(L)V][T(L)V]...
+ * Pairtag = MapFieldnumber << 3 | wiretype:BytesType
  */
-func (p *BinaryProtocol) WriteMap(desc proto.FieldDescriptor, val interface{}) error {
-	MapKey := desc.MapKey()
-	MapValue := desc.MapValue()
+func (p *BinaryProtocol) WriteMap(desc *proto.FieldDescriptor, val interface{}) error {
+	fd := *desc
+	MapKey := fd.MapKey()
+	MapValue := fd.MapValue()
 	vs, ok := val.(map[interface{}]interface{})
 	if !ok {
 		return errDismatchPrimitive
 	}
 
 	for k, v := range vs {
-		p.AppendTag(desc.Number(), proto.BytesType)
+		p.AppendTag(fd.Number(), proto.BytesType)
 		var pos int
 		p.Buf, pos = appendSpeculativeLength(p.Buf)
-		p.WriteAnyWithDesc(MapKey, k, true, false, true)
-		p.WriteAnyWithDesc(MapValue, v, true, false, true)
+		p.WriteAnyWithDesc(&MapKey, k, true, false, true)
+		p.WriteAnyWithDesc(&MapValue, v, true, false, true)
 		p.Buf = finishSpeculativeLength(p.Buf, pos)
 	}
 
@@ -350,17 +369,34 @@ func (p *BinaryProtocol) WriteMap(desc proto.FieldDescriptor, val interface{}) e
 /**
  * Write Message
  */
-func (p *BinaryProtocol) WriteMessageSlow(desc proto.FieldDescriptor, vs map[string]interface{}, cast bool, disallowUnknown bool, useFieldName bool) error {
-	for id, v := range vs {
-		f := desc.Message().Fields().ByName(protoreflect.Name(id))
-		if f == nil {
-			if disallowUnknown {
-				return errUnknonwField
+func (p *BinaryProtocol) WriteMessageSlow(desc *proto.FieldDescriptor, val interface{}, cast bool, disallowUnknown bool, useFieldName bool) error {
+	fields := (*desc).Message().Fields()
+	if useFieldName {
+		for name, v := range val.(map[string]interface{}) {
+			f := fields.ByName(proto.FieldName(name))
+			if f == nil {
+				if disallowUnknown {
+					return errUnknonwField
+				}
+				// unknown field will skip when writing
+				continue
 			}
-			continue
+			if err := p.WriteAnyWithDesc(&f, v, cast, disallowUnknown, useFieldName); err != nil {
+				return err
+			}
 		}
-		if e := p.WriteAnyWithDesc(f, v, cast, disallowUnknown, useFieldName); e != nil {
-			return e
+	} else {
+		for fieldNumber, v := range val.(map[proto.FieldNumber]interface{}) {
+			f := fields.ByNumber(fieldNumber)
+			if f == nil {
+				if disallowUnknown {
+					return errUnknonwField
+				}
+				continue
+			}
+			if err := p.WriteAnyWithDesc(&f, v, cast, disallowUnknown, useFieldName); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -395,23 +431,24 @@ func finishSpeculativeLength(b []byte, pos int) []byte {
 //   - LIST/SET will be converted from []interface{}
 //   - MAP will be converted from map[string]interface{} or map[int]interface{}
 //   - STRUCT will be converted from map[FieldID]interface{}
-func (p *BinaryProtocol) WriteAnyWithDesc(desc proto.FieldDescriptor, val interface{}, cast bool, disallowUnknown bool, useFieldName bool) error {
+func (p *BinaryProtocol) WriteAnyWithDesc(desc *proto.FieldDescriptor, val interface{}, cast bool, disallowUnknown bool, useFieldName bool) error {
+	fd := *desc
 	switch {
-	case desc.IsList():
+	case fd.IsList():
 		return p.WriteList(desc, val)
-	case desc.IsMap():
-		return p.WriteMap(desc,val)
+	case fd.IsMap():
+		return p.WriteMap(desc, val)
 	default:
-		if e := p.AppendTag(proto.Number(desc.Number()), wireTypes[desc.Kind()]); e != nil {
-			return meta.NewError(meta.ErrWrite, "AppendTag failed", nil)
+		if e := p.AppendTag(proto.Number(fd.Number()), wireTypes[fd.Kind()]); e != nil {
+			return meta.NewError(meta.ErrWrite, "AppenddescTag failed", nil)
 		}
 		return p.WriteBaseTypeWithDesc(desc, val, cast, disallowUnknown, useFieldName)
 	}
 }
 
 // WriteBaseType with desc, not thread safe
-func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd proto.FieldDescriptor, val interface{}, cast bool, disallowUnknown bool, useFieldName bool) error {
-	switch fd.Kind() {
+func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val interface{}, cast bool, disallowUnknown bool, useFieldName bool) error {
+	switch (*fd).Kind() {
 	case protoreflect.Kind(proto.BoolKind):
 		v, ok := val.(bool)
 		if !ok {
@@ -557,7 +594,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd proto.FieldDescriptor, val int
 	case protoreflect.Kind(proto.StringKind):
 		v, ok := val.(string)
 		if !ok {
-			return meta.NewError(meta.ErrConvert, string(fd.FullName()), nil)
+			return meta.NewError(meta.ErrConvert, string((*fd).FullName()), nil)
 		}
 		p.WriteString(v)
 	case protoreflect.Kind(proto.BytesKind):
@@ -567,25 +604,22 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd proto.FieldDescriptor, val int
 		}
 		p.WriteBytes(v)
 	case protoreflect.Kind(proto.MessageKind):
+		var ok bool
 		var pos int
-		var err error
-		vs, ok := val.(map[string]interface{})
+		p.Buf, pos = appendSpeculativeLength(p.Buf)
+		if useFieldName {
+			val, ok = val.(map[string]interface{})
+		} else {
+			val, ok = val.(map[proto.FieldNumber]interface{})
+		}
 		if !ok {
 			return errDismatchPrimitive
 		}
-		p.Buf, pos = appendSpeculativeLength(p.Buf)
-		err = p.WriteMessageSlow(fd, vs, cast, disallowUnknown, useFieldName)
+		err := p.WriteMessageSlow(fd, val, cast, disallowUnknown, useFieldName)
 		if err != nil {
 			return err
 		}
 		p.Buf = finishSpeculativeLength(p.Buf, pos)
-	// case protoreflect.Kind(proto.GroupKind):
-	// 	var err error
-	// 	b, err = o.marshalMessage(b, v.Message())
-	// 	if err != nil {
-	// 		return b, err
-	// 	}
-	// 	b = protowire.AppendVarint(b, protowire.EncodeTag(fd.Number(), protowire.EndGroupType))
 	default:
 		return errUnsupportedType
 	}
@@ -688,6 +722,16 @@ func (p *BinaryProtocol) ReadUint64() (uint64, error) {
 	return value, err
 }
 
+// ReadVarint return data、length、error
+func (p *BinaryProtocol) ReadVarint() (uint64, int, error) {
+	value, n := protowire.BinaryDecoder{}.DecodeUint64((p.Buf)[p.Read:])
+	if n < 0 {
+		return value, -1, errDecodeField
+	}
+	_, err := p.next(n)
+	return value, n, err
+}
+
 // ReadFixed32
 func (p *BinaryProtocol) ReadFixed32() (int32, error) {
 	value, n := protowire.BinaryDecoder{}.DecodeFixed32((p.Buf)[p.Read:])
@@ -748,7 +792,7 @@ func (p *BinaryProtocol) ReadDouble() (float64, error) {
 	return math.Float64frombits(value), err
 }
 
-// ReadBytes
+// ReadBytes return bytesData and the sum length of L、V in TLV
 func (p *BinaryProtocol) ReadBytes() ([]byte, error) {
 	value, n := protowire.BinaryDecoder{}.DecodeBytes((p.Buf)[p.Read:])
 	if n < 0 {
@@ -758,7 +802,7 @@ func (p *BinaryProtocol) ReadBytes() ([]byte, error) {
 	return append(emptyBuf[:], value...), err
 }
 
-// ReadLength
+// ReadLength return dataLength, and move pointer in the begin of data
 func (p *BinaryProtocol) ReadLength() (int, error) {
 	value, n := protowire.BinaryDecoder{}.DecodeUint64((p.Buf)[p.Read:])
 	if n < 0 {
@@ -781,7 +825,8 @@ func (p *BinaryProtocol) ReadString(copy bool) (value string, err error) {
 		v.Ptr = rt.IndexPtr(*(*unsafe.Pointer)(unsafe.Pointer(&p.Buf)), byteTypeSize, p.Read)
 		v.Len = int(n)
 	}
-	
+	_, err = p.next(n)
+
 	return
 }
 
@@ -793,4 +838,230 @@ func (p *BinaryProtocol) ReadEnum() (proto.EnumNumber, error) {
 	}
 	_, err := p.next(n)
 	return proto.EnumNumber(value), err
+}
+
+// ReadList
+func (p *BinaryProtocol) ReadList(desc *proto.FieldDescriptor, copyString bool, disallowUnknonw bool, useFieldName bool) ([]interface{}, error) {
+	elementKind := (*desc).Kind()
+	elementWiretype := wireTypes[elementKind]
+	fieldNumber,wireType, _ ,err := p.ConsumeTag()
+	if err != nil {
+		return nil, err
+	}
+	list := make([]interface{}, 0, 1)
+	// packed list
+	if wireType == proto.BytesType {
+		// read length
+		length, err := p.ReadLength()
+		if err != nil {
+			return nil, err
+		}
+		// read list
+		start := p.Read
+		for p.Read < start+length {
+			v, err := p.ReadBaseTypeWithDesc(desc, elementWiretype, copyString, disallowUnknonw, useFieldName)
+			if err != nil {
+				return nil, err
+			}
+			list = append(list, v)
+		}
+
+	} else {
+		v, err := p.ReadBaseTypeWithDesc(desc, elementWiretype, copyString, disallowUnknonw, useFieldName)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, v)
+
+		for p.Read<len(p.Buf) {
+			elementFieldNumber, _, n, err := p.ConsumeTagWithoutMove()
+			if err != nil {
+				return nil, err
+			}
+			if elementFieldNumber != fieldNumber {
+				break
+			}
+			p.Read += n
+			
+			v, err := p.ReadBaseTypeWithDesc(desc, elementWiretype, copyString, disallowUnknonw, useFieldName)
+			if err != nil {
+				return nil, err
+			}
+			list = append(list, v)
+		}
+	}
+	return list, nil
+}
+
+func (p *BinaryProtocol) ReadPair(keyDesc *proto.FieldDescriptor,valueDesc *proto.FieldDescriptor, copyString bool, disallowUnknonw bool, useFieldName bool) (interface{}, interface{}, error) {
+	key, err := p.ReadAnyWithDesc(keyDesc, copyString, disallowUnknonw, useFieldName)
+	if err != nil {
+		return nil, nil, err
+	}
+	value, err := p.ReadAnyWithDesc(valueDesc, copyString, disallowUnknonw, useFieldName)
+	if err != nil {
+		return nil, nil, err
+	}
+	return key, value, nil
+}
+
+// ReadMap
+func (p *BinaryProtocol) ReadMap(desc *proto.FieldDescriptor, copyString bool, disallowUnknonw bool, useFieldName bool) (map[interface{}]interface{}, error) {
+	// make a map
+	map_kv := make(map[interface{}]interface{})
+	keyDesc := (*desc).MapKey()
+	valueDesc := (*desc).MapValue()
+	fieldNumber := (*desc).Number()
+	_, lengthErr := p.ReadLength()
+	if lengthErr != nil {
+		return nil, lengthErr
+	}
+
+	key, value, pairReadErr := p.ReadPair(&keyDesc, &valueDesc, copyString, disallowUnknonw, useFieldName)
+	if pairReadErr != nil {
+		return nil, pairReadErr
+	}
+
+	map_kv[key] = value
+
+	for p.Read < len(p.Buf) {
+		pairNumber, _, n, pairTagErr := p.ConsumeTagWithoutMove()
+		if pairTagErr != nil {
+			return nil, pairTagErr
+		}
+
+		if pairNumber != fieldNumber {
+			break
+		}
+		p.Read += n
+		_, pairLenErr := p.ReadLength()
+		if pairLenErr != nil {
+			return nil, pairLenErr
+		}
+		key, value, pairReadErr := p.ReadPair(&keyDesc, &valueDesc, copyString, disallowUnknonw, useFieldName)
+		if pairReadErr != nil {
+			return nil, pairReadErr
+		}
+		map_kv[key] = value
+	}
+
+	return map_kv, nil
+}
+
+// ReadAnyWithDesc read any type by desc and val
+//   - LIST/SET will be converted from []interface{}
+//   - MAP will be converted from map[string]interface{} or map[int]interface{}
+//   - STRUCT will be converted from map[FieldID]interface{}
+func (p *BinaryProtocol) ReadAnyWithDesc(desc *proto.FieldDescriptor, copyString bool, disallowUnknonw bool, useFieldName bool) (interface{}, error) {
+	switch {
+	case (*desc).IsList():
+		return p.ReadList(desc, copyString, disallowUnknonw, useFieldName)
+	case (*desc).IsMap():
+		return p.ReadMap(desc, copyString, disallowUnknonw, useFieldName)
+	default:
+		_, wtyp, _, err := p.ConsumeTag()
+		if err != nil {
+			return nil, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+		}
+		return p.ReadBaseTypeWithDesc(desc, wtyp, copyString, disallowUnknonw, useFieldName)
+	}
+}
+
+// ReadBaseType with desc, not thread safe
+func (p *BinaryProtocol) ReadBaseTypeWithDesc(desc *proto.FieldDescriptor, wtyp proto.WireType, copyString bool, disallowUnknown bool, useFieldName bool) (interface{}, error) {
+	switch (*desc).Kind() {
+	case protoreflect.BoolKind:
+		v, e := p.ReadBool()
+		return v, e
+	case protoreflect.EnumKind:
+		v, e := p.ReadEnum()
+		return v, e
+	case protoreflect.Int32Kind:
+		v, e := p.ReadI32()
+		return v, e
+	case protoreflect.Sint32Kind:
+		v, e := p.ReadSint32()
+		return v, e
+	case protoreflect.Uint32Kind:
+		v, e := p.ReadUint32()
+		return v, e
+	case protoreflect.Fixed32Kind:
+		v, e := p.ReadFixed32()
+		return v, e
+	case protoreflect.Sfixed32Kind:
+		v, e := p.ReadSfixed32()
+		return v, e
+	case protoreflect.Int64Kind:
+		v, e := p.ReadI64()
+		return v, e
+	case protoreflect.Sint64Kind:
+		v, e := p.ReadI64()
+		return v, e
+	case protoreflect.Uint64Kind:
+		v, e := p.ReadUint64()
+		return v, e
+	case protoreflect.Sfixed64Kind:
+		v, e := p.ReadSfixed64()
+		return v, e
+	case protoreflect.FloatKind:
+		v, e := p.ReadFloat()
+		return v, e
+	case protoreflect.DoubleKind:
+		v, e := p.ReadDouble()
+		return v, e
+	case protoreflect.StringKind:
+		v, e := p.ReadString(false)
+		return v, e
+	case protoreflect.BytesKind:
+		v, e := p.ReadBytes()
+		return v, e
+	case protoreflect.MessageKind:
+		length, messageLengthErr := p.ReadLength()
+		if messageLengthErr != nil {
+			return nil, messageLengthErr
+		}
+		if length == 0 {
+			return nil, nil
+		}
+
+		fd := *desc
+		fields := fd.Message().Fields()
+		var retFieldID map[proto.FieldNumber]interface{}
+		var retString map[string]interface{}
+		if useFieldName {
+			retString = make(map[string]interface{}, fields.Len())
+		} else {
+			retFieldID = make(map[proto.FieldNumber]interface{}, fields.Len())
+		}
+		start := p.Read
+		for p.Read < start + length {
+			fieldNumber, _, _, fieldTagErr := p.ConsumeTag()
+			if fieldTagErr != nil {
+				return nil, fieldTagErr
+			}
+			field := fields.ByNumber(fieldNumber)
+			if field == nil {
+				if !disallowUnknown {
+					return nil, errUnknonwField
+				}
+				continue
+			}
+			v, fieldErr := p.ReadAnyWithDesc(&field, copyString, disallowUnknown, useFieldName)
+			if fieldErr != nil {
+				return nil, fieldErr
+			}
+			if useFieldName {
+				retString[field.TextName()] = v
+			} else {
+				retFieldID[field.Number()] = v
+			}
+		}
+		if useFieldName {
+			return retString, nil
+		} else {
+			return retFieldID, nil
+		}
+	default:
+		return nil, meta.ErrRead
+	}
 }

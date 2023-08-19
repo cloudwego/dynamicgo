@@ -9,17 +9,17 @@ import (
 	"github.com/cloudwego/dynamicgo/proto"
 )
 
-type BinaryConv2 struct {
+type ProtoConv struct {
 	opts conv.Options
 }
 
 // NewBinaryConv returns a new BinaryConv
-func NewBinaryConv(opts conv.Options) BinaryConv2 {
-	return BinaryConv2{opts: opts}
+func NewBinaryConv(opts conv.Options) ProtoConv {
+	return ProtoConv{opts: opts}
 }
 
 // SetOptions sets options
-func (self *BinaryConv2) SetOptions(opts conv.Options) {
+func (self *ProtoConv) SetOptions(opts conv.Options) {
 	self.opts = opts
 }
 
@@ -29,7 +29,7 @@ func (self *BinaryConv2) SetOptions(opts conv.Options) {
 // ctx is the context, which can be used to pass arguments as below:
 //   - conv.CtxKeyHTTPResponse: http.ResponseSetter as http request
 //   - conv.CtxKeyThriftRespBase: thrift.Base as base metadata of thrift response
-func (self *BinaryConv2) Do(ctx context.Context, desc *proto.MessageDescriptor, tbytes []byte) (json []byte, err error) {
+func (self *ProtoConv) Do(ctx context.Context, desc *proto.MessageDescriptor, tbytes []byte) (json []byte, err error) {
 	buf := conv.NewBytes()
 
 	var resp http.ResponseSetter
