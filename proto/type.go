@@ -51,6 +51,30 @@ const (
 	Sint64Kind
 )
 
+
+// map from proto.ProtoKind to proto.WireType
+var Kind2Wire = map[ProtoKind]WireType{
+	BoolKind:     VarintType,
+	EnumKind:     VarintType,
+	Int32Kind:    VarintType,
+	Sint32Kind:   VarintType,
+	Uint32Kind:   VarintType,
+	Int64Kind:    VarintType,
+	Sint64Kind:   VarintType,
+	Uint64Kind:   VarintType,
+	Sfixed32Kind: Fixed32Type,
+	Fixed32Kind:  Fixed32Type,
+	FloatKind:    Fixed32Type,
+	Sfixed64Kind: Fixed64Type,
+	Fixed64Kind:  Fixed64Type,
+	DoubleKind:   Fixed64Type,
+	StringKind:   BytesType,
+	BytesKind:    BytesType,
+	MessageKind:  BytesType,
+	GroupKind:    StartGroupType,
+}
+
+
 // Node type byte=uint8 reflect protokind
 type Type uint8
 
