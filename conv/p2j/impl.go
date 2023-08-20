@@ -10,13 +10,19 @@ import (
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
-	"github.com/cloudwego/dynamicgo/proto/base"
+	"github.com/cloudwego/dynamicgo/proto/binary"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 const (
 	_GUARD_SLICE_FACTOR = 2
+
+	MapEntry_Key_field_name   protoreflect.Name = "key"
+	MapEntry_Value_field_name protoreflect.Name = "value"
+
+	MapEntry_Key_field_number   protoreflect.FieldNumber = 1
+	MapEntry_Value_field_number protoreflect.FieldNumber = 2
 )
 
 func wrapError(code meta.ErrCode, msg string, err error) error {
@@ -34,7 +40,7 @@ func unwrapError(msg string, err error) error {
 
 func (self *ProtoConv) do(ctx context.Context, src []byte, desc *proto.MessageDescriptor, out *[]byte, resp http.ResponseSetter) (err error) {
 	rt.GuardSlice(out, len(src)*_GUARD_SLICE_FACTOR)
-	var p = base.BinaryProtocol{
+	var p = binary.BinaryProtocol{
 		Buf: src,
 	}
 
@@ -93,216 +99,19 @@ func (self *ProtoConv) do(ctx context.Context, src []byte, desc *proto.MessageDe
 }
 
 // parse MessageField recursive
-func (self *ProtoConv) doRecurse(ctx context.Context, fd *proto.FieldDescriptor, out *[]byte, resp http.ResponseSetter, p *base.BinaryProtocol, typeId proto.WireType) error {
+func (self *ProtoConv) doRecurse(ctx context.Context, fd *proto.FieldDescriptor, out *[]byte, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType) error {
 	switch {
 	case (*fd).IsList():
 		return self.unmarshalList(ctx, resp, p, typeId, out, fd)
 	case (*fd).IsMap():
-		return nil
+		return self.unmarshalMap(ctx, resp, p, typeId, out, fd)
 	default:
-		return self.unmarshalSingular(ctx, resp, p, typeId, out, fd)
+		return self.unmarshalSingular(ctx, resp, p, out, fd)
 	}
-	// tt := desc.Type()
-	// switch tt {
-	// case thrift.BOOL:
-	// 	v, e := p.ReadBool()
-	// 	if e != nil {
-	// 		return wrapError(meta.ErrRead, "", e)
-	// 	}
-	// 	*out = json.EncodeBool(*out, v)
-	// case thrift.BYTE:
-	// 	v, e := p.ReadByte()
-	// 	if e != nil {
-	// 		return wrapError(meta.ErrWrite, "", e)
-	// 	}
-	// 	if self.opts.ByteAsUint8 {
-	// 		*out = json.EncodeInt64(*out, int64(uint8(v)))
-	// 	} else {
-	// 		*out = json.EncodeInt64(*out, int64(int8(v)))
-	// 	}
-	// case thrift.I16:
-	// 	v, e := p.ReadI16()
-	// 	if e != nil {
-	// 		return wrapError(meta.ErrWrite, "", e)
-	// 	}
-	// 	*out = json.EncodeInt64(*out, int64(v))
-	// case thrift.I32:
-	// 	v, e := p.ReadI32()
-	// 	if e != nil {
-	// 		return wrapError(meta.ErrWrite, "", e)
-	// 	}
-	// 	*out = json.EncodeInt64(*out, int64(v))
-	// case thrift.I64:
-	// 	v, e := p.ReadI64()
-	// 	if e != nil {
-	// 		return wrapError(meta.ErrWrite, "", e)
-	// 	}
-	// 	if self.opts.String2Int64 {
-	// 		*out = append(*out, '"')
-	// 		*out = json.EncodeInt64(*out, int64(v))
-	// 		*out = append(*out, '"')
-	// 	} else {
-	// 		*out = json.EncodeInt64(*out, int64(v))
-	// 	}
-	// case thrift.DOUBLE:
-	// 	v, e := p.ReadDouble()
-	// 	if e != nil {
-	// 		return wrapError(meta.ErrWrite, "", e)
-	// 	}
-	// 	*out = json.EncodeFloat64(*out, float64(v))
-	// case thrift.STRING:
-	// 	if desc.IsBinary() && !self.opts.NoBase64Binary {
-	// 		v, e := p.ReadBinary(false)
-	// 		if e != nil {
-	// 			return wrapError(meta.ErrRead, "", e)
-	// 		}
-	// 		*out = json.EncodeBaniry(*out, v)
-	// 	} else {
-	// 		v, e := p.ReadString(false)
-	// 		if e != nil {
-	// 			return wrapError(meta.ErrRead, "", e)
-	// 		}
-	// 		*out = json.EncodeString(*out, v)
-	// 	}
-	// case thrift.STRUCT:
-	// 	_, e := p.ReadStructBegin()
-	// 	if e != nil {
-	// 		return wrapError(meta.ErrRead, "", e)
-	// 	}
-	// 	*out = json.EncodeObjectBegin(*out)
-
-	// 	r := thrift.NewRequiresBitmap()
-	// 	desc.Struct().Requires().CopyTo(r)
-	// 	comma := false
-
-	// 	for {
-	// 		_, typeId, id, e := p.ReadFieldBegin()
-	// 		if e != nil {
-	// 			return wrapError(meta.ErrRead, "", e)
-	// 		}
-	// 		if typeId == 0 {
-	// 			break
-	// 		}
-
-	// 		field := desc.Struct().FieldById(thrift.FieldID(id))
-	// 		if field == nil {
-	// 			if self.opts.DisallowUnknownField {
-	// 				return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", id), nil)
-	// 			}
-	// 			if e := p.Skip(typeId, self.opts.UseNativeSkip); e != nil {
-	// 				return wrapError(meta.ErrRead, "", e)
-	// 			}
-	// 			continue
-	// 		}
-
-	// 		r.Set(field.ID(), thrift.OptionalRequireness)
-	// 		restart := p.Read
-
-	// 		if resp != nil && self.opts.EnableHttpMapping && field.HTTPMappings() != nil {
-	// 			ok, err := self.writeHttpValue(ctx, resp, p, field)
-	// 			if err != nil {
-	// 				return unwrapError(fmt.Sprintf("mapping field %s of STRUCT %s failed", field.Name(), desc.Name()), err)
-	// 			}
-	// 			// NOTICE: if option HttpMappingAsExtra is false and http-mapping failed,
-	// 			// continue to write to json body
-	// 			if !self.opts.WriteHttpValueFallback || ok {
-	// 				continue
-	// 			}
-	// 		}
-
-	// 		// HttpMappingAsExtra is true, return to begining and write json body
-	// 		p.Read = restart
-	// 		if comma {
-	// 			*out = json.EncodeObjectComma(*out)
-	// 			if err != nil {
-	// 				return wrapError(meta.ErrWrite, "", err)
-	// 			}
-	// 		} else {
-	// 			comma = true
-	// 		}
-	// 		// NOTICE: always use field.Alias() here, because alias equals to name by default
-	// 		*out = json.EncodeString(*out, field.Alias())
-	// 		*out = json.EncodeObjectColon(*out)
-
-	// 		if self.opts.EnableValueMapping && field.ValueMapping() != nil {
-	// 			if err = field.ValueMapping().Read(ctx, p, field, out); err != nil {
-	// 				return unwrapError(fmt.Sprintf("mapping field %s of STRUCT %s failed", field.Name(), desc.Type()), err)
-	// 			}
-	// 		} else {
-	// 			err = self.doRecurse(ctx, field.Type(), out, nil, p)
-	// 			if err != nil {
-	// 				return unwrapError(fmt.Sprintf("converting field %s of STRUCT %s failed", field.Name(), desc.Type()), err)
-	// 			}
-	// 		}
-	// 	}
-
-	// 	if err = self.handleUnsets(r, desc.Struct(), out, comma, ctx, resp); err != nil {
-	// 		return err
-	// 	}
-
-	// 	thrift.FreeRequiresBitmap(r)
-	// 	*out = json.EncodeObjectEnd(*out)
-	// case thrift.MAP:
-	// 	keyType, valueType, size, e := p.ReadMapBegin()
-	// 	if e != nil {
-	// 		return wrapError(meta.ErrRead, "", e)
-	// 	}
-	// 	if keyType != desc.Key().Type() {
-	// 		return wrapError(meta.ErrDismatchType, fmt.Sprintf("expect type %s but got type %s", desc.Key().Type(), keyType), nil)
-	// 	} else if valueType != desc.Elem().Type() {
-	// 		return wrapError(meta.ErrDismatchType, fmt.Sprintf("expect type %s but got type %s", desc.Elem().Type(), valueType), nil)
-	// 	}
-	// 	*out = json.EncodeObjectBegin(*out)
-	// 	for i := 0; i < size; i++ {
-	// 		if i != 0 {
-	// 			*out = json.EncodeObjectComma(*out)
-	// 		}
-	// 		err = self.buildinTypeToKey(p, desc.Key(), out)
-	// 		if err != nil {
-	// 			return wrapError(meta.ErrConvert, "", err)
-	// 		}
-	// 		*out = json.EncodeObjectColon(*out)
-	// 		err = self.doRecurse(ctx, desc.Elem(), out, nil, p)
-	// 		if err != nil {
-	// 			return unwrapError(fmt.Sprintf("converting %dth element of MAP failed", i), err)
-	// 		}
-	// 	}
-	// 	e = p.ReadMapEnd()
-	// 	if e != nil {
-	// 		return wrapError(meta.ErrRead, "", e)
-	// 	}
-	// 	*out = json.EncodeObjectEnd(*out)
-	// case thrift.SET, thrift.LIST:
-	// 	elemType, size, e := p.ReadSetBegin()
-	// 	if e != nil {
-	// 		return wrapError(meta.ErrRead, "", e)
-	// 	}
-	// 	if elemType != desc.Elem().Type() {
-	// 		return wrapError(meta.ErrDismatchType, fmt.Sprintf("expect type %s but got type %s", desc.Elem().Type(), elemType), nil)
-	// 	}
-	// 	*out = json.EncodeArrayBegin(*out)
-	// 	for i := 0; i < size; i++ {
-	// 		if i != 0 {
-	// 			*out = json.EncodeArrayComma(*out)
-	// 		}
-	// 		err = self.doRecurse(ctx, desc.Elem(), out, nil, p)
-	// 		if err != nil {
-	// 			return unwrapError(fmt.Sprintf("converting %dth element of SET failed", i), err)
-	// 		}
-	// 	}
-	// 	e = p.ReadSetEnd()
-	// 	if e != nil {
-	// 		return wrapError(meta.ErrRead, "", e)
-	// 	}
-	// 	*out = json.EncodeArrayEnd(*out)
-
-	// default:
-	// 	return wrapError(meta.ErrUnsupportedType, fmt.Sprintf("unknown descriptor type %s", tt), nil)
-	// }
 }
 
 // parse Singular MessageType
-func (self *ProtoConv) unmarshalSingular(ctx context.Context, resp http.ResponseSetter, p *base.BinaryProtocol, typeId proto.WireType, out *[]byte, fd *proto.FieldDescriptor) (err error) {
+func (self *ProtoConv) unmarshalSingular(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, out *[]byte, fd *proto.FieldDescriptor) (err error) {
 	switch (*fd).Kind() {
 	case protoreflect.BoolKind:
 		v, e := p.ReadBool()
@@ -389,7 +198,7 @@ func (self *ProtoConv) unmarshalSingular(ctx context.Context, resp http.Response
 		}
 		*out = json.EncodeFloat64(*out, float64(v))
 	case protoreflect.StringKind:
-		v, e := p.ReadString()
+		v, e := p.ReadString(false)
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Stringkind error", e)
 		}
@@ -455,13 +264,115 @@ func (self *ProtoConv) unmarshalSingular(ctx context.Context, resp http.Response
 }
 
 // parse ListType
-func (self *ProtoConv) unmarshalList(ctx context.Context, resp http.ResponseSetter, p *base.BinaryProtocol, typeId proto.WireType, out *[]byte, fd *proto.FieldDescriptor) (err error) {
-	data, err := p.ReadAnyWithDesc(fd, true, false, false)
-	if err != nil {
-		*out = json.EncodeArrayBegin(*out)
-		// write json ...
+func (self *ProtoConv) unmarshalList(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType, out *[]byte, fd *proto.FieldDescriptor) (err error) {
+	*out = json.EncodeArrayBegin(*out)
 
-		*out = json.EncodeArrayEnd(*out)
+	fileldNumber := (*fd).Number()
+	// packed ：[Tag] [Length] [v v v v v]
+	if typeId == proto.BytesType {
+		len, err := p.ReadLength()
+		if err != nil {
+			return wrapError(meta.ErrRead, "unmarshal List Length error", err)
+		}
+		start := p.Read
+		for p.Read < start+len {
+			self.unmarshalSingular(ctx, resp, p, out, fd)
+			if p.Read != start {
+				*out = json.EncodeArrayComma(*out)
+			}
+		}
+	} else {
+		// unpacked ：[tag][length][value][tag][length]....
+		self.unmarshalSingular(ctx, resp, p, out, fd)
+		*out = json.EncodeArrayComma(*out)
+		for p.Read < len(p.Buf) {
+			elementFieldNumber, _, tagLen, err := p.ConsumeTagWithoutMove()
+			if err != nil {
+				return wrapError(meta.ErrRead, "consume list child Tag error", err)
+			}
+			// List parse end
+			if elementFieldNumber != fileldNumber {
+				break
+			}
+			// continue parse List
+			p.Read += tagLen
+			self.unmarshalSingular(ctx, resp, p, out, fd)
+			*out = json.EncodeArrayComma(*out)
+		}
 	}
+
+	*out = json.EncodeArrayEnd(*out)
+	return nil
+}
+
+// parse MapType
+// Map bytes format: [Pairtag][Pairlength][keyTag(L)V][valueTag(L)V] [Pairtag][Pairlength][T(L)V][T(L)V]...
+// Pairtag = MapFieldnumber << 3 | wiretype:BytesType
+func (self *ProtoConv) unmarshalMap(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType, out *[]byte, fd *proto.FieldDescriptor) (err error) {
+	fileldNumber := (*fd).Number()
+	_, lengthErr := p.ReadLength()
+	if lengthErr != nil {
+		return wrapError(meta.ErrRead, "parse Tag length error", err)
+	}
+
+	*out = json.EncodeObjectBegin(*out)
+
+	// parse first [KeyTag][KeyLength][KeyValue][ValueTag][ValueLength][ValueValue]
+	_, _, _, keyErr := p.ConsumeTag()
+	if keyErr != nil {
+		return wrapError(meta.ErrRead, "parse MapKey Tag error", err)
+	}
+	*out = append(*out, '"')
+	if self.unmarshalSingular(ctx, resp, p, out, fd) != nil {
+		return wrapError(meta.ErrRead, "parse MapKey Value error", err)
+	}
+	*out = append(*out, '"')
+	*out = json.EncodeObjectColon(*out)
+	_, _, _, valueErr := p.ConsumeTag()
+	if valueErr != nil {
+		return wrapError(meta.ErrRead, "parse MapValue Tag error", err)
+	}
+	if self.unmarshalSingular(ctx, resp, p, out, fd) != nil {
+		return wrapError(meta.ErrRead, "parse MapValue Value error", err)
+	}
+
+	// parse last k-v pair
+	for p.Read < len(p.Buf) {
+		pairNumber, _, tagLen, err := p.ConsumeTagWithoutMove()
+		if err != nil {
+			return wrapError(meta.ErrRead, "consume list child Tag error", err)
+		}
+		// parse second Tag
+		if pairNumber != fileldNumber {
+			break
+		}
+		p.Read += tagLen
+		*out = json.EncodeObjectComma(*out)
+		// parse second length
+		_, lengthErr := p.ReadLength()
+		if lengthErr != nil {
+			return wrapError(meta.ErrRead, "parse Tag length error", err)
+		}
+		// parse second [KeyTag][KeyLength][KeyValue][ValueTag][ValueLength][ValueValue]
+		_, _, _, keyErr = p.ConsumeTag()
+		if keyErr != nil {
+			return wrapError(meta.ErrRead, "parse MapKey Tag error", err)
+		}
+		*out = append(*out, '"')
+		if self.unmarshalSingular(ctx, resp, p, out, fd) != nil {
+			return wrapError(meta.ErrRead, "parse MapKey Value error", err)
+		}
+		*out = append(*out, '"')
+		*out = json.EncodeObjectColon(*out)
+		_, _, _, valueErr = p.ConsumeTag()
+		if valueErr != nil {
+			return wrapError(meta.ErrRead, "parse MapValue Tag error", err)
+		}
+		if self.unmarshalSingular(ctx, resp, p, out, fd) != nil {
+			return wrapError(meta.ErrRead, "parse MapValue Value error", err)
+		}
+	}
+
+	*out = json.EncodeObjectEnd(*out)
 	return nil
 }
