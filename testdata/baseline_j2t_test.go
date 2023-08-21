@@ -537,11 +537,11 @@ func TestHTTP2Thrift_Nesting(t *testing.T) {
 	req := getSampleHttpRequest(stru2, nestingJSON)
 	ctx := context.WithValue(context.Background(), conv.CtxKeyHTTPRequest, req)
 	cv := j2t.NewBinaryConv(conv.Options{
-		WriteDefaultField:  true,
-		EnableHttpMapping:  true,
-		EnableValueMapping: true,
+		WriteDefaultField:            true,
+		EnableHttpMapping:            true,
+		EnableValueMapping:           true,
 		TracebackRequredOrRootFields: true,
-		ReadHttpValueFallback: true,
+		ReadHttpValueFallback:        true,
 	})
 	nj := convertI642StringNesting(nestingJSON, true)
 	out, err := cv.Do(ctx, nesting, []byte(nj))
@@ -561,12 +561,12 @@ func TestHTTP2Thrift_Nesting_Parallel(t *testing.T) {
 	// fmt.Printf("%#v", nesting)
 
 	cv := j2t.NewBinaryConv(conv.Options{
-		WriteDefaultField:  true,
-		EnableHttpMapping:  true,
-		EnableValueMapping: true,
+		WriteDefaultField:            true,
+		EnableHttpMapping:            true,
+		EnableValueMapping:           true,
 		TracebackRequredOrRootFields: true,
-		ReadHttpValueFallback: true,
-		OmitHttpMappingErrors: true,
+		ReadHttpValueFallback:        true,
+		OmitHttpMappingErrors:        true,
 	})
 	nj := convertI642StringNesting(nestingJSON, true)
 	println(nj)
@@ -837,62 +837,62 @@ func BenchmarkHTTP2Thrift_DynamicGo_Raw(b *testing.B) {
 	})
 }
 
-func getKitexHttpRequest(req *descriptor.HTTPRequest) {
-	header := "你好"
-	req.Header.Set("String", header)
-	// exp.String_ = header
-	// h2 := "abcdefghijklmnopqrstuvwxyz"
-	// req.Header.Set("string_field", h2)
-	// exp.SimpleStruct.StringField = h2
-	// for i := range exp.ListSimple {
-	// 	exp.ListSimple[i].StringField = h2
-	// }
-	// for k := range exp.MapStringSimple {
-	// 	exp.MapStringSimple[k].StringField = h2
-	// }
+// func getKitexHttpRequest(req *descriptor.HTTPRequest) {
+// 	header := "你好"
+// 	req.Header.Set("String", header)
+// 	// exp.String_ = header
+// 	// h2 := "abcdefghijklmnopqrstuvwxyz"
+// 	// req.Header.Set("string_field", h2)
+// 	// exp.SimpleStruct.StringField = h2
+// 	// for i := range exp.ListSimple {
+// 	// 	exp.ListSimple[i].StringField = h2
+// 	// }
+// 	// for k := range exp.MapStringSimple {
+// 	// 	exp.MapStringSimple[k].StringField = h2
+// 	// }
 
-	c := []int64{-1, 0, math.MaxInt64, math.MinInt64}
-	cookie := ""
-	for i, v := range c {
-		cookie += strconv.Itoa(int(v))
-		if i != len(c)-1 {
-			cookie += ","
-		}
-	}
-	req.Cookies["list_i64"] = cookie
-	// exp.ListI64 = c
+// 	c := []int64{-1, 0, math.MaxInt64, math.MinInt64}
+// 	cookie := ""
+// 	for i, v := range c {
+// 		cookie += strconv.Itoa(int(v))
+// 		if i != len(c)-1 {
+// 			cookie += ","
+// 		}
+// 	}
+// 	req.Cookies["list_i64"] = cookie
+// 	// exp.ListI64 = c
 
-	// param := math.MaxFloat64
-	// req.Params.Set("double", strconv.FormatFloat(param, 'f', -1, 64))
-	// exp.Double = param
+// 	// param := math.MaxFloat64
+// 	// req.Params.Set("double", strconv.FormatFloat(param, 'f', -1, 64))
+// 	// exp.Double = param
 
-	q := []int32{-1, 0, math.MaxInt32, math.MinInt32}
-	query := ""
-	for i, v := range q {
-		query += strconv.Itoa(int(v))
-		if i != len(q)-1 {
-			query += ","
-		}
-	}
-	req.Query.Set("ListI32", query)
-	// exp.ListI32 = q
+// 	q := []int32{-1, 0, math.MaxInt32, math.MinInt32}
+// 	query := ""
+// 	for i, v := range q {
+// 		query += strconv.Itoa(int(v))
+// 		if i != len(q)-1 {
+// 			query += ","
+// 		}
+// 	}
+// 	req.Query.Set("ListI32", query)
+// 	// exp.ListI32 = q
 
-	// exp.I32 = 0
+// 	// exp.I32 = 0
 
-	var helper = func(sim map[string]interface{}) {
-		sim["I32Field"] = int32(sim["I32Field"].(int64))
-		sim["ByteField"] = int8(sim["ByteField"].(int64))
-	}
-	for _, v := range req.Body["MapStringSimple"].(map[string]interface{}) {
-		helper(v.(map[string]interface{}))
-	}
-	for _, v := range req.Body["ListSimple"].([]interface{}) {
-		helper(v.(map[string]interface{}))
-	}
-	helper(req.Body["SimpleStruct"].(map[string]interface{}))
-	req.Body["Byte"] = int8(req.Body["Byte"].(int64))
+// 	var helper = func(sim map[string]interface{}) {
+// 		sim["I32Field"] = int32(sim["I32Field"].(int64))
+// 		sim["ByteField"] = int8(sim["ByteField"].(int64))
+// 	}
+// 	for _, v := range req.Body["MapStringSimple"].(map[string]interface{}) {
+// 		helper(v.(map[string]interface{}))
+// 	}
+// 	for _, v := range req.Body["ListSimple"].([]interface{}) {
+// 		helper(v.(map[string]interface{}))
+// 	}
+// 	helper(req.Body["SimpleStruct"].(map[string]interface{}))
+// 	req.Body["Byte"] = int8(req.Body["Byte"].(int64))
 
-}
+// }
 
 func BenchmarkHTTP2Thrift_KitexGeneric(b *testing.B) {
 	p, err := generic.NewThriftFileProvider(idlPath)
@@ -904,9 +904,10 @@ func BenchmarkHTTP2Thrift_KitexGeneric(b *testing.B) {
 
 	b.Run("small", func(b *testing.B) {
 		codec := gthrift.NewWriteHTTPRequest(svcDsc)
-		req := &descriptor.HTTPRequest{
-			Method: "POST",
-			Path:   "/simple",
+		req := &descriptor.HTTPRequest{}
+		req.Request, err = stdh.NewRequest("POST", "/simple", nil)
+		if err != nil {
+			b.Fatal(err)
 		}
 		jc := sonic.Config{
 			UseInt64: true,

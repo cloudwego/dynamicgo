@@ -18,6 +18,7 @@ package thrift
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"runtime"
@@ -59,4 +60,34 @@ func getExampleData() []byte {
 		panic(err)
 	}
 	return out
+}
+
+func TestBinaryProtocol_ReadAnyWithDesc(t *testing.T) {
+	p1, err := NewDescritorFromPath(context.Background(), "../testdata/idl/example3.thrift")
+	if err != nil {
+		panic(err)
+	}
+	exp3partial := p1.Functions()["PartialMethod"].Response().Struct().FieldById(0).Type()
+	data, err := ioutil.ReadFile("../testdata/data/example3.bin")
+	if err != nil {
+		panic(err)
+	}
+
+	p := NewBinaryProtocol(data)
+	v, err := p.ReadAnyWithDesc(exp3partial, false, false, false, true)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%#v", v)
+	p = NewBinaryProtocolBuffer()
+	err = p.WriteAnyWithDesc(exp3partial, v, true, true, true)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%x", p.RawBuf())
+	v, err = p.ReadAnyWithDesc(exp3partial, false, false, false, true)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%#v", v)
 }

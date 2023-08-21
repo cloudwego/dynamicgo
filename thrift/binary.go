@@ -1137,8 +1137,11 @@ func (p *BinaryProtocol) ReadAnyWithDesc(desc *TypeDescriptor, byteAsUint8 bool,
 			}
 			next := st.FieldById(id)
 			if next == nil {
-				if !disallowUnknonw {
+				if disallowUnknonw {
 					return nil, errUnknonwField
+				}
+				if err := p.Skip(typ, false); err != nil {
+					return nil, err
 				}
 				continue
 			}
@@ -1592,7 +1595,6 @@ func (p *BinaryProtocol) WriteAnyWithDesc(desc *TypeDescriptor, val interface{},
 					return e
 				}
 			}
-			return nil
 		} else {
 			vs, ok := val.(map[FieldID]interface{})
 			if !ok {
@@ -1627,8 +1629,8 @@ func (p *BinaryProtocol) WriteAnyWithDesc(desc *TypeDescriptor, val interface{},
 			// 	return e
 			// }
 			// FreeRequiresBitmap(r)
-			return nil
 		}
+		return p.WriteStructEnd()
 	default:
 		return errUnsupportedType
 	}
