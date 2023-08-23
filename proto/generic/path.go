@@ -5,7 +5,9 @@ import (
 	"unsafe"
 
 	"github.com/cloudwego/dynamicgo/internal/rt"
+	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
+	"github.com/cloudwego/dynamicgo/proto/binary"
 )
 
 // PathType is the type of path
@@ -196,6 +198,16 @@ func FreePathNode(p *PathNode) {
 	pathNodePool.Put(p)
 }
 
+// extend cap of a PathNode slice
+func guardPathNodeSlice(con *[]PathNode, l int) {
+    c := cap(*con)  // Get the current capacity of the slice
+    if l >= c {
+        tmp := make([]PathNode, len(*con), l + DefaultNodeSliceCap)  // Create a new slice 'tmp'
+        copy(tmp, *con)  // Copy elements from the original slice to the new slice 'tmp'
+        *con = tmp  // Update the reference of the original slice to point to the new slice 'tmp'
+    }
+}
+
 // DescriptorToPathNode converts a proto kind descriptor to a DOM, assgining path to root
 // NOTICE: it only recursively converts MESSAGE type
 func DescriptorToPathNode(desc *proto.FieldDescriptor, root *PathNode, opts *Options) error {
@@ -228,4 +240,285 @@ func DescriptorToPathNode(desc *proto.FieldDescriptor, root *PathNode, opts *Opt
 
 	}
 	return nil
+}
+
+func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts *Options, desc *proto.Descriptor) (err error) {
+	next := self.Next[:0] // []PathNode len=0
+	l := len(next)
+	c := cap(next)
+	maxId := StoreChildrenByIdShreshold
+	var v *PathNode
+	switch self.Node.t {
+	case proto.MESSAGE:
+		messageDesc := (*desc).(proto.MessageDescriptor)
+		fields := messageDesc.Fields()
+		for p.Read < len(p.Buf){
+			fieldNumber, wireType, _, tagErr := p.ConsumeTag()
+			if tagErr != nil {
+				return errNode(meta.ErrRead, "", tagErr)
+			}
+
+			// OPT: store children by id here, thus we can use id as index to access children.
+			if opts.StoreChildrenById {
+				// if id is larger than the threshold, we store children after the threshold.
+				if int(fieldNumber) < StoreChildrenByIdShreshold {
+					l = int(fieldNumber)
+				} else {
+					l = maxId
+					maxId += 1
+				}
+			}
+			
+			field := fields.Get(int(fieldNumber))
+			if field != nil {
+				v, err = self.handleChild(&next, &l, &c, p, recurse, opts, &field)
+			} else {
+				// store unknown field without recurse subnodes
+				v, err = self.handleUnknownChild(&next, &l, &c, p, recurse, opts, wireType)
+			}
+			
+			if err != nil {
+				return err
+			}
+			v.Path = NewPathFieldId(fieldNumber)
+		}
+	case proto.LIST:
+		FieldDesc := (*desc).(proto.FieldDescriptor)
+		fieldNumber, wireType, _, tagErr := p.ConsumeTag()
+		if tagErr != nil {
+			return errNode(meta.ErrRead, "", tagErr)
+		}
+		start := p.Read
+		self.et = proto.FromProtoKindToType(FieldDesc.Kind(),false,false)
+		// packed
+		if wireType == proto.BytesType {
+			listLen, lengthErr := p.ReadLength()
+			if lengthErr != nil {
+				return errNode(meta.ErrRead, "", lengthErr)
+			}
+			listIndex := 0
+			for p.Read < start + listLen {
+				v, err = self.handleListChild(&next, &l, &c, p, recurse, opts, &FieldDesc)
+				if err != nil {
+					return err
+				}
+				v.Path = NewPathIndex(listIndex)
+				listIndex++
+			}
+		} else {
+			listIndex := 0
+			for p.Read < len(p.Buf) {
+				itemNumber, _, tagLen, tagErr := p.ConsumeTagWithoutMove()
+				if tagErr != nil {
+					return errNode(meta.ErrRead, "", tagErr)
+				}
+				
+				if itemNumber != fieldNumber {
+					break
+				}
+				p.Read += tagLen
+				v, err = self.handleListChild(&next, &l, &c, p, recurse, opts, &FieldDesc)
+				if err != nil {
+					return err
+				}
+				v.Path = NewPathIndex(listIndex)
+				listIndex++
+			}
+		}
+	case proto.MAP:
+		mapDesc := (*desc).(proto.FieldDescriptor)
+		keyDesc := mapDesc.MapKey()
+		valueDesc := mapDesc.MapValue()
+		self.kt = proto.FromProtoKindToType(keyDesc.Kind(),keyDesc.IsList(),keyDesc.IsMap())
+		self.et = proto.FromProtoKindToType(valueDesc.Kind(),valueDesc.IsList(),valueDesc.IsMap())
+		
+		if self.kt == proto.STRING {
+			for p.Read < len(p.Buf) {
+				pairNumber, _, pairLen, pairTagErr := p.ConsumeTagWithoutMove()
+				if pairTagErr != nil {
+					return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+				}
+				if pairNumber != mapDesc.Number() {
+					break
+				}
+				p.Read += pairLen
+				_, _, _, keyTagErr := p.ConsumeTag()
+				if keyTagErr != nil {
+					return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+				}
+				key, keyErr := p.ReadString(false)
+				if keyErr != nil {
+					return errNode(meta.ErrRead, "", keyErr)
+				}
+				_, _, _, valueTagErr := p.ConsumeTag()
+				if valueTagErr != nil {
+					return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+				}
+
+				v, err = self.handleChild(&next, &l, &c, p, recurse, opts, &valueDesc)
+				if err != nil {
+					return err
+				}
+				v.Path = NewPathStrKey(key)
+			}
+		} else if self.kt.IsInt() {
+			for p.Read < len(p.Buf) {
+				pairNumber, _, pairLen, pairTagErr := p.ConsumeTagWithoutMove()
+				if pairTagErr != nil {
+					return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+				}
+				if pairNumber != mapDesc.Number() {
+					break
+				}
+				p.Read += pairLen
+				_, _, _, keyTagErr := p.ConsumeTag()
+				if keyTagErr != nil {
+					return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+				}
+
+				key, keyErr := p.ReadInt(self.kt)
+
+				if keyErr != nil {
+					return errNode(meta.ErrRead, "", keyErr)
+				}
+				_, _, _, valueTagErr := p.ConsumeTag()
+				if valueTagErr != nil {
+					return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+				}
+
+				v, err = self.handleChild(&next, &l, &c, p, recurse, opts, &valueDesc)
+				if err != nil {
+					return err
+				}
+				v.Path = NewPathIntKey(key)
+			}
+		}
+	default:
+		return errNode(meta.ErrUnsupportedType, "", nil)
+	}
+
+	self.Next = next
+	return nil
+}
+
+func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *binary.BinaryProtocol, recurse bool, opts *Options, desc *proto.FieldDescriptor) (*PathNode, error) {
+	var con = *in
+	var l = *lp
+	guardPathNodeSlice(&con, l) // extend cap of con
+	if l >= len(con) {
+		con = con[:l+1]
+	}
+	v := &con[l]
+	l += 1
+
+	start := p.Read
+	buf := p.Buf
+	kind := (*desc).Kind()
+	et := proto.FromProtoKindToType(kind,(*desc).IsList(),(*desc).IsMap())
+
+	if recurse && (et.IsComplex() && opts.NotScanParentNode) {
+		v.Node = Node{
+			t: et,
+			l: 0,
+			v: unsafe.Pointer(uintptr(self.Node.v) + uintptr(start)),
+		}
+	} else {
+		if e := p.Skip(proto.Kind2Wire[kind], opts.UseNativeSkip); e != nil {
+			return nil, errNode(meta.ErrRead, "", e)
+		}
+		v.Node = self.slice(start, p.Read, et)
+	}
+
+	if recurse && et.IsComplex() {
+		p.Buf = p.Buf[start:]
+		p.Read = 0
+		parentDesc := (*desc).(proto.Descriptor)
+		if et == proto.MESSAGE {
+			parentDesc = (*desc).Message().(proto.Descriptor)
+		}
+
+		if err := v.scanChildren(p, recurse, opts, &parentDesc); err != nil {
+			return nil, err
+		}
+		p.Buf = buf
+		p.Read = start + p.Read
+	}
+
+	*in = con
+	*lp = l
+	*cp = cap(con)
+	return v, nil
+}
+
+func (self *PathNode) handleUnknownChild(in *[]PathNode, lp *int, cp *int, p *binary.BinaryProtocol, recurse bool, opts *Options, wireType proto.WireType) (*PathNode, error) {
+	var con = *in
+	var l = *lp
+	guardPathNodeSlice(&con, l) // extend cap of con
+	if l >= len(con) {
+		con = con[:l+1]
+	}
+	v := &con[l]
+	l += 1
+
+	start := p.Read
+	
+	if e := p.Skip(wireType, opts.UseNativeSkip); e != nil {
+		return nil, errNode(meta.ErrRead, "", e)
+	}
+	v.Node = self.slice(start, p.Read, proto.UNKNOWN)
+
+	*in = con
+	*lp = l
+	*cp = cap(con)
+	return v, nil
+}
+
+
+func (self *PathNode) handleListChild(in *[]PathNode, lp *int, cp *int, p *binary.BinaryProtocol, recurse bool, opts *Options, desc *proto.FieldDescriptor) (*PathNode, error) {
+	var con = *in
+	var l = *lp
+	guardPathNodeSlice(&con, l) // extend cap of con
+	if l >= len(con) {
+		con = con[:l+1]
+	}
+	v := &con[l]
+	l += 1
+
+	start := p.Read
+	buf := p.Buf
+	kind := (*desc).Kind()
+	et := proto.FromProtoKindToType(kind, false, false)
+
+	if recurse && (et.IsComplex() && opts.NotScanParentNode) {
+		v.Node = Node{
+			t: et,
+			l: 0,
+			v: unsafe.Pointer(uintptr(self.Node.v) + uintptr(start)),
+		}
+	} else {
+		if e := p.Skip(proto.Kind2Wire[kind], opts.UseNativeSkip); e != nil {
+			return nil, errNode(meta.ErrRead, "", e)
+		}
+		v.Node = self.slice(start, p.Read, et)
+	}
+
+	if recurse && et.IsComplex() {
+		p.Buf = p.Buf[start:]
+		p.Read = 0
+		parentDesc := (*desc).(proto.Descriptor)
+		if et == proto.MESSAGE {
+			parentDesc = (*desc).Message().(proto.Descriptor)
+		}
+
+		if err := v.scanChildren(p, recurse, opts, &parentDesc); err != nil {
+			return nil, err
+		}
+		p.Buf = buf
+		p.Read = start + p.Read
+	}
+
+	*in = con
+	*lp = l
+	*cp = cap(con)
+	return v, nil
 }

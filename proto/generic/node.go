@@ -5,6 +5,7 @@ import (
 
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/proto"
+	"github.com/cloudwego/dynamicgo/proto/binary"
 	"github.com/cloudwego/dynamicgo/proto/protowire"
 )
 
@@ -199,5 +200,30 @@ func NewComplexNode(t proto.Type, et proto.Type, kt proto.Type) (ret Node){
 	}
 	ret.t = t
 	return
+}
+
+func (self Node) Children(out *[]PathNode, recurse bool, opts *Options, desc *proto.MessageDescriptor) (err error) {
+	if self.Error() != "" {
+		return self
+	}
+
+	if out == nil {
+		panic("out is nil")
+	}
+	// NOTICE: since we only use out for memory reuse, we always reset it to zero.
+	p := binary.BinaryProtocol{
+		Buf: self.raw(),
+	}
+
+	tree := PathNode{
+		Node: self,
+		Next: (*out)[:0], // NOTICE: we reset it to zero.
+	}
+	rootDesc := (*desc).(proto.Descriptor)
+	err = tree.scanChildren(&p, recurse, opts, &rootDesc)
+	if err != nil {
+		*out = tree.Next
+	}
+	return err
 }
 

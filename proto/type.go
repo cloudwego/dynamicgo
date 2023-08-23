@@ -79,7 +79,7 @@ var Kind2Wire = map[ProtoKind]WireType{
 type Type uint8
 
 const (
-	NIL     Type = 0 // nil
+	UNKNOWN Type = 0 // unknown field type
 	DOUBLE  Type = 1
 	FLOAT   Type = 2
 	INT64   Type = 3
@@ -105,7 +105,7 @@ const (
 
 func (p Type) Valid() bool {
 	switch p {
-	case NIL, BOOL, ENUM, BYTE, INT32, SINT32, UINT32, SFIX32, FIX32, INT64, SINT64, UINT64, SFIX64, FIX64, FLOAT,
+	case UNKNOWN, BOOL, ENUM, BYTE, INT32, SINT32, UINT32, SFIX32, FIX32, INT64, SINT64, UINT64, SFIX64, FIX64, FLOAT,
 		DOUBLE, STRING, MESSAGE, LIST, MAP:
 		return true
 	default:
@@ -123,9 +123,18 @@ func FromProtoKindToType(kind ProtoKind, isList bool, isMap bool) Type {
 	}
 	return t
 }
-// IsInt tells if the type is one of I08, I16, I32, I64
+// IsInt tells if the type is one of Int32 or Int64
 func (p Type) IsInt() bool {
 	return p == INT32 || p == INT64 || p == SFIX32 || p == SFIX32 || p == SINT64 || p == SINT32
+}
+
+func (p Type) IsUint() bool {
+	return p == UINT32 || p == UINT64 || p == FIX32 || p == FIX64
+}
+
+// IsComplex tells if the type is one of STRUCT, MAP, SET, LIST
+func (p Type) IsComplex() bool {
+	return p == MESSAGE || p == MAP || p == LIST
 }
 
 type Number = protowire.Number

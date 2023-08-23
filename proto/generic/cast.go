@@ -10,7 +10,7 @@ import (
 )
 
 func (self Node) should(api string, t1 proto.Type) string {
-	if self.t == proto.NIL || self.t == proto.ERROR {
+	if self.t == proto.ERROR {
 		return self.Error()
 	}
 	if self.t == t1 {
@@ -20,7 +20,7 @@ func (self Node) should(api string, t1 proto.Type) string {
 }
 
 func (self Node) should2(api string, t1 proto.Type, t2 proto.Type) string {
-	if self.t == proto.NIL || self.t == proto.ERROR {
+	if self.t == proto.ERROR {
 		return self.Error()
 	}
 	if self.t == t1 || self.t == t2 {

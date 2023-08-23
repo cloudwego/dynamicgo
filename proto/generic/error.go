@@ -106,8 +106,8 @@ import (
  }
  
  // IsEmpty tells if the node is thrift.STOP
- func (self Node) IsEmpty() bool {
-	 return self.t == proto.NIL
+ func (self Node) IsUnKnown() bool {
+	 return self.t == proto.UNKNOWN
  }
  
  // IsEmtpy tells if the node is thrift.ERROR
