@@ -8,6 +8,7 @@ import (
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/proto/binary"
+	"github.com/cloudwego/dynamicgo/proto/protowire"
 )
 
 // PathType is the type of path
@@ -37,9 +38,9 @@ const (
 
 // Path represents the relative position of a sub node in a complex parent node
 type Path struct {
-	t PathType
-	v unsafe.Pointer
-	l int
+	t PathType // path type
+	v unsafe.Pointer // value ptr
+	l int // field number
 }
 
 // Str returns the string value of a PathFieldName\PathStrKey path
@@ -114,6 +115,36 @@ func (self Path) Value() interface{} {
 		return self.int()
 	case PathBinKey:
 		return self.bin()
+	default:
+		return nil
+	}
+}
+
+// ToRaw converts underlying value to thrift-encoded bytes
+func (self Path) ToRaw(t proto.Type) []byte {
+	kind := t.TypeToKind()
+	switch self.t {
+	case PathFieldId:
+		ret := make([]byte, 0, 4)
+		tag := uint64(self.l) << 3 | uint64(proto.Kind2Wire[kind])
+		ret = protowire.BinaryEncoder{}.EncodeUint64(ret, tag)
+		return ret
+	case PathStrKey:
+		ret := make([]byte, 0, 4)
+		tag := uint64(self.l) << 3 | uint64(proto.STRING)
+		ret = protowire.BinaryEncoder{}.EncodeUint64(ret, tag)
+		return ret
+	case PathIntKey:
+		switch t {
+		case proto.INT64:
+			ret := make([]byte, 8, 8)
+			protowire.BinaryEncoder{}.EncodeInt64(ret, int64(self.l))
+			return ret
+		default:
+			return nil
+		}
+	case PathBinKey:
+		return rt.BytesFrom(self.v, self.l, self.l)
 	default:
 		return nil
 	}
@@ -241,6 +272,9 @@ func DescriptorToPathNode(desc *proto.FieldDescriptor, root *PathNode, opts *Opt
 	}
 	return nil
 }
+
+
+
 
 func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts *Options, desc *proto.Descriptor) (err error) {
 	next := self.Next[:0] // []PathNode len=0
@@ -521,4 +555,21 @@ func (self *PathNode) handleListChild(in *[]PathNode, lp *int, cp *int, p *binar
 	*lp = l
 	*cp = cap(con)
 	return v, nil
+}
+
+// Load loads self's all children ( and children's children if recurse is true) into self.Next,
+// no matter whether self.Next is empty or set before (will be reset).
+// NOTICE: if opts.NotScanParentNode is true, the parent nodes (PathNode.Node) of complex (map/list/struct) type won't be assgined data
+func (self *PathNode) Load(recurse bool, opts *Options, desc *proto.Descriptor) error {
+	if self == nil {
+		panic("nil PathNode")
+	}
+	if self.Error() != "" {
+		return self
+	}
+	self.Next = self.Next[:0]
+	p := binary.BinaryProtocol{
+		Buf: self.Node.raw(),
+	}
+	return self.scanChildren(&p, recurse, opts, desc)
 }

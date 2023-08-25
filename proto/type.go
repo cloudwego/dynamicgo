@@ -113,6 +113,16 @@ func (p Type) Valid() bool {
 	}
 }
 
+func (p Type) TypeToKind() ProtoKind {
+	switch p {
+	case UNKNOWN,ERROR:
+		return 0
+	case LIST,MAP:
+		return MessageKind
+	}
+	return ProtoKind(p)
+}
+
 // FromProtoKindTType converts ProtoKind to Type
 func FromProtoKindToType(kind ProtoKind, isList bool, isMap bool) Type {
 	t := Type(kind)

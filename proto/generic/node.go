@@ -1,12 +1,15 @@
 package generic
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/cloudwego/dynamicgo/internal/rt"
+	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/proto/binary"
 	"github.com/cloudwego/dynamicgo/proto/protowire"
+	"github.com/cloudwego/dynamicgo/thrift"
 )
 
 type Node struct {
@@ -83,7 +86,7 @@ func NewNodeBool(val bool) Node {
 }
 
 func NewNodeByte(val byte) Node {
-	buf := make([]byte, 0,1)
+	buf := make([]byte, 0, 1)
 	buf = protowire.BinaryEncoder{}.EncodeByte(buf, val)
 	return NewNode(proto.BYTE, buf)
 }
@@ -227,3 +230,68 @@ func (self Node) Children(out *[]PathNode, recurse bool, opts *Options, desc *pr
 	return err
 }
 
+func (self *Node) replace(o Node, n Node) error {
+	// mush ensure target value is same type as source value
+	if o.t != n.t {
+		return meta.NewError(meta.ErrDismatchType, fmt.Sprintf("type mismatch: %s != %s", o.t, n.t), nil)
+	}
+	// export target node to bytes
+	pat := n.raw()
+
+	// divide self's buffer into three slices:
+	// 1. self's slice before the target node
+	// 2. target node's slice
+	// 3. self's slice after the target node
+	s1 := rt.AddPtr(o.v, uintptr(o.l))
+	l0 := int(uintptr(o.v) - uintptr(self.v))
+	l1 := len(pat)
+	l2 := int(uintptr(self.v) + uintptr(self.l) - uintptr(s1))
+
+	// copy three slices into new buffer
+	buf := make([]byte, l0+l1+l2)
+	copy(buf[:l0], rt.BytesFrom(self.v, l0, l0))
+	copy(buf[l0:l0+l1], pat)
+	copy(buf[l0+l1:l0+l1+l2], rt.BytesFrom(s1, l2, l2))
+
+	// replace self's entire buffer
+	self.v = rt.GetBytePtr(buf)
+	self.l = int(len(buf))
+	return nil
+}
+
+func (o *Node) setNotFound(path Path, n *Node) error {
+	switch o.kt {
+	case proto.MESSAGE:
+		// add field bytes
+		tag := path.ToRaw(n.t)
+		src := n.raw()
+		buf := make([]byte, 0, len(tag)+len(src))
+		buf = append(buf, tag...)
+		buf = append(buf, src...)
+		n.l = len(buf)
+		n.v = rt.GetBytePtr(buf)
+	case proto.LIST:
+		// modify the original size
+		buf := rt.BytesFrom(rt.SubPtr(o.v, uintptr(4)), 4, 4)
+		size := int(thrift.BinaryEncoding{}.DecodeInt32(buf))
+		thrift.BinaryEncoding{}.EncodeInt32(buf, int32(size+1))
+	case proto.MAP:
+		// modify the original size
+		buf := rt.BytesFrom(rt.SubPtr(o.v, uintptr(4)), 4, 4)
+		size := int(thrift.BinaryEncoding{}.DecodeInt32(buf))
+		thrift.BinaryEncoding{}.EncodeInt32(buf, int32(size+1))
+		// add key bytes
+		key := path.ToRaw(n.t)
+		src := n.raw()
+		buf = make([]byte, 0, len(key)+len(src))
+		buf = append(buf, key...)
+		buf = append(buf, src...)
+		n.l = len(buf)
+		n.v = rt.GetBytePtr(buf)
+	default:
+		return errNode(meta.ErrDismatchType, "simple type node shouldn't have child", nil)
+	}
+	o.t = n.t
+	o.l = 0
+	return nil
+}
