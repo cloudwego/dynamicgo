@@ -223,7 +223,7 @@ func (self *BinaryConv) doRecurse(ctx context.Context, desc *thrift.TypeDescript
 		if e != nil {
 			return wrapError(meta.ErrWrite, "", e)
 		}
-		if self.opts.String2Int64 {
+		if self.opts.Int642String {
 			*out = append(*out, '"')
 			*out = json.EncodeInt64(*out, int64(v))
 			*out = append(*out, '"')
