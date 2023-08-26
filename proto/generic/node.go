@@ -9,7 +9,6 @@ import (
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/proto/binary"
 	"github.com/cloudwego/dynamicgo/proto/protowire"
-	"github.com/cloudwego/dynamicgo/thrift"
 )
 
 type Node struct {
@@ -259,10 +258,159 @@ func (self *Node) replace(o Node, n Node) error {
 	return nil
 }
 
-func (o *Node) setNotFound(path Path, n *Node) error {
+
+func (self *Node) deleteChild(path Path) Node {
+	p := binary.BinaryProtocol{}
+	p.Buf = self.raw()
+	var start, end int
+	var tt proto.Type // Need TODO: check if this is necessary
+	exist := false
+	switch self.t {
+	case proto.MESSAGE:
+		p.ConsumeTag()
+		len,_ := p.ReadLength()
+		if path.Type() != PathFieldId {
+			return errNode(meta.ErrDismatchType, "", nil)
+		}
+		messageStart := p.Read
+		id := path.id()
+		for p.Read < messageStart + len {
+			start = p.Read
+			fieldNumber, wireType, _, tagErr := p.ConsumeTag()
+			if tagErr != nil {
+				return errNode(meta.ErrRead, "", tagErr)
+			}
+			if err := p.Skip(wireType, false); err != nil {
+				return errNode(meta.ErrRead, "", err)
+			}
+			end = p.Read
+			if id == fieldNumber {
+				exist = true
+				break
+			}
+		}
+		if !exist {
+			return errNotFound
+		}
+	case proto.LIST:
+		fieldNumber, wireType, _, tagErr := p.ConsumeTagWithoutMove()
+		if tagErr != nil {
+			return errNode(meta.ErrRead, "", tagErr)
+		}
+		start := p.Read
+		listIndex := 0		
+		if path.Type() != PathIndex {
+			return errNode(meta.ErrDismatchType, "", nil)
+		}
+		idx := path.int()
+		// packed
+		if wireType == proto.BytesType {
+			_, _, _, tagErr := p.ConsumeTag()
+			if tagErr != nil {
+				return errNode(meta.ErrRead, "", tagErr)
+			}
+
+			listLen, lengthErr := p.ReadLength()
+			if lengthErr != nil {
+				return errNode(meta.ErrRead, "", lengthErr)
+			}
+
+			for p.Read < start + listLen && listIndex < idx {
+				start = p.Read
+				if err := p.Skip(wireType, false); err != nil {
+					return errNode(meta.ErrRead, "", err)
+				}
+				end = p.Read
+				listIndex++
+			}
+		} else {
+			for p.Read < len(p.Buf) && listIndex < idx{
+				start = p.Read
+				itemNumber, _, tagLen, _ := p.ConsumeTagWithoutMove()
+				if itemNumber != fieldNumber {
+					break
+				}
+				p.Read += tagLen
+				if err := p.Skip(wireType, false); err != nil {
+					return errNode(meta.ErrRead, "", err)
+				}
+				end = p.Read
+				listIndex++
+			}
+		}
+
+		if listIndex > idx {
+			return errNotFound
+		}
+	case proto.MAP:
+		pairNumber, _, _, _ := p.ConsumeTagWithoutMove()
+		if self.kt == proto.STRING {
+			key := path.str()
+			for p.Read < len(p.Buf) {
+				start = p.Read
+				itemNumber, _, pairLen, _ := p.ConsumeTagWithoutMove()
+				if itemNumber != pairNumber {
+					break
+				}
+				p.Read += pairLen
+				p.ReadLength()
+				// key
+				p.ConsumeTag()
+				k, _ := p.ReadString(false)
+				// value
+				_, valueWire, _, _ := p.ConsumeTag()
+				if err := p.Skip(valueWire, false); err != nil {
+					return errNode(meta.ErrRead, "", err)
+				}
+				end = p.Read
+				if k == key {
+					exist = true
+					break
+				}
+			}
+		} else if self.kt.IsInt() {
+			key := path.Int()
+			pairNumber, _, _, _ := p.ConsumeTagWithoutMove()
+			for p.Read < len(p.Buf) {
+				start = p.Read
+				itemNumber, _, pairLen, _ := p.ConsumeTagWithoutMove()
+				if itemNumber != pairNumber {
+					break
+				}
+				p.Read += pairLen
+				p.ReadLength()
+
+				// key
+				p.ConsumeTag()
+				k, _ := p.ReadInt(self.kt)
+				//value
+				_, valueWire, _, _ := p.ConsumeTag()
+				if err := p.Skip(valueWire, false); err != nil {
+					return errNode(meta.ErrRead, "", err)
+				}
+				end = p.Read
+				if k == key {
+					exist = true
+					break
+				}
+			}
+		}
+		if !exist {
+			return errNotFound
+		}
+	default:
+		return errNotFound
+	}
+	return Node{
+		t: tt,
+		v: rt.AddPtr(self.v, uintptr(start)),
+		l: end - start,
+	}
+}
+
+func (o *Node) setNotFound(path Path, n *Node, desc *proto.FieldDescriptor) error {
 	switch o.kt {
 	case proto.MESSAGE:
-		// add field bytes
 		tag := path.ToRaw(n.t)
 		src := n.raw()
 		buf := make([]byte, 0, len(tag)+len(src))
@@ -271,20 +419,14 @@ func (o *Node) setNotFound(path Path, n *Node) error {
 		n.l = len(buf)
 		n.v = rt.GetBytePtr(buf)
 	case proto.LIST:
-		// modify the original size
-		buf := rt.BytesFrom(rt.SubPtr(o.v, uintptr(4)), 4, 4)
-		size := int(thrift.BinaryEncoding{}.DecodeInt32(buf))
-		thrift.BinaryEncoding{}.EncodeInt32(buf, int32(size+1))
+		// maybe unpacked need change
+		break
 	case proto.MAP:
-		// modify the original size
-		buf := rt.BytesFrom(rt.SubPtr(o.v, uintptr(4)), 4, 4)
-		size := int(thrift.BinaryEncoding{}.DecodeInt32(buf))
-		thrift.BinaryEncoding{}.EncodeInt32(buf, int32(size+1))
-		// add key bytes
-		key := path.ToRaw(n.t)
-		src := n.raw()
-		buf = make([]byte, 0, len(key)+len(src))
-		buf = append(buf, key...)
+		buf := path.ToRaw(n.t) // keytag + key
+		valueKind := (*desc).MapValue().Kind()
+		valueTag := uint64(1) << 3 | uint64(proto.Kind2Wire[valueKind])
+		buf = protowire.BinaryEncoder{}.EncodeUint64(buf, valueTag) // + value tag
+		src := n.raw() // + value
 		buf = append(buf, src...)
 		n.l = len(buf)
 		n.v = rt.GetBytePtr(buf)

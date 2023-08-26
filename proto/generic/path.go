@@ -1,6 +1,7 @@
 package generic
 
 import (
+	"fmt"
 	"sync"
 	"unsafe"
 
@@ -125,26 +126,40 @@ func (self Path) ToRaw(t proto.Type) []byte {
 	kind := t.TypeToKind()
 	switch self.t {
 	case PathFieldId:
-		ret := make([]byte, 0, 4)
+		// tag
+		ret := make([]byte, 0, 8)
 		tag := uint64(self.l) << 3 | uint64(proto.Kind2Wire[kind])
 		ret = protowire.BinaryEncoder{}.EncodeUint64(ret, tag)
 		return ret
 	case PathStrKey:
-		ret := make([]byte, 0, 4)
-		tag := uint64(self.l) << 3 | uint64(proto.STRING)
+		// tag + string key
+		ret := make([]byte, 0, 8)
+		tag := uint64(0) << 3 | uint64(proto.STRING)
 		ret = protowire.BinaryEncoder{}.EncodeUint64(ret, tag)
+		ret = protowire.BinaryEncoder{}.EncodeString(ret, self.str())
 		return ret
 	case PathIntKey:
+		// tag + int key
+		ret := make([]byte, 0, 8)
+		tag := uint64(0) << 3 | uint64(proto.Kind2Wire[kind])
+		ret = protowire.BinaryEncoder{}.EncodeUint64(ret, tag)
 		switch t {
+		case proto.INT32:
+			ret = protowire.BinaryEncoder{}.EncodeInt32(ret, int32(self.l))
+		case proto.SINT32:
+			ret = protowire.BinaryEncoder{}.EncodeSint32(ret, int32(self.l))
+		case proto.SFIX32:
+			ret = protowire.BinaryEncoder{}.EncodeSfixed32(ret, int32(self.l))
 		case proto.INT64:
-			ret := make([]byte, 8, 8)
-			protowire.BinaryEncoder{}.EncodeInt64(ret, int64(self.l))
-			return ret
-		default:
-			return nil
+			ret = protowire.BinaryEncoder{}.EncodeInt64(ret, int64(self.l))
+		case proto.SINT64:
+			ret = protowire.BinaryEncoder{}.EncodeSint64(ret, int64(self.l))
+		case proto.SFIX64:
+			ret = protowire.BinaryEncoder{}.EncodeSfixed64(ret, int64(self.l))
 		}
+		return ret
 	case PathBinKey:
-		return rt.BytesFrom(self.v, self.l, self.l)
+		return nil
 	default:
 		return nil
 	}
@@ -286,12 +301,16 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 	case proto.MESSAGE:
 		messageDesc := (*desc).(proto.MessageDescriptor)
 		fields := messageDesc.Fields()
+		p.ConsumeTag()
+		p.ReadLength()
+
 		for p.Read < len(p.Buf){
 			fieldNumber, wireType, _, tagErr := p.ConsumeTag()
 			if tagErr != nil {
 				return errNode(meta.ErrRead, "", tagErr)
 			}
 
+			
 			// OPT: store children by id here, thus we can use id as index to access children.
 			if opts.StoreChildrenById {
 				// if id is larger than the threshold, we store children after the threshold.
@@ -303,7 +322,7 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 				}
 			}
 			
-			field := fields.Get(int(fieldNumber))
+			field := fields.ByNumber(fieldNumber)
 			if field != nil {
 				v, err = self.handleChild(&next, &l, &c, p, recurse, opts, &field)
 			} else {
@@ -318,7 +337,7 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 		}
 	case proto.LIST:
 		FieldDesc := (*desc).(proto.FieldDescriptor)
-		fieldNumber, wireType, _, tagErr := p.ConsumeTag()
+		fieldNumber, wireType, _, tagErr := p.ConsumeTagWithoutMove()
 		if tagErr != nil {
 			return errNode(meta.ErrRead, "", tagErr)
 		}
@@ -326,6 +345,11 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 		self.et = proto.FromProtoKindToType(FieldDesc.Kind(),false,false)
 		// packed
 		if wireType == proto.BytesType {
+			_, _, _, tagErr := p.ConsumeTag()
+			if tagErr != nil {
+				return errNode(meta.ErrRead, "", tagErr)
+			}
+
 			listLen, lengthErr := p.ReadLength()
 			if lengthErr != nil {
 				return errNode(meta.ErrRead, "", lengthErr)
@@ -376,6 +400,9 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 					break
 				}
 				p.Read += pairLen
+				
+				p.ReadLength()
+
 				_, _, _, keyTagErr := p.ConsumeTag()
 				if keyTagErr != nil {
 					return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
@@ -405,6 +432,9 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 					break
 				}
 				p.Read += pairLen
+
+				p.ReadLength()
+				
 				_, _, _, keyTagErr := p.ConsumeTag()
 				if keyTagErr != nil {
 					return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
@@ -572,4 +602,64 @@ func (self *PathNode) Load(recurse bool, opts *Options, desc *proto.Descriptor) 
 		Buf: self.Node.raw(),
 	}
 	return self.scanChildren(&p, recurse, opts, desc)
+}
+
+
+func GetDescByPath(rootDesc *proto.MessageDescriptor, pathes ...Path) (ret *proto.FieldDescriptor, err error) {
+	var desc *proto.FieldDescriptor
+	ret = desc
+	for i, p := range pathes {
+		if i == 0 {
+			switch p.Type() {
+			case PathFieldId:
+				f := (*rootDesc).Fields().ByNumber(p.id())
+				if f == nil {
+					return nil, errNode(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", p.id()), nil)
+				}
+				desc = &f
+			case PathFieldName:
+				f := (*rootDesc).Fields().ByName(proto.FieldName(p.str()))
+				if f == nil {
+					return nil, errNode(meta.ErrUnknownField, fmt.Sprintf("unknown field %s", p.str()), nil)
+				}
+				desc = &f
+			default:
+				return nil, errNode(meta.ErrInvalidParam, "", nil)
+			}
+		} else {
+			kind := (*desc).Kind()
+			et := proto.FromProtoKindToType(kind,(*desc).IsList(),(*desc).IsMap())
+			switch et {
+			case proto.MESSAGE:
+				switch p.Type() {
+				case PathFieldId:
+					f := (*desc).Message().Fields().ByNumber(p.id())
+					if f == nil {
+						return nil, errNode(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", p.id()), nil)
+					}
+					desc = &f
+				case PathFieldName:
+					f := (*desc).Message().Fields().ByName(proto.FieldName(p.str()))
+					if f == nil {
+						return nil, errNode(meta.ErrUnknownField, fmt.Sprintf("unknown field %s", p.str()), nil)
+					}
+					desc = &f
+				default:
+					return nil, errNode(meta.ErrInvalidParam, "", nil)
+				}
+			case proto.MAP:
+				valueDesc := (*desc).MapValue()
+				desc = &valueDesc
+			// if LIST keep the same desc
+			default:
+				return nil, errNode(meta.ErrInvalidParam, "", nil)
+			}
+		}
+
+		ret = desc
+		if ret == nil {
+			return nil, errNode(meta.ErrNotFound, "", err)
+		}
+	}
+	return
 }

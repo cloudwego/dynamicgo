@@ -337,9 +337,17 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 		}
 
 		parentPath := path[l-1]
-		desc, err := GetDescByPath(self.Desc, path[:l-1]...)
-		// if p.t == PathFieldName {
-		if err := v.setNotFound(parentPath, &sub.Node); err != nil {
+		desc, err := GetDescByPath(self.rootDesc, path[:l-1]...)
+		if err != nil {
+			return false, err
+		}
+		// may have error
+		if parentPath.t == PathFieldName {
+			f := (*desc).Message().Fields().ByName(proto.FieldName(parentPath.str()))
+			parentPath = NewPathFieldId(f.Number())
+		}
+
+		if err := v.setNotFound(parentPath, &sub.Node, desc); err != nil {
 			return false, err
 		}
 	} else {
@@ -347,4 +355,112 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 	}
 	err = self.replace(v.Node, sub.Node)
 	return
+}
+
+
+// UnsetByPath searches longitudinally and unsets a sub value at the given path from the value.
+func (self *Value) UnsetByPath(path ...Path) error {
+	l := len(path)
+	if l == 0 {
+		*self = Value{}
+		return nil
+	}
+	if err := self.Check(); err != nil {
+		return err
+	}
+	// search parent node by path
+	var v = self.GetByPath(path[:l-1]...)
+	if v.IsError() {
+		if v.IsErrNotFound() {
+			return nil
+		}
+		return v
+	}
+	p := path[l-1]
+	desc, err := GetDescByPath(self.rootDesc, path[:l-1]...)
+	if p.t == PathFieldName {
+		if err != nil {
+			return err
+		}
+		f := (*desc).Message().Fields().ByName(proto.FieldName(p.str()))
+		p = NewPathFieldId(f.Number())
+	}
+	ret := v.deleteChild(p)
+	if ret.IsError() {
+		return ret
+	}
+	return self.replace(ret, Node{t: ret.t})
+}
+
+// MarshalTo marshals self value into a sub value descripted by the to descriptor, alse called as "Cutting".
+// Usually, the to descriptor is a subset of self descriptor.
+func (self Value) MarshalTo(to *proto.MessageDescriptor, opts *Options) ([]byte, error) {
+	var w = binary.NewBinaryProtocolBuffer()
+	var r = binary.BinaryProtocol{}
+	r.Buf = self.raw()
+	var from = self.rootDesc
+	// if from.Type() != to.Type() {
+	// 	return nil, wrapError(meta.ErrDismatchType, "to descriptor dismatches from descriptor", nil)
+	// }
+	if err := marshalTo(&r, w, from, to, opts); err != nil {
+		return nil, err
+	}
+	ret := make([]byte, len(w.Buf))
+	copy(ret, w.Buf)
+	binary.FreeBinaryProtocol(w)
+	return ret, nil
+}
+
+
+func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *proto.MessageDescriptor, to *proto.MessageDescriptor, opts *Options) error {
+	for read.Read < len(read.Buf) {
+		fieldNumber, wireType, _, _ := read.ConsumeTag()
+		fromField := (*from).Fields().ByNumber(fieldNumber)
+
+		if fromField == nil {
+			if opts.DisallowUnknow {
+				return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", fieldNumber), nil)
+			} else {
+				// if not set, skip to the next field
+				if err := read.Skip(wireType, opts.UseNativeSkip); err != nil {
+					return wrapError(meta.ErrRead, "", err)
+				}
+				continue
+			}
+		}
+
+		toField := (*from).Fields().ByNumber(fieldNumber)
+
+		if toField == nil {
+			// if not set, skip to the next field
+			if err := read.Skip(wireType, opts.UseNativeSkip); err != nil {
+				return wrapError(meta.ErrRead, "", err)
+			}
+			continue
+		}
+
+		fromType := proto.FromProtoKindToType(fromField.Kind(), fromField.IsList(), fromField.IsMap())
+		toType := proto.FromProtoKindToType(toField.Kind(), toField.IsList(), toField.IsMap())
+		if fromType != toType {
+			return meta.NewError(meta.ErrDismatchType, "to descriptor dismatches from descriptor", nil)
+		}
+
+		if fromType == proto.MESSAGE {
+			fromDesc := fromField.Message()
+			toDesc := toField.Message()
+			marshalTo(read, write, &fromDesc, &toDesc, opts)
+		} else{
+			// if fromField = toField is base type, copy the skip value
+			start := read.Read
+			if err := read.Skip(wireType, opts.UseNativeSkip); err != nil {
+				return wrapError(meta.ErrRead, "", err)
+			}
+			end := read.Read
+			value := read.Buf[start:end]
+
+			write.AppendTag(fieldNumber, wireType)
+			write.Buf = append(write.Buf, value...)
+		}
+	}
+	return nil
 }
