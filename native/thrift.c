@@ -1156,7 +1156,7 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
                     J2T_STORE_NEXT(j2t_string(buf, src, p, 0));
                 }
             }
-            else if ((flag & F_ENABLE_I2S) != 0 && (dc->type == TTYPE_I64 || dc->type == TTYPE_I32 || dc->type == TTYPE_I16 || dc->type == TTYPE_BYTE))
+            else if ((flag & F_ENABLE_I2S) != 0 && (dc->type == TTYPE_I64 || dc->type == TTYPE_I32 || dc->type == TTYPE_I16 || dc->type == TTYPE_BYTE || dc->type == TTYPE_DOUBLE))
             {
                 J2T_STORE_NEXT(j2t_number(buf, dc, src, p, &self->jt));
                 long x = *p;
