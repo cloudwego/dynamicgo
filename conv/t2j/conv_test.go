@@ -328,7 +328,7 @@ func TestInt2String(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, (`{"Int32":1,"Float64":3.14,"Int64":2,"Subfix":0.92653,"中文":"hello"}`), string(out))
 
-	cv.opts.String2Int64 = true
+	cv.opts.Int642String = true
 	out, err = cv.Do(ctx, desc, in)
 	require.NoError(t, err)
 	require.Equal(t, (`{"Int32":1,"Float64":3.14,"Int64":"2","Subfix":0.92653,"中文":"hello"}`), string(out))

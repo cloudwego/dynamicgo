@@ -898,7 +898,7 @@ func TestString2Int(t *testing.T) {
 	})
 
 	t.Run("option Int64AsString", func(t *testing.T) {
-		data := []byte(`{"Int32":"222","Int64":"333"}`)
+		data := []byte(`{"Int32":"222","Int64":"333", "Float64":"1.1"}`)
 		cv.SetOptions(conv.Options{
 			String2Int64: true,
 		})
@@ -908,6 +908,7 @@ func TestString2Int(t *testing.T) {
 		exp := example3.NewExampleInt2Float()
 		exp.Int64 = 333
 		exp.Int32 = 222
+		exp.Float64 = 1.1
 		act := example3.NewExampleInt2Float()
 		_, err = act.FastRead(out)
 		require.Nil(t, err)
