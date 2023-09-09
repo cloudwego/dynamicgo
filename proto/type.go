@@ -51,7 +51,6 @@ const (
 	Sint64Kind
 )
 
-
 // map from proto.ProtoKind to proto.WireType
 var Kind2Wire = map[ProtoKind]WireType{
 	BoolKind:     VarintType,
@@ -73,7 +72,6 @@ var Kind2Wire = map[ProtoKind]WireType{
 	MessageKind:  BytesType,
 	GroupKind:    StartGroupType,
 }
-
 
 // Node type byte=uint8 reflect protokind
 type Type uint8
@@ -115,9 +113,9 @@ func (p Type) Valid() bool {
 
 func (p Type) TypeToKind() ProtoKind {
 	switch p {
-	case UNKNOWN,ERROR:
+	case UNKNOWN, ERROR:
 		return 0
-	case LIST,MAP:
+	case LIST, MAP:
 		return MessageKind
 	}
 	return ProtoKind(p)
@@ -133,9 +131,10 @@ func FromProtoKindToType(kind ProtoKind, isList bool, isMap bool) Type {
 	}
 	return t
 }
+
 // IsInt tells if the type is one of Int32 or Int64
 func (p Type) IsInt() bool {
-	return p == INT32 || p == INT64 || p == SFIX32 || p == SFIX32 || p == SINT64 || p == SINT32
+	return p == INT32 || p == INT64 || p == SFIX32 || p == SFIX64 || p == SINT64 || p == SINT32
 }
 
 func (p Type) IsUint() bool {
@@ -160,6 +159,5 @@ const (
 	MaxValidNumber        Number = 1<<29 - 1
 	DefaultRecursionLimit        = 10000
 )
-
 
 type FieldName = protoreflect.Name

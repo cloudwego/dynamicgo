@@ -6,7 +6,6 @@ import (
 	"github.com/cloudwego/dynamicgo/proto"
 )
 
-
 type BinaryDecoder struct{}
 
 // ConsumeVarint parses b as a varint-encoded uint64, reporting its length.
@@ -135,15 +134,15 @@ func ConsumeFixed64(b []byte) (v uint64, n int) {
 
 // ConsumeBytes parses b as a length-prefixed bytes value, reporting its length.
 // This returns a negative length upon an error (see ParseError).
-func ConsumeBytes(b []byte) (v []byte, n int) {
+func ConsumeBytes(b []byte) (v []byte, n int, all int) {
 	m, n := ConsumeVarint(b)
 	if n < 0 {
-		return nil, n 
+		return nil, n, n
 	}
 	if m > uint64(len(b[n:])) {
-		return nil, proto.ErrCodeTruncated
+		return nil, proto.ErrCodeTruncated, proto.ErrCodeTruncated
 	}
-	return b[n:][:m], n + int(m)
+	return b[n:][:m], n, n + int(m)
 }
 
 // DecodeZigZag decodes a zig-zag-encoded uint64 as an int64.
@@ -156,7 +155,7 @@ func DecodeZigZag(x uint64) int64 {
 
 func (BinaryDecoder) DecodeBool(b []byte) (bool, int) {
 	v, n := ConsumeVarint(b)
-	return int8(v)==0, n
+	return int8(v) == 1, n
 }
 
 func (BinaryDecoder) DecodeByte(b []byte) byte {
@@ -177,7 +176,6 @@ func (BinaryDecoder) DecodeUint32(b []byte) (uint32, int) {
 	v, n := ConsumeVarint(b)
 	return uint32(v), n
 }
-
 
 func (BinaryDecoder) DecodeInt64(b []byte) (int64, int) {
 	v, n := ConsumeVarint(b)
@@ -224,14 +222,12 @@ func (BinaryDecoder) DecodeDouble(b []byte) (float64, int) {
 	return math.Float64frombits(v), n
 }
 
-func (BinaryDecoder) DecodeString(b []byte) (string, int) {
-	v, n := ConsumeBytes(b)
-	return string(v), n
+func (BinaryDecoder) DecodeString(b []byte) (string, int, int) {
+	v, n, all := ConsumeBytes(b)
+	return string(v), n, all
 }
 
-func (BinaryDecoder) DecodeBytes(b []byte) ([]byte, int) {
-	v, n := ConsumeBytes(b)
-	return v, n
+func (BinaryDecoder) DecodeBytes(b []byte) ([]byte, int, int) {
+	v, n, all := ConsumeBytes(b)
+	return v, n, all
 }
-
-

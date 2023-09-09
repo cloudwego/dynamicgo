@@ -235,7 +235,7 @@ func (p *BinaryProtocol) WriteFixed32(value int32) error {
 	if err != nil {
 		return err
 	}
-	binary.BigEndian.PutUint32(v, uint32(value))
+	binary.LittleEndian.PutUint32(v, uint32(value))
 	return err
 }
 
@@ -245,13 +245,13 @@ func (p *BinaryProtocol) WriteSfixed32(value int32) error {
 	if err != nil {
 		return err
 	}
-	binary.BigEndian.PutUint32(v, uint32(value))
+	binary.LittleEndian.PutUint32(v, uint32(value))
 	return err
 }
 
 // WriteInt64
 func (p *BinaryProtocol) WriteI64(value int64) error {
-	protowire.BinaryEncoder{}.EncodeInt64(p.Buf, value)
+	p.Buf = protowire.BinaryEncoder{}.EncodeInt64(p.Buf, value)
 	return nil
 }
 
@@ -273,7 +273,7 @@ func (p *BinaryProtocol) WriteFixed64(value uint64) error {
 	if err != nil {
 		return err
 	}
-	binary.BigEndian.PutUint64(v, value)
+	binary.LittleEndian.PutUint64(v, value)
 	return err
 }
 
@@ -283,17 +283,17 @@ func (p *BinaryProtocol) WriteSfixed64(value int64) error {
 	if err != nil {
 		return err
 	}
-	binary.BigEndian.PutUint64(v, uint64(value))
+	binary.LittleEndian.PutUint64(v, uint64(value))
 	return err
 }
 
 // WriteFloat
-func (p *BinaryProtocol) WriteFloat(value float64) error {
+func (p *BinaryProtocol) WriteFloat(value float32) error {
 	v, err := p.malloc(4)
 	if err != nil {
 		return err
 	}
-	binary.BigEndian.PutUint32(v, math.Float32bits(float32(value)))
+	binary.LittleEndian.PutUint32(v, math.Float32bits(float32(value)))
 	return err
 }
 
@@ -303,7 +303,7 @@ func (p *BinaryProtocol) WriteDouble(value float64) error {
 	if err != nil {
 		return err
 	}
-	binary.BigEndian.PutUint64(v, math.Float64bits(value))
+	binary.LittleEndian.PutUint64(v, math.Float64bits(value))
 	return err
 }
 
@@ -324,7 +324,7 @@ func (p *BinaryProtocol) WriteBytes(value []byte) error {
 
 // WriteEnum
 func (p *BinaryProtocol) WriteEnum(value proto.EnumNumber) error {
-	protowire.BinaryEncoder{}.EncodeInt64(p.Buf, int64(value))
+	p.Buf = protowire.BinaryEncoder{}.EncodeInt64(p.Buf, int64(value))
 	return nil
 }
 
@@ -532,10 +532,11 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 		}
 		p.WriteFixed32(v)
 	case protoreflect.Kind(proto.FloatKind):
-		v, ok := val.(float64)
+		v, ok := val.(float32)
 		if !ok {
 			var err error
-			v, err = primitive.ToFloat64(v)
+			vfloat64, err := primitive.ToFloat64(v)
+			v = float32(vfloat64)
 			if err != nil {
 				return err
 			}
@@ -806,11 +807,11 @@ func (p *BinaryProtocol) ReadDouble() (float64, error) {
 
 // ReadBytes return bytesData and the sum length of L、V in TLV
 func (p *BinaryProtocol) ReadBytes() ([]byte, error) {
-	value, n := protowire.BinaryDecoder{}.DecodeBytes((p.Buf)[p.Read:])
+	value, n, all := protowire.BinaryDecoder{}.DecodeBytes((p.Buf)[p.Read:])
 	if n < 0 {
 		return append(emptyBuf[:], value...), errDecodeField
 	}
-	_, err := p.next(n)
+	_, err := p.next(all)
 	return append(emptyBuf[:], value...), err
 }
 
@@ -826,7 +827,7 @@ func (p *BinaryProtocol) ReadLength() (int, error) {
 
 // ReadString
 func (p *BinaryProtocol) ReadString(copy bool) (value string, err error) {
-	bytes, n := protowire.BinaryDecoder{}.DecodeBytes((p.Buf)[p.Read:])
+	bytes, n, all := protowire.BinaryDecoder{}.DecodeBytes((p.Buf)[p.Read:])
 	if n < 0 {
 		return "", errDecodeField
 	}
@@ -834,10 +835,10 @@ func (p *BinaryProtocol) ReadString(copy bool) (value string, err error) {
 		value = string(bytes)
 	} else {
 		v := (*rt.GoString)(unsafe.Pointer(&value))
-		v.Ptr = rt.IndexPtr(*(*unsafe.Pointer)(unsafe.Pointer(&p.Buf)), byteTypeSize, p.Read)
-		v.Len = int(n)
+		v.Ptr = rt.IndexPtr(*(*unsafe.Pointer)(unsafe.Pointer(&p.Buf)), byteTypeSize, p.Read+n)
+		v.Len = int(all - n)
 	}
-	_, err = p.next(n)
+	_, err = p.next(all)
 	return
 }
 
@@ -862,7 +863,7 @@ func (p *BinaryProtocol) ReadList(desc *proto.FieldDescriptor, copyString bool, 
 	}
 	list := make([]interface{}, 0, 1)
 	// packed list
-	if wtyp == proto.BytesType {
+	if wtyp == proto.BytesType && (*desc).Kind() != proto.StringKind && (*desc).Kind() != proto.BytesKind {
 		// read length
 		length, err := p.ReadLength()
 		if err != nil {
@@ -1022,6 +1023,9 @@ func (p *BinaryProtocol) ReadBaseTypeWithDesc(desc *proto.FieldDescriptor, copyS
 		return v, e
 	case protoreflect.Uint64Kind:
 		v, e := p.ReadUint64()
+		return v, e
+	case protoreflect.Fixed64Kind:
+		v, e := p.ReadFixed64()
 		return v, e
 	case protoreflect.Sfixed64Kind:
 		v, e := p.ReadSfixed64()

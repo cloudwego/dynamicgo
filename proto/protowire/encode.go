@@ -127,6 +127,16 @@ func SizeVarint(v uint64) int {
 	return int(9*uint32(bits.Len64(v))+64) / 64
 }
 
+// SizeFixed32 returns the encoded size of a fixed32; which is always 4.
+func SizeFixed32() int {
+	return 4
+}
+
+// SizeFixed64 returns the encoded size of a fixed64; which is always 8.
+func SizeFixed64() int {
+	return 8
+}
+
 // encode each proto kind into bytes
 func (BinaryEncoder) EncodeBool(b []byte, v bool) []byte {
 	if v {
@@ -198,6 +208,3 @@ func (BinaryEncoder) EncodeString(b []byte, v string) []byte {
 func (BinaryEncoder) EncodeBytes(b []byte, v []byte) []byte {
 	return append(AppendVarint(b, uint64(len(v))), v...)
 }
-
-
-
