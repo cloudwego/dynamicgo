@@ -1,0 +1,29 @@
+// Copyright 2018 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+// Test Protobuf definitions with proto3 syntax.
+syntax = "proto3";
+
+package pb3;
+option go_package = "./testprotos";
+
+message TrafficEnv {
+    bool Open = 1;
+    string Env = 2;
+}
+
+message Base {
+    string LogID = 1;
+    string Caller = 2;
+    string Addr = 3;
+    string Client = 4;
+    optional TrafficEnv TrafficEnv = 5;
+    map<string, string> Extra = 6;
+}
+
+message BaseResp {
+    string StatusMessage = 1;
+    int32 StatusCode = 2;
+    map<string, string> Extra = 3;
+}
