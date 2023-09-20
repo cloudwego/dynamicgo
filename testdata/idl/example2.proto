@@ -9,7 +9,7 @@ package pb3;
 
 import "base.proto";
 
-option go_package = "./testprotos";
+option go_package = "pb/example2";
 
 enum FOO {
     FOO_A = 0;
@@ -32,10 +32,12 @@ message InnerBase2 {
     map<uint32, string> MapUint32String = 14;
     map<uint64, string> MapUint64String = 15;
     map<int64, string> MapInt64String = 16;
-    // map<double, string> MapDoubleString = 17;
+    map<int64, Base> MapInt64Base = 17;
+    map<string, Base> MapStringBase = 20;
 
+    repeated Base ListBase = 19;
     repeated InnerBase2 ListInnerBase = 18;
-    // map<InnerBase2, InnerBase2> MapInnerBaseInnerBase = 19;
+    
 
     Base Base = 255;
 }
@@ -45,9 +47,9 @@ message InnerBasePartial {
     bool Bool = 1;
     repeated int32 ListInt32 = 8;
     map<string, string> MapStringString = 9;
-    // map<double, string> MapDoubleString = 17;
+    map<string, Base> MapStringBase = 20;
     repeated InnerBasePartial ListInnerBase = 18;
-    // map<InnerBasePartial, InnerBasePartial> MapInnerBaseInnerBase = 19;
+    repeated Base ListBase = 19;
 
     map<string, string> MapStringString2 = 127;
 }

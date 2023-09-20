@@ -1,4 +1,4 @@
-package protowire_test
+package protowire
 
 import (
 	"bytes"
@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/proto"
-	"github.com/cloudwego/dynamicgo/proto/protowire"
 )
 
 type (
@@ -645,45 +644,45 @@ func runTests(t *testing.T, tests []testOps) {
 				b0 := b
 				switch op := op.(type) {
 				case appendVarint:
-					b = protowire.AppendVarint(b, op.InVal)
+					b = AppendVarint(b, op.InVal)
 				case appendFixed32:
-					b = protowire.AppendFixed32(b, op.InVal)
+					b = AppendFixed32(b, op.InVal)
 				case appendFixed64:
-					b = protowire.AppendFixed64(b, op.InVal)
+					b = AppendFixed64(b, op.InVal)
 				case encodeBool:
-					b = protowire.BinaryEncoder{}.EncodeBool(b, op.InVal)
+					b = BinaryEncoder{}.EncodeBool(b, op.InVal)
 				case encodeByte:
-					b = protowire.BinaryEncoder{}.EncodeByte(b, op.InVal)
+					b = BinaryEncoder{}.EncodeByte(b, op.InVal)
 				case encodeEnum:
-					b = protowire.BinaryEncoder{}.EncodeEnum(b, op.InVal)
+					b = BinaryEncoder{}.EncodeEnum(b, op.InVal)
 				case encodeInt32:
-					b = protowire.BinaryEncoder{}.EncodeInt32(b, op.InVal)
+					b = BinaryEncoder{}.EncodeInt32(b, op.InVal)
 				case encodeSint32:
-					b = protowire.BinaryEncoder{}.EncodeSint32(b, op.InVal)
+					b = BinaryEncoder{}.EncodeSint32(b, op.InVal)
 				case encodeUint32:
-					b = protowire.BinaryEncoder{}.EncodeUint32(b, op.InVal)
+					b = BinaryEncoder{}.EncodeUint32(b, op.InVal)
 				case encodeInt64:
-					b = protowire.BinaryEncoder{}.EncodeInt64(b, op.InVal)
+					b = BinaryEncoder{}.EncodeInt64(b, op.InVal)
 				case encodeSint64:
-					b = protowire.BinaryEncoder{}.EncodeSint64(b, op.InVal)
+					b = BinaryEncoder{}.EncodeSint64(b, op.InVal)
 				case encodeUint64:
-					b = protowire.BinaryEncoder{}.EncodeUint64(b, op.InVal)
+					b = BinaryEncoder{}.EncodeUint64(b, op.InVal)
 				case encodeSFixed32:
-					b = protowire.BinaryEncoder{}.EncodeSfixed32(b, op.InVal)
+					b = BinaryEncoder{}.EncodeSfixed32(b, op.InVal)
 				case encodeFixed32:
-					b = protowire.BinaryEncoder{}.EncodeFixed32(b, op.InVal)
+					b = BinaryEncoder{}.EncodeFixed32(b, op.InVal)
 				case encodeSFixed64:
-					b = protowire.BinaryEncoder{}.EncodeSfixed64(b, op.InVal)
+					b = BinaryEncoder{}.EncodeSfixed64(b, op.InVal)
 				case encodeFixed64:
-					b = protowire.BinaryEncoder{}.EncodeFixed64(b, op.InVal)
+					b = BinaryEncoder{}.EncodeFixed64(b, op.InVal)
 				case encodeFloat32:
-					b = protowire.BinaryEncoder{}.EncodeFloat32(b, op.InVal)
+					b = BinaryEncoder{}.EncodeFloat32(b, op.InVal)
 				case encodeDouble:
-					b = protowire.BinaryEncoder{}.EncodeDouble(b, op.InVal)
+					b = BinaryEncoder{}.EncodeDouble(b, op.InVal)
 				case encodeString:
-					b = protowire.BinaryEncoder{}.EncodeString(b, op.InVal)
+					b = BinaryEncoder{}.EncodeString(b, op.InVal)
 				case encodeBytes:
-					b = protowire.BinaryEncoder{}.EncodeBytes(b, op.intVal)
+					b = BinaryEncoder{}.EncodeBytes(b, op.intVal)
 				case appendRaw:
 					b = append(b, op...)
 				}
@@ -699,17 +698,17 @@ func runTests(t *testing.T, tests []testOps) {
 				case appendVarint, encodeEnum, encodeInt32, encodeUint32, encodeInt64, encodeUint64:
 					data_str := fmt.Sprint(reflect.ValueOf(op).Field(0).Interface())
 					data_conv, _ := strconv.ParseUint(data_str, 10, 64)
-					check(OpType2Name[op], protowire.SizeVarint(data_conv))
+					check(OpType2Name[op], SizeVarint(data_conv))
 				case appendFixed32, encodeFixed32, encodeSFixed32, encodeFloat32:
-					check(OpType2Name[op], protowire.SizeFixed32())
+					check(OpType2Name[op], SizeFixed32())
 				case appendFixed64, encodeFixed64, encodeSFixed64:
-					check(OpType2Name[op], protowire.SizeFixed64())
+					check(OpType2Name[op], SizeFixed64())
 				case encodeBool, encodeByte:
 					check(OpType2Name[op], 1)
 				case encodeSint32, encodeSint64:
 					data_str := fmt.Sprint(reflect.ValueOf(op).Field(0).Interface())
 					data_conv, _ := strconv.ParseInt(data_str, 10, 64)
-					check(OpType2Name[op], protowire.SizeVarint(protowire.EncodeZigZag(data_conv)))
+					check(OpType2Name[op], SizeVarint(EncodeZigZag(data_conv)))
 				}
 			}
 
@@ -734,121 +733,121 @@ func runTests(t *testing.T, tests []testOps) {
 				}
 				switch op := op.(type) {
 				case consumeVarint:
-					gotVal, n := protowire.ConsumeVarint(b)
+					gotVal, n := ConsumeVarint(b)
 					if gotVal != op.wantVal {
 						t.Errorf("ConsumeVarint() = %d, want %d", gotVal, op.wantVal)
 					}
 					check("Varint_de", n, op.wantCnt, op.wantErr)
 				case consumeFixed32:
-					gotVal, n := protowire.ConsumeFixed32(b)
+					gotVal, n := ConsumeFixed32(b)
 					if gotVal != op.wantVal {
 						t.Errorf("ConsumeFixed32() = %d, want %d", gotVal, op.wantVal)
 					}
 					check("Fixed32_de", n, op.wantCnt, op.wantErr)
 				case consumeFixed64:
-					gotVal, n := protowire.ConsumeFixed64(b)
+					gotVal, n := ConsumeFixed64(b)
 					if gotVal != op.wantVal {
 						t.Errorf("ConsumeFixed64() = %d, want %d", gotVal, op.wantVal)
 					}
 					check("Fixed64_de", n, op.wantCnt, op.wantErr)
 				case consumeBytes:
-					gotVal, _, n := protowire.ConsumeBytes(b)
+					gotVal, _, n := ConsumeBytes(b)
 					if !bytes.Equal(gotVal, op.wantVal) {
 						t.Errorf("ConsumeBytes() = %x, want %x", gotVal, op.wantVal)
 					}
 					check("Bytes_de", n, op.wantCnt, op.wantErr)
 				case decodeBool:
-					gotVal, n := protowire.BinaryDecoder{}.DecodeBool(b)
+					gotVal, n := BinaryDecoder{}.DecodeBool(b)
 					if gotVal != op.wantVal {
 						t.Errorf("DecodeBool() = %t, want %t", gotVal, op.wantVal)
 					}
 					check("Bool_de", n, op.wantCnt, op.wantErr)
 				case decodeByte:
-					gotVal := protowire.BinaryDecoder{}.DecodeByte(b)
+					gotVal := BinaryDecoder{}.DecodeByte(b)
 					if gotVal != op.wantVal {
 						t.Errorf("DecodeByte() = %d, want %d", gotVal, op.wantVal)
 					}
 					check("Byte_de", 1, op.wantCnt, op.wantErr)
 				case decodeInt32:
-					gotVal, n := protowire.BinaryDecoder{}.DecodeInt32(b)
+					gotVal, n := BinaryDecoder{}.DecodeInt32(b)
 					if gotVal != op.wantVal {
 						t.Errorf("DecodeInt32() = %d, want %d", gotVal, op.wantVal)
 					}
 					check("Int32_de", n, op.wantCnt, op.wantErr)
 				case decodeSint32:
-					gotVal, n := protowire.BinaryDecoder{}.DecodeSint32(b)
+					gotVal, n := BinaryDecoder{}.DecodeSint32(b)
 					if gotVal != op.wantVal {
 						t.Errorf("DecodeSint32() = %d, want %d", gotVal, op.wantVal)
 					}
 					check("Sint32_de", n, op.wantCnt, op.wantErr)
 				case decodeUint32:
-					gotVal, n := protowire.BinaryDecoder{}.DecodeUint32(b)
+					gotVal, n := BinaryDecoder{}.DecodeUint32(b)
 					if gotVal != op.wantVal {
 						t.Errorf("DecodeUint32() = %d, want %d", gotVal, op.wantVal)
 					}
 					check("Uint32_de", n, op.wantCnt, op.wantErr)
 				case decodeInt64:
-					gotVal, n := protowire.BinaryDecoder{}.DecodeInt64(b)
+					gotVal, n := BinaryDecoder{}.DecodeInt64(b)
 					if gotVal != op.wantVal {
 						t.Errorf("DecodeInt64() = %d, want %d", gotVal, op.wantVal)
 					}
 					check("Int64_de", n, op.wantCnt, op.wantErr)
 				case decodeSint64:
-					gotVal, n := protowire.BinaryDecoder{}.DecodeSint64(b)
+					gotVal, n := BinaryDecoder{}.DecodeSint64(b)
 					if gotVal != op.wantVal {
 						t.Errorf("DecodeSint64() = %d, want %d", gotVal, op.wantVal)
 					}
 					check("Sint64_de", n, op.wantCnt, op.wantErr)
 				case decodeUint64:
-					gotVal, n := protowire.BinaryDecoder{}.DecodeUint64(b)
+					gotVal, n := BinaryDecoder{}.DecodeUint64(b)
 					if gotVal != op.wantVal {
 						t.Errorf("DecodeUint64() = %d, want %d", gotVal, op.wantVal)
 					}
 					check("Uint64_de", n, op.wantCnt, op.wantErr)
 				case decodeFixed32:
-					gotVal, n := protowire.BinaryDecoder{}.DecodeFixed32(b)
+					gotVal, n := BinaryDecoder{}.DecodeFixed32(b)
 					if gotVal != op.wantVal {
 						t.Errorf("DecodeFixed32() = %d, want %d", gotVal, op.wantVal)
 					}
 					check("DecodeFixed32_de", n, op.wantCnt, op.wantErr)
 				case decodeSfixed32:
-					gotVal, n := protowire.BinaryDecoder{}.DecodeSfixed32(b)
+					gotVal, n := BinaryDecoder{}.DecodeSfixed32(b)
 					if gotVal != op.wantVal {
 						t.Errorf("DecodeSfixed32() = %d, want %d", gotVal, op.wantVal)
 					}
 					check("DecodeSfixed32_de", n, op.wantCnt, op.wantErr)
 				case decodeFloat32:
-					gotVal, n := protowire.BinaryDecoder{}.DecodeFloat32(b)
+					gotVal, n := BinaryDecoder{}.DecodeFloat32(b)
 					if gotVal != op.wantVal {
 						t.Errorf("DecodeFloat32() = %f, want %f", gotVal, op.wantVal)
 					}
 					check("Float32_de", n, op.wantCnt, op.wantErr)
 				case decodeFixed64:
-					gotVal, n := protowire.BinaryDecoder{}.DecodeFixed64(b)
+					gotVal, n := BinaryDecoder{}.DecodeFixed64(b)
 					if gotVal != op.wantVal {
 						t.Errorf("DecodeFixed64() = %d, want %d", gotVal, op.wantVal)
 					}
 					check("DecodeFixed64_de", n, op.wantCnt, op.wantErr)
 				case decodeSfixed64:
-					gotVal, n := protowire.BinaryDecoder{}.DecodeSfixed64(b)
+					gotVal, n := BinaryDecoder{}.DecodeSfixed64(b)
 					if gotVal != op.wantVal {
 						t.Errorf("DecodeSfixed64() = %d, want %d", gotVal, op.wantVal)
 					}
 					check("DecodeSfixed64_de", n, op.wantCnt, op.wantErr)
 				case decodeDouble:
-					gotVal, n := protowire.BinaryDecoder{}.DecodeDouble(b)
+					gotVal, n := BinaryDecoder{}.DecodeDouble(b)
 					if gotVal != op.wantVal {
 						t.Errorf("DecodeDouble() = %f, want %f", gotVal, op.wantVal)
 					}
 					check("Double_de", n, op.wantCnt, op.wantErr)
 				case decodeString:
-					gotVal, _, n := protowire.BinaryDecoder{}.DecodeString(b)
+					gotVal, _, n := BinaryDecoder{}.DecodeString(b)
 					if gotVal != op.wantVal {
 						t.Errorf("DecodeString() = %s, want %s", gotVal, op.wantVal)
 					}
 					check("String_de", n, op.wantCnt, op.wantErr)
 				case decodeBytes:
-					gotVal, _, n := protowire.BinaryDecoder{}.DecodeBytes(b)
+					gotVal, _, n := BinaryDecoder{}.DecodeBytes(b)
 					if !bytes.Equal(gotVal, op.wantVal) {
 						t.Errorf("DecodeBytes() = %x, want %x", gotVal, op.wantVal)
 					}
@@ -881,10 +880,10 @@ func TestZigZag(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if enc := protowire.EncodeZigZag(tt.dec); enc != tt.enc {
+		if enc := EncodeZigZag(tt.dec); enc != tt.enc {
 			t.Errorf("EncodeZigZag(%d) = %d, want %d", tt.dec, enc, tt.enc)
 		}
-		if dec := protowire.DecodeZigZag(tt.enc); dec != tt.dec {
+		if dec := DecodeZigZag(tt.enc); dec != tt.dec {
 			t.Errorf("DecodeZigZag(%d) = %d, want %d", tt.enc, dec, tt.dec)
 		}
 	}

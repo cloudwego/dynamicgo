@@ -222,8 +222,8 @@ func (self Node) Children(out *[]PathNode, recurse bool, opts *Options, desc *pr
 		Next: (*out)[:0], // NOTICE: we reset it to zero.
 	}
 	rootDesc := (*desc).(proto.Descriptor)
-	err = tree.scanChildren(&p, recurse, opts, &rootDesc)
-	if err != nil {
+	err = tree.scanChildren(&p, recurse, opts, &rootDesc, len(p.Buf))
+	if err == nil {
 		*out = tree.Next
 	}
 	return err

@@ -288,3 +288,39 @@ func TestBinaryProtocol_ReadAnyWithDesc(t *testing.T) {
 		})
 	}
 }
+
+
+func TestTag(t *testing.T){
+	src := make([]byte, 0, 1024)
+	p := NewBinaryProtol(src)
+	// using a for loop to check each case of appendtag and consumeTag
+	// the case is in the TestTag2
+
+	testCase := []struct{
+		number proto.FieldNumber
+		wtyp proto.WireType
+		err error
+	}{
+		{0, proto.Fixed32Type,errCodeFieldNumber},
+		{1, proto.Fixed32Type,nil},
+		{proto.FirstReservedNumber, proto.BytesType,nil},
+		{proto.LastReservedNumber, proto.StartGroupType,nil},
+		{proto.MaxValidNumber, proto.VarintType,nil},
+	}
+
+	for _, c := range testCase {
+		p.AppendTag(c.number, c.wtyp)
+		num, _, _, err := p.ConsumeTag()
+		if err != nil && err != errCodeFieldNumber {
+			t.Fatal(err)
+		}
+		if num != c.number {
+			t.Fatal("test failed")
+		}
+	}
+
+	_,_,_, err := p.ConsumeTag()
+	if err != errInvalidTag {
+		t.Fatal("test failed")
+	}
+}

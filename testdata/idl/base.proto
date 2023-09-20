@@ -6,7 +6,7 @@
 syntax = "proto3";
 
 package pb3;
-option go_package = "./testprotos";
+option go_package = "pb/base";
 
 message TrafficEnv {
     bool Open = 1;

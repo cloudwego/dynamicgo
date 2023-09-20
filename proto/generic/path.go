@@ -291,7 +291,7 @@ func DescriptorToPathNode(desc *proto.FieldDescriptor, root *PathNode, opts *Opt
 
 
 
-func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts *Options, desc *proto.Descriptor) (err error) {
+func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts *Options, desc *proto.Descriptor,messageLen int) (err error) {
 	next := self.Next[:0] // []PathNode len=0
 	l := len(next)
 	c := cap(next)
@@ -301,15 +301,12 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 	case proto.MESSAGE:
 		messageDesc := (*desc).(proto.MessageDescriptor)
 		fields := messageDesc.Fields()
-		p.ConsumeTag()
-		p.ReadLength()
-
-		for p.Read < len(p.Buf){
+		start := p.Read
+		for p.Read < start + messageLen{
 			fieldNumber, wireType, _, tagErr := p.ConsumeTag()
 			if tagErr != nil {
 				return errNode(meta.ErrRead, "", tagErr)
 			}
-
 			
 			// OPT: store children by id here, thus we can use id as index to access children.
 			if opts.StoreChildrenById {
@@ -320,6 +317,9 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 					l = maxId
 					maxId += 1
 				}
+			}
+			if fieldNumber == 255{
+				fmt.Println("fieldNumber == 255")
 			}
 			
 			field := fields.ByNumber(fieldNumber)
@@ -337,23 +337,16 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 		}
 	case proto.LIST:
 		FieldDesc := (*desc).(proto.FieldDescriptor)
-		fieldNumber, wireType, _, tagErr := p.ConsumeTagWithoutMove()
-		if tagErr != nil {
-			return errNode(meta.ErrRead, "", tagErr)
-		}
+		fieldNumber := FieldDesc.Number()
 		start := p.Read
 		self.et = proto.FromProtoKindToType(FieldDesc.Kind(),false,false)
 		// packed
-		if wireType == proto.BytesType {
-			_, _, _, tagErr := p.ConsumeTag()
-			if tagErr != nil {
-				return errNode(meta.ErrRead, "", tagErr)
-			}
-
+		if FieldDesc.IsPacked() {
 			listLen, lengthErr := p.ReadLength()
 			if lengthErr != nil {
 				return errNode(meta.ErrRead, "", lengthErr)
 			}
+			start = p.Read
 			listIndex := 0
 			for p.Read < start + listLen {
 				v, err = self.handleListChild(&next, &l, &c, p, recurse, opts, &FieldDesc)
@@ -366,6 +359,17 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 		} else {
 			listIndex := 0
 			for p.Read < len(p.Buf) {
+				v, err = self.handleListChild(&next, &l, &c, p, recurse, opts, &FieldDesc)
+				if err != nil {
+					return err
+				}
+				v.Path = NewPathIndex(listIndex)
+				listIndex++
+
+				if p.Read >= len(p.Buf) {
+					break
+				}
+
 				itemNumber, _, tagLen, tagErr := p.ConsumeTagWithoutMove()
 				if tagErr != nil {
 					return errNode(meta.ErrRead, "", tagErr)
@@ -375,12 +379,6 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 					break
 				}
 				p.Read += tagLen
-				v, err = self.handleListChild(&next, &l, &c, p, recurse, opts, &FieldDesc)
-				if err != nil {
-					return err
-				}
-				v.Path = NewPathIndex(listIndex)
-				listIndex++
 			}
 		}
 	case proto.MAP:
@@ -389,73 +387,62 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 		valueDesc := mapDesc.MapValue()
 		self.kt = proto.FromProtoKindToType(keyDesc.Kind(),keyDesc.IsList(),keyDesc.IsMap())
 		self.et = proto.FromProtoKindToType(valueDesc.Kind(),valueDesc.IsList(),valueDesc.IsMap())
+		for p.Read < len(p.Buf) {
+			pairLen, pairLenErr := p.ReadLength()
+			if pairLen <= 0 || pairLenErr != nil {
+				return errNode(meta.ErrRead, "", pairLenErr)
+			}
 		
-		if self.kt == proto.STRING {
-			for p.Read < len(p.Buf) {
-				pairNumber, _, pairLen, pairTagErr := p.ConsumeTagWithoutMove()
-				if pairTagErr != nil {
-					return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
-				}
-				if pairNumber != mapDesc.Number() {
-					break
-				}
-				p.Read += pairLen
-				
-				p.ReadLength()
-
-				_, _, _, keyTagErr := p.ConsumeTag()
-				if keyTagErr != nil {
-					return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
-				}
-				key, keyErr := p.ReadString(false)
-				if keyErr != nil {
-					return errNode(meta.ErrRead, "", keyErr)
-				}
-				_, _, _, valueTagErr := p.ConsumeTag()
-				if valueTagErr != nil {
-					return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
-				}
-
-				v, err = self.handleChild(&next, &l, &c, p, recurse, opts, &valueDesc)
-				if err != nil {
-					return err
-				}
-				v.Path = NewPathStrKey(key)
+			_, _, _, keyTagErr := p.ConsumeTag()
+			if keyTagErr != nil {
+				return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
 			}
-		} else if self.kt.IsInt() {
-			for p.Read < len(p.Buf) {
-				pairNumber, _, pairLen, pairTagErr := p.ConsumeTagWithoutMove()
-				if pairTagErr != nil {
-					return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
-				}
-				if pairNumber != mapDesc.Number() {
-					break
-				}
-				p.Read += pairLen
-
-				p.ReadLength()
-				
-				_, _, _, keyTagErr := p.ConsumeTag()
-				if keyTagErr != nil {
-					return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
-				}
-
-				key, keyErr := p.ReadInt(self.kt)
-
-				if keyErr != nil {
-					return errNode(meta.ErrRead, "", keyErr)
-				}
-				_, _, _, valueTagErr := p.ConsumeTag()
-				if valueTagErr != nil {
-					return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
-				}
-
-				v, err = self.handleChild(&next, &l, &c, p, recurse, opts, &valueDesc)
-				if err != nil {
-					return err
-				}
-				v.Path = NewPathIntKey(key)
+		
+			var key interface{}
+			var keyErr error
+		
+			if self.kt == proto.STRING {
+				key, keyErr = p.ReadString(false)
+			} else if self.kt.IsInt() {
+				key, keyErr = p.ReadInt(self.kt)
+			} else {
+				return meta.NewError(meta.ErrRead, "Unsupported key type", nil)
 			}
+		
+			if keyErr != nil {
+				return errNode(meta.ErrRead, "", keyErr)
+			}
+		
+			_, _, _, valueTagErr := p.ConsumeTag()
+			if valueTagErr != nil {
+				return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+			}
+		
+			v, err = self.handleChild(&next, &l, &c, p, recurse, opts, &valueDesc)
+			if err != nil {
+				return err
+			}
+		
+			if self.kt == proto.STRING {
+				v.Path = NewPathStrKey(key.(string))
+			} else if self.kt.IsInt() {
+				v.Path = NewPathIntKey(key.(int))
+			}
+
+			if p.Read >= len(p.Buf) {
+				break
+			}
+		
+			pairNumber, _, tagLen, pairTagErr := p.ConsumeTagWithoutMove()
+			if pairTagErr != nil {
+				return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+			}
+		
+			if pairNumber != mapDesc.Number() {
+				break
+			}
+		
+			p.Read += tagLen
 		}
 	default:
 		return errNode(meta.ErrUnsupportedType, "", nil)
@@ -497,11 +484,17 @@ func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *binary.Bi
 		p.Buf = p.Buf[start:]
 		p.Read = 0
 		parentDesc := (*desc).(proto.Descriptor)
+		messageLen := 0
 		if et == proto.MESSAGE {
 			parentDesc = (*desc).Message().(proto.Descriptor)
+			var err error
+			messageLen, err = p.ReadLength()
+			if messageLen<= 0 || err != nil {
+				panic("read message length failed")
+			}
 		}
 
-		if err := v.scanChildren(p, recurse, opts, &parentDesc); err != nil {
+		if err := v.scanChildren(p, recurse, opts, &parentDesc,messageLen); err != nil {
 			return nil, err
 		}
 		p.Buf = buf
@@ -569,12 +562,18 @@ func (self *PathNode) handleListChild(in *[]PathNode, lp *int, cp *int, p *binar
 	if recurse && et.IsComplex() {
 		p.Buf = p.Buf[start:]
 		p.Read = 0
+		messageLen := 0
 		parentDesc := (*desc).(proto.Descriptor)
 		if et == proto.MESSAGE {
 			parentDesc = (*desc).Message().(proto.Descriptor)
+			var err error
+			messageLen, err = p.ReadLength()
+			if messageLen<= 0 || err != nil {
+				panic("read message length failed")
+			}
 		}
 
-		if err := v.scanChildren(p, recurse, opts, &parentDesc); err != nil {
+		if err := v.scanChildren(p, recurse, opts, &parentDesc, messageLen); err != nil {
 			return nil, err
 		}
 		p.Buf = buf
@@ -601,7 +600,7 @@ func (self *PathNode) Load(recurse bool, opts *Options, desc *proto.Descriptor) 
 	p := binary.BinaryProtocol{
 		Buf: self.Node.raw(),
 	}
-	return self.scanChildren(&p, recurse, opts, desc)
+	return self.scanChildren(&p, recurse, opts, desc, len(p.Buf))
 }
 
 

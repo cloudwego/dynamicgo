@@ -134,7 +134,7 @@ func FromProtoKindToType(kind ProtoKind, isList bool, isMap bool) Type {
 
 // IsInt tells if the type is one of Int32 or Int64
 func (p Type) IsInt() bool {
-	return p == INT32 || p == INT64 || p == SFIX32 || p == SFIX64 || p == SINT64 || p == SINT32
+	return p == INT32 || p == INT64 || p == SFIX32 || p == SFIX64 || p == SINT64 || p == SINT32 || p == UINT32 || p == UINT64
 }
 
 func (p Type) IsUint() bool {

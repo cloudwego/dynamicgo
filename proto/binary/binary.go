@@ -670,6 +670,12 @@ func (p *BinaryProtocol) ReadInt(t proto.Type) (value int, err error) {
 	case proto.SFIX64:
 		n, err := p.ReadSfixed64()
 		return int(n), err
+	case proto.UINT32:
+		n, err := p.ReadUint32()
+		return int(n), err
+	case proto.UINT64:
+		n, err := p.ReadUint64()
+		return int(n), err
 	default:
 		return 0, errInvalidDataType
 	}
