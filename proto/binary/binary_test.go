@@ -90,8 +90,8 @@ func BinaryDataBuild(mode TestMode) []byte {
 	switch mode {
 	case PartialTest:
 		data := &testprotos.ExamplePartialResp{}
-		// req.ShortEnglishMsg = "first"
-		// req.ChineseMsg = "哈哈哈哈但是"
+		// data.ShortEnglishMsg = "first"
+		// data.ChineseMsg = "哈哈哈哈但是"
 		data.LongEnglishMsg = "noboiubibipbpsdakonobnuondfap123141adfasdf"
 		req = data
 	case MessageTest:

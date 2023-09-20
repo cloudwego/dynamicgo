@@ -65,7 +65,8 @@ func NewDescritorFromPath(ctx context.Context, path string, importDirs ...string
 // NewDescritorFromContent creates a ServiceDescriptor from a proto path and its imports, which uses the given options.
 // The importDirs is used to find the include files.
 func (opts Options) NewDescriptorFromPath(ctx context.Context, path string, importDirs ...string) (*ServiceDescriptor, error) {
-	fileDescriptors, err := protoparse.Parser{}.ParseFiles(path)
+	importDirs = append(importDirs, path)
+	fileDescriptors, err := protoparse.Parser{}.ParseFiles(importDirs...)
 	if err != nil {
 		return nil, err
 	}

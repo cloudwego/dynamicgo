@@ -1,4 +1,4 @@
-package proto_test
+package protowire_test
 
 import (
 	"bytes"
@@ -539,12 +539,12 @@ func TestSfixed32(t *testing.T) {
 		consumeOps: ops{decodeSfixed32{wantVal: 0, wantCnt: 4}},
 	}, {
 		appendOps:  ops{encodeSFixed32{math.MaxInt32}},
-		wantRaw:    dhex("ffffffff"),
+		wantRaw:    dhex("ffffff7f"),
 		consumeOps: ops{decodeSfixed32{wantVal: math.MaxInt32, wantCnt: 4}},
 	}, {
-		appendOps:  ops{encodeSFixed32{0xf0e1d2}},
-		wantRaw:    dhex("c3d2e1f0"),
-		consumeOps: ops{decodeSfixed32{wantVal: 0xf0e1d2, wantCnt: 4}},
+		appendOps:  ops{encodeSFixed32{1}},
+		wantRaw:    dhex("01000000"),
+		consumeOps: ops{decodeSfixed32{wantVal: 1, wantCnt: 4}},
 	}})
 }
 
@@ -856,5 +856,36 @@ func runTests(t *testing.T, tests []testOps) {
 				}
 			}
 		})
+	}
+}
+
+
+func TestZigZag(t *testing.T) {
+	tests := []struct {
+		dec int64
+		enc uint64
+	}{
+		{math.MinInt64 + 0, math.MaxUint64 - 0},
+		{math.MinInt64 + 1, math.MaxUint64 - 2},
+		{math.MinInt64 + 2, math.MaxUint64 - 4},
+		{-3, 5},
+		{-2, 3},
+		{-1, 1},
+		{0, 0},
+		{+1, 2},
+		{+2, 4},
+		{+3, 6},
+		{math.MaxInt64 - 2, math.MaxUint64 - 5},
+		{math.MaxInt64 - 1, math.MaxUint64 - 3},
+		{math.MaxInt64 - 0, math.MaxUint64 - 1},
+	}
+
+	for _, tt := range tests {
+		if enc := protowire.EncodeZigZag(tt.dec); enc != tt.enc {
+			t.Errorf("EncodeZigZag(%d) = %d, want %d", tt.dec, enc, tt.enc)
+		}
+		if dec := protowire.DecodeZigZag(tt.enc); dec != tt.dec {
+			t.Errorf("DecodeZigZag(%d) = %d, want %d", tt.enc, dec, tt.dec)
+		}
 	}
 }

@@ -142,7 +142,7 @@ func ConsumeBytes(b []byte) (v []byte, n int, all int) {
 	if m > uint64(len(b[n:])) {
 		return nil, proto.ErrCodeTruncated, proto.ErrCodeTruncated
 	}
-	return b[n:][:m], n, n + int(m)
+	return b[n:][:m], n, n + int(m) // V's bytes, L's bytelen, (L+V)'s bytelen
 }
 
 // DecodeZigZag decodes a zig-zag-encoded uint64 as an int64.

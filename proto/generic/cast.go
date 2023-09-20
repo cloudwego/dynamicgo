@@ -37,7 +37,7 @@ func (self Node) Len() (int, error) {
 	return self.len()
 }
 
-// TODO: len 
+// TODO: len
 func (self Node) len() (int, error) {
 	switch self.t {
 	case proto.LIST:
@@ -190,7 +190,7 @@ func (self Node) String() (string, error) {
 func (self Node) string() (string, error) {
 	switch self.t {
 	case proto.STRING:
-		str, _ := protowire.BinaryDecoder{}.DecodeString(rt.BytesFrom(self.v, int(self.l), int(self.l)))
+		str, _, _ := protowire.BinaryDecoder{}.DecodeString(rt.BytesFrom(self.v, int(self.l), int(self.l)))
 		// if self.d.IsBinary() {
 		// 	if !utf8.Valid(rt.Str2Mem(str)) {
 		// 		return "", errNode(meta.ErrInvalidParam, "invalid utf8 string", nil)
@@ -209,11 +209,12 @@ func (self Node) Binary() ([]byte, error) {
 	}
 	return self.binary()
 }
+
 // BYTE?
 func (self Node) binary() ([]byte, error) {
 	switch self.t {
-	case proto.STRING:
-		v, _ := protowire.BinaryDecoder{}.DecodeBytes(rt.BytesFrom(self.v, int(self.l), int(self.l)))
+	case proto.BYTE:
+		v, _,_ := protowire.BinaryDecoder{}.DecodeBytes(rt.BytesFrom(self.v, int(self.l), int(self.l)))
 		return v, nil
 	default:
 		return nil, errNode(meta.ErrUnsupportedType, "", nil)
@@ -222,28 +223,28 @@ func (self Node) binary() ([]byte, error) {
 
 // List returns interface elements contained by a LIST/SET node
 func (self Node) List(opts *Options) ([]interface{}, error) {
-	return nil,nil
+	return nil, nil
 }
 
 // StrMap returns the string keys and interface elements contained by a MAP<STRING,XX> node
 func (self Node) StrMap(opts *Options) (map[string]interface{}, error) {
-	return nil,nil
+	return nil, nil
 }
 
 // StrMap returns the integer keys and interface elements contained by a MAP<I8|I16|I32|I64,XX> node
 func (self Node) IntMap(opts *Options) (map[int]interface{}, error) {
-	return nil,nil
+	return nil, nil
 }
 
 // InterfaceMap returns the interface keys and interface elements contained by a MAP node.
 // If the key type is complex (LIST/SET/MAP/STRUCT),
 // it will be stored using its pointer since its value are not supported by Go
 func (self Node) InterfaceMap(opts *Options) (map[interface{}]interface{}, error) {
-	return nil,nil
+	return nil, nil
 }
 
 func (self Node) Struct(opts *Options) (map[interface{}]interface{}, error) {
-	return nil,nil
+	return nil, nil
 }
 
 // Interface returns the go interface value contained by a node.

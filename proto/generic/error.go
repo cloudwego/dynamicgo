@@ -23,138 +23,137 @@ import (
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
 )
- 
- var (
-	 errNotFound = errNode(meta.ErrNotFound, "", nil)
- )
- 
- //go:noinline
- func wrapError(code meta.ErrCode, msg string, err error) error {
-	 return meta.NewError(meta.NewErrorCode(code, meta.THRIFT), msg, err)
- }
- 
- //go:noinline
- func unwrapError(msg string, err error) error {
-	 if v, ok := err.(meta.Error); ok {
-		 return wrapError(v.Code, msg, err)
-	 } else if v, ok := err.(Value); ok {
-		 return wrapError(v.ErrCode(), msg, err)
-	 } else if v, ok := err.(Node); ok {
-		 return wrapError(v.ErrCode(), msg, err)
-	 } else {
-		 return wrapError(0, msg, err)
-	 }
- }
- 
- //go:noinline
- func wrapValue(n Node, desc *proto.FieldDescriptor) Value {
-	 return Value{
-		 Node: n,
-		 Desc: desc,
-	 }
- }
- 
- //go:noinline
- func errNode(code meta.ErrCode, msg string, err error) Node {
-	 // panic(code.Behavior())
-	 e := meta.NewError(meta.NewErrorCode(code, meta.THRIFT), msg, err).(meta.Error)
-	 return Node{
-		 t: proto.ERROR,
-		 l: int(code),
-		 v: unsafe.Pointer(&e),
-	 }
- }
- 
- const (
-	 lastErrNotFoud proto.Type = 0 //?
- )
- 
- //go:noinline
- func errNotFoundLast(ptr unsafe.Pointer, parent proto.Type) Node {
-	 return Node{
-		 t:  proto.ERROR,
-		 et: lastErrNotFoud,
-		 kt: parent,
-		 l:  int(meta.ErrNotFound),
-		 v:  ptr,
-	 }
- }
- 
- //go:noinline
- func errValue(code meta.ErrCode, msg string, err error) Value {
-	 e := meta.NewError(meta.NewErrorCode(code, meta.THRIFT), msg, err).(meta.Error)
-	 return Value{
-		 Node: Node{
-			 t: proto.ERROR,
-			 l: int(code),
-			 v: unsafe.Pointer(&e),
-		 },
-	 }
- }
- 
- //go:noinline
- func errPathNode(code meta.ErrCode, msg string, err error) *PathNode {
-	 // panic(code.Behavior())
-	 e := meta.NewError(meta.NewErrorCode(code, meta.THRIFT), msg, err).(meta.Error)
-	 return &PathNode{
-			 Node: Node{
-			 t: proto.ERROR,
-			 l: int(code),
-			 v: unsafe.Pointer(&e),
-		 },
-	 }
- }
- 
- // IsEmpty tells if the node is thrift.STOP
- func (self Node) IsUnKnown() bool {
-	 return self.t == proto.UNKNOWN
- }
- 
- // IsEmtpy tells if the node is thrift.ERROR
- func (self Node) IsError() bool {
-	 return self.t == proto.ERROR
- }
- 
- // IsErrorNotFound tells if the node is not-found-data error
- func (self Node) IsErrNotFound() bool {
-	 return self.t == proto.ERROR && self.l == int(meta.ErrNotFound)
- }
- 
- func (self Node) isErrNotFoundLast() bool {
-	 return self.IsErrNotFound() && self.et == lastErrNotFoud
- }
- 
- // ErrCode return the meta.ErrCode of a ERROR node
- func (self Node) ErrCode() meta.ErrCode {
-	 if self.t != proto.ERROR {
-		 return 0
-	 }
-	 return meta.ErrCode(self.l)
- }
- 
- // Check checks if it is a ERROR node and returns corresponding error
- func (self *Node) Check() error {
-	 if self == nil {
-		 return fmt.Errorf("nil node")
-	 }
-	 if err := self.Error(); err != "" {
-		 return self
-	 }
-	 return nil
- }
- 
- // Error return error message if it is a ERROR node
- func (self Node) Error() string {
-	 switch self.t {
-	 case proto.ERROR:
-		 if self.v != nil && self.et != lastErrNotFoud {
-			 return (*meta.Error)(self.v).Error()
-		 }
-		 return fmt.Sprintf("%s", meta.ErrCode(self.l))
-	 // case thrift.STOP:
-	 // 	return "error empty node"
-	 default:
-		 return ""
-	 }
- }
- 
+
+var (
+	errNotFound = errNode(meta.ErrNotFound, "", nil)
+)
+
+//go:noinline
+func wrapError(code meta.ErrCode, msg string, err error) error {
+	return meta.NewError(meta.NewErrorCode(code, meta.THRIFT), msg, err)
+}
+
+//go:noinline
+func unwrapError(msg string, err error) error {
+	if v, ok := err.(meta.Error); ok {
+		return wrapError(v.Code, msg, err)
+	} else if v, ok := err.(Value); ok {
+		return wrapError(v.ErrCode(), msg, err)
+	} else if v, ok := err.(Node); ok {
+		return wrapError(v.ErrCode(), msg, err)
+	} else {
+		return wrapError(0, msg, err)
+	}
+}
+
+//go:noinline
+func wrapValue(n Node, desc *proto.FieldDescriptor) Value {
+	return Value{
+		Node: n,
+		Desc: desc,
+	}
+}
+
+//go:noinline
+func errNode(code meta.ErrCode, msg string, err error) Node {
+	// panic(code.Behavior())
+	e := meta.NewError(meta.NewErrorCode(code, meta.PROTOBUF), msg, err).(meta.Error)
+	return Node{
+		t: proto.ERROR,
+		l: int(code),
+		v: unsafe.Pointer(&e),
+	}
+}
+
+const (
+	lastErrNotFoud proto.Type = 0 //?
+)
+
+//go:noinline
+func errNotFoundLast(ptr unsafe.Pointer, parent proto.Type) Node {
+	return Node{
+		t:  proto.ERROR,
+		et: lastErrNotFoud,
+		kt: parent,
+		l:  int(meta.ErrNotFound),
+		v:  ptr,
+	}
+}
+
+//go:noinline
+func errValue(code meta.ErrCode, msg string, err error) Value {
+	e := meta.NewError(meta.NewErrorCode(code, meta.THRIFT), msg, err).(meta.Error)
+	return Value{
+		Node: Node{
+			t: proto.ERROR,
+			l: int(code),
+			v: unsafe.Pointer(&e),
+		},
+	}
+}
+
+//go:noinline
+func errPathNode(code meta.ErrCode, msg string, err error) *PathNode {
+	// panic(code.Behavior())
+	e := meta.NewError(meta.NewErrorCode(code, meta.THRIFT), msg, err).(meta.Error)
+	return &PathNode{
+		Node: Node{
+			t: proto.ERROR,
+			l: int(code),
+			v: unsafe.Pointer(&e),
+		},
+	}
+}
+
+// IsEmpty tells if the node is thrift.STOP
+func (self Node) IsUnKnown() bool {
+	return self.t == proto.UNKNOWN
+}
+
+// IsEmtpy tells if the node is thrift.ERROR
+func (self Node) IsError() bool {
+	return self.t == proto.ERROR
+}
+
+// IsErrorNotFound tells if the node is not-found-data error
+func (self Node) IsErrNotFound() bool {
+	return self.t == proto.ERROR && self.l == int(meta.ErrNotFound)
+}
+
+func (self Node) isErrNotFoundLast() bool {
+	return self.IsErrNotFound() && self.et == lastErrNotFoud
+}
+
+// ErrCode return the meta.ErrCode of a ERROR node
+func (self Node) ErrCode() meta.ErrCode {
+	if self.t != proto.ERROR {
+		return 0
+	}
+	return meta.ErrCode(self.l)
+}
+
+// Check checks if it is a ERROR node and returns corresponding error
+func (self *Node) Check() error {
+	if self == nil {
+		return fmt.Errorf("nil node")
+	}
+	if err := self.Error(); err != "" {
+		return self
+	}
+	return nil
+}
+
+// Error return error message if it is a ERROR node
+func (self Node) Error() string {
+	switch self.t {
+	case proto.ERROR:
+		if self.v != nil && self.et != lastErrNotFoud {
+			return (*meta.Error)(self.v).Error()
+		}
+		return fmt.Sprintf("%s", meta.ErrCode(self.l))
+	// case thrift.STOP:
+	// 	return "error empty node"
+	default:
+		return ""
+	}
+}
