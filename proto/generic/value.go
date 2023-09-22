@@ -60,6 +60,10 @@ func (self Value) slice(s int, e int, desc *proto.FieldDescriptor) Value {
 	return ret
 }
 
+
+
+
+
 func searchFieldId(p *binary.BinaryProtocol, id proto.FieldNumber) (int, error) {
 	for p.Read < len(p.Buf) {
 		fieldNumber, wireType, tagLen, err := p.ConsumeTagWithoutMove()
@@ -399,10 +403,8 @@ func (self Value) MarshalTo(to *proto.MessageDescriptor, opts *Options) ([]byte,
 	var r = binary.BinaryProtocol{}
 	r.Buf = self.raw()
 	var from = self.rootDesc
-	// if from.Type() != to.Type() {
-	// 	return nil, wrapError(meta.ErrDismatchType, "to descriptor dismatches from descriptor", nil)
-	// }
-	if err := marshalTo(&r, w, from, to, opts); err != nil {
+	messageLen := len(r.Buf)
+	if err := marshalTo(&r, w, from, to, opts,messageLen); err != nil {
 		return nil, err
 	}
 	ret := make([]byte, len(w.Buf))
@@ -412,8 +414,8 @@ func (self Value) MarshalTo(to *proto.MessageDescriptor, opts *Options) ([]byte,
 }
 
 
-func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *proto.MessageDescriptor, to *proto.MessageDescriptor, opts *Options) error {
-	for read.Read < len(read.Buf) {
+func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *proto.MessageDescriptor, to *proto.MessageDescriptor, opts *Options, massageLen int) error {
+	for read.Read < massageLen {
 		fieldNumber, wireType, _, _ := read.ConsumeTag()
 		fromField := (*from).Fields().ByNumber(fieldNumber)
 
@@ -429,7 +431,7 @@ func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *
 			}
 		}
 
-		toField := (*from).Fields().ByNumber(fieldNumber)
+		toField := (*to).Fields().ByNumber(fieldNumber)
 
 		if toField == nil {
 			// if not set, skip to the next field
@@ -448,7 +450,15 @@ func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *
 		if fromType == proto.MESSAGE {
 			fromDesc := fromField.Message()
 			toDesc := toField.Message()
-			marshalTo(read, write, &fromDesc, &toDesc, opts)
+			write.AppendTag(fieldNumber, wireType)
+			var pos int
+			subMessageLen, err := read.ReadLength()
+			if err != nil {
+				return wrapError(meta.ErrRead, "", err)
+			}
+			write.Buf, pos = binary.AppendSpeculativeLength(write.Buf)
+			marshalTo(read, write, &fromDesc, &toDesc, opts,subMessageLen)
+			write.Buf = binary.FinishSpeculativeLength(write.Buf, pos)
 		} else{
 			// if fromField = toField is base type, copy the skip value
 			start := read.Read

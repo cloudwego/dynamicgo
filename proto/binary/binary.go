@@ -178,13 +178,13 @@ func (p *BinaryProtocol) ConsumeTagWithoutMove() (proto.Number, proto.WireType, 
 // to make room).
 const speculativeLength = 1
 
-func appendSpeculativeLength(b []byte) ([]byte, int) {
+func AppendSpeculativeLength(b []byte) ([]byte, int) {
 	pos := len(b)
 	b = append(b, "\x00\x00\x00\x00"[:speculativeLength]...)
 	return b, pos
 }
 
-func finishSpeculativeLength(b []byte, pos int) []byte {
+func FinishSpeculativeLength(b []byte, pos int) []byte {
 	mlen := len(b) - pos - speculativeLength
 	msiz := protowire.SizeVarint(uint64(mlen))
 	if msiz != speculativeLength {
@@ -341,14 +341,14 @@ func (p *BinaryProtocol) WriteList(desc *proto.FieldDescriptor, val interface{})
 	if fd.IsPacked() && len(vs) > 0 {
 		p.AppendTag(fd.Number(), proto.BytesType)
 		var pos int
-		p.Buf, pos = appendSpeculativeLength(p.Buf)
+		p.Buf, pos = AppendSpeculativeLength(p.Buf)
 		for _, v := range vs {
 
 			if err := p.WriteBaseTypeWithDesc(desc, v, true, false, true); err != nil {
 				return err
 			}
 		}
-		p.Buf = finishSpeculativeLength(p.Buf, pos)
+		p.Buf = FinishSpeculativeLength(p.Buf, pos)
 		return nil
 	}
 
@@ -381,10 +381,10 @@ func (p *BinaryProtocol) WriteMap(desc *proto.FieldDescriptor, val interface{}) 
 	for k, v := range vs {
 		p.AppendTag(fd.Number(), proto.BytesType)
 		var pos int
-		p.Buf, pos = appendSpeculativeLength(p.Buf)
+		p.Buf, pos = AppendSpeculativeLength(p.Buf)
 		p.WriteAnyWithDesc(&MapKey, k, true, false, true)
 		p.WriteAnyWithDesc(&MapValue, v, true, false, true)
-		p.Buf = finishSpeculativeLength(p.Buf, pos)
+		p.Buf = FinishSpeculativeLength(p.Buf, pos)
 	}
 
 	return nil
@@ -587,7 +587,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 	case protoreflect.Kind(proto.MessageKind):
 		var ok bool
 		var pos int
-		p.Buf, pos = appendSpeculativeLength(p.Buf)
+		p.Buf, pos = AppendSpeculativeLength(p.Buf)
 		if useFieldName {
 			val, ok = val.(map[string]interface{})
 		} else {
@@ -600,7 +600,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 		if err != nil {
 			return err
 		}
-		p.Buf = finishSpeculativeLength(p.Buf, pos)
+		p.Buf = FinishSpeculativeLength(p.Buf, pos)
 	default:
 		return errUnsupportedType
 	}
