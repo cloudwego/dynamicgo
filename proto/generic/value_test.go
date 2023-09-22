@@ -10,6 +10,8 @@ import (
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/base"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
+	"github.com/stretchr/testify/require"
+	goprotowire "google.golang.org/protobuf/encoding/protowire"
 	goproto "google.golang.org/protobuf/proto"
 )
 
@@ -179,13 +181,6 @@ func generateBinaryData() error {
 	return nil
 }
 
-func countHelper(count *int, ps []PathNode) {
-	*count += len(ps)
-	for _, p := range ps {
-		countHelper(count, p.Next)
-	}
-}
-
 func TestCreateValue(t *testing.T) {
 	generateBinaryData()
 }
@@ -205,3 +200,117 @@ func TestCount(t *testing.T) {
 	fmt.Printf("nodes count: %d", count)
 }
 
+func countHelper(count *int, ps []PathNode) {
+	*count += len(ps)
+	for _, p := range ps {
+		countHelper(count, p.Next)
+	}
+}
+
+
+func TestMarshalTo(t *testing.T) {
+	desc := getExample2Desc()
+	data := getExample2Data()
+	partial := getExamplePartialDesc()
+
+	exp := example2.ExampleReq{}
+	v := NewRootValue(desc, data)
+	dataLen := len(data)
+	l := 0
+	for l < dataLen {
+		id, wtyp, tagLen := goprotowire.ConsumeTag(data)
+		if tagLen < 0 {
+			t.Fatal("test failed")
+		}
+		l += tagLen
+		data = data[tagLen:]
+		offset, err := exp.FastRead(data,int8(wtyp),int32(id))
+		require.Nil(t, err)
+		data = data[offset:]
+		l += offset
+	}
+	if len(data) != 0 {
+		t.Fatal("test failed")
+	}
+
+	t.Run("ById", func(t *testing.T) {
+		t.Run("WriteDefault", func(t *testing.T) {
+			opts := &Options{WriteDefault: true}
+			buf, err := v.MarshalTo(partial, opts)
+			require.Nil(t, err)
+			ep := example2.ExampleReqPartial{}
+
+			bufLen := len(buf)
+			l := 0
+			for l < bufLen {
+				id, wtyp, tagLen := goprotowire.ConsumeTag(buf)
+				if tagLen < 0 {
+					t.Fatal("test failed")
+				}
+				l += tagLen
+				buf = buf[tagLen:]
+				offset, err := ep.FastRead(buf,int8(wtyp),int32(id))
+				require.Nil(t, err)
+				buf = buf[offset:]
+				l += offset
+			}
+			if len(buf) != 0 {
+				t.Fatal("test failed")
+			}
+			
+			act := toInterface(ep)
+			exp := toInterface(exp)
+			require.False(t, DeepEqual(act, exp))
+			handlePartialMapStringString2(act.(map[int]interface{})[3].(map[int]interface{}))
+			require.True(t, DeepEqual(act, exp))
+			// TODO
+			// require.NotNil(t, ep.InnerBase2.MapStringString2)
+		})
+		t.Run("NotWriteDefault", func(t *testing.T) {
+			opts := &Options{}
+			buf, err := v.MarshalTo(partial, opts)
+			require.Nil(t, err)
+			ep := example2.ExampleReqPartial{}
+			bufLen := len(buf)
+			
+			l := 0
+			for l < bufLen {
+				id, wtyp, tagLen := goprotowire.ConsumeTag(buf)
+				if tagLen < 0 {
+					t.Fatal("test failed")
+				}
+				l += tagLen
+				buf = buf[tagLen:]
+				offset, err := ep.FastRead(buf,int8(wtyp),int32(id))
+				require.Nil(t, err)
+				buf = buf[offset:]
+				l += offset
+			}
+			if len(buf) != 0 {
+				t.Fatal("test failed")
+			}
+
+			act := toInterface(ep)
+			exp := toInterface(exp)
+			require.False(t, DeepEqual(act, exp))
+			handlePartialMapStringString2(act.(map[int]interface{})[3].(map[int]interface{}))
+			require.True(t, DeepEqual(act, exp))
+			require.Nil(t, ep.InnerBase2.MapStringString2)
+		})
+	})
+
+	// TODO: test unknown
+
+}
+
+func handlePartialMapStringString2(p map[int]interface{}) {
+	delete(p, 127)
+
+	if f18 := p[18]; f18 != nil {
+		for i := range f18.([]interface{}) {
+			pv := f18.([]interface{})[i].(map[int]interface{})
+			handlePartialMapStringString2(pv)
+		}
+	}
+
+}

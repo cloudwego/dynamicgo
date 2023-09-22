@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/proto"
-	"github.com/cloudwego/dynamicgo/testdata/pb/testprotos"
+	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example"
 	"google.golang.org/protobuf/encoding/protowire"
 	goproto "google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -89,14 +89,14 @@ func BinaryDataBuild(mode TestMode) []byte {
 	var req protoreflect.ProtoMessage
 	switch mode {
 	case PartialTest:
-		data := &testprotos.ExamplePartialResp{}
+		data := &example.ExamplePartialResp{}
 		// data.ShortEnglishMsg = "first"
 		// data.ChineseMsg = "哈哈哈哈但是"
 		data.LongEnglishMsg = "noboiubibipbpsdakonobnuondfap123141adfasdf"
 		req = data
 	case MessageTest:
-		data := &testprotos.ExampleMessageResp{}
-		data.Base = &testprotos.InnerBase{}
+		data := &example.ExampleMessageResp{}
+		data.Base = &example.InnerBase{}
 		data.Base.SBool = true
 		data.Base.SInt32 = 12
 		data.Base.SInt64 = 52
@@ -112,10 +112,10 @@ func BinaryDataBuild(mode TestMode) []byte {
 		data.Base.SString = "npdabigdbas dsaf@232#~32adgna;sbf;"
 		req = data
 	case NestedTest:
-		data := &testprotos.ExampleNestedResp{}
-		data.TestNested = &testprotos.Nested{}
+		data := &example.ExampleNestedResp{}
+		data.TestNested = &example.Nested{}
 		data.TestNested.SString = "aaaa"
-		data.TestNested.Base = &testprotos.InnerBase{}
+		data.TestNested.Base = &example.InnerBase{}
 		data.TestNested.Base.SBool = true
 		data.TestNested.Base.SInt32 = 12
 		data.TestNested.Base.SInt64 = 52
@@ -131,8 +131,8 @@ func BinaryDataBuild(mode TestMode) []byte {
 		data.TestNested.Base.SString = "npdabigdbas dsaf@232#~32adgna;sbf;"
 		req = data
 	case ScalarsTest:
-		data := &testprotos.ExampleScalarsResp{}
-		data.Scalars = &testprotos.Scalars{}
+		data := &example.ExampleScalarsResp{}
+		data.Scalars = &example.Scalars{}
 		data.Scalars.SBool = true
 		data.Scalars.SInt32 = 12
 		data.Scalars.SInt64 = 52
@@ -148,8 +148,8 @@ func BinaryDataBuild(mode TestMode) []byte {
 		data.Scalars.SString = "npdabigdbas dsaf@232#~32adgna;sbf;"
 		req = data
 	case ListTest:
-		data := &testprotos.ExampleListResp{}
-		data.TestList = &testprotos.Repeats{}
+		data := &example.ExampleListResp{}
+		data.TestList = &example.Repeats{}
 		data.TestList.RptBool = []bool{true, false, true, true, false, true}
 		data.TestList.RptInt32 = []int32{int32(12), int32(52), int32(123), int32(205)}
 		data.TestList.RptInt64 = []int64{int64(21), int64(56), int64(210), int64(650)}
@@ -161,8 +161,8 @@ func BinaryDataBuild(mode TestMode) []byte {
 		data.TestList.RptBytes = [][]byte{[]byte{97, 98, 99, 100, 101, 102, 103}, []byte{104, 105, 106, 107, 108, 109, 110}, []byte{111, 112, 113, 114, 115, 116, 117}, []byte{118, 119, 120, 121, 122, 123, 124}}
 		req = data
 	case MapTest:
-		data := &testprotos.ExampleMapResp{}
-		data.TestMap = &testprotos.Maps{}
+		data := &example.ExampleMapResp{}
+		data.TestMap = &example.Maps{}
 		data.TestMap.Int32ToStr = make(map[int32]string)
 		data.TestMap.Int32ToStr[1] = "aaa"
 		data.TestMap.Int32ToStr[2] = "bbb"
@@ -173,70 +173,70 @@ func BinaryDataBuild(mode TestMode) []byte {
 		data.TestMap.BoolToUint32[false] = uint32(12)
 		data.TestMap.BoolToUint32[true] = uint32(14)
 
-		data.TestMap.Uint64ToEnum = make(map[uint64]testprotos.Enum)
-		data.TestMap.Uint64ToEnum[uint64(1)] = testprotos.Enum_ONE
-		data.TestMap.Uint64ToEnum[uint64(2)] = testprotos.Enum_TWO
-		data.TestMap.Uint64ToEnum[uint64(3)] = testprotos.Enum_TEN
+		data.TestMap.Uint64ToEnum = make(map[uint64]example.Enum)
+		data.TestMap.Uint64ToEnum[uint64(1)] = example.Enum_ONE
+		data.TestMap.Uint64ToEnum[uint64(2)] = example.Enum_TWO
+		data.TestMap.Uint64ToEnum[uint64(3)] = example.Enum_TEN
 
-		data.TestMap.StrToNested = make(map[string]*testprotos.Nested)
-		nestedObj1 := testprotos.Nested{}
+		data.TestMap.StrToNested = make(map[string]*example.Nested)
+		nestedObj1 := example.Nested{}
 		nestedObj1.SString = "111"
-		nestedObj1.Base = &testprotos.InnerBase{}
+		nestedObj1.Base = &example.InnerBase{}
 		nestedObj1.Base.SBool = true
 		nestedObj1.Base.SString = "nested111"
-		nestedObj2 := testprotos.Nested{}
+		nestedObj2 := example.Nested{}
 		nestedObj2.SString = "222"
-		nestedObj2.Base = &testprotos.InnerBase{}
+		nestedObj2.Base = &example.InnerBase{}
 		nestedObj2.Base.SBool = false
 		nestedObj2.Base.SString = "nested222"
-		nestedObj3 := testprotos.Nested{}
+		nestedObj3 := example.Nested{}
 		nestedObj3.SString = "333"
-		nestedObj3.Base = &testprotos.InnerBase{}
+		nestedObj3.Base = &example.InnerBase{}
 		nestedObj3.Base.SBool = true
 		nestedObj3.Base.SString = "nested333"
 		data.TestMap.StrToNested["aaa"] = &nestedObj1
 		data.TestMap.StrToNested["bbb"] = &nestedObj2
 		data.TestMap.StrToNested["ccc"] = &nestedObj3
 
-		data.TestMap.StrToOneofs = make(map[string]*testprotos.Oneofs)
-		oneofObj1 := testprotos.Oneofs{}
-		enumUnion := &testprotos.Oneofs_OneofEnum{}
-		enumUnion.OneofEnum = testprotos.Enum_ONE
+		data.TestMap.StrToOneofs = make(map[string]*example.Oneofs)
+		oneofObj1 := example.Oneofs{}
+		enumUnion := &example.Oneofs_OneofEnum{}
+		enumUnion.OneofEnum = example.Enum_ONE
 		oneofObj1.Union = enumUnion
 		data.TestMap.StrToOneofs["aaa"] = &oneofObj1
 
-		oneofObj2 := testprotos.Oneofs{}
-		stringUnion := &testprotos.Oneofs_OneofString{}
+		oneofObj2 := example.Oneofs{}
+		stringUnion := &example.Oneofs_OneofString{}
 		stringUnion.OneofString = "stringUnion"
 		oneofObj2.Union = stringUnion
 		data.TestMap.StrToOneofs["bbb"] = &oneofObj2
 
-		oneofObj3 := testprotos.Oneofs{}
-		nestedUnion := &testprotos.Oneofs_OneofNested{}
-		nestedUnion.OneofNested = &testprotos.Nested{}
+		oneofObj3 := example.Oneofs{}
+		nestedUnion := &example.Oneofs_OneofNested{}
+		nestedUnion.OneofNested = &example.Nested{}
 		nestedUnion.OneofNested.SString = "nestedStringUnion"
-		nestedUnion.OneofNested.Base = &testprotos.InnerBase{}
+		nestedUnion.OneofNested.Base = &example.InnerBase{}
 		nestedUnion.OneofNested.Base.SBool = true
 		nestedUnion.OneofNested.Base.SString = "bbb"
 		oneofObj3.Union = nestedUnion
 		data.TestMap.StrToOneofs["ccc"] = &oneofObj3
 		req = data
 	case OneofTest:
-		data := &testprotos.ExampleOneofResp{}
-		data.TestOneof = &testprotos.Oneofs{}
+		data := &example.ExampleOneofResp{}
+		data.TestOneof = &example.Oneofs{}
 		// enum inner of union
-		// enumUnion := &testprotos.Oneofs_OneofEnum{}
-		// enumUnion.OneofEnum = testprotos.Enum_ONE
+		// enumUnion := &example.Oneofs_OneofEnum{}
+		// enumUnion.OneofEnum = example.Enum_ONE
 		// data.TestOneof.Union = enumUnion
 		// string inner of union
-		// stringUnion := &testprotos.Oneofs_OneofString{}
+		// stringUnion := &example.Oneofs_OneofString{}
 		// stringUnion.OneofString = "aaaa"
 		// data.TestOneof.Union = stringUnion
 		// Nested inner of union
-		nestedUnion := testprotos.Oneofs_OneofNested{}
-		nestedUnion.OneofNested = &testprotos.Nested{}
+		nestedUnion := example.Oneofs_OneofNested{}
+		nestedUnion.OneofNested = &example.Nested{}
 		nestedUnion.OneofNested.SString = "aaa"
-		nestedUnion.OneofNested.Base = &testprotos.InnerBase{}
+		nestedUnion.OneofNested.Base = &example.InnerBase{}
 		nestedUnion.OneofNested.Base.SBool = true
 		nestedUnion.OneofNested.Base.SString = "bbb"
 		data.TestOneof.Union = &nestedUnion
