@@ -64,8 +64,8 @@ func (self Value) slice(s int, e int, desc *proto.FieldDescriptor) Value {
 
 
 
-func searchFieldId(p *binary.BinaryProtocol, id proto.FieldNumber) (int, error) {
-	for p.Read < len(p.Buf) {
+func searchFieldId(p *binary.BinaryProtocol, id proto.FieldNumber, messageLen int) (int, error) {
+	for p.Read < messageLen {
 		fieldNumber, wireType, tagLen, err := p.ConsumeTagWithoutMove()
 		if err != nil {
 			return 0, err
@@ -75,6 +75,7 @@ func searchFieldId(p *binary.BinaryProtocol, id proto.FieldNumber) (int, error) 
 			return p.Read, nil
 		}
 		p.Read += tagLen
+
 		if err := p.Skip(wireType, false); err != nil {
 			return 0, errNode(meta.ErrRead, "", err)
 		}
@@ -82,14 +83,9 @@ func searchFieldId(p *binary.BinaryProtocol, id proto.FieldNumber) (int, error) 
 	return 0, errNotFound
 }
 
-func searchIndex(p *binary.BinaryProtocol, idx int, elementWireType proto.WireType) (int, error) {
-	fieldNumber, listWireType, _, listTagErr := p.ConsumeTag()
-	if listTagErr != nil {
-		return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
-	}
-	
+func searchIndex(p *binary.BinaryProtocol, idx int, elementWireType proto.WireType, isPacked bool, fieldNumber proto.Number) (int, error) {
 	// packed list
-	if listWireType == proto.BytesType {
+	if isPacked {
 		// read length
 		length, err := p.ReadLength()
 		if err != nil {
@@ -144,6 +140,44 @@ func searchIntKey(p *binary.BinaryProtocol, key int, keyType proto.Type, mapFiel
 	start := p.Read
 	// normal Type : [tag][(length)][value][tag][(length)][value][tag][(length)][value]....
 	for p.Read < len(p.Buf) {
+		if _, err := p.ReadLength() ; err != nil {
+			return 0, meta.NewError(meta.ErrRead, "ReadLength failed", nil)
+		}
+
+		if _, _, _, keyTagErr := p.ConsumeTag(); keyTagErr != nil {
+			return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+		}
+
+		k, err := p.ReadInt(keyType)
+		if err != nil {
+			return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+		}
+		
+
+		if k == key {
+			exist = true
+			_,_, tagLen, err := p.ConsumeTagWithoutMove() // skip value taglen
+			if err != nil {
+				return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+			}
+			start = p.Read + tagLen // then p.Read will point to real value part
+			break
+		}
+
+		_, valueWireType, _, valueTagErr := p.ConsumeTag()
+		if valueTagErr != nil {
+			return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+		}
+
+		// if key not match, skip value
+		if err := p.Skip(valueWireType, false); err != nil {
+			return 0, errNode(meta.ErrRead, "", err)
+		}
+
+		if p.Read >= len(p.Buf) {
+			break
+		}
+
 		// don't move p.Read and judge whether readList completely
 		elementFieldNumber, _, n, err := p.ConsumeTagWithoutMove()
 		if err != nil {
@@ -153,34 +187,6 @@ func searchIntKey(p *binary.BinaryProtocol, key int, keyType proto.Type, mapFiel
 			break
 		}
 		p.Read += n
-
-		p.ReadLength()
-
-		_, _, _, keyTagErr := p.ConsumeTag()
-		if keyTagErr != nil {
-			return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
-		}
-		
-		k, err := p.ReadInt(keyType)
-		if err != nil {
-			return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
-		}
-		// must read valueTag first
-		_, valueWireType, _, valueTagErr := p.ConsumeTag()
-		if valueTagErr != nil {
-			return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
-		}
-
-		if k == key {
-			exist = true
-			start = p.Read // then p.Read will point to real value part
-			break
-		}
-		// if key not match, skip value
-		if err := p.Skip(valueWireType, false); err != nil {
-			return 0, errNode(meta.ErrRead, "", err)
-		}
-
 	}
 	if !exist {
 		return 0, errNotFound
@@ -193,6 +199,44 @@ func searchStrKey(p *binary.BinaryProtocol, key string, keyType proto.Type, mapF
 	start := p.Read
 	// normal Type : [tag][(length)][value][tag][(length)][value][tag][(length)][value]....
 	for p.Read < len(p.Buf) {
+		if _, err := p.ReadLength() ; err != nil {
+			return 0, meta.NewError(meta.ErrRead, "ReadLength failed", nil)
+		}
+
+		if _, _, _, keyTagErr := p.ConsumeTag(); keyTagErr != nil {
+			return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+		}
+		
+		k, err := p.ReadString(false)
+		if err != nil {
+			return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+		}
+
+		if k == key {
+			exist = true
+			_,_, tagLen, err := p.ConsumeTagWithoutMove() // skip value taglen
+			if err != nil {
+				return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+			}
+			start = p.Read + tagLen // then p.Read will point to real value part
+			break
+		}
+
+
+		_, valueWireType, _, valueTagErr := p.ConsumeTag()
+		if valueTagErr != nil {
+			return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+		}
+
+		// if key not match, skip value
+		if err := p.Skip(valueWireType, false); err != nil {
+			return 0, errNode(meta.ErrRead, "", err)
+		}
+
+		if p.Read >= len(p.Buf) {
+			break
+		}
+
 		// don't move p.Read and judge whether readList completely
 		elementFieldNumber, _, n, err := p.ConsumeTagWithoutMove()
 		if err != nil {
@@ -202,34 +246,6 @@ func searchStrKey(p *binary.BinaryProtocol, key string, keyType proto.Type, mapF
 			break
 		}
 		p.Read += n
-
-		p.ReadLength()
-
-		_, _, _, keyTagErr := p.ConsumeTag()
-		if keyTagErr != nil {
-			return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
-		}
-		
-		k, err := p.ReadString(false)
-		if err != nil {
-			return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
-		}
-		// must read valueTag first
-		_, valueWireType, _, valueTagErr := p.ConsumeTag()
-		if valueTagErr != nil {
-			return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
-		}
-
-		if k == key {
-			exist = true
-			start = p.Read // then p.Read will point to real value part
-			break
-		}
-		// if key not match, skip value
-		if err := p.Skip(valueWireType, false); err != nil {
-			return 0, errNode(meta.ErrRead, "", err)
-		}
-
 	}
 	if !exist {
 		return 0, errNotFound
@@ -249,42 +265,57 @@ func (self Value) GetByPath(pathes ...Path) Value {
 	var desc *proto.FieldDescriptor
 	var err error
 	tt := self.t
+	kt := self.kt
+	et := self.et
 
 	for i, path := range pathes {
 		switch path.t {
 		case PathFieldId:
 			id := path.id()
 			var fd proto.FieldDescriptor
-			start, err = searchFieldId(&p, id)
+			messageLen := 0
 			if i == 0 {
 				fd = (*self.rootDesc).Fields().ByNumber(id)
+				messageLen = len(p.Buf)
 			} else {
 				fd = (*desc).Message().Fields().ByNumber(id)
+				Len, err := p.ReadLength()
+				if err != nil {
+					return errValue(meta.ErrRead, "", err)
+				}
+				messageLen += Len
 			}
 			if fd != nil {
 				desc = &fd
 				tt = proto.FromProtoKindToType(fd.Kind(),fd.IsList(),fd.IsMap())
 			}
-			desc = nil
-			
+			start, err = searchFieldId(&p, id, messageLen)
 		case PathFieldName:
 			name := proto.FieldName(path.str())
 			var fd proto.FieldDescriptor
+			messageLen := 0
 			if i == 0 {
 				fd = (*self.rootDesc).Fields().ByName(name)
+				messageLen = len(p.Buf)
 			} else {
 				fd = (*desc).Message().Fields().ByName(name)
+				Len, err := p.ReadLength()
+				if err != nil {
+					return errValue(meta.ErrRead, "", err)
+				}
+				messageLen += Len
 			}
 			if fd == nil {
 				return errValue(meta.ErrUnknownField, fmt.Sprintf("field name '%s' is not defined in IDL", name), nil)
 			}
 			tt = proto.FromProtoKindToType(fd.Kind(),fd.IsList(),fd.IsMap())
 			desc = &fd
-			start, err = searchFieldId(&p, fd.Number())
+			start, err = searchFieldId(&p, fd.Number(), messageLen)
 		case PathIndex:
 			elemKind := (*desc).Kind()
 			elementWireType := proto.Kind2Wire[elemKind]
-			start, err = searchIndex(&p, path.int(),elementWireType)
+			isPacked := (*desc).IsPacked()
+			start, err = searchIndex(&p, path.int(),elementWireType, isPacked, (*desc).Number())
 			tt = proto.FromProtoKindToType(elemKind,false,false)
 		case PathStrKey:
 			mapFieldNumber := (*desc).Number()
@@ -306,12 +337,41 @@ func (self Value) GetByPath(pathes ...Path) Value {
 			en := err.(Node)
 			return errValue(en.ErrCode().Behavior(), "", err)
 		}
+
+		if i != len(pathes)-1 {
+			if _,_,_,err := p.ConsumeTag(); err != nil {
+				return errValue(meta.ErrRead, "", err)
+			}
+			start = p.Read
+		}
 	}
 	
-	if err := p.Skip(proto.Kind2Wire[(*desc).Kind()], false); err != nil {
-		return errValue(meta.ErrRead, "", err)
+
+
+	// only support packed list now
+	if tt == proto.MAP {
+		kt = proto.FromProtoKindToType((*desc).MapKey().Kind(),false,false)
+		et = proto.FromProtoKindToType((*desc).MapValue().Kind(),false,false)
+		if _, err = p.ReadMap(desc, false, false, false); err != nil {
+			en := err.(Node)
+			return errValue(en.ErrCode().Behavior(), "", err)
+		}
+	} else {
+		skipType := proto.Kind2Wire[(*desc).Kind()]
+		if tt == proto.LIST {
+			et = proto.FromProtoKindToType((*desc).Kind(),false,false)
+			skipType = proto.BytesType
+		}
+		
+		if _, _, _, err := p.ConsumeTag(); err != nil {
+			return errValue(meta.ErrRead, "", err)
+		}
+		
+		if err := p.Skip(skipType, false); err != nil {
+			return errValue(meta.ErrRead, "", err)
+		}
 	}
-	return self.slice(start, p.Read, desc)
+	return wrapValue(self.Node.slice(start, p.Read, tt, kt, et), desc)
 }
 
 
@@ -461,6 +521,81 @@ func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *
 			write.Buf = binary.FinishSpeculativeLength(write.Buf, pos)
 		} else{
 			// if fromField = toField is base type, copy the skip value
+			if fromType == proto.LIST && fromField.Kind() == proto.MessageKind {
+				listLen, err := read.ReadLength()
+				if err != nil {
+					return wrapError(meta.ErrRead, "", err)
+				}
+				write.AppendTag(fieldNumber, wireType)
+				start := read.Read
+				var pos int
+				write.Buf, pos = binary.AppendSpeculativeLength(write.Buf)
+				fromDesc := fromField.Message()
+				toDesc := toField.Message()
+				
+				for read.Read < start + listLen {
+					var pos2 int
+					subMessageLen, err := read.ReadLength()
+					if err != nil {
+						return wrapError(meta.ErrRead, "", err)
+					}
+					write.Buf, pos2 = binary.AppendSpeculativeLength(write.Buf)
+					marshalTo(read, write, &fromDesc, &toDesc, opts,subMessageLen)
+					write.Buf = binary.FinishSpeculativeLength(write.Buf, pos2)
+				}
+				write.Buf = binary.FinishSpeculativeLength(write.Buf, pos)
+			} else if fromType == proto.MAP && fromField.MapValue().Kind() == proto.MessageKind {
+				keyWire := proto.Kind2Wire[fromField.MapKey().Kind()]
+				fromValue := fromField.MapValue().Message()
+				toValue := toField.MapValue().Message()
+				write.AppendTag(fieldNumber, wireType)
+				for {
+					read.ReadLength()
+					var posPair int
+					write.Buf, posPair = binary.AppendSpeculativeLength(write.Buf)
+
+					if _,_, _, err := read.ConsumeTag(); err != nil {
+						return wrapError(meta.ErrRead, "", err)
+					}
+					keyStart := read.Read
+					read.Skip(keyWire, false)
+
+					write.AppendTag(1, keyWire)
+					write.Buf = append(write.Buf, read.Buf[keyStart:read.Read]...)
+					var posValue int
+					subMessageLen,err := read.ReadLength()
+
+					if err != nil {
+						return wrapError(meta.ErrRead, "", err)
+					}
+					write.AppendTag(2, proto.BytesType)
+					write.Buf, posValue = binary.AppendSpeculativeLength(write.Buf)
+					marshalTo(read, write, &fromValue, &toValue, opts,subMessageLen)
+					write.Buf= binary.FinishSpeculativeLength(write.Buf,posValue)
+					write.Buf = binary.FinishSpeculativeLength(write.Buf, posPair)
+					if read.Read >= len(read.Buf) {
+						break
+					}
+
+					pairField, _, _, err := read.ConsumeTag()
+					if err != nil {
+						return wrapError(meta.ErrRead, "", err)
+					}
+
+					if pairField != fieldNumber {
+						break
+					}
+				}
+				
+				
+				
+				
+
+
+			}
+
+
+
 			start := read.Read
 			if err := read.Skip(wireType, opts.UseNativeSkip); err != nil {
 				return wrapError(meta.ErrRead, "", err)
@@ -473,4 +608,220 @@ func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *
 		}
 	}
 	return nil
+}
+
+
+func (self Value) GetByStr(key string) (v Value) {
+	if err := self.should("Get", proto.MAP); err != "" {
+		return errValue(meta.ErrUnsupportedType, err, nil)
+	}
+
+	if self.kt != proto.STRING {
+		return errValue(meta.ErrUnsupportedType, "key type is not string", nil)
+	}
+
+	it := self.iterPairs()
+	if it.Err != nil {
+		return errValue(meta.ErrRead, "", it.Err)
+	}
+
+	for it.HasNext() {
+		_, s, ss, e := it.NextStr(UseNativeSkipForGet)
+		if it.Err != nil {
+			v = errValue(meta.ErrRead, "", it.Err)
+			goto ret
+		}
+		
+		if s == key {
+			vd := (*self.Desc).MapValue()
+			v = self.slice(ss, e, &vd)
+			goto ret
+		}
+	}
+	v = errValue(meta.ErrNotFound, "", nil)
+ret:
+	return
+}
+
+func (self Value) GetByInt(key int) (v Value) {
+	if err := self.should("Get", proto.MAP); err != "" {
+		return errValue(meta.ErrUnsupportedType, err, nil)
+	}
+
+	if !self.kt.IsInt() {
+		return errValue(meta.ErrUnsupportedType, "key type is not int", nil)
+	}
+
+	it := self.iterPairs()
+	if it.Err != nil {
+		return errValue(meta.ErrRead, "", it.Err)
+	}
+
+	for it.HasNext() {
+		_, i, ss, e := it.NextInt(UseNativeSkipForGet)
+		if it.Err != nil {
+			v = errValue(meta.ErrRead, "", it.Err)
+			goto ret
+		}
+		if i == key {
+			vd := (*self.Desc).MapValue()
+			v = self.slice(ss, e, &vd)
+			goto ret
+		}
+	}
+	v = errValue(meta.ErrNotFound, fmt.Sprintf("key '%d' is not found in this value", key), nil)
+ret:
+	return
+}
+
+// Index returns a sub node at the given index from a LIST value.
+func (self Value) Index(i int) (v Value) {
+	if err := self.should("Index", proto.LIST); err != "" {
+		return errValue(meta.ErrUnsupportedType, err, nil)
+	}
+
+	var s, e int
+	it := self.iterElems()
+	if it.Err != nil {
+		return errValue(meta.ErrRead, "", it.Err)
+	}
+
+	if _, err := it.p.ReadLength(); err != nil {
+		return errValue(meta.ErrRead, "", err)
+	}
+
+	for j := 0; it.HasNext() && j < i; j++ {
+		it.Next(UseNativeSkipForGet)
+	}
+
+	if it.Err != nil {
+		return errValue(meta.ErrRead, "", it.Err)
+	}
+
+	if i > it.k {
+		return errValue(meta.ErrInvalidParam, fmt.Sprintf("index '%d' is out of range", i), nil)
+	}
+
+	s, e = it.Next(UseNativeSkipForGet)
+ 
+	v = wrapValue(self.Node.slice(s, e, self.et, 0, 0), self.Desc)
+
+	return
+}
+
+// FieldByName returns a sub node at the given field name from a STRUCT value.
+func (self Value) FieldByName(name string) (v Value) {
+	if err := self.should("FieldByName", proto.MESSAGE); err != "" {
+		return errValue(meta.ErrUnsupportedType, err, nil)
+	}
+
+	var f proto.FieldDescriptor
+	if self.rootDesc != nil {
+		f = (*self.rootDesc).Fields().ByName(proto.FieldName(name))
+	} else {
+		f = (*self.Desc).Message().Fields().ByName(proto.FieldName(name))
+	}
+
+	if f == nil {
+		return errValue(meta.ErrUnknownField, fmt.Sprintf("field '%s' is not defined in IDL", name), nil)
+	}
+
+	// not found, try to scan the whole bytes
+	it := self.iterFields()
+	if it.Err != nil {
+		return errValue(meta.ErrRead, "", it.Err)
+	}
+	for it.HasNext() {
+		i, wt, s, e, tagPos := it.Next(UseNativeSkipForGet)
+		if i == f.Number() {
+			if f.IsMap() {
+				it.p.Read = tagPos
+				if _, err := it.p.ReadMap(&f, false, false, false); err != nil {
+					return errValue(meta.ErrRead, "", err)
+				}
+				v = self.slice(s, it.p.Read, &f)
+				goto ret
+			}
+
+			t := proto.Kind2Wire[f.Kind()]
+			if wt != t {
+				v = errValue(meta.ErrDismatchType, fmt.Sprintf("field '%s' expects type %s, buf got type %s", string(f.Name()), t, wt), nil)
+				goto ret
+			}
+			v = self.slice(s, e, &f)
+			goto ret
+		} else if it.Err != nil {
+			v = errValue(meta.ErrRead, "", it.Err)
+			goto ret
+		}
+	}
+
+	v = errValue(meta.ErrNotFound, fmt.Sprintf("field '%s' is not found in this value", name), errNotFound)
+ret:
+	// it.Recycle()
+	return
+}
+
+// Field returns a sub node at the given field id from a STRUCT value.
+func (self Value) Field(id proto.FieldNumber) (v Value) {
+	if err := self.should("Field", proto.MESSAGE); err != "" {
+		return errValue(meta.ErrUnsupportedType, err, nil)
+	}
+
+	it := self.iterFields()
+
+	var f proto.FieldDescriptor
+	if self.rootDesc != nil {
+		f = (*self.rootDesc).Fields().ByNumber(id)
+	} else {
+		f = (*self.Desc).Message().Fields().ByNumber(id)
+		if _, err := it.p.ReadLength(); err != nil {
+			return errValue(meta.ErrRead, "", err)
+		}
+	}
+
+	if f == nil {
+		return errValue(meta.ErrUnknownField, fmt.Sprintf("field '%d' is not defined in IDL", id), nil)
+	}
+	// not found, try to scan the whole bytes
+	
+	if it.Err != nil {
+		return errValue(meta.ErrRead, "", it.Err)
+	}
+	
+
+	for it.HasNext() {
+		i, wt, s, e, tagPos := it.Next(UseNativeSkipForGet)
+		if i == f.Number() {
+			if f.IsMap() {
+				it.p.Read = tagPos
+				if _, err := it.p.ReadMap(&f, false, false, false); err != nil {
+					return errValue(meta.ErrRead, "", err)
+				}
+				s = tagPos
+				e = it.p.Read
+			}
+
+			t := proto.Kind2Wire[f.Kind()]
+			if f.IsList() {
+				t = proto.BytesType
+				s = tagPos
+			}
+
+			if wt != t {
+				v = errValue(meta.ErrDismatchType, fmt.Sprintf("field '%s' expects type %s, buf got type %s", f.Name(), t, wt), nil)
+				goto ret
+			}
+
+			v = self.slice(s, e, &f)
+			goto ret
+		} else if it.Err != nil {
+			v = errValue(meta.ErrRead, "", it.Err)
+			goto ret
+		}
+	}
+
+	v = errValue(meta.ErrNotFound, fmt.Sprintf("field '%d' is not found in this value", id), errNotFound)
+ret:
+	return
 }

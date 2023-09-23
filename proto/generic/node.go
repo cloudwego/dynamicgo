@@ -43,17 +43,17 @@ func (self Node) KeyType() proto.Type {
 	return self.kt
 }
 
-func (self Node) slice(s int, e int, t proto.Type) Node {
+func (self Node) slice(s int, e int, t proto.Type, kt proto.Type, et proto.Type) Node {
 	ret := Node{
 		t: t,
 		l: (e - s),
 		v: rt.AddPtr(self.v, uintptr(s)),
 	}
 	if t == proto.LIST {
-		ret.et = *(*proto.Type)(unsafe.Pointer(ret.v))
+		ret.et = et
 	} else if t == proto.MAP {
-		ret.kt = *(*proto.Type)(unsafe.Pointer(ret.v))
-		ret.et = *(*proto.Type)(rt.AddPtr(ret.v, uintptr(1)))
+		ret.kt = kt
+		ret.et = et
 	}
 	return ret
 }
@@ -229,6 +229,7 @@ func (self Node) Children(out *[]PathNode, recurse bool, opts *Options, desc *pr
 	return err
 }
 
+// may have error in deal with byteLength
 func (self *Node) replace(o Node, n Node) error {
 	// mush ensure target value is same type as source value
 	if o.t != n.t {
@@ -258,7 +259,7 @@ func (self *Node) replace(o Node, n Node) error {
 	return nil
 }
 
-
+// have problem in deal with byteLength
 func (self *Node) deleteChild(path Path) Node {
 	p := binary.BinaryProtocol{}
 	p.Buf = self.raw()
@@ -408,6 +409,7 @@ func (self *Node) deleteChild(path Path) Node {
 	}
 }
 
+// have problem in deal with byteLength
 func (o *Node) setNotFound(path Path, n *Node, desc *proto.FieldDescriptor) error {
 	switch o.kt {
 	case proto.MESSAGE:

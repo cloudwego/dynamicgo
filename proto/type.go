@@ -17,6 +17,25 @@ const (
 	EndGroupType   WireType = 4 // deprecated
 )
 
+func (p WireType) String() string {
+	switch p {
+	case VarintType:
+		return "VarintType"
+	case Fixed32Type:
+		return "Fixed32Type"
+	case Fixed64Type:
+		return "Fixed64Type"
+	case BytesType:
+		return "BytesType"
+	case StartGroupType:
+		return "StartGroupType"
+	case EndGroupType:
+		return "EndGroupType"
+	default:
+		return "UnknownWireType"
+	}
+}
+
 const (
 	_ = -iota
 	ErrCodeTruncated
@@ -115,8 +134,10 @@ func (p Type) TypeToKind() ProtoKind {
 	switch p {
 	case UNKNOWN, ERROR:
 		return 0
-	case LIST, MAP:
+	case MAP:
 		return MessageKind
+	case LIST:
+		panic("LIST type has no kind")
 	}
 	return ProtoKind(p)
 }
@@ -132,9 +153,9 @@ func FromProtoKindToType(kind ProtoKind, isList bool, isMap bool) Type {
 	return t
 }
 
-// IsInt tells if the type is one of Int32 or Int64
+// IsInt containing isUint
 func (p Type) IsInt() bool {
-	return p == INT32 || p == INT64 || p == SFIX32 || p == SFIX64 || p == SINT64 || p == SINT32 || p == UINT32 || p == UINT64
+	return p == INT32 || p == INT64 || p == SFIX32 || p == SFIX64 || p == SINT64 || p == SINT32 || p == UINT32 || p == UINT64 || p == FIX32 || p == FIX64
 }
 
 func (p Type) IsUint() bool {

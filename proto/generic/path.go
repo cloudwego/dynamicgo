@@ -477,7 +477,7 @@ func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *binary.Bi
 		if e := p.Skip(proto.Kind2Wire[kind], opts.UseNativeSkip); e != nil {
 			return nil, errNode(meta.ErrRead, "", e)
 		}
-		v.Node = self.slice(start, p.Read, et)
+		v.Node = self.slice(start, p.Read, et, 0, 0)
 	}
 
 	if recurse && et.IsComplex() {
@@ -522,7 +522,7 @@ func (self *PathNode) handleUnknownChild(in *[]PathNode, lp *int, cp *int, p *bi
 	if e := p.Skip(wireType, opts.UseNativeSkip); e != nil {
 		return nil, errNode(meta.ErrRead, "", e)
 	}
-	v.Node = self.slice(start, p.Read, proto.UNKNOWN)
+	v.Node = self.slice(start, p.Read, proto.UNKNOWN, 0, 0)
 
 	*in = con
 	*lp = l
@@ -556,7 +556,7 @@ func (self *PathNode) handleListChild(in *[]PathNode, lp *int, cp *int, p *binar
 		if e := p.Skip(proto.Kind2Wire[kind], opts.UseNativeSkip); e != nil {
 			return nil, errNode(meta.ErrRead, "", e)
 		}
-		v.Node = self.slice(start, p.Read, et)
+		v.Node = self.slice(start, p.Read, et, 0, 0)
 	}
 
 	if recurse && et.IsComplex() {

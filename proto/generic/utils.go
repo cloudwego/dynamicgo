@@ -218,6 +218,78 @@ func DeepEqual(exp interface{}, act interface{}) bool {
 	}
 }
 
+func cast(ev interface{}, b bool) interface{} {
+	switch ev.(type) {
+	case int8:
+		if b {
+			return byte(ev.(int8))
+		}
+		return int(ev.(int8))
+	case int16:
+		return int(ev.(int16))
+	case int32:
+		return int(ev.(int32))
+	case int64:
+		return int(ev.(int64))
+	case float32:
+		return float64(ev.(float32))
+	default:
+		return ev
+	}
+}
+
+
+func checkHelper(t *testing.T, exp interface{}, act Node, api string) {
+	v := reflect.ValueOf(act)
+	f := v.MethodByName(api)
+	if f.Kind() != reflect.Func {
+		t.Fatalf("method %s not found", api)
+	}
+	var args []reflect.Value
+	if api == "List" || api == "StrMap" || api == "IntMap" || api == "Interface" {
+		args = make([]reflect.Value, 1)
+		args[0] = reflect.ValueOf(&Options{})
+	} else {
+		args = make([]reflect.Value, 0)
+	}
+	rets := f.Call(args)
+	if len(rets) != 2 {
+		t.Fatal("wrong number of return values")
+	}
+	require.Nil(t, rets[1].Interface())
+	switch api {
+	case "List":
+		vs := rets[0]
+		if vs.Kind() != reflect.Slice {
+			t.Fatal("wrong type")
+		}
+		es := reflect.ValueOf(exp)
+		if es.Kind() != reflect.Slice {
+			t.Fatal("wrong type")
+		}
+		for i := 0; i < vs.Len(); i++ {
+			vv := vs.Index(i)
+			require.Equal(t, cast(es.Index(i).Interface(), vv.Type().Name() == "byte"), vv.Interface())
+		}
+	case "StrMap":
+		vs := rets[0]
+		if vs.Kind() != reflect.Map {
+			t.Fatal("wrong type")
+		}
+		es := reflect.ValueOf(exp)
+		if es.Kind() != reflect.Map {
+			t.Fatal("wrong type")
+		}
+		ks := vs.MapKeys()
+		for i := 0; i < len(ks); i++ {
+			vv := vs.MapIndex(ks[i])
+			require.Equal(t, cast(es.MapIndex(ks[i]).Interface(), vv.Type().Name() == "byte"), vv.Interface())
+		}
+	default:
+		require.Equal(t, exp, rets[0].Interface())
+	}
+}
+
 func TestDeepEqual(t *testing.T) {
 	a := map[interface{}]interface{}{
 		float64(0.1): "A",
