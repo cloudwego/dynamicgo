@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/base"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
@@ -56,8 +57,7 @@ func getExample2Data() []byte {
 	return out
 }
 
-// build binaryData for example2.proto
-func generateBinaryData() error {
+func getExample2Req() *example2.ExampleReq {
 	req := example2.ExampleReq{}
 	req.Msg = "hello"
 	req.A = 25
@@ -148,6 +148,12 @@ func generateBinaryData() error {
 	req.InnerBase2.Base.TrafficEnv.Open = false
 	req.InnerBase2.Base.TrafficEnv.Env = "env"
 	req.InnerBase2.Base.Extra = map[string]string{"1b": "aaa", "2b": "bbb", "3b": "ccc", "4b": "ddd"}
+	return &req
+}
+
+// build binaryData for example2.proto
+func generateBinaryData() error {
+	req := getExample2Req()
 	data, err := goproto.Marshal(req.ProtoReflect().Interface())
 	if err != nil {
 		panic("goproto marshal data failed")
@@ -312,5 +318,186 @@ func handlePartialMapStringString2(p map[int]interface{}) {
 			handlePartialMapStringString2(pv)
 		}
 	}
+
+}
+
+
+func TestGet(t *testing.T) {
+	desc := getExample2Desc()
+	data := getExample2Data()
+	exp := example2.ExampleReq{}
+	v := NewRootValue(desc, data)
+	dataLen := len(data)
+	l := 0
+	for l < dataLen {
+		id, wtyp, tagLen := goprotowire.ConsumeTag(data)
+		if tagLen < 0 {
+			t.Fatal("test failed")
+		}
+		l += tagLen
+		data = data[tagLen:]
+		offset, err := exp.FastRead(data,int8(wtyp),int32(id))
+		require.Nil(t, err)
+		data = data[offset:]
+		l += offset
+	}
+
+	if len(data) != 0 {
+		t.Fatal("test failed")
+	}
+
+	req := getExample2Req()
+	t.Run("GetByStr()", func(t *testing.T) {
+		v := v.GetByPath(PathExampleMapStringString...)
+		require.Nil(t, v.Check())
+		v1, err := v.GetByStr("m1").String()
+		require.NoError(t, err)
+		require.Equal(t, req.InnerBase2.MapStringString["m1"], v1)
+		v2, err := v.GetByStr("m8").String()
+		require.Error(t, err)
+		require.Equal(t, meta.ErrNotFound, err.(Node).ErrCode())
+		require.Equal(t, req.InnerBase2.MapStringString["m8"], v2)
+	})
+
+	t.Run("GetByInt()", func(t *testing.T) {
+		v := v.GetByPath(PathExampleMapInt32String...)
+		require.Nil(t, v.Check())
+		v1, err := v.GetByInt(1).String()
+		require.NoError(t, err)
+		require.Equal(t, req.InnerBase2.MapInt32String[1], v1)
+		v2, err := v.GetByInt(999).String()
+		require.Error(t, err)
+		require.Equal(t, meta.ErrNotFound, err.(Node).ErrCode())
+		require.Equal(t, req.InnerBase2.MapInt32String[999], v2)
+	})
+
+
+	t.Run("Index()", func(t *testing.T) {
+		v := v.GetByPath(PathExampleListInt32...)
+		require.Nil(t, v.Check())
+		v1, err := v.Index(1).Int()
+		require.NoError(t, err)
+		require.Equal(t, int(req.InnerBase2.ListInt32[1]), v1)
+		v2 := v.Index(999)
+		require.Error(t, v2)
+		require.Equal(t, meta.ErrInvalidParam, v2.ErrCode())
+	})
+
+	t.Run("FieldByName()", func(t *testing.T) {
+		_, err := v.FieldByName("Msg2").String()
+		require.NotNil(t, err)
+		s, err := v.FieldByName("Msg").String()
+		require.Equal(t, exp.Msg, s)
+	})
+
+	t.Run("Field()", func(t *testing.T) {
+		xx, err := v.Field(222).Int()
+		require.NotNil(t, err)
+		require.Equal(t, int(0), xx)
+		a := v.Field(3)
+		b, err := a.Field(1).Bool()
+		require.Nil(t, err)
+		require.Equal(t, exp.InnerBase2.Bool, b)
+		c, err := a.Field(2).Uint()
+		require.Nil(t, err)
+		require.Equal(t, exp.InnerBase2.Uint32, uint32(c))
+		d, err := a.Field(3).Uint()
+		require.Nil(t, err)
+		require.Equal(t, exp.InnerBase2.Uint64, uint64(d))
+		
+		e, err := a.Field(4).Int()
+		require.NotNil(t, err)
+		require.Equal(t, int(0), e)
+
+		f, err := a.Field(5).Int()
+		require.NotNil(t, err)
+		require.Equal(t, int(0), f)
+
+		g, err := a.Field(6).Float64()
+		require.Nil(t, err)
+		require.Equal(t, exp.InnerBase2.Double, float64(g))
+		h, err := a.Field(7).String()
+		require.Nil(t, err)
+		require.Equal(t, exp.InnerBase2.String_, string(h))
+		list := a.Field(8)
+		checkHelper(t, exp.InnerBase2.ListInt32, list.Node, "List")
+		list1, err := a.Field(8).Index(1).Int()
+		require.Nil(t, err)
+		require.Equal(t, exp.InnerBase2.ListInt32[1], int32(list1))
+		mp := a.Field(9)
+		checkHelper(t, exp.InnerBase2.MapStringString, mp.Node, "StrMap")
+		mp1, err := a.Field(9).GetByStr("m1").String()
+		require.Nil(t, err)
+		require.Equal(t, exp.InnerBase2.MapStringString["m1"], (mp1))
+		sp := a.Field(10)
+		checkHelper(t, exp.InnerBase2.SetInt32, sp.Node, "List")
+		i, err := a.Field(11).Int()
+		require.NotNil(t, err)
+		require.Equal(t, 0, i)
+		mp2, err := a.Field(12).GetByInt(2).String()
+		require.Nil(t, err)
+		require.Equal(t, exp.InnerBase2.MapInt32String[2], (mp2))
+	})
+
+	t.Run("GetByPath()", func(t *testing.T) {
+		exp := req.InnerBase2.ListInt32[1]
+
+		v1 := v.GetByPath(NewPathFieldId(proto.FieldNumber(3)), NewPathFieldId(8), NewPathIndex(1))
+		if v1.Error() != "" {
+			t.Fatal(v1.Error())
+		}
+		act, err := v1.Int()
+		require.NoError(t, err)
+		require.Equal(t, int(exp), act)
+
+		v2 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1))
+		if v2.Error() != "" {
+			t.Fatal(v2.Error())
+		}
+		require.Equal(t, v1, v2)
+		v3 := v.GetByPath(NewPathFieldId(proto.FieldNumber(3)), NewPathFieldName("ListInt32"), NewPathIndex(1))
+		if v3.Error() != "" {
+			t.Fatal(v3.Error())
+		}
+		require.Equal(t, v1, v3)
+		v4 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(8), NewPathIndex(1))
+		if v4.Error() != "" {
+			t.Fatal(v4.Error())
+		}
+		require.Equal(t, v1, v4)
+
+		exp2 := req.InnerBase2.MapInt32String[2]
+		v5 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(12), NewPathIntKey(2))
+		if v5.Error() != "" {
+			t.Fatal(v5.Error())
+		}
+		act2, err := v5.String()
+		require.NoError(t, err)
+		require.Equal(t, exp2, act2)
+
+		v6 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapInt32String"), NewPathIntKey(2))
+		if v6.Error() != "" {
+			t.Fatal(v6.Error())
+		}
+		require.Equal(t, v5, v6)
+
+		exp3 := req.InnerBase2.MapStringString["m1"]
+		v7 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(9), NewPathStrKey("m1"))
+		if v5.Error() != "" {
+			t.Fatal(v7.Error())
+		}
+		act3, err := v7.String()
+		require.NoError(t, err)
+		require.Equal(t, exp3, act3)
+
+		v8 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringString"), NewPathStrKey("m1"))
+		if v8.Error() != "" {
+			t.Fatal(v8.Error())
+		}
+		require.Equal(t, v8, v7)
+
+		v9 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(9), NewPathStrKey("m8"))
+		require.Error(t, v9.Check())
+	})
 
 }
