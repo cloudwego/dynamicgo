@@ -6,6 +6,7 @@ import (
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
+	"github.com/cloudwego/dynamicgo/proto/binary"
 	"github.com/cloudwego/dynamicgo/proto/protowire"
 )
 
@@ -222,35 +223,76 @@ func (self Node) binary() ([]byte, error) {
 }
 
 // List returns interface elements contained by a LIST/SET node
-func (self Node) List(opts *Options) ([]interface{}, error) {
-	return nil, nil
+func (self Value) List(opts *Options) (ret []interface{}, err error) {
+	src := rt.BytesFrom(self.v,self.l,self.l)
+	p := binary.NewBinaryProtol(src)
+	ret, err = p.ReadList(self.Desc,false,false,false)
+	return
 }
 
 // StrMap returns the string keys and interface elements contained by a MAP<STRING,XX> node
-func (self Node) StrMap(opts *Options) (map[string]interface{}, error) {
-	return nil, nil
+func (self Value) IntMap(opts *Options) (map[int]interface{}, error) {
+	src := rt.BytesFrom(self.v,self.l,self.l)
+	p := binary.NewBinaryProtol(src)
+	originalMap, err := p.ReadMap(self.Desc,false,false,false)
+	
+	newMap := make(map[int]interface{})
+	for key, value := range originalMap {
+		strKey, ok := key.(int)
+		if !ok {
+			return nil, meta.NewError(meta.ErrConvert, "convert error", nil)
+		}
+		newMap[strKey] = value
+	}
+	return newMap, err
 }
 
 // StrMap returns the integer keys and interface elements contained by a MAP<I8|I16|I32|I64,XX> node
-func (self Node) IntMap(opts *Options) (map[int]interface{}, error) {
-	return nil, nil
+func (self Value) StrMap(opts *Options) (map[string]interface{}, error) {
+	src := rt.BytesFrom(self.v,self.l,self.l)
+	p := binary.NewBinaryProtol(src)
+	originalMap, err := p.ReadMap(self.Desc,false,false,false)
+	newMap := make(map[string]interface{})
+	for key, value := range originalMap {
+		strKey, ok := key.(string)
+		if !ok {
+			return nil, meta.NewError(meta.ErrConvert, "convert error", nil)
+		}
+		newMap[strKey] = value
+	}
+	return newMap, err
 }
 
-// InterfaceMap returns the interface keys and interface elements contained by a MAP node.
-// If the key type is complex (LIST/SET/MAP/STRUCT),
-// it will be stored using its pointer since its value are not supported by Go
-func (self Node) InterfaceMap(opts *Options) (map[interface{}]interface{}, error) {
-	return nil, nil
-}
 
-func (self Node) Struct(opts *Options) (map[interface{}]interface{}, error) {
-	return nil, nil
+func (self Value) Struct(opts *Options) (map[interface{}]interface{}, error) {
+	src := rt.BytesFrom(self.v,self.l,self.l)
+	p := binary.NewBinaryProtol(src)
+	useFieldName := false
+	ret, err := p.ReadBaseTypeWithDesc(self.Desc,false,opts.DisallowUnknow,useFieldName)
+	if err != nil {
+		return nil, meta.NewError(meta.ErrRead,"read struct error",nil)
+	}
+
+	result := make(map[interface{}]interface{})
+
+	switch m := ret.(type) {
+	case map[proto.FieldNumber]interface{}:
+		for key, value := range m {
+			result[interface{}(key)] = value
+		}
+	case map[string]interface{}:
+		for key, value := range m {
+			result[interface{}(key)] = value
+		}
+	}
+
+	return result, nil
 }
 
 // Interface returns the go interface value contained by a node.
 // If the node is a STRUCT, it will return a map[thrift.FieldID]interface{}
 // If it is a map, it will return map[int|string|interface{}]interface{}, which depends on the key type
-func (self Node) Interface(opts *Options) (interface{}, error) {
+func (self Value) Interface(opts *Options) (interface{}, error) {
 	switch self.t {
 	case proto.ERROR:
 		return nil, self
@@ -275,7 +317,7 @@ func (self Node) Interface(opts *Options) (interface{}, error) {
 		} else if kt.IsInt() {
 			return self.IntMap(opts)
 		} else {
-			return self.InterfaceMap(opts)
+			return 0, errNode(meta.ErrUnsupportedType, "not support other key type", nil)
 		}
 	case proto.MESSAGE:
 		return self.Struct(opts)

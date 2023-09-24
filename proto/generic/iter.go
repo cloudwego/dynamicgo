@@ -1,8 +1,6 @@
 package generic
 
 import (
-	"fmt"
-
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/proto/binary"
@@ -22,8 +20,7 @@ func (self Node) iterElems() (fi listIterator) {
 		return
 	} else {
 		if wtyp != proto.BytesType {
-			// Error or unsupport unpacked List mode now (only support packed mode)
-			fi.Err = wrapError(meta.ErrUnsupportedType, "ListIterator: wire type is not bytes, ReadError or unsupport unpacked List mode now (only support packed mode)", nil)
+			fi.Err = wrapError(meta.ErrUnsupportedType, "ListIterator: wire type is not bytes.", nil)
 			return
 		}
 		// maybe we could calculate fi.size in the fulture.
@@ -44,9 +41,7 @@ func (self Node) iterPairs() (fi mapIterator) {
 		return
 	} else {
 		if wtyp != proto.BytesType {
-			// Error or unsupport unpacked Map mode now (only support packed mode)
-			fi.Err = wrapError(meta.ErrUnsupportedType, "MapIterator: wire type is not bytes, ReadError or unsupport unpacked Map mode now (only support packed mode)", nil)
-			return
+			fi.Err = wrapError(meta.ErrUnsupportedType, "MapIterator: wire type is not bytes.", nil)
 		}
 		// maybe we could calculate fi.size in the fulture.
 		fi.size = -1
@@ -275,190 +270,4 @@ func (it *mapIterator) NextInt(useNative bool) (keyStart int, keyInt int, start 
 	return
 }
 
-// Foreach scan each element of a complex type (LIST/SET/MAP/STRUCT),
-// and call handler sequentially with corresponding path and value
-func (self Value) Foreach(handler func(path Path, val Value) bool, opts *Options) error {
-	switch self.t {
-	case proto.MESSAGE:
-		it := self.iterFields()
-		if it.Err != nil {
-			return it.Err
-		}
-		for it.HasNext() {
-			id, wtyp, start, end, tagPos := it.Next(opts.UseNativeSkip)
-			if it.Err != nil {
-				return it.Err
-			}
-
-			var f proto.FieldDescriptor
-			if self.rootDesc != nil {
-				f = (*self.rootDesc).Fields().ByNumber(id)
-			} else {
-				f = (*self.Desc).Message().Fields().ByNumber(id)
-			}
-			
-			if f == nil {
-				if opts.DisallowUnknow {
-					return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", id), nil)
-				}
-				continue
-			}
-			
-			if proto.Kind2Wire[f.Kind()] != wtyp {
-				return wrapError(meta.ErrDismatchType, fmt.Sprintf("field %d type %v mismatch read type %v", id, proto.Kind2Wire[f.Kind()], wtyp), nil)
-			}
-			var v Value
-			if f.IsMap() {
-				it.p.Read = tagPos
-				if _, err := it.p.ReadMap(&f, false,false,false); err != nil {
-					return wrapError(meta.ErrRead, "", err)
-				}
-				start = tagPos
-				end = it.p.Read
-			}
-
-			v = self.slice(start, end, &f)
-			var p Path
-			if opts.IterateStructByName && f != nil {
-				p = NewPathFieldName(f.TextName())
-			} else {
-				p = NewPathFieldId(id)
-			}
-			if !handler(p, v) {
-				return nil
-			}
-		}
-	case proto.LIST:
-		it := self.iterElems()
-		if it.Err != nil {
-			return it.Err
-		}
-
-		for i := 0; it.HasNext(); i++ {
-			start, end := it.Next(opts.UseNativeSkip)
-			if it.Err != nil {
-				return it.Err
-			}
-			v := self.slice(start, end, self.Desc)
-			p := NewPathIndex(i)
-			if !handler(p, v) {
-				return nil
-			}
-		}
-	case proto.MAP:
-		it := self.iterPairs()
-		if it.Err != nil {
-			return it.Err
-		}
-		keyDesc := (*self.Desc).MapKey()
-		valueDesc := (*self.Desc).MapValue()
-		kt := proto.FromProtoKindToType(keyDesc.Kind(),false,false)
-		vt := proto.FromProtoKindToType(valueDesc.Kind(),valueDesc.IsList(),valueDesc.IsMap())
-		if kt != it.kt {
-			return wrapError(meta.ErrDismatchType, "dismatched descriptor key type and binary type", nil)
-		}
-		if vt != it.vt {
-			return wrapError(meta.ErrDismatchType, "dismatched descriptor elem type and binary type", nil)
-		}
-
-		if kt == proto.STRING {
-			for i := 0; it.HasNext(); i++ {
-				_, keyString, start, end := it.NextStr(opts.UseNativeSkip)
-				if it.Err != nil {
-					return it.Err
-				}
-				v := self.slice(start, end, &valueDesc)
-				p := NewPathStrKey(keyString)
-				if !handler(p, v) {
-					return nil
-				}
-			}
-		} else if kt.IsInt() {
-			for i := 0; it.HasNext(); i++ {
-				_, keyInt, start, end := it.NextInt(opts.UseNativeSkip)
-				if it.Err != nil {
-					return it.Err
-				}
-				v := self.slice(start, end, &valueDesc)
-				p := NewPathIntKey(keyInt)
-				if !handler(p, v) {
-					return nil
-				}
-			}
-		}
-	}
-	return nil
-}
-
-
-// ForeachKV scan each element of a MAP type, and call handler sequentially with corresponding key and value
-func (self Value) ForeachKV(handler func(key Value, val Value) bool, opts *Options) error {
-	if err := self.should("MAP", proto.MAP); err != "" {
-		return wrapError(meta.ErrUnsupportedType, err, nil)
-	}
-	switch self.t {
-	case proto.MAP:
-		p := binary.BinaryProtocol{Buf: self.raw()}
-
-		keyDesc := (*self.Desc).MapKey()
-		valueDesc := (*self.Desc).MapValue()
-		kt := proto.FromProtoKindToType(keyDesc.Kind(),false,false)
-		vt := proto.FromProtoKindToType(valueDesc.Kind(),valueDesc.IsList(),valueDesc.IsMap())
-
-		if kt != self.kt {
-			return wrapError(meta.ErrDismatchType, "dismatched descriptor key type and binary type", nil)
-		}
-
-		if vt != self.et {
-			return wrapError(meta.ErrDismatchType, "dismatched descriptor elem type and binary type", nil)
-		}
-		fieldNumebr := (*self.Desc).Number()
-
-		for p.Read < len(p.Buf) {
-			pairId, _, pairLen, err := p.ConsumeTagWithoutMove()
-			if err != nil {
-				return errNode(meta.ErrRead, "", nil)
-			}
-
-			if pairId != fieldNumebr {
-				break
-			}
-			p.Read += pairLen
-			_, pairErr := p.ReadLength()
-			if pairErr != nil {
-				return errNode(meta.ErrRead, "", nil)
-			}
-
-			// read key tag
-			if _, _, _, err := p.ConsumeTag(); err != nil {
-				return errNode(meta.ErrRead, "", nil)
-			}
-
-			ks := p.Read
-			kwt := proto.Kind2Wire[keyDesc.Kind()]
-
-			if err := p.Skip(kwt, opts.UseNativeSkip); err != nil {
-				return errNode(meta.ErrRead, "", nil)
-			}
-			key := self.slice(ks, p.Read, &keyDesc)
-			
-			// read value tag
-			if _, _, _, err := p.ConsumeTag(); err != nil {
-				return errNode(meta.ErrRead, "", nil)
-			}
-
-			vs := p.Read
-			vwt := proto.Kind2Wire[valueDesc.Kind()]
-			if err := p.Skip(vwt, opts.UseNativeSkip); err != nil {
-				return errNode(meta.ErrRead, "", nil)
-			}
-			val := self.slice(vs, p.Read, &valueDesc)
-			if !handler(key, val) {
-				return nil
-			}
-		}
-		return nil
-	default:
-		return errNode(meta.ErrUnsupportedType, "", nil)
-	}
-}
+// TODO: test forearch and foreachKV

@@ -863,13 +863,13 @@ func (p *BinaryProtocol) ReadEnum() (proto.EnumNumber, error) {
 //	packed：[tag][length][value value value value....]
 //	normal：[tag][(length)][value][tag][(length)][value][tag][(length)][value]....
 func (p *BinaryProtocol) ReadList(desc *proto.FieldDescriptor, copyString bool, disallowUnknonw bool, useFieldName bool) ([]interface{}, error) {
-	fieldNumber, wtyp, _, listTagErr := p.ConsumeTag()
+	fieldNumber, _, _, listTagErr := p.ConsumeTag()
 	if listTagErr != nil {
 		return nil, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
 	}
 	list := make([]interface{}, 0, 1)
 	// packed list
-	if wtyp == proto.BytesType && (*desc).Kind() != proto.StringKind && (*desc).Kind() != proto.BytesKind {
+	if (*desc).IsPacked() {
 		// read length
 		length, err := p.ReadLength()
 		if err != nil {
