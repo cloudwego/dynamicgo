@@ -115,6 +115,11 @@ func (x *InnerBase2) FastRead(buf []byte, _type int8, number int32) (offset int,
 		if err != nil {
 			goto ReadFieldError
 		}
+	case 21:
+		offset, err = x.fastReadField21(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
 	case 255:
 		offset, err = x.fastReadField255(buf, _type)
 		if err != nil {
@@ -395,6 +400,16 @@ func (x *InnerBase2) fastReadField20(buf []byte, _type int8) (offset int, err er
 	return offset, nil
 }
 
+func (x *InnerBase2) fastReadField21(buf []byte, _type int8) (offset int, err error) {
+	var v string
+	v, offset, err = fastpb.ReadString(buf, _type)
+	if err != nil {
+		return offset, err
+	}
+	x.ListString = append(x.ListString, v)
+	return offset, err
+}
+
 func (x *InnerBase2) fastReadField255(buf []byte, _type int8) (offset int, err error) {
 	var v base.Base
 	offset, err = fastpb.ReadMessage(buf, _type, &v)
@@ -507,7 +522,7 @@ func (x *InnerBasePartial) fastReadField18(buf []byte, _type int8) (offset int, 
 }
 
 func (x *InnerBasePartial) fastReadField19(buf []byte, _type int8) (offset int, err error) {
-	var v base.Base
+	var v BasePartial
 	offset, err = fastpb.ReadMessage(buf, _type, &v)
 	if err != nil {
 		return offset, err
@@ -518,17 +533,17 @@ func (x *InnerBasePartial) fastReadField19(buf []byte, _type int8) (offset int, 
 
 func (x *InnerBasePartial) fastReadField20(buf []byte, _type int8) (offset int, err error) {
 	if x.MapStringBase == nil {
-		x.MapStringBase = make(map[string]*base.Base)
+		x.MapStringBase = make(map[string]*BasePartial)
 	}
 	var key string
-	var value *base.Base
+	var value *BasePartial
 	offset, err = fastpb.ReadMapEntry(buf, _type,
 		func(buf []byte, _type int8) (offset int, err error) {
 			key, offset, err = fastpb.ReadString(buf, _type)
 			return offset, err
 		},
 		func(buf []byte, _type int8) (offset int, err error) {
-			var v base.Base
+			var v BasePartial
 			offset, err = fastpb.ReadMessage(buf, _type, &v)
 			if err != nil {
 				return offset, err
@@ -1112,6 +1127,7 @@ func (x *InnerBase2) FastWrite(buf []byte) (offset int) {
 	offset += x.fastWriteField18(buf[offset:])
 	offset += x.fastWriteField19(buf[offset:])
 	offset += x.fastWriteField20(buf[offset:])
+	offset += x.fastWriteField21(buf[offset:])
 	offset += x.fastWriteField255(buf[offset:])
 	return offset
 }
@@ -1342,6 +1358,16 @@ func (x *InnerBase2) fastWriteField20(buf []byte) (offset int) {
 				offset += fastpb.WriteMessage(buf[offset:], numIdxOrVal, v)
 				return offset
 			})
+	}
+	return offset
+}
+
+func (x *InnerBase2) fastWriteField21(buf []byte) (offset int) {
+	if len(x.ListString) == 0 {
+		return offset
+	}
+	for i := range x.GetListString() {
+		offset += fastpb.WriteString(buf[offset:], 21, x.GetListString()[i])
 	}
 	return offset
 }
@@ -1826,6 +1852,7 @@ func (x *InnerBase2) Size() (n int) {
 	n += x.sizeField18()
 	n += x.sizeField19()
 	n += x.sizeField20()
+	n += x.sizeField21()
 	n += x.sizeField255()
 	return n
 }
@@ -2056,6 +2083,16 @@ func (x *InnerBase2) sizeField20() (n int) {
 				n += fastpb.SizeMessage(numIdxOrVal, v)
 				return n
 			})
+	}
+	return n
+}
+
+func (x *InnerBase2) sizeField21() (n int) {
+	if len(x.ListString) == 0 {
+		return n
+	}
+	for i := range x.GetListString() {
+		n += fastpb.SizeString(21, x.GetListString()[i])
 	}
 	return n
 }
@@ -2537,6 +2574,7 @@ var fieldIDToName_InnerBase2 = map[int32]string{
 	18:  "ListInnerBase",
 	19:  "ListBase",
 	20:  "MapStringBase",
+	21:  "ListString",
 	255: "Base",
 }
 

@@ -238,11 +238,11 @@ func (self Value) IntMap(opts *Options) (map[int]interface{}, error) {
 	
 	newMap := make(map[int]interface{})
 	for key, value := range originalMap {
-		strKey, ok := key.(int)
+		intKey, ok := key.(int)
 		if !ok {
 			return nil, meta.NewError(meta.ErrConvert, "convert error", nil)
 		}
-		newMap[strKey] = value
+		newMap[intKey] = value
 	}
 	return newMap, err
 }

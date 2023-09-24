@@ -7,7 +7,7 @@ syntax = "proto3";
 
 package pb3;
 
-import "base.proto";
+import "../../testdata/idl/base.proto";
 
 option go_package = "pb/example2";
 
@@ -37,6 +37,7 @@ message InnerBase2 {
 
     repeated Base ListBase = 19;
     repeated InnerBase2 ListInnerBase = 18;
+    repeated string ListString = 21;
     
 
     Base Base = 255;
@@ -47,9 +48,9 @@ message InnerBasePartial {
     bool Bool = 1;
     repeated int32 ListInt32 = 8;
     map<string, string> MapStringString = 9;
-    map<string, Base> MapStringBase = 20;
+    map<string, BasePartial> MapStringBase = 20;
     repeated InnerBasePartial ListInnerBase = 18;
-    repeated Base ListBase = 19;
+    repeated BasePartial ListBase = 19;
 
     map<string, string> MapStringString2 = 127;
 }

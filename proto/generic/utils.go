@@ -239,7 +239,7 @@ func cast(ev interface{}, b bool) interface{} {
 }
 
 
-func checkHelper(t *testing.T, exp interface{}, act Node, api string) {
+func checkHelper(t *testing.T, exp interface{}, act Value, api string) {
 	v := reflect.ValueOf(act)
 	f := v.MethodByName(api)
 	if f.Kind() != reflect.Func {

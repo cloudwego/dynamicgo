@@ -76,6 +76,7 @@ func getExample2Req() *example2.ExampleReq {
 	req.InnerBase2.MapUint32String = map[uint32]string{uint32(1): "u32aa", uint32(2): "u32bb", uint32(3): "u32cc", uint32(4): "u32dd"}
 	req.InnerBase2.MapUint64String = map[uint64]string{uint64(1): "u64aa", uint64(2): "u64bb", uint64(3): "u64cc", uint64(4): "u64dd"}
 	req.InnerBase2.MapInt64String = map[int64]string{int64(1): "64aaa", int64(2): "64bbb", int64(3): "64ccc", int64(4): "64ddd"}
+	req.InnerBase2.ListString = []string{"111", "222", "333", "44", "51", "6"}
 	req.InnerBase2.ListBase = []*base.Base{{
 		LogID: "logId",
 		Caller: "caller",
@@ -420,23 +421,48 @@ func TestGet(t *testing.T) {
 		require.Nil(t, err)
 		require.Equal(t, exp.InnerBase2.String_, string(h))
 		list := a.Field(8)
-		checkHelper(t, exp.InnerBase2.ListInt32, list.Node, "List")
+		v, err := list.List(&Options{})
+		require.Nil(t, err)
+		// vint32 := make([]int32, 0, 6)
+		// for _, vv := range v {
+		// 	if vvv, ok := vv.(int32); ok{
+		// 		vint32 = append(vint32, vvv)
+		// 	}
+		// }
+		// require.Equal(t, exp.InnerBase2.ListInt32, vint32)
+		// checkHelper(t, exp.InnerBase2.ListInt32, list, "List") why error?
+		DeepEqual(exp.InnerBase2.ListInt32, v)
+		
+		
 		list1, err := a.Field(8).Index(1).Int()
 		require.Nil(t, err)
 		require.Equal(t, exp.InnerBase2.ListInt32[1], int32(list1))
 		mp := a.Field(9)
-		checkHelper(t, exp.InnerBase2.MapStringString, mp.Node, "StrMap")
+		vmp, err := mp.StrMap(&Options{})
+		require.Nil(t, err)
+		fmt.Println(vmp)
+		// require.Equal(t, exp.InnerBase2.MapStringString, vmp)
+		DeepEqual(exp.InnerBase2.MapStringString, vmp)
+		checkHelper(t, exp.InnerBase2.MapStringString, mp, "StrMap")
 		mp1, err := a.Field(9).GetByStr("m1").String()
 		require.Nil(t, err)
 		require.Equal(t, exp.InnerBase2.MapStringString["m1"], (mp1))
 		sp := a.Field(10)
-		checkHelper(t, exp.InnerBase2.SetInt32, sp.Node, "List")
+		vsp, err := sp.List(&Options{})
+		require.Nil(t, err)
+		fmt.Println(vsp)
+		// require.Equal(t, exp.InnerBase2.SetInt32, vsp)
+		// checkHelper(t, exp.InnerBase2.SetInt32, vsp, "List")
+		DeepEqual(exp.InnerBase2.SetInt32, vsp)
 		i, err := a.Field(11).Int()
 		require.NotNil(t, err)
 		require.Equal(t, 0, i)
 		mp2, err := a.Field(12).GetByInt(2).String()
 		require.Nil(t, err)
 		require.Equal(t, exp.InnerBase2.MapInt32String[2], (mp2))
+		s, err := a.Field(21).Index(2).String()
+		require.Nil(t, err)
+		require.Equal(t, exp.InnerBase2.ListString[2], s)
 	})
 
 	t.Run("GetByPath()", func(t *testing.T) {
@@ -498,6 +524,22 @@ func TestGet(t *testing.T) {
 
 		v9 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(9), NewPathStrKey("m8"))
 		require.Error(t, v9.Check())
+
+		v10 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(21), NewPathIndex(2))
+		if v10.Error() != "" {
+			t.Fatal(v10.Error())
+		}
+		act10, err := v10.String()
+		require.NoError(t, err)
+		require.Equal(t, req.InnerBase2.ListString[2], act10)
+
+		v11 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(19), NewPathIndex(1))
+		if v11.Error() != "" {
+			t.Fatal(v11.Error())
+		}
+		act11, err := v11.Interface(&Options{})
+		var exp11 interface{} = req.InnerBase2.ListBase[1]
+		DeepEqual(exp11, act11)
 	})
 
 }
