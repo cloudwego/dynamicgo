@@ -3,7 +3,6 @@ package j2p
 import (
 	"context"
 	"fmt"
-	"unsafe"
 
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/internal/rt"
@@ -22,24 +21,24 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.MessageD
 	if len(src) == 0 {
 		// empty obj
 	}
-	var p = binary.BinaryProtocol{
-		Buf: *buf,
-	}
-	if err := self.Unmarshal(src, &p, desc); err != nil {
+	p := binary.NewBinaryProtocolBuffer()
+	if err := self.Unmarshal(src, p, desc); err != nil {
 		return meta.NewError(meta.ErrConvert, fmt.Sprintf("json convert to protobuf failed, MessageDescriptor: %v", (*desc).Name()), err)
 	}
+	*buf = p.RawBuf()
 	return nil
 }
 
 func (self *BinaryConv) Unmarshal(src []byte, p *binary.BinaryProtocol, desc *proto.MessageDescriptor) error {
 	// use sonic to decode json bytes, get visitorUserNode
 	var d visitorUserNodeVisitorDecoder
+
 	d.Reset()
-	node, err := d.Decode(rt.StringFrom(unsafe.Pointer(&src), len(src)))
+	root, err := d.Decode(string(src))
 	if err != nil {
 		return newError(meta.ErrConvert, "sonic decode json bytes failed", err)
 	}
 	rootDesc := (*desc).(proto.Descriptor)
-	parseUserNodeRecursive(node, &rootDesc, p)
+	parseUserNodeRecursive(root, &rootDesc, p, self, 0)
 	return nil
 }
