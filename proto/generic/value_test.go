@@ -554,7 +554,7 @@ func TestSetByPath(t *testing.T) {
 	data := getExample2Data()
 	v := NewRootValue(desc, data)
 	ds := (*desc).Fields().ByName("Subfix")
-	d2 := (*desc).Fields().ByName("Base").Message().Fields().ByName("Extra")
+	d2 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("Base").Message().Fields().ByName("Extra").MapValue()
 	d3 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListInt32")
 	e, err := v.SetByPath(v)
 	require.True(t, e)
@@ -577,7 +577,7 @@ func TestSetByPath(t *testing.T) {
 		exp2 := "中文"
 		p := binary.NewBinaryProtocolBuffer()
 		p.WriteString(exp2)
-		e, err2 := v.SetByPath(NewValue(&d2, p.Buf), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("b"))
+		e, err2 := v.SetByPath(NewValue(&d2, p.Buf), NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("1b"))
 		require.True(t, e)
 		require.Nil(t, err2)
 		s2, _ := v.GetByPath(NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("b"))

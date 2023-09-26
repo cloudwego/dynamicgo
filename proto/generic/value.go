@@ -8,6 +8,7 @@ import (
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/proto/binary"
+	"github.com/cloudwego/dynamicgo/proto/protowire"
 )
 
 type Value struct {
@@ -65,7 +66,8 @@ func (self Value) slice(s int, e int, desc *proto.FieldDescriptor) Value {
 
 
 func searchFieldId(p *binary.BinaryProtocol, id proto.FieldNumber, messageLen int) (int, error) {
-	for p.Read < messageLen {
+	start := p.Read
+	for p.Read < start + messageLen {
 		fieldNumber, wireType, tagLen, err := p.ConsumeTagWithoutMove()
 		if err != nil {
 			return 0, err
@@ -427,6 +429,7 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 	}
 	originLen := len(self.raw())
 	err = self.replace(v.Node, sub.Node)
+
 	self.UpdateByteLen(originLen,address, path...)
 	return
 }
@@ -435,9 +438,48 @@ func (self *Value) UpdateByteLen(originLen int, address []int, path ...Path) {
 	afterLen := len(self.raw())
 	diffLen := afterLen - originLen
 	fmt.Println("diffLen", diffLen)
+	previousType := proto.UNKNOWN
+	isPacked := false
+	
 	for i := len(address) - 1; i > 0; i-- {
-		fmt.Println("address",i, address[i])
-		fmt.Println("path",i, path[i])
+		pathType := path[i].t
+		addressPtr := address[i]
+		if previousType == proto.MESSAGE || (previousType == proto.LIST && isPacked) {
+			// tag
+			buf := rt.BytesFrom(self.v, addressPtr, self.l)
+			_, tagOffset := protowire.ConsumeVarint(buf)
+			// length
+			length, lenOffset := protowire.ConsumeVarint(buf[addressPtr+tagOffset:])
+			newLength := length + uint64(diffLen)
+			
+			if protowire.SizeVarint(newLength) == lenOffset {
+				// no need to change length
+				continue
+			}
+
+			newBytes := protowire.AppendVarint(nil, newLength)
+			// write length
+			srcHead := rt.AddPtr(self.v, uintptr(addressPtr + tagOffset))
+			srcTail := rt.AddPtr(self.v, uintptr(addressPtr + tagOffset + lenOffset))
+			l0 := int(uintptr(srcHead) - uintptr(self.v))
+			l1 := len(newBytes)
+			l2 := int(uintptr(self.v) + uintptr(self.l) - uintptr(srcTail))
+						// copy three slices into new buffer
+			newBuf := make([]byte, l0+l1+l2)
+			copy(newBuf[:l0], rt.BytesFrom(self.v, l0, l0))
+			copy(newBuf[l0:l0+l1], newBytes)
+			copy(newBuf[l0+l1:l0+l1+l2], rt.BytesFrom(srcTail, l2, l2))
+			self.v = rt.GetBytePtr(buf)
+			self.l = int(len(buf))
+		}
+		
+		if pathType == PathStrKey || pathType == PathIntKey {
+			previousType = proto.MAP
+		} else if pathType == PathIndex {
+			previousType = proto.LIST
+		} else {
+			previousType = proto.MESSAGE
+		}
 	}
 }
 
