@@ -253,20 +253,22 @@ func searchStrKey(p *binary.BinaryProtocol, key string, keyType proto.Type, mapF
 	return start, nil
 }
 
-func (self Value) GetByPath(pathes ...Path) Value {
-	if self.Error() != "" {
-		return self
-	}
-
-	p := binary.BinaryProtocol{
-		Buf: self.raw(),
-	}
+func (self Value) GetByPath(pathes ...Path) (Value, []int) {
+	address := make([]int, len(pathes))
 	start := 0
 	var desc *proto.FieldDescriptor
 	var err error
 	tt := self.t
 	kt := self.kt
 	et := self.et
+
+	if self.Error() != "" {
+		return self, address
+	}
+
+	p := binary.BinaryProtocol{
+		Buf: self.raw(),
+	}
 
 	for i, path := range pathes {
 		switch path.t {
@@ -281,7 +283,7 @@ func (self Value) GetByPath(pathes ...Path) Value {
 				fd = (*desc).Message().Fields().ByNumber(id)
 				Len, err := p.ReadLength()
 				if err != nil {
-					return errValue(meta.ErrRead, "", err)
+					return errValue(meta.ErrRead, "", err), address
 				}
 				messageLen += Len
 			}
@@ -301,12 +303,12 @@ func (self Value) GetByPath(pathes ...Path) Value {
 				fd = (*desc).Message().Fields().ByName(name)
 				Len, err := p.ReadLength()
 				if err != nil {
-					return errValue(meta.ErrRead, "", err)
+					return errValue(meta.ErrRead, "", err), address
 				}
 				messageLen += Len
 			}
 			if fd == nil {
-				return errValue(meta.ErrUnknownField, fmt.Sprintf("field name '%s' is not defined in IDL", name), nil)
+				return errValue(meta.ErrUnknownField, fmt.Sprintf("field name '%s' is not defined in IDL", name), nil), address
 			}
 			tt = proto.FromProtoKindToType(fd.Kind(),fd.IsList(),fd.IsMap())
 			desc = &fd
@@ -327,23 +329,27 @@ func (self Value) GetByPath(pathes ...Path) Value {
 			start, err = searchIntKey(&p, path.int(), keyType, mapFieldNumber)
 			tt = proto.FromProtoKindToType((*desc).MapValue().Kind(),false,false)
 		default:
-			return errValue(meta.ErrUnsupportedType, fmt.Sprintf("invalid %dth path: %#v", i, p), nil)
+			return errValue(meta.ErrUnsupportedType, fmt.Sprintf("invalid %dth path: %#v", i, p), nil), address
 		}
+
+		address[i] = start
+
 		if err != nil {
 			// the last one not foud, return start pointer for subsequently inserting operation on `SetByPath()`
 			if i == len(pathes)-1 && err == errNotFound {
-				return Value{errNotFoundLast(unsafe.Pointer(uintptr(self.v)+uintptr(start)), tt), nil, nil}
+				return Value{errNotFoundLast(unsafe.Pointer(uintptr(self.v)+uintptr(start)), tt), nil, nil}, address
 			}
 			en := err.(Node)
-			return errValue(en.ErrCode().Behavior(), "", err)
+			return errValue(en.ErrCode().Behavior(), "", err), address
 		}
-
+		
 		if i != len(pathes)-1 {
 			if _,_,_,err := p.ConsumeTag(); err != nil {
-				return errValue(meta.ErrRead, "", err)
+				return errValue(meta.ErrRead, "", err), address
 			}
 			start = p.Read
 		}
+		
 	}
 	
 
@@ -352,25 +358,28 @@ func (self Value) GetByPath(pathes ...Path) Value {
 		et = proto.FromProtoKindToType((*desc).MapValue().Kind(),false,false)
 		if _, err = p.ReadMap(desc, false, false, false); err != nil {
 			en := err.(Node)
-			return errValue(en.ErrCode().Behavior(), "", err)
+			return errValue(en.ErrCode().Behavior(), "", err), address
 		}
 	} else if tt == proto.LIST {
 		et = proto.FromProtoKindToType((*desc).Kind(),false,false)
 		if _, err = p.ReadList(desc, false, false, false); err != nil {
 			en := err.(Node)
-			return errValue(en.ErrCode().Behavior(), "", err)
+			return errValue(en.ErrCode().Behavior(), "", err), address
 		}
 	} else {
 		skipType := proto.Kind2Wire[(*desc).Kind()]
-		if _, _, _, err := p.ConsumeTag(); err != nil {
-			return errValue(meta.ErrRead, "", err)
+		if (*desc).IsPacked() == false {
+			if _, _, _, err := p.ConsumeTag(); err != nil {
+				return errValue(meta.ErrRead, "", err), address
+			}
+			start = p.Read
 		}
 		
 		if err := p.Skip(skipType, false); err != nil {
-			return errValue(meta.ErrRead, "", err)
+			return errValue(meta.ErrRead, "", err), address
 		}
 	}
-	return wrapValue(self.Node.slice(start, p.Read, tt, kt, et), desc)
+	return wrapValue(self.Node.slice(start, p.Read, tt, kt, et), desc), address
 }
 
 
@@ -393,7 +402,7 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 
 
 	// search source node by path
-	v := self.GetByPath(path...)
+	v, address := self.GetByPath(path...)
 	if v.IsError() {
 		if !v.isErrNotFoundLast() {
 			return false, v
@@ -416,8 +425,20 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 	} else {
 		exist = true
 	}
+	originLen := len(self.raw())
 	err = self.replace(v.Node, sub.Node)
+	self.UpdateByteLen(originLen,address, path...)
 	return
+}
+
+func (self *Value) UpdateByteLen(originLen int, address []int, path ...Path) {
+	afterLen := len(self.raw())
+	diffLen := afterLen - originLen
+	fmt.Println("diffLen", diffLen)
+	for i := len(address) - 1; i > 0; i-- {
+		fmt.Println("address",i, address[i])
+		fmt.Println("path",i, path[i])
+	}
 }
 
 
@@ -432,7 +453,7 @@ func (self *Value) UnsetByPath(path ...Path) error {
 		return err
 	}
 	// search parent node by path
-	var v = self.GetByPath(path[:l-1]...)
+	var v,_ = self.GetByPath(path[:l-1]...)
 	if v.IsError() {
 		if v.IsErrNotFound() {
 			return nil

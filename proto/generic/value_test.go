@@ -4,11 +4,14 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math"
+	"math/rand"
 	"os"
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
+	"github.com/cloudwego/dynamicgo/proto/binary"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/base"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
 	"github.com/stretchr/testify/require"
@@ -61,6 +64,7 @@ func getExample2Req() *example2.ExampleReq {
 	req := example2.ExampleReq{}
 	req.Msg = "hello"
 	req.A = 25
+	req.Subfix = math.MaxFloat64
 	req.InnerBase2 = &example2.InnerBase2{}
 	req.InnerBase2.Bool = true
 	req.InnerBase2.Uint32 = uint32(123)
@@ -349,7 +353,7 @@ func TestGet(t *testing.T) {
 
 	req := getExample2Req()
 	t.Run("GetByStr()", func(t *testing.T) {
-		v := v.GetByPath(PathExampleMapStringString...)
+		v,_ := v.GetByPath(PathExampleMapStringString...)
 		require.Nil(t, v.Check())
 		v1, err := v.GetByStr("m1").String()
 		require.NoError(t, err)
@@ -361,7 +365,7 @@ func TestGet(t *testing.T) {
 	})
 
 	t.Run("GetByInt()", func(t *testing.T) {
-		v := v.GetByPath(PathExampleMapInt32String...)
+		v,_ := v.GetByPath(PathExampleMapInt32String...)
 		require.Nil(t, v.Check())
 		v1, err := v.GetByInt(1).String()
 		require.NoError(t, err)
@@ -374,7 +378,7 @@ func TestGet(t *testing.T) {
 
 
 	t.Run("Index()", func(t *testing.T) {
-		v := v.GetByPath(PathExampleListInt32...)
+		v,_ := v.GetByPath(PathExampleListInt32...)
 		require.Nil(t, v.Check())
 		v1, err := v.Index(1).Int()
 		require.NoError(t, err)
@@ -468,7 +472,7 @@ func TestGet(t *testing.T) {
 	t.Run("GetByPath()", func(t *testing.T) {
 		exp := req.InnerBase2.ListInt32[1]
 
-		v1 := v.GetByPath(NewPathFieldId(proto.FieldNumber(3)), NewPathFieldId(8), NewPathIndex(1))
+		v1,_ := v.GetByPath(NewPathFieldId(proto.FieldNumber(3)), NewPathFieldId(8), NewPathIndex(1))
 		if v1.Error() != "" {
 			t.Fatal(v1.Error())
 		}
@@ -476,24 +480,24 @@ func TestGet(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int(exp), act)
 
-		v2 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1))
+		v2,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1))
 		if v2.Error() != "" {
 			t.Fatal(v2.Error())
 		}
 		require.Equal(t, v1, v2)
-		v3 := v.GetByPath(NewPathFieldId(proto.FieldNumber(3)), NewPathFieldName("ListInt32"), NewPathIndex(1))
+		v3,_ := v.GetByPath(NewPathFieldId(proto.FieldNumber(3)), NewPathFieldName("ListInt32"), NewPathIndex(1))
 		if v3.Error() != "" {
 			t.Fatal(v3.Error())
 		}
 		require.Equal(t, v1, v3)
-		v4 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(8), NewPathIndex(1))
+		v4,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(8), NewPathIndex(1))
 		if v4.Error() != "" {
 			t.Fatal(v4.Error())
 		}
 		require.Equal(t, v1, v4)
 
 		exp2 := req.InnerBase2.MapInt32String[2]
-		v5 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(12), NewPathIntKey(2))
+		v5,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(12), NewPathIntKey(2))
 		if v5.Error() != "" {
 			t.Fatal(v5.Error())
 		}
@@ -501,14 +505,14 @@ func TestGet(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, exp2, act2)
 
-		v6 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapInt32String"), NewPathIntKey(2))
+		v6,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapInt32String"), NewPathIntKey(2))
 		if v6.Error() != "" {
 			t.Fatal(v6.Error())
 		}
 		require.Equal(t, v5, v6)
 
 		exp3 := req.InnerBase2.MapStringString["m1"]
-		v7 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(9), NewPathStrKey("m1"))
+		v7,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(9), NewPathStrKey("m1"))
 		if v5.Error() != "" {
 			t.Fatal(v7.Error())
 		}
@@ -516,16 +520,16 @@ func TestGet(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, exp3, act3)
 
-		v8 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringString"), NewPathStrKey("m1"))
+		v8,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringString"), NewPathStrKey("m1"))
 		if v8.Error() != "" {
 			t.Fatal(v8.Error())
 		}
 		require.Equal(t, v8, v7)
 
-		v9 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(9), NewPathStrKey("m8"))
+		v9,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(9), NewPathStrKey("m8"))
 		require.Error(t, v9.Check())
 
-		v10 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(21), NewPathIndex(2))
+		v10,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(21), NewPathIndex(2))
 		if v10.Error() != "" {
 			t.Fatal(v10.Error())
 		}
@@ -533,7 +537,7 @@ func TestGet(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, req.InnerBase2.ListString[2], act10)
 
-		v11 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(19), NewPathIndex(1))
+		v11,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(19), NewPathIndex(1))
 		if v11.Error() != "" {
 			t.Fatal(v11.Error())
 		}
@@ -542,4 +546,123 @@ func TestGet(t *testing.T) {
 		DeepEqual(exp11, act11)
 	})
 
+}
+
+
+func TestSetByPath(t *testing.T) {
+	desc := getExample2Desc()
+	data := getExample2Data()
+	v := NewRootValue(desc, data)
+	ds := (*desc).Fields().ByName("Subfix")
+	d2 := (*desc).Fields().ByName("Base").Message().Fields().ByName("Extra")
+	d3 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListInt32")
+	e, err := v.SetByPath(v)
+	require.True(t, e)
+	require.Nil(t, err)
+
+	t.Run("replace", func(t *testing.T) {
+		s, _ := v.GetByPath(NewPathFieldName("Subfix"))
+		require.Empty(t, s.Error())
+		f, _ := s.Float64()
+		require.Equal(t, math.MaxFloat64, f)
+		exp := float64(-0.1)
+		e, err := v.SetByPath(Value{NewNodeDouble(exp),nil,&ds}, NewPathFieldName("Subfix"))
+		require.True(t, e)
+		require.Nil(t, err)
+		s, _ = v.GetByPath(NewPathFieldName("Subfix"))
+		require.Empty(t, s.Error())
+		f, _ = s.Float64()
+		require.Equal(t, exp, f)
+
+		exp2 := "中文"
+		p := binary.NewBinaryProtocolBuffer()
+		p.WriteString(exp2)
+		e, err2 := v.SetByPath(NewValue(&d2, p.Buf), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("b"))
+		require.True(t, e)
+		require.Nil(t, err2)
+		s2, _ := v.GetByPath(NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("b"))
+		require.Empty(t, s2.Error())
+		f2, _ := s2.String()
+		require.Equal(t, exp2, f2)
+		e, err2 = v.SetByPath(NewValue(&d2, p.Buf), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("b"))
+		require.True(t, e)
+		require.Nil(t, err2)
+		s2,_  = v.GetByPath(NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("b"))
+		require.Empty(t, s2.Error())
+		f2, _ = s2.String()
+		require.Equal(t, exp2, f2)
+
+		exp3 := int32(math.MinInt32) + 1
+		v3 := Value{NewNodeInt32(exp3), nil, &d3}
+		ps := []Path{NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"), NewPathIndex(2)}
+		parent,_ := v.GetByPath(ps[:len(ps)-1]...)
+		l3, err := parent.Len()
+		require.Nil(t, err)
+		e, err = v.SetByPath(v3, ps...)
+		require.True(t, e)
+		require.Nil(t, err)
+		s3, _ := v.GetByPath(ps...)
+		act3, _ := s3.Int()
+		require.Equal(t, exp3, int32(act3))
+		parent, _ = v.GetByPath(ps[:len(ps)-1]...)
+		l3a, err := parent.Len()
+		require.Nil(t, err)
+		require.Equal(t, l3, l3a)
+	})
+
+	t.Run("insert", func(t *testing.T) {
+		s,_ := v.GetByPath(NewPathFieldName("A"))
+		require.True(t, s.IsErrNotFound())
+		exp := int32(-1024)
+		v1 := Value{NewNodeInt32(exp), nil, &d3}
+		e, err := v.SetByPath(v1, NewPathFieldName("A"))
+		require.False(t, e)
+		require.Nil(t, err)
+		s, _ = v.GetByPath(NewPathFieldName("A"))
+		require.Empty(t, s.Error())
+		act, _ := s.Int()
+		require.Equal(t, exp, int32(act))
+
+		s2, _ := v.GetByPath(NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("x"))
+		require.True(t, s2.IsErrNotFound())
+		exp2 := "中文\bb"
+		v2 := Value{NewNodeString(exp2), nil, &d3}
+		e, err2 := v.SetByPath(v2, NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("x"))
+		require.False(t, e)
+		require.Nil(t, err2)
+		s2, _ = v.GetByPath(NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("x"))
+		require.Empty(t, s2.Error())
+		act2, _ := s2.String()
+		require.Equal(t, exp2, act2)
+
+		parent, _ := v.GetByPath(NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"))
+		l3, err := parent.Len()
+		require.Nil(t, err)
+		s3, _ := v.GetByPath(NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"), NewPathIndex(1024))
+		require.True(t, s3.IsErrNotFound())
+		exp3 := rand.Int31()
+		v3 := Value{NewNodeInt32(exp3), nil, &d3}
+		e, err = v.SetByPath(v3, NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"), NewPathIndex(1024))
+		require.False(t, e)
+		require.NoError(t, err)
+		s3, _ = v.GetByPath(NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"), NewPathIndex(0))
+		act3, _ := s3.Int()
+		require.Equal(t, exp3, int32(act3))
+		parent, _ = v.GetByPath(NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"))
+		l3a, err := parent.Len()
+		require.Nil(t, err)
+		require.Equal(t, l3+1, l3a)
+		exp3 = rand.Int31()
+		v3 = Value{NewNodeInt32(exp3), nil, &d3}
+		e, err = v.SetByPath(v3, NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"), NewPathIndex(1024))
+		require.False(t, e)
+		require.NoError(t, err)
+		s3, _ = v.GetByPath(NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"), NewPathIndex(0))
+		act3, _ = s3.Int()
+		require.Equal(t, exp3, int32(act3))
+		parent, _ = v.GetByPath(NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"))
+		l3a, err = parent.Len()
+		require.Nil(t, err)
+		require.Equal(t, l3+2, l3a)
+	})
 }

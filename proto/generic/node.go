@@ -421,8 +421,15 @@ func (o *Node) setNotFound(path Path, n *Node, desc *proto.FieldDescriptor) erro
 		n.l = len(buf)
 		n.v = rt.GetBytePtr(buf)
 	case proto.LIST:
-		// maybe unpacked need change
-		break
+		if (*desc).IsPacked() == false {
+			tag := path.ToRaw(n.et)
+			src := n.raw()
+			buf := make([]byte, 0, len(tag)+len(src))
+			buf = append(buf, tag...)
+			buf = append(buf, src...)
+			n.l = len(buf)
+			n.v = rt.GetBytePtr(buf)
+		}
 	case proto.MAP:
 		buf := path.ToRaw(n.t) // keytag + key
 		valueKind := (*desc).MapValue().Kind()
