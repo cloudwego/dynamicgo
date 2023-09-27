@@ -8,6 +8,7 @@ import (
 
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 var bytesType = reflect.TypeOf([]byte{})
@@ -318,3 +319,51 @@ func TestDeepEqual(t *testing.T) {
 	}
 	require.True(t, DeepEqual(a, b))
 }
+
+func StructToMapStringInterface(data interface{}) map[string]interface{} {
+    result := make(map[string]interface{})
+    valueType := reflect.TypeOf(data)
+    value := reflect.ValueOf(data)
+
+    for i := 0; i < valueType.NumField(); i++ {
+        field := valueType.Field(i)
+        fieldName := field.Name
+		if fieldName == "state" || fieldName == "unknownFields" || fieldName == "sizeCache" {
+			continue
+		}
+        fieldValue := value.FieldByName(fieldName).Interface()
+        result[fieldName] = fieldValue
+    }
+
+    return result
+}
+
+
+func StructToMapFieldNumberInterface(data interface{}, desc *proto.MessageDescriptor) map[proto.FieldNumber]interface{} {
+	result := make(map[proto.FieldNumber]interface{})
+	valueType := reflect.TypeOf(data)
+	value := reflect.ValueOf(data)
+
+	for i := 0; i < valueType.NumField(); i++ {
+		field := valueType.Field(i)
+		fieldName := field.Name
+		if fieldName == "state" || fieldName == "unknownFields" || fieldName == "sizeCache" {
+			continue
+		}
+		fieldValue := value.FieldByName(fieldName).Interface()
+
+		// Convert the field name to FieldNumber type
+		fieldNumber := (*desc).Fields().ByName(protoreflect.Name(fieldName)).Number()
+
+		result[fieldNumber] = fieldValue
+	}
+
+	return result
+}
+
+
+
+
+
+
+

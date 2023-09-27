@@ -63,7 +63,6 @@ func getExample2Data() []byte {
 func getExample2Req() *example2.ExampleReq {
 	req := example2.ExampleReq{}
 	req.Msg = "hello"
-	req.A = 25
 	req.Subfix = math.MaxFloat64
 	req.InnerBase2 = &example2.InnerBase2{}
 	req.InnerBase2.Bool = true
@@ -556,6 +555,7 @@ func TestSetByPath(t *testing.T) {
 	ds := (*desc).Fields().ByName("Subfix")
 	d2 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("Base").Message().Fields().ByName("Extra").MapValue()
 	d3 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListInt32")
+	d4 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListString")
 	e, err := v.SetByPath(v)
 	require.True(t, e)
 	require.Nil(t, err)
@@ -623,46 +623,56 @@ func TestSetByPath(t *testing.T) {
 		act, _ := s.Int()
 		require.Equal(t, exp, int32(act))
 
-		s2, _ := v.GetByPath(NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("x"))
+		s2, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("x"))
 		require.True(t, s2.IsErrNotFound())
-		exp2 := "中文\bb"
+		exp2 := "中文xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\bb"
 		v2 := Value{NewNodeString(exp2), nil, &d3}
-		e, err2 := v.SetByPath(v2, NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("x"))
+		e, err2 := v.SetByPath(v2, NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("x"))
 		require.False(t, e)
 		require.Nil(t, err2)
-		s2, _ = v.GetByPath(NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("x"))
+		s2, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("x"))
 		require.Empty(t, s2.Error())
 		act2, _ := s2.String()
 		require.Equal(t, exp2, act2)
 
-		parent, _ := v.GetByPath(NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"))
+		parent, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"))
 		l3, err := parent.Len()
 		require.Nil(t, err)
-		s3, _ := v.GetByPath(NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"), NewPathIndex(1024))
+		s3, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1024))
 		require.True(t, s3.IsErrNotFound())
 		exp3 := rand.Int31()
 		v3 := Value{NewNodeInt32(exp3), nil, &d3}
-		e, err = v.SetByPath(v3, NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"), NewPathIndex(1024))
+		e, err = v.SetByPath(v3, NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1024))
 		require.False(t, e)
 		require.NoError(t, err)
-		s3, _ = v.GetByPath(NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"), NewPathIndex(0))
+		s3, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(6)) // 6 + 1
 		act3, _ := s3.Int()
 		require.Equal(t, exp3, int32(act3))
-		parent, _ = v.GetByPath(NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"))
+		parent, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"))
 		l3a, err := parent.Len()
 		require.Nil(t, err)
 		require.Equal(t, l3+1, l3a)
 		exp3 = rand.Int31()
 		v3 = Value{NewNodeInt32(exp3), nil, &d3}
-		e, err = v.SetByPath(v3, NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"), NewPathIndex(1024))
+		e, err = v.SetByPath(v3, NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1024))
 		require.False(t, e)
 		require.NoError(t, err)
-		s3, _ = v.GetByPath(NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"), NewPathIndex(0))
+		s3, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(7))
 		act3, _ = s3.Int()
 		require.Equal(t, exp3, int32(act3))
-		parent, _ = v.GetByPath(NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"))
+		parent, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"))
 		l3a, err = parent.Len()
 		require.Nil(t, err)
 		require.Equal(t, l3+2, l3a)
+		exp4 := "hello world!"
+		p := binary.NewBinaryProtocolBuffer()
+		p.WriteString(exp4)
+		v4 := Value{NewNode(proto.STRING, p.Buf), nil, &d4}
+		e, err = v.SetByPath(v4, NewPathFieldName("InnerBase2"), NewPathFieldName("ListString"), NewPathIndex(1024))
+		require.False(t, e)
+		require.NoError(t, err)
+		s4, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListString"), NewPathIndex(6))
+		act4, _ := s4.String()
+		DeepEqual(exp4, act4)
 	})
 }
