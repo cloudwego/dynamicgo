@@ -134,14 +134,14 @@ func (self Path) ToRaw(t proto.Type) []byte {
 	case PathStrKey:
 		// tag + string key
 		ret := make([]byte, 0, 8)
-		tag := uint64(0) << 3 | uint64(proto.STRING)
+		tag := uint64(1) << 3 | uint64(proto.STRING)
 		ret = protowire.BinaryEncoder{}.EncodeUint64(ret, tag)
 		ret = protowire.BinaryEncoder{}.EncodeString(ret, self.str())
 		return ret
 	case PathIntKey:
 		// tag + int key
 		ret := make([]byte, 0, 8)
-		tag := uint64(0) << 3 | uint64(proto.Kind2Wire[kind])
+		tag := uint64(1) << 3 | uint64(proto.Kind2Wire[kind])
 		ret = protowire.BinaryEncoder{}.EncodeUint64(ret, tag)
 		switch t {
 		case proto.INT32:
@@ -477,7 +477,7 @@ func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *binary.Bi
 		if e := p.Skip(proto.Kind2Wire[kind], opts.UseNativeSkip); e != nil {
 			return nil, errNode(meta.ErrRead, "", e)
 		}
-		v.Node = self.slice(start, p.Read, et, 0, 0)
+		v.Node = self.slice(start, p.Read, et)
 	}
 
 	if recurse && et.IsComplex() {
@@ -522,7 +522,7 @@ func (self *PathNode) handleUnknownChild(in *[]PathNode, lp *int, cp *int, p *bi
 	if e := p.Skip(wireType, opts.UseNativeSkip); e != nil {
 		return nil, errNode(meta.ErrRead, "", e)
 	}
-	v.Node = self.slice(start, p.Read, proto.UNKNOWN, 0, 0)
+	v.Node = self.slice(start, p.Read, proto.UNKNOWN)
 
 	*in = con
 	*lp = l
@@ -556,7 +556,7 @@ func (self *PathNode) handleListChild(in *[]PathNode, lp *int, cp *int, p *binar
 		if e := p.Skip(proto.Kind2Wire[kind], opts.UseNativeSkip); e != nil {
 			return nil, errNode(meta.ErrRead, "", e)
 		}
-		v.Node = self.slice(start, p.Read, et, 0, 0)
+		v.Node = self.slice(start, p.Read, et)
 	}
 
 	if recurse && et.IsComplex() {
@@ -604,9 +604,10 @@ func (self *PathNode) Load(recurse bool, opts *Options, desc *proto.Descriptor) 
 }
 
 
-func GetDescByPath(rootDesc *proto.MessageDescriptor, pathes ...Path) (ret *proto.FieldDescriptor, err error) {
+func GetDescByPath(rootDesc *proto.MessageDescriptor, pathes ...Path) (ret *proto.Descriptor, err error) {
 	var desc *proto.FieldDescriptor
-	ret = desc
+	root := (*rootDesc).(proto.Descriptor)
+	ret = &root
 	for i, p := range pathes {
 		if i == 0 {
 			switch p.Type() {
@@ -655,7 +656,8 @@ func GetDescByPath(rootDesc *proto.MessageDescriptor, pathes ...Path) (ret *prot
 			}
 		}
 
-		ret = desc
+		d := (*desc).(proto.Descriptor)
+		ret = &d
 		if ret == nil {
 			return nil, errNode(meta.ErrNotFound, "", err)
 		}

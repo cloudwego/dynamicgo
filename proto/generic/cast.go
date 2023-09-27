@@ -41,14 +41,8 @@ func (self Node) Len() (int, error) {
 // TODO: len
 func (self Node) len() (int, error) {
 	switch self.t {
-	case proto.LIST:
-		return -1, errNode(meta.ErrUnsupportedType, "", nil)
-		// b := rt.BytesFrom(unsafe.Pointer(uintptr(self.v)+uintptr(1)), 4, 4)
-		// return int(thrift.BinaryEncoding{}.DecodeInt32(b)), nil
-	case proto.MAP:
-		return -1, errNode(meta.ErrUnsupportedType, "", nil)
-		// b := rt.BytesFrom(unsafe.Pointer(uintptr(self.v)+uintptr(2)), 4, 4)
-		// return int(thrift.BinaryEncoding{}.DecodeInt32(b)), nil
+	case proto.LIST, proto.MAP:
+		return self.size, nil
 	default:
 		return -1, errNode(meta.ErrUnsupportedType, "", nil)
 	}
@@ -141,7 +135,8 @@ func (self Node) int() (int, error) {
 	buf := rt.BytesFrom(self.v, int(self.l), int(self.l))
 	switch self.t {
 	case proto.INT32:
-		return int(protowire.BinaryDecoder{}.DecodeByte(buf)), nil
+		v, _ := protowire.BinaryDecoder{}.DecodeInt32(buf)
+		return int(v), nil
 	case proto.SINT32:
 		v, _ := protowire.BinaryDecoder{}.DecodeSint32(buf)
 		return int(v), nil

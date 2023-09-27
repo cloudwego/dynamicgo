@@ -580,21 +580,21 @@ func TestSetByPath(t *testing.T) {
 		e, err2 := v.SetByPath(NewValue(&d2, p.Buf), NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("1b"))
 		require.True(t, e)
 		require.Nil(t, err2)
-		s2, _ := v.GetByPath(NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("b"))
+		s2, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("1b"))
 		require.Empty(t, s2.Error())
 		f2, _ := s2.String()
 		require.Equal(t, exp2, f2)
-		e, err2 = v.SetByPath(NewValue(&d2, p.Buf), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("b"))
+		e, err2 = v.SetByPath(NewValue(&d2, p.Buf), NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("2b"))
 		require.True(t, e)
 		require.Nil(t, err2)
-		s2,_  = v.GetByPath(NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("b"))
+		s2,_  = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("2b"))
 		require.Empty(t, s2.Error())
 		f2, _ = s2.String()
 		require.Equal(t, exp2, f2)
 
 		exp3 := int32(math.MinInt32) + 1
 		v3 := Value{NewNodeInt32(exp3), nil, &d3}
-		ps := []Path{NewPathFieldName("InnerBase"), NewPathFieldName("ListInt32"), NewPathIndex(2)}
+		ps := []Path{NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(2)}
 		parent,_ := v.GetByPath(ps[:len(ps)-1]...)
 		l3, err := parent.Len()
 		require.Nil(t, err)

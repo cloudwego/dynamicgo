@@ -263,6 +263,7 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 	tt := self.t
 	kt := self.kt
 	et := self.et
+	size := 0
 
 	if self.Error() != "" {
 		return self, address
@@ -358,15 +359,19 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 	if tt == proto.MAP {
 		kt = proto.FromProtoKindToType((*desc).MapKey().Kind(),false,false)
 		et = proto.FromProtoKindToType((*desc).MapValue().Kind(),false,false)
-		if _, err = p.ReadMap(desc, false, false, false); err != nil {
+		if v, err := p.ReadMap(desc, false, false, false); err != nil {
 			en := err.(Node)
 			return errValue(en.ErrCode().Behavior(), "", err), address
+		} else {
+			size = len(v)
 		}
 	} else if tt == proto.LIST {
 		et = proto.FromProtoKindToType((*desc).Kind(),false,false)
-		if _, err = p.ReadList(desc, false, false, false); err != nil {
+		if v, err := p.ReadList(desc, false, false, false); err != nil {
 			en := err.(Node)
 			return errValue(en.ErrCode().Behavior(), "", err), address
+		} else {
+			size = len(v)
 		}
 	} else {
 		skipType := proto.Kind2Wire[(*desc).Kind()]
@@ -381,7 +386,7 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 			return errValue(meta.ErrRead, "", err), address
 		}
 	}
-	return wrapValue(self.Node.slice(start, p.Read, tt, kt, et), desc), address
+	return wrapValue(self.Node.slice(start, p.Read, tt, kt, et, size), desc), address
 }
 
 
@@ -429,48 +434,54 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 	}
 	originLen := len(self.raw())
 	err = self.replace(v.Node, sub.Node)
-
-	self.UpdateByteLen(originLen,address, path...)
+	isPacked := path[l-1].t == PathIndex && sub.Node.et != proto.MESSAGE && sub.Node.et != proto.STRING
+	self.UpdateByteLen(originLen,address, isPacked, path...)
 	return
 }
 
-func (self *Value) UpdateByteLen(originLen int, address []int, path ...Path) {
-	afterLen := len(self.raw())
+func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, path ...Path) {
+	afterLen := self.l
 	diffLen := afterLen - originLen
 	fmt.Println("diffLen", diffLen)
 	previousType := proto.UNKNOWN
-	isPacked := false
 	
 	for i := len(address) - 1; i > 0; i-- {
 		pathType := path[i].t
 		addressPtr := address[i]
 		if previousType == proto.MESSAGE || (previousType == proto.LIST && isPacked) {
 			// tag
-			buf := rt.BytesFrom(self.v, addressPtr, self.l)
+			buf := rt.BytesFrom(rt.AddPtr(self.v, uintptr(addressPtr)), self.l - addressPtr, self.l - addressPtr)
 			_, tagOffset := protowire.ConsumeVarint(buf)
 			// length
-			length, lenOffset := protowire.ConsumeVarint(buf[addressPtr+tagOffset:])
+			length, lenOffset := protowire.ConsumeVarint(buf[tagOffset:])
 			newLength := length + uint64(diffLen)
-			
-			if protowire.SizeVarint(newLength) == lenOffset {
+			newBytes := protowire.AppendVarint(nil, newLength)
+			subLen := len(newBytes) - lenOffset
+
+			if subLen == 0 {
 				// no need to change length
+				copy(buf[tagOffset:tagOffset+lenOffset], newBytes)
 				continue
 			}
 
-			newBytes := protowire.AppendVarint(nil, newLength)
-			// write length
+			// split length
 			srcHead := rt.AddPtr(self.v, uintptr(addressPtr + tagOffset))
 			srcTail := rt.AddPtr(self.v, uintptr(addressPtr + tagOffset + lenOffset))
 			l0 := int(uintptr(srcHead) - uintptr(self.v))
 			l1 := len(newBytes)
 			l2 := int(uintptr(self.v) + uintptr(self.l) - uintptr(srcTail))
-						// copy three slices into new buffer
+			
+			// copy three slices into new buffer
 			newBuf := make([]byte, l0+l1+l2)
 			copy(newBuf[:l0], rt.BytesFrom(self.v, l0, l0))
 			copy(newBuf[l0:l0+l1], newBytes)
 			copy(newBuf[l0+l1:l0+l1+l2], rt.BytesFrom(srcTail, l2, l2))
-			self.v = rt.GetBytePtr(buf)
-			self.l = int(len(buf))
+			self.v = rt.GetBytePtr(newBuf)
+			self.l = int(len(newBuf))
+			if isPacked {
+				isPacked = false
+			}
+			diffLen += subLen
 		}
 		
 		if pathType == PathStrKey || pathType == PathIntKey {
@@ -707,7 +718,7 @@ func (self Value) Index(i int) (v Value) {
 
 	s, e = it.Next(UseNativeSkipForGet)
 	
-	v = wrapValue(self.Node.slice(s-dataLen, e, self.et, 0, 0), self.Desc)
+	v = wrapValue(self.Node.slice(s-dataLen, e, self.et, 0, 0, 0), self.Desc)
 
 	return
 }

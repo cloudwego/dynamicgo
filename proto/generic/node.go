@@ -17,6 +17,7 @@ type Node struct {
 	kt proto.Type
 	v  unsafe.Pointer
 	l  int
+	size int // only for MAP/LIST element counts
 }
 
 // Fork forks the node to a new node, copy underlying data as well
@@ -43,7 +44,18 @@ func (self Node) KeyType() proto.Type {
 	return self.kt
 }
 
-func (self Node) slice(s int, e int, t proto.Type, kt proto.Type, et proto.Type) Node {
+// slice returns a new node which is a slice of a simple node
+func (self Node) slice(s int, e int, t proto.Type) Node {
+	ret := Node{
+		t: t,
+		l: (e - s),
+		v: rt.AddPtr(self.v, uintptr(s)),
+	}
+	return ret
+}
+
+// sliceComplex returns a new node which is a slice of a Complex(can deal with all the type) node
+func (self Node) sliceComplex(s int, e int, t proto.Type, kt proto.Type, et proto.Type, size int) Node {
 	ret := Node{
 		t: t,
 		l: (e - s),
@@ -51,9 +63,11 @@ func (self Node) slice(s int, e int, t proto.Type, kt proto.Type, et proto.Type)
 	}
 	if t == proto.LIST {
 		ret.et = et
+		ret.size = size
 	} else if t == proto.MAP {
 		ret.kt = kt
 		ret.et = et
+		ret.size = size
 	}
 	return ret
 }
@@ -68,12 +82,6 @@ func NewNode(t proto.Type, src []byte) Node {
 		t: t,
 		l: (len(src)),
 		v: rt.GetBytePtr(src),
-	}
-	if t == proto.LIST {
-		ret.et = *(*proto.Type)(unsafe.Pointer(ret.v))
-	} else if t == proto.MAP {
-		ret.kt = *(*proto.Type)(unsafe.Pointer(ret.v))
-		ret.et = *(*proto.Type)(rt.AddPtr(ret.v, uintptr(1)))
 	}
 	return ret
 }
@@ -180,10 +188,17 @@ func NewNodeBytes(val []byte) Node {
 	return NewNode(proto.BYTE, buf)
 }
 
-func NewComplexNode(t proto.Type, et proto.Type, kt proto.Type) (ret Node){
+// NewComplexNode can deal with all the types
+func NewComplexNode(t proto.Type, et proto.Type, kt proto.Type, src []byte) (ret Node){
 	if !t.Valid() {
 		panic("invalid node type")
 	}
+	ret = Node{
+		t: t,
+		l: (len(src)),
+		v: rt.GetBytePtr(src),
+	}
+
 	switch t {
 	case proto.LIST:
 		if !et.Valid() {
@@ -200,7 +215,7 @@ func NewComplexNode(t proto.Type, et proto.Type, kt proto.Type) (ret Node){
 		ret.et = et
 		ret.kt = kt
 	}
-	ret.t = t
+
 	return
 }
 
@@ -421,8 +436,10 @@ func (o *Node) setNotFound(path Path, n *Node, desc *proto.FieldDescriptor) erro
 		n.l = len(buf)
 		n.v = rt.GetBytePtr(buf)
 	case proto.LIST:
+		// unpacked need write tag, packed needn't
 		if (*desc).IsPacked() == false {
-			tag := path.ToRaw(n.et)
+			fdNum := (*desc).Number()
+			tag := protowire.AppendVarint(nil, uint64(fdNum) << 3 | uint64(proto.BytesType))
 			src := n.raw()
 			buf := make([]byte, 0, len(tag)+len(src))
 			buf = append(buf, tag...)
@@ -431,14 +448,19 @@ func (o *Node) setNotFound(path Path, n *Node, desc *proto.FieldDescriptor) erro
 			n.v = rt.GetBytePtr(buf)
 		}
 	case proto.MAP:
+		// pair tag
+		fdNum := (*desc).Number()
+		pairTag := protowire.AppendVarint(nil, uint64(fdNum) << 3 | uint64(proto.BytesType))
 		buf := path.ToRaw(n.t) // keytag + key
 		valueKind := (*desc).MapValue().Kind()
 		valueTag := uint64(1) << 3 | uint64(proto.Kind2Wire[valueKind])
 		buf = protowire.BinaryEncoder{}.EncodeUint64(buf, valueTag) // + value tag
 		src := n.raw() // + value
-		buf = append(buf, src...)
-		n.l = len(buf)
-		n.v = rt.GetBytePtr(buf)
+		buf = append(buf, src...) // key + value
+		pairbuf := protowire.BinaryEncoder{}.EncodeUint64(pairTag, uint64(len(buf))) // + pairlen
+		pairbuf = append(pairbuf, buf...) // pair tag + pairlen + key + value
+		n.l = len(pairbuf)
+		n.v = rt.GetBytePtr(pairbuf)
 	default:
 		return errNode(meta.ErrDismatchType, "simple type node shouldn't have child", nil)
 	}
