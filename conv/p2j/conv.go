@@ -55,3 +55,22 @@ func (self *ProtoConv) Do(ctx context.Context, desc *proto.MessageDescriptor, tb
 	conv.FreeBytes(buf)
 	return
 }
+
+// DoInto behaves like Do, but it writes the result to buffer directly instead of returning a new buffer
+func (self *ProtoConv) DoInto(ctx context.Context, desc *proto.MessageDescriptor, tbytes []byte, buf *[]byte) (err error) {
+	var resp http.ResponseSetter
+	if self.opts.EnableHttpMapping {
+		respi := ctx.Value(conv.CtxKeyHTTPResponse)
+		if respi != nil {
+			respi, ok := respi.(http.ResponseSetter)
+			if !ok {
+				return wrapError(meta.ErrInvalidParam, "invalid http.Response", nil)
+			}
+			resp = respi
+		} else {
+			return wrapError(meta.ErrInvalidParam, "no http response in context", nil)
+		}
+	}
+
+	return self.do(ctx, tbytes, desc, buf, resp)
+}

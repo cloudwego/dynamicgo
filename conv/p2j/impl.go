@@ -50,7 +50,7 @@ func (self *ProtoConv) do(ctx context.Context, src []byte, desc *proto.MessageDe
 
 	*out = json.EncodeObjectBegin(*out)
 
-	for p.Read <= len(src) {
+	for p.Read < len(src) {
 		fieldId, typeId, _, e := p.ConsumeTag()
 		if e != nil {
 			return wrapError(meta.ErrRead, "", e)
@@ -58,7 +58,13 @@ func (self *ProtoConv) do(ctx context.Context, src []byte, desc *proto.MessageDe
 
 		fd := fields.ByNumber(protowire.Number(fieldId))
 		if fd == nil {
-			return wrapError(meta.ErrRead, "invalid field", nil)
+			if self.opts.DisallowUnknownField {
+				return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", fieldId), nil)
+			}
+			if e := p.Skip(typeId, self.opts.UseNativeSkip); e != nil {
+				return wrapError(meta.ErrRead, "", e)
+			}
+			continue
 		}
 
 		if comma {
@@ -269,7 +275,7 @@ func (self *ProtoConv) unmarshalList(ctx context.Context, resp http.ResponseSett
 
 	fileldNumber := (*fd).Number()
 	// packed ：[Tag] [Length] [v v v v v]
-	if typeId == proto.BytesType {
+	if typeId == proto.BytesType && (*fd).IsPacked() {
 		len, err := p.ReadLength()
 		if err != nil {
 			return wrapError(meta.ErrRead, "unmarshal List Length error", err)
@@ -277,7 +283,7 @@ func (self *ProtoConv) unmarshalList(ctx context.Context, resp http.ResponseSett
 		start := p.Read
 		for p.Read < start+len {
 			self.unmarshalSingular(ctx, resp, p, out, fd)
-			if p.Read != start {
+			if p.Read != start && p.Read != start+len {
 				*out = json.EncodeArrayComma(*out)
 			}
 		}
@@ -285,19 +291,24 @@ func (self *ProtoConv) unmarshalList(ctx context.Context, resp http.ResponseSett
 		// unpacked ：[tag][length][value][tag][length]....
 		self.unmarshalSingular(ctx, resp, p, out, fd)
 		*out = json.EncodeArrayComma(*out)
+		alreadyWrite := false
 		for p.Read < len(p.Buf) {
 			elementFieldNumber, _, tagLen, err := p.ConsumeTagWithoutMove()
 			if err != nil {
 				return wrapError(meta.ErrRead, "consume list child Tag error", err)
 			}
-			// List parse end
+			// List parse end, pay attention to remove the last ','
 			if elementFieldNumber != fileldNumber {
+				if alreadyWrite {
+					*out = (*out)[:len(*out)-1]
+				}
 				break
 			}
 			// continue parse List
 			p.Read += tagLen
 			self.unmarshalSingular(ctx, resp, p, out, fd)
 			*out = json.EncodeArrayComma(*out)
+			alreadyWrite = true
 		}
 	}
 
@@ -322,17 +333,24 @@ func (self *ProtoConv) unmarshalMap(ctx context.Context, resp http.ResponseSette
 	if keyErr != nil {
 		return wrapError(meta.ErrRead, "parse MapKey Tag error", err)
 	}
-	*out = append(*out, '"')
-	if self.unmarshalSingular(ctx, resp, p, out, fd) != nil {
+	mapKeyDesc := (*fd).MapKey()
+	isIntKey := (mapKeyDesc.Kind() == proto.Int32Kind) || (mapKeyDesc.Kind() == proto.Int64Kind) || (mapKeyDesc.Kind() == proto.Uint32Kind) || (mapKeyDesc.Kind() == proto.Uint64Kind)
+	if isIntKey {
+		*out = append(*out, '"')
+	}
+	if self.unmarshalSingular(ctx, resp, p, out, &mapKeyDesc) != nil {
 		return wrapError(meta.ErrRead, "parse MapKey Value error", err)
 	}
-	*out = append(*out, '"')
+	if isIntKey {
+		*out = append(*out, '"')
+	}
 	*out = json.EncodeObjectColon(*out)
 	_, _, _, valueErr := p.ConsumeTag()
 	if valueErr != nil {
 		return wrapError(meta.ErrRead, "parse MapValue Tag error", err)
 	}
-	if self.unmarshalSingular(ctx, resp, p, out, fd) != nil {
+	mapValueDesc := (*fd).MapValue()
+	if self.unmarshalSingular(ctx, resp, p, out, &mapValueDesc) != nil {
 		return wrapError(meta.ErrRead, "parse MapValue Value error", err)
 	}
 
@@ -358,17 +376,21 @@ func (self *ProtoConv) unmarshalMap(ctx context.Context, resp http.ResponseSette
 		if keyErr != nil {
 			return wrapError(meta.ErrRead, "parse MapKey Tag error", err)
 		}
-		*out = append(*out, '"')
-		if self.unmarshalSingular(ctx, resp, p, out, fd) != nil {
+		if isIntKey {
+			*out = append(*out, '"')
+		}
+		if self.unmarshalSingular(ctx, resp, p, out, &mapKeyDesc) != nil {
 			return wrapError(meta.ErrRead, "parse MapKey Value error", err)
 		}
-		*out = append(*out, '"')
+		if isIntKey {
+			*out = append(*out, '"')
+		}
 		*out = json.EncodeObjectColon(*out)
 		_, _, _, valueErr = p.ConsumeTag()
 		if valueErr != nil {
 			return wrapError(meta.ErrRead, "parse MapValue Tag error", err)
 		}
-		if self.unmarshalSingular(ctx, resp, p, out, fd) != nil {
+		if self.unmarshalSingular(ctx, resp, p, out, &mapValueDesc) != nil {
 			return wrapError(meta.ErrRead, "parse MapValue Value error", err)
 		}
 	}
