@@ -14,12 +14,12 @@ import (
 type Value struct {
 	Node
 	rootDesc *proto.MessageDescriptor
-	Desc *proto.FieldDescriptor
+	Desc     *proto.FieldDescriptor
 }
 
 func NewRootValue(desc *proto.MessageDescriptor, src []byte) Value {
 	return Value{
-		Node: NewNode(proto.MESSAGE, src),
+		Node:     NewNode(proto.MESSAGE, src),
 		rootDesc: desc,
 	}
 }
@@ -41,7 +41,7 @@ func (self Value) Fork() Value {
 
 // TODO: need change
 func (self Value) slice(s int, e int, desc *proto.FieldDescriptor) Value {
-	t := proto.FromProtoKindToType((*desc).Kind(),(*desc).IsList(),(*desc).IsMap())
+	t := proto.FromProtoKindToType((*desc).Kind(), (*desc).IsList(), (*desc).IsMap())
 	ret := Value{
 		Node: Node{
 			t: t,
@@ -51,23 +51,19 @@ func (self Value) slice(s int, e int, desc *proto.FieldDescriptor) Value {
 		Desc: desc,
 	}
 	if t == proto.LIST {
-		ret.et = proto.FromProtoKindToType((*desc).Kind(),false,false) // hard code, may have error?
+		ret.et = proto.FromProtoKindToType((*desc).Kind(), false, false) // hard code, may have error?
 	} else if t == proto.MAP {
 		mapkey := (*desc).MapKey()
 		mapvalue := (*desc).MapValue()
-		ret.kt = proto.FromProtoKindToType(mapkey.Kind(),mapkey.IsList(),mapkey.IsMap())
-		ret.et = proto.FromProtoKindToType(mapvalue.Kind(),mapvalue.IsList(),mapvalue.IsMap())
+		ret.kt = proto.FromProtoKindToType(mapkey.Kind(), mapkey.IsList(), mapkey.IsMap())
+		ret.et = proto.FromProtoKindToType(mapvalue.Kind(), mapvalue.IsList(), mapvalue.IsMap())
 	}
 	return ret
 }
 
-
-
-
-
 func searchFieldId(p *binary.BinaryProtocol, id proto.FieldNumber, messageLen int) (int, error) {
 	start := p.Read
-	for p.Read < start + messageLen {
+	for p.Read < start+messageLen {
 		fieldNumber, wireType, tagLen, err := p.ConsumeTagWithoutMove()
 		if err != nil {
 			return 0, err
@@ -132,7 +128,7 @@ func searchIndex(p *binary.BinaryProtocol, idx int, elementWireType proto.WireTy
 
 	if cnt < idx {
 		return p.Read, errNotFound
-	} 
+	}
 
 	return result, nil
 }
@@ -142,7 +138,7 @@ func searchIntKey(p *binary.BinaryProtocol, key int, keyType proto.Type, mapFiel
 	start := p.Read
 	// normal Type : [tag][(length)][value][tag][(length)][value][tag][(length)][value]....
 	for p.Read < len(p.Buf) {
-		if _, err := p.ReadLength() ; err != nil {
+		if _, err := p.ReadLength(); err != nil {
 			return 0, meta.NewError(meta.ErrRead, "ReadLength failed", nil)
 		}
 
@@ -154,11 +150,10 @@ func searchIntKey(p *binary.BinaryProtocol, key int, keyType proto.Type, mapFiel
 		if err != nil {
 			return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
 		}
-		
 
 		if k == key {
 			exist = true
-			_,_, tagLen, err := p.ConsumeTagWithoutMove() // skip value taglen
+			_, _, tagLen, err := p.ConsumeTagWithoutMove() // skip value taglen
 			if err != nil {
 				return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
 			}
@@ -201,14 +196,14 @@ func searchStrKey(p *binary.BinaryProtocol, key string, keyType proto.Type, mapF
 	start := p.Read
 	// normal Type : [tag][(length)][value][tag][(length)][value][tag][(length)][value]....
 	for p.Read < len(p.Buf) {
-		if _, err := p.ReadLength() ; err != nil {
+		if _, err := p.ReadLength(); err != nil {
 			return 0, meta.NewError(meta.ErrRead, "ReadLength failed", nil)
 		}
 
 		if _, _, _, keyTagErr := p.ConsumeTag(); keyTagErr != nil {
 			return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
 		}
-		
+
 		k, err := p.ReadString(false)
 		if err != nil {
 			return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
@@ -216,14 +211,13 @@ func searchStrKey(p *binary.BinaryProtocol, key string, keyType proto.Type, mapF
 
 		if k == key {
 			exist = true
-			_,_, tagLen, err := p.ConsumeTagWithoutMove() // skip value taglen
+			_, _, tagLen, err := p.ConsumeTagWithoutMove() // skip value taglen
 			if err != nil {
 				return 0, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
 			}
 			start = p.Read + tagLen // then p.Read will point to real value part
 			break
 		}
-
 
 		_, valueWireType, _, valueTagErr := p.ConsumeTag()
 		if valueTagErr != nil {
@@ -292,7 +286,7 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 			}
 			if fd != nil {
 				desc = &fd
-				tt = proto.FromProtoKindToType(fd.Kind(),fd.IsList(),fd.IsMap())
+				tt = proto.FromProtoKindToType(fd.Kind(), fd.IsList(), fd.IsMap())
 			}
 			start, err = searchFieldId(&p, id, messageLen)
 			if err == errNotFound {
@@ -316,7 +310,7 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 			if fd == nil {
 				return errValue(meta.ErrUnknownField, fmt.Sprintf("field name '%s' is not defined in IDL", name), nil), address
 			}
-			tt = proto.FromProtoKindToType(fd.Kind(),fd.IsList(),fd.IsMap())
+			tt = proto.FromProtoKindToType(fd.Kind(), fd.IsList(), fd.IsMap())
 			desc = &fd
 			start, err = searchFieldId(&p, fd.Number(), messageLen)
 			if err == errNotFound {
@@ -326,23 +320,23 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 			elemKind := (*desc).Kind()
 			elementWireType := proto.Kind2Wire[elemKind]
 			isPacked := (*desc).IsPacked()
-			start, err = searchIndex(&p, path.int(),elementWireType, isPacked, (*desc).Number())
-			tt = proto.FromProtoKindToType(elemKind,false,false)
+			start, err = searchIndex(&p, path.int(), elementWireType, isPacked, (*desc).Number())
+			tt = proto.FromProtoKindToType(elemKind, false, false)
 			if err == errNotFound {
 				tt = proto.LIST
 			}
 		case PathStrKey:
 			mapFieldNumber := (*desc).Number()
 			start, err = searchStrKey(&p, path.str(), proto.STRING, mapFieldNumber)
-			tt = proto.FromProtoKindToType((*desc).MapValue().Kind(),false,false)
+			tt = proto.FromProtoKindToType((*desc).MapValue().Kind(), false, false)
 			if err == errNotFound {
 				tt = proto.MAP
 			}
 		case PathIntKey:
-			keyType := proto.FromProtoKindToType((*desc).MapKey().Kind(),false,false) 
+			keyType := proto.FromProtoKindToType((*desc).MapKey().Kind(), false, false)
 			mapFieldNumber := (*desc).Number()
 			start, err = searchIntKey(&p, path.int(), keyType, mapFieldNumber)
-			tt = proto.FromProtoKindToType((*desc).MapValue().Kind(),false,false)
+			tt = proto.FromProtoKindToType((*desc).MapValue().Kind(), false, false)
 			if err == errNotFound {
 				tt = proto.MAP
 			}
@@ -360,19 +354,18 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 			en := err.(Node)
 			return errValue(en.ErrCode().Behavior(), "", err), address
 		}
-		
+
 		if i != len(pathes)-1 {
-			if _,_,_,err := p.ConsumeTag(); err != nil {
+			if _, _, _, err := p.ConsumeTag(); err != nil {
 				return errValue(meta.ErrRead, "", err), address
 			}
 		}
-		
+
 	}
-	
 
 	if tt == proto.MAP {
-		kt = proto.FromProtoKindToType((*desc).MapKey().Kind(),false,false)
-		et = proto.FromProtoKindToType((*desc).MapValue().Kind(),false,false)
+		kt = proto.FromProtoKindToType((*desc).MapKey().Kind(), false, false)
+		et = proto.FromProtoKindToType((*desc).MapValue().Kind(), false, false)
 		if v, err := p.ReadMap(desc, false, false, false); err != nil {
 			en := err.(Node)
 			return errValue(en.ErrCode().Behavior(), "", err), address
@@ -380,7 +373,7 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 			size = len(v)
 		}
 	} else if tt == proto.LIST {
-		et = proto.FromProtoKindToType((*desc).Kind(),false,false)
+		et = proto.FromProtoKindToType((*desc).Kind(), false, false)
 		if v, err := p.ReadList(desc, false, false, false); err != nil {
 			en := err.(Node)
 			return errValue(en.ErrCode().Behavior(), "", err), address
@@ -395,14 +388,13 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 			}
 			start = p.Read
 		}
-		
+
 		if err := p.Skip(skipType, false); err != nil {
 			return errValue(meta.ErrRead, "", err), address
 		}
 	}
 	return wrapValue(self.Node.sliceComplex(start, p.Read, tt, kt, et, size), desc), address
 }
-
 
 // SetByPath searches longitudinally and sets a sub value at the given path from the value.
 // exist tells whether the node is already exists.
@@ -420,7 +412,6 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 	if self.Error() != "" {
 		return false, meta.NewError(meta.ErrInvalidParam, "given node is invalid", sub)
 	}
-
 
 	// search source node by path
 	v, address := self.GetByPath(path...)
@@ -440,7 +431,7 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 		}
 
 		if parentPath.t == PathFieldName {
-			if d, ok := (*desc).(proto.MessageDescriptor); ok{
+			if d, ok := (*desc).(proto.MessageDescriptor); ok {
 				f := d.Fields().ByName(proto.FieldName(parentPath.str()))
 				parentPath = NewPathFieldId(f.Number())
 				fd = &f
@@ -460,28 +451,89 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 	originLen := len(self.raw())
 	err = self.replace(v.Node, sub.Node)
 	isPacked := path[l-1].t == PathIndex && sub.Node.t != proto.MESSAGE && sub.Node.t != proto.STRING
-	self.UpdateByteLen(originLen,address, isPacked, path...)
+	self.UpdateByteLen(originLen, address, isPacked, path...)
 	return
 }
+
+// func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, path ...Path) {
+// 	afterLen := self.l
+// 	diffLen := afterLen - originLen
+// 	fmt.Println("diffLen", diffLen)
+// 	previousType := proto.UNKNOWN
+
+// 	for i := len(address) - 1; i > 0; i-- {
+// 		pathType := path[i].t
+// 		addressPtr := address[i]
+// 		if previousType == proto.MESSAGE || (previousType == proto.LIST && isPacked) {
+// 			// tag
+// 			buf := rt.BytesFrom(rt.AddPtr(self.v, uintptr(addressPtr)), self.l-addressPtr, self.l-addressPtr)
+// 			_, tagOffset := protowire.ConsumeVarint(buf)
+// 			// length
+// 			length, lenOffset := protowire.ConsumeVarint(buf[tagOffset:])
+// 			newLength := length + uint64(diffLen)
+// 			newBytes := protowire.AppendVarint(nil, newLength)
+// 			subLen := len(newBytes) - lenOffset
+
+// 			if subLen == 0 {
+// 				// no need to change length
+// 				copy(buf[tagOffset:tagOffset+lenOffset], newBytes)
+// 				continue
+// 			}
+
+// 			// split length
+// 			srcHead := rt.AddPtr(self.v, uintptr(addressPtr+tagOffset))
+// 			srcTail := rt.AddPtr(self.v, uintptr(addressPtr+tagOffset+lenOffset))
+// 			l0 := int(uintptr(srcHead) - uintptr(self.v))
+// 			l1 := len(newBytes)
+// 			l2 := int(uintptr(self.v) + uintptr(self.l) - uintptr(srcTail))
+
+// 			// copy three slices into new buffer
+// 			newBuf := make([]byte, l0+l1+l2)
+// 			copy(newBuf[:l0], rt.BytesFrom(self.v, l0, l0))
+// 			copy(newBuf[l0:l0+l1], newBytes)
+// 			copy(newBuf[l0+l1:l0+l1+l2], rt.BytesFrom(srcTail, l2, l2))
+// 			self.v = rt.GetBytePtr(newBuf)
+// 			self.l = int(len(newBuf))
+// 			if isPacked {
+// 				isPacked = false
+// 			}
+// 			diffLen += subLen
+// 		}
+
+// 		if pathType == PathStrKey || pathType == PathIntKey {
+// 			previousType = proto.MAP
+// 		} else if pathType == PathIndex {
+// 			previousType = proto.LIST
+// 		} else {
+// 			previousType = proto.MESSAGE
+// 		}
+// 	}
+// }
 
 func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, path ...Path) {
 	afterLen := self.l
 	diffLen := afterLen - originLen
 	previousType := proto.UNKNOWN
-	
+
 	for i := len(address) - 1; i >= 0; i-- {
 		pathType := path[i].t
 		addressPtr := address[i]
 		if previousType == proto.MESSAGE || (previousType == proto.LIST && isPacked) {
 			// tag
-			buf := rt.BytesFrom(rt.AddPtr(self.v, uintptr(addressPtr)), self.l - addressPtr, self.l - addressPtr)
+			buf := rt.BytesFrom(rt.AddPtr(self.v, uintptr(addressPtr)), self.l-addressPtr, self.l-addressPtr)
 			_, tagOffset := protowire.ConsumeVarint(buf)
 			// length
 			length, lenOffset := protowire.ConsumeVarint(buf[tagOffset:])
-			newLength := length + uint64(diffLen)
+			newLength := uint64(int(length) + diffLen)
 			newBytes := protowire.AppendVarint(nil, newLength)
+			if newLength == 0 {
+				newBytes = newBytes[:0]
+			}
 			subLen := len(newBytes) - lenOffset
-
+			// judge when UnsetByPath, whether parentNode has only one childNode, decreame parentTagLen + parentLengthLen + childNodeDiffLen
+			if newLength == 0 {
+				subLen -= (1 - diffLen)
+			}
 			if subLen == 0 {
 				// no need to change length
 				copy(buf[tagOffset:tagOffset+lenOffset], newBytes)
@@ -489,12 +541,12 @@ func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, pa
 			}
 
 			// split length
-			srcHead := rt.AddPtr(self.v, uintptr(addressPtr + tagOffset))
-			srcTail := rt.AddPtr(self.v, uintptr(addressPtr + tagOffset + lenOffset))
+			srcHead := rt.AddPtr(self.v, uintptr(addressPtr+tagOffset))
+			srcTail := rt.AddPtr(self.v, uintptr(addressPtr+tagOffset+lenOffset))
 			l0 := int(uintptr(srcHead) - uintptr(self.v))
 			l1 := len(newBytes)
 			l2 := int(uintptr(self.v) + uintptr(self.l) - uintptr(srcTail))
-			
+
 			// copy three slices into new buffer
 			newBuf := make([]byte, l0+l1+l2)
 			copy(newBuf[:l0], rt.BytesFrom(self.v, l0, l0))
@@ -507,7 +559,7 @@ func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, pa
 			}
 			diffLen += subLen
 		}
-		
+
 		if pathType == PathStrKey || pathType == PathIntKey {
 			previousType = proto.MAP
 		} else if pathType == PathIndex {
@@ -517,7 +569,6 @@ func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, pa
 		}
 	}
 }
-
 
 // UnsetByPath searches longitudinally and unsets a sub value at the given path from the value.
 func (self *Value) UnsetByPath(path ...Path) error {
@@ -530,7 +581,17 @@ func (self *Value) UnsetByPath(path ...Path) error {
 		return err
 	}
 	// search parent node by path
-	var v,_ = self.GetByPath(path[:l-1]...)
+	var v, _ = self.GetByPath(path[:l-1]...)
+	// search full node by path
+	var v2, address2 = self.GetByPath(path[:l]...)
+	if v2.IsError() {
+		if v2.IsErrNotFound() {
+			print(address2)
+			return nil
+		}
+		return v2
+	}
+
 	if v.IsError() {
 		if v.IsErrNotFound() {
 			return nil
@@ -538,25 +599,40 @@ func (self *Value) UnsetByPath(path ...Path) error {
 		return v
 	}
 	p := path[l-1]
+	// get parent node descriptor
 	desc, err := GetDescByPath(self.rootDesc, path[:l-1]...)
+	isPacked := false
 	if p.t == PathFieldName {
 		if err != nil {
 			return err
 		}
 
-		if d, ok := (*desc).(proto.MessageDescriptor); ok{
+		if d, ok := (*desc).(proto.MessageDescriptor); ok {
 			f := d.Fields().ByName(proto.FieldName(p.str()))
 			p = NewPathFieldId(f.Number())
 		} else if d, ok := (*desc).(proto.FieldDescriptor); ok {
 			f := d.Message().Fields().ByName(proto.FieldName(p.str()))
 			p = NewPathFieldId(f.Number())
 		}
+	} else if p.t == PathIndex {
+		if err != nil {
+			return err
+		}
+		if d, ok := (*desc).(proto.FieldDescriptor); ok {
+			isPacked = d.IsPacked()
+		}
 	}
 	ret := v.deleteChild(p)
 	if ret.IsError() {
 		return ret
 	}
-	return self.replace(ret, Node{t: ret.t})
+	// isSingle judge whether only one childNode is deleted when parentNode type is Method/Packed List, you need to delete parentNode Tag and Length
+	originLen := len(self.raw())
+	if err = self.replace(ret, Node{t: ret.t}); err != nil {
+		return errValue(meta.ErrWrite, "replace node by empty node failed", err)
+	}
+	self.UpdateByteLen(originLen, address2, isPacked, path...)
+	return nil
 }
 
 // MarshalTo marshals self value into a sub value descripted by the to descriptor, alse called as "Cutting".
@@ -567,7 +643,7 @@ func (self Value) MarshalTo(to *proto.MessageDescriptor, opts *Options) ([]byte,
 	r.Buf = self.raw()
 	var from = self.rootDesc
 	messageLen := len(r.Buf)
-	if err := marshalTo(&r, w, from, to, opts,messageLen); err != nil {
+	if err := marshalTo(&r, w, from, to, opts, messageLen); err != nil {
 		return nil, err
 	}
 	ret := make([]byte, len(w.Buf))
@@ -575,7 +651,6 @@ func (self Value) MarshalTo(to *proto.MessageDescriptor, opts *Options) ([]byte,
 	binary.FreeBinaryProtocol(w)
 	return ret, nil
 }
-
 
 func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *proto.MessageDescriptor, to *proto.MessageDescriptor, opts *Options, massageLen int) error {
 	tail := read.Read + massageLen
@@ -621,9 +696,9 @@ func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *
 				return wrapError(meta.ErrRead, "", err)
 			}
 			write.Buf, pos = binary.AppendSpeculativeLength(write.Buf)
-			marshalTo(read, write, &fromDesc, &toDesc, opts,subMessageLen)
+			marshalTo(read, write, &fromDesc, &toDesc, opts, subMessageLen)
 			write.Buf = binary.FinishSpeculativeLength(write.Buf, pos)
-		} else{
+		} else {
 			start := read.Read
 			if err := read.Skip(wireType, opts.UseNativeSkip); err != nil {
 				return wrapError(meta.ErrRead, "", err)
@@ -637,7 +712,6 @@ func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *
 	}
 	return nil
 }
-
 
 func (self Value) GetByStr(key string) (v Value) {
 	if err := self.should("Get", proto.MAP); err != "" {
@@ -659,7 +733,7 @@ func (self Value) GetByStr(key string) (v Value) {
 			v = errValue(meta.ErrRead, "", it.Err)
 			goto ret
 		}
-		
+
 		if s == key {
 			vd := (*self.Desc).MapValue()
 			v = self.slice(ss, e, &vd)
@@ -731,7 +805,7 @@ func (self Value) Index(i int) (v Value) {
 			}
 
 			if it.HasNext() {
-				if _,_,_,err := it.p.ConsumeTag(); err!=nil {
+				if _, _, _, err := it.p.ConsumeTag(); err != nil {
 					return errValue(meta.ErrRead, "", err)
 				}
 			}
@@ -747,8 +821,8 @@ func (self Value) Index(i int) (v Value) {
 	}
 
 	s, e = it.Next(UseNativeSkipForGet)
-	
-	v = wrapValue(self.Node.slice(s - dataLen, e, self.et), self.Desc)
+
+	v = wrapValue(self.Node.slice(s-dataLen, e, self.et), self.Desc)
 
 	return
 }
@@ -828,11 +902,10 @@ func (self Value) Field(id proto.FieldNumber) (v Value) {
 		return errValue(meta.ErrUnknownField, fmt.Sprintf("field '%d' is not defined in IDL", id), nil)
 	}
 	// not found, try to scan the whole bytes
-	
+
 	if it.Err != nil {
 		return errValue(meta.ErrRead, "", it.Err)
 	}
-	
 
 	for it.HasNext() {
 		i, wt, s, e, tagPos := it.Next(UseNativeSkipForGet)
@@ -844,7 +917,7 @@ func (self Value) Field(id proto.FieldNumber) (v Value) {
 						return errValue(meta.ErrRead, "", err)
 					}
 				} else {
-					if _,err := it.p.ReadList(&f, false, false, false); err != nil {
+					if _, err := it.p.ReadList(&f, false, false, false); err != nil {
 						return errValue(meta.ErrRead, "", err)
 					}
 				}

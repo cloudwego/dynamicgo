@@ -81,65 +81,65 @@ func getExample2Req() *example2.ExampleReq {
 	req.InnerBase2.MapInt64String = map[int64]string{int64(1): "64aaa", int64(2): "64bbb", int64(3): "64ccc", int64(4): "64ddd"}
 	req.InnerBase2.ListString = []string{"111", "222", "333", "44", "51", "6"}
 	req.InnerBase2.ListBase = []*base.Base{{
-		LogID: "logId",
+		LogID:  "logId",
 		Caller: "caller",
-		Addr: "addr",
+		Addr:   "addr",
 		Client: "client",
 		TrafficEnv: &base.TrafficEnv{
 			Open: false,
-			Env: "env",
+			Env:  "env",
 		},
 		Extra: map[string]string{"1a": "aaa", "2a": "bbb", "3a": "ccc", "4a": "ddd"},
 	}, {
-		LogID: "logId2",
+		LogID:  "logId2",
 		Caller: "caller2",
-		Addr: "addr2",
+		Addr:   "addr2",
 		Client: "client2",
 		TrafficEnv: &base.TrafficEnv{
 			Open: true,
-			Env: "env2",
+			Env:  "env2",
 		},
 		Extra: map[string]string{"1a": "aaa2", "2a": "bbb2", "3a": "ccc2", "4a": "ddd2"},
 	}}
 	req.InnerBase2.MapInt64Base = map[int64]*base.Base{int64(1): {
-		LogID: "logId",
+		LogID:  "logId",
 		Caller: "caller",
-		Addr: "addr",
+		Addr:   "addr",
 		Client: "client",
 		TrafficEnv: &base.TrafficEnv{
 			Open: false,
-			Env: "env",
+			Env:  "env",
 		},
 		Extra: map[string]string{"1a": "aaa", "2a": "bbb", "3a": "ccc", "4a": "ddd"},
 	}, int64(2): {
-		LogID: "logId2",
+		LogID:  "logId2",
 		Caller: "caller2",
-		Addr: "addr2",
+		Addr:   "addr2",
 		Client: "client2",
 		TrafficEnv: &base.TrafficEnv{
 			Open: true,
-			Env: "env2",
+			Env:  "env2",
 		},
 		Extra: map[string]string{"1a": "aaa2", "2a": "bbb2", "3a": "ccc2", "4a": "ddd2"},
 	}}
 	req.InnerBase2.MapStringBase = map[string]*base.Base{"1": {
-		LogID: "logId",
+		LogID:  "logId",
 		Caller: "caller",
-		Addr: "addr",
+		Addr:   "addr",
 		Client: "client",
 		TrafficEnv: &base.TrafficEnv{
 			Open: false,
-			Env: "env",
+			Env:  "env",
 		},
 		Extra: map[string]string{"1a": "aaa", "2a": "bbb", "3a": "ccc", "4a": "ddd"},
 	}, "2": {
-		LogID: "logId2",
+		LogID:  "logId2",
 		Caller: "caller2",
-		Addr: "addr2",
+		Addr:   "addr2",
 		Client: "client2",
 		TrafficEnv: &base.TrafficEnv{
 			Open: true,
-			Env: "env2",
+			Env:  "env2",
 		},
 		Extra: map[string]string{"1a": "aaa2", "2a": "bbb2", "3a": "ccc2", "4a": "ddd2"},
 	}}
@@ -217,7 +217,6 @@ func countHelper(count *int, ps []PathNode) {
 	}
 }
 
-
 func TestMarshalTo(t *testing.T) {
 	desc := getExample2Desc()
 	data := getExample2Data()
@@ -234,7 +233,7 @@ func TestMarshalTo(t *testing.T) {
 		}
 		l += tagLen
 		data = data[tagLen:]
-		offset, err := exp.FastRead(data,int8(wtyp),int32(id))
+		offset, err := exp.FastRead(data, int8(wtyp), int32(id))
 		require.Nil(t, err)
 		data = data[offset:]
 		l += offset
@@ -259,7 +258,7 @@ func TestMarshalTo(t *testing.T) {
 				}
 				l += tagLen
 				buf = buf[tagLen:]
-				offset, err := ep.FastRead(buf,int8(wtyp),int32(id))
+				offset, err := ep.FastRead(buf, int8(wtyp), int32(id))
 				require.Nil(t, err)
 				buf = buf[offset:]
 				l += offset
@@ -267,7 +266,7 @@ func TestMarshalTo(t *testing.T) {
 			if len(buf) != 0 {
 				t.Fatal("test failed")
 			}
-			
+
 			act := toInterface(ep)
 			exp := toInterface(exp)
 			require.False(t, DeepEqual(act, exp))
@@ -282,7 +281,7 @@ func TestMarshalTo(t *testing.T) {
 			require.Nil(t, err)
 			ep := example2.ExampleReqPartial{}
 			bufLen := len(buf)
-			
+
 			l := 0
 			for l < bufLen {
 				id, wtyp, tagLen := goprotowire.ConsumeTag(buf)
@@ -291,7 +290,7 @@ func TestMarshalTo(t *testing.T) {
 				}
 				l += tagLen
 				buf = buf[tagLen:]
-				offset, err := ep.FastRead(buf,int8(wtyp),int32(id))
+				offset, err := ep.FastRead(buf, int8(wtyp), int32(id))
 				require.Nil(t, err)
 				buf = buf[offset:]
 				l += offset
@@ -325,7 +324,6 @@ func handlePartialMapStringString2(p map[int]interface{}) {
 
 }
 
-
 func TestGet(t *testing.T) {
 	desc := getExample2Desc()
 	data := getExample2Data()
@@ -340,7 +338,7 @@ func TestGet(t *testing.T) {
 		}
 		l += tagLen
 		data = data[tagLen:]
-		offset, err := exp.FastRead(data,int8(wtyp),int32(id))
+		offset, err := exp.FastRead(data, int8(wtyp), int32(id))
 		require.Nil(t, err)
 		data = data[offset:]
 		l += offset
@@ -352,7 +350,7 @@ func TestGet(t *testing.T) {
 
 	req := getExample2Req()
 	t.Run("GetByStr()", func(t *testing.T) {
-		v,_ := v.GetByPath(PathExampleMapStringString...)
+		v, _ := v.GetByPath(PathExampleMapStringString...)
 		require.Nil(t, v.Check())
 		v1, err := v.GetByStr("m1").String()
 		require.NoError(t, err)
@@ -364,7 +362,7 @@ func TestGet(t *testing.T) {
 	})
 
 	t.Run("GetByInt()", func(t *testing.T) {
-		v,_ := v.GetByPath(PathExampleMapInt32String...)
+		v, _ := v.GetByPath(PathExampleMapInt32String...)
 		require.Nil(t, v.Check())
 		v1, err := v.GetByInt(1).String()
 		require.NoError(t, err)
@@ -375,9 +373,8 @@ func TestGet(t *testing.T) {
 		require.Equal(t, req.InnerBase2.MapInt32String[999], v2)
 	})
 
-
 	t.Run("Index()", func(t *testing.T) {
-		v,_ := v.GetByPath(PathExampleListInt32...)
+		v, _ := v.GetByPath(PathExampleListInt32...)
 		require.Nil(t, v.Check())
 		v1, err := v.Index(1).Int()
 		require.NoError(t, err)
@@ -408,7 +405,7 @@ func TestGet(t *testing.T) {
 		d, err := a.Field(3).Uint()
 		require.Nil(t, err)
 		require.Equal(t, exp.InnerBase2.Uint64, uint64(d))
-		
+
 		e, err := a.Field(4).Int()
 		require.NotNil(t, err)
 		require.Equal(t, int(0), e)
@@ -435,8 +432,7 @@ func TestGet(t *testing.T) {
 		// require.Equal(t, exp.InnerBase2.ListInt32, vint32)
 		// checkHelper(t, exp.InnerBase2.ListInt32, list, "List") why error?
 		DeepEqual(exp.InnerBase2.ListInt32, v)
-		
-		
+
 		list1, err := a.Field(8).Index(1).Int()
 		require.Nil(t, err)
 		require.Equal(t, exp.InnerBase2.ListInt32[1], int32(list1))
@@ -471,7 +467,7 @@ func TestGet(t *testing.T) {
 	t.Run("GetByPath()", func(t *testing.T) {
 		exp := req.InnerBase2.ListInt32[1]
 
-		v1,_ := v.GetByPath(NewPathFieldId(proto.FieldNumber(3)), NewPathFieldId(8), NewPathIndex(1))
+		v1, _ := v.GetByPath(NewPathFieldId(proto.FieldNumber(3)), NewPathFieldId(8), NewPathIndex(1))
 		if v1.Error() != "" {
 			t.Fatal(v1.Error())
 		}
@@ -479,24 +475,24 @@ func TestGet(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int(exp), act)
 
-		v2,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1))
+		v2, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1))
 		if v2.Error() != "" {
 			t.Fatal(v2.Error())
 		}
 		require.Equal(t, v1, v2)
-		v3,_ := v.GetByPath(NewPathFieldId(proto.FieldNumber(3)), NewPathFieldName("ListInt32"), NewPathIndex(1))
+		v3, _ := v.GetByPath(NewPathFieldId(proto.FieldNumber(3)), NewPathFieldName("ListInt32"), NewPathIndex(1))
 		if v3.Error() != "" {
 			t.Fatal(v3.Error())
 		}
 		require.Equal(t, v1, v3)
-		v4,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(8), NewPathIndex(1))
+		v4, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(8), NewPathIndex(1))
 		if v4.Error() != "" {
 			t.Fatal(v4.Error())
 		}
 		require.Equal(t, v1, v4)
 
 		exp2 := req.InnerBase2.MapInt32String[2]
-		v5,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(12), NewPathIntKey(2))
+		v5, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(12), NewPathIntKey(2))
 		if v5.Error() != "" {
 			t.Fatal(v5.Error())
 		}
@@ -504,14 +500,14 @@ func TestGet(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, exp2, act2)
 
-		v6,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapInt32String"), NewPathIntKey(2))
+		v6, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapInt32String"), NewPathIntKey(2))
 		if v6.Error() != "" {
 			t.Fatal(v6.Error())
 		}
 		require.Equal(t, v5, v6)
 
 		exp3 := req.InnerBase2.MapStringString["m1"]
-		v7,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(9), NewPathStrKey("m1"))
+		v7, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(9), NewPathStrKey("m1"))
 		if v5.Error() != "" {
 			t.Fatal(v7.Error())
 		}
@@ -519,16 +515,16 @@ func TestGet(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, exp3, act3)
 
-		v8,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringString"), NewPathStrKey("m1"))
+		v8, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringString"), NewPathStrKey("m1"))
 		if v8.Error() != "" {
 			t.Fatal(v8.Error())
 		}
 		require.Equal(t, v8, v7)
 
-		v9,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(9), NewPathStrKey("m8"))
+		v9, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(9), NewPathStrKey("m8"))
 		require.Error(t, v9.Check())
 
-		v10,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(21), NewPathIndex(2))
+		v10, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(21), NewPathIndex(2))
 		if v10.Error() != "" {
 			t.Fatal(v10.Error())
 		}
@@ -536,7 +532,7 @@ func TestGet(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, req.InnerBase2.ListString[2], act10)
 
-		v11,_ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(19), NewPathIndex(1))
+		v11, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(19), NewPathIndex(1))
 		if v11.Error() != "" {
 			t.Fatal(v11.Error())
 		}
@@ -546,7 +542,6 @@ func TestGet(t *testing.T) {
 	})
 
 }
-
 
 func TestSetByPath(t *testing.T) {
 	desc := getExample2Desc()
@@ -566,7 +561,7 @@ func TestSetByPath(t *testing.T) {
 		f, _ := s.Float64()
 		require.Equal(t, math.MaxFloat64, f)
 		exp := float64(-0.1)
-		e, err := v.SetByPath(Value{NewNodeDouble(exp),nil,&ds}, NewPathFieldName("Subfix"))
+		e, err := v.SetByPath(Value{NewNodeDouble(exp), nil, &ds}, NewPathFieldName("Subfix"))
 		require.True(t, e)
 		require.Nil(t, err)
 		s, _ = v.GetByPath(NewPathFieldName("Subfix"))
@@ -587,7 +582,7 @@ func TestSetByPath(t *testing.T) {
 		e, err2 = v.SetByPath(NewValue(&d2, p.Buf), NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("2b"))
 		require.True(t, e)
 		require.Nil(t, err2)
-		s2,_  = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("2b"))
+		s2, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("2b"))
 		require.Empty(t, s2.Error())
 		f2, _ = s2.String()
 		require.Equal(t, exp2, f2)
@@ -595,7 +590,7 @@ func TestSetByPath(t *testing.T) {
 		exp3 := int32(math.MinInt32) + 1
 		v3 := Value{NewNodeInt32(exp3), nil, &d3}
 		ps := []Path{NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(2)}
-		parent,_ := v.GetByPath(ps[:len(ps)-1]...)
+		parent, _ := v.GetByPath(ps[:len(ps)-1]...)
 		l3, err := parent.Len()
 		require.Nil(t, err)
 		e, err = v.SetByPath(v3, ps...)
@@ -611,7 +606,7 @@ func TestSetByPath(t *testing.T) {
 	})
 
 	t.Run("insert", func(t *testing.T) {
-		s,_ := v.GetByPath(NewPathFieldName("A"))
+		s, _ := v.GetByPath(NewPathFieldName("A"))
 		require.True(t, s.IsErrNotFound())
 		exp := int32(-1024)
 		v1 := Value{NewNodeInt32(exp), nil, &d3}
@@ -675,4 +670,26 @@ func TestSetByPath(t *testing.T) {
 		act4, _ := s4.String()
 		DeepEqual(exp4, act4)
 	})
+}
+
+func TestUnsetByPath(t *testing.T) {
+	desc := getExample2Desc()
+	data := getExample2Data()
+	r := NewRootValue(desc, data)
+
+	v := r.Fork()
+	err := v.UnsetByPath()
+	require.Nil(t, err)
+
+	// test UnsetByPath without varint_length change
+	v = r.Fork()
+	n, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("String"))
+	require.False(t, n.IsError())
+	err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("String"))
+	require.NoError(t, err)
+	n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("String"))
+	require.True(t, n.IsErrNotFound())
+
+	// test UnsetByPath with varint_length change
+
 }
