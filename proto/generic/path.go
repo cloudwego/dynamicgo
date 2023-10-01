@@ -305,7 +305,7 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 		for p.Read < start + messageLen{
 			fieldNumber, wireType, _, tagErr := p.ConsumeTag()
 			if tagErr != nil {
-				return errNode(meta.ErrRead, "", tagErr)
+				return wrapError(meta.ErrRead, "PathNode.scanChildren: invalid field tag.", tagErr)
 			}
 			
 			// OPT: store children by id here, thus we can use id as index to access children.
@@ -317,9 +317,6 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 					l = maxId
 					maxId += 1
 				}
-			}
-			if fieldNumber == 255{
-				fmt.Println("fieldNumber == 255")
 			}
 			
 			field := fields.ByNumber(fieldNumber)
@@ -344,7 +341,7 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 		if FieldDesc.IsPacked() {
 			listLen, lengthErr := p.ReadLength()
 			if lengthErr != nil {
-				return errNode(meta.ErrRead, "", lengthErr)
+				return wrapError(meta.ErrRead, "PathNode.scanChildren: invalid list len", lengthErr)
 			}
 			start = p.Read
 			listIndex := 0
@@ -372,7 +369,7 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 
 				itemNumber, _, tagLen, tagErr := p.ConsumeTagWithoutMove()
 				if tagErr != nil {
-					return errNode(meta.ErrRead, "", tagErr)
+					return wrapError(meta.ErrRead, "PathNode.scanChildren: invalid element tag", tagErr)
 				}
 				
 				if itemNumber != fieldNumber {
@@ -390,12 +387,11 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 		for p.Read < len(p.Buf) {
 			pairLen, pairLenErr := p.ReadLength()
 			if pairLen <= 0 || pairLenErr != nil {
-				return errNode(meta.ErrRead, "", pairLenErr)
+				return wrapError(meta.ErrRead, "PathNode.scanChildren:invalid pair len", pairLenErr)
 			}
 		
-			_, _, _, keyTagErr := p.ConsumeTag()
-			if keyTagErr != nil {
-				return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+			if _, _, _, keyTagErr := p.ConsumeTag(); keyTagErr != nil {
+				return wrapError(meta.ErrRead, "PathNode.scanChildren: Consume map key tag failed", nil)
 			}
 		
 			var key interface{}
@@ -406,16 +402,15 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 			} else if self.kt.IsInt() {
 				key, keyErr = p.ReadInt(self.kt)
 			} else {
-				return meta.NewError(meta.ErrRead, "Unsupported key type", nil)
+				return wrapError(meta.ErrUnsupportedType, "PathNode.scanChildren: Unsupported map key type", nil)
 			}
 		
 			if keyErr != nil {
-				return errNode(meta.ErrRead, "", keyErr)
+				return wrapError(meta.ErrRead, "PathNode.scanChildren: can not read map key.", keyErr)
 			}
 		
-			_, _, _, valueTagErr := p.ConsumeTag()
-			if valueTagErr != nil {
-				return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+			if _, _, _, valueTagErr := p.ConsumeTag(); valueTagErr != nil {
+				return wrapError(meta.ErrRead, "PathNode.scanChildren: Consume map value tag failed", nil)
 			}
 		
 			v, err = self.handleChild(&next, &l, &c, p, recurse, opts, &valueDesc)
@@ -435,7 +430,7 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 		
 			pairNumber, _, tagLen, pairTagErr := p.ConsumeTagWithoutMove()
 			if pairTagErr != nil {
-				return meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
+				return wrapError(meta.ErrRead, "PathNode.scanChildren: Consume pair tag failed", nil)
 			}
 		
 			if pairNumber != mapDesc.Number() {
@@ -445,7 +440,7 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 			p.Read += tagLen
 		}
 	default:
-		return errNode(meta.ErrUnsupportedType, "", nil)
+		return wrapError(meta.ErrUnsupportedType, "PathNode.scanChildren: Unsupported children type", nil)
 	}
 
 	self.Next = next
@@ -475,7 +470,7 @@ func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *binary.Bi
 		}
 	} else {
 		if e := p.Skip(proto.Kind2Wire[kind], opts.UseNativeSkip); e != nil {
-			return nil, errNode(meta.ErrRead, "", e)
+			return nil, wrapError(meta.ErrRead, "skip field failed", e)
 		}
 		v.Node = self.slice(start, p.Read, et)
 	}
@@ -490,7 +485,7 @@ func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *binary.Bi
 			var err error
 			messageLen, err = p.ReadLength()
 			if messageLen<= 0 || err != nil {
-				panic("read message length failed")
+				return nil, wrapError(meta.ErrRead, "read message length failed", err)
 			}
 		}
 
@@ -520,7 +515,7 @@ func (self *PathNode) handleUnknownChild(in *[]PathNode, lp *int, cp *int, p *bi
 	start := p.Read
 	
 	if e := p.Skip(wireType, opts.UseNativeSkip); e != nil {
-		return nil, errNode(meta.ErrRead, "", e)
+		return nil, wrapError(meta.ErrRead, "skip unknown field failed", e)
 	}
 	v.Node = self.slice(start, p.Read, proto.UNKNOWN)
 
@@ -554,7 +549,7 @@ func (self *PathNode) handleListChild(in *[]PathNode, lp *int, cp *int, p *binar
 		}
 	} else {
 		if e := p.Skip(proto.Kind2Wire[kind], opts.UseNativeSkip); e != nil {
-			return nil, errNode(meta.ErrRead, "", e)
+			return nil, wrapError(meta.ErrRead, "skip list element failed", e)
 		}
 		v.Node = self.slice(start, p.Read, et)
 	}
@@ -569,7 +564,7 @@ func (self *PathNode) handleListChild(in *[]PathNode, lp *int, cp *int, p *binar
 			var err error
 			messageLen, err = p.ReadLength()
 			if messageLen<= 0 || err != nil {
-				panic("read message length failed")
+				return nil, wrapError(meta.ErrRead, "read message length failed", err)
 			}
 		}
 
@@ -614,17 +609,17 @@ func GetDescByPath(rootDesc *proto.MessageDescriptor, pathes ...Path) (ret *prot
 			case PathFieldId:
 				f := (*rootDesc).Fields().ByNumber(p.id())
 				if f == nil {
-					return nil, errNode(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", p.id()), nil)
+					return nil, wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", p.id()), nil)
 				}
 				desc = &f
 			case PathFieldName:
 				f := (*rootDesc).Fields().ByName(proto.FieldName(p.str()))
 				if f == nil {
-					return nil, errNode(meta.ErrUnknownField, fmt.Sprintf("unknown field %s", p.str()), nil)
+					return nil, wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %s", p.str()), nil)
 				}
 				desc = &f
 			default:
-				return nil, errNode(meta.ErrInvalidParam, "", nil)
+				return nil, wrapError(meta.ErrUnsupportedType, "unsupported path type", nil)
 			}
 		} else {
 			kind := (*desc).Kind()
@@ -635,17 +630,17 @@ func GetDescByPath(rootDesc *proto.MessageDescriptor, pathes ...Path) (ret *prot
 				case PathFieldId:
 					f := (*desc).Message().Fields().ByNumber(p.id())
 					if f == nil {
-						return nil, errNode(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", p.id()), nil)
+						return nil, wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", p.id()), nil)
 					}
 					desc = &f
 				case PathFieldName:
 					f := (*desc).Message().Fields().ByName(proto.FieldName(p.str()))
 					if f == nil {
-						return nil, errNode(meta.ErrUnknownField, fmt.Sprintf("unknown field %s", p.str()), nil)
+						return nil, wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %s", p.str()), nil)
 					}
 					desc = &f
 				default:
-					return nil, errNode(meta.ErrInvalidParam, "", nil)
+					return nil, wrapError(meta.ErrUnsupportedType, "unsupported path type", nil)
 				}
 			case proto.MAP:
 				valueDesc := (*desc).MapValue()
@@ -654,14 +649,14 @@ func GetDescByPath(rootDesc *proto.MessageDescriptor, pathes ...Path) (ret *prot
 			case proto.LIST:
 				continue
 			default:
-				return nil, errNode(meta.ErrInvalidParam, "", nil)
+				return nil, wrapError(meta.ErrInvalidParam, "unsupported path type", nil)
 			}
 		}
 
 		d := (*desc).(proto.Descriptor)
 		ret = &d
 		if ret == nil {
-			return nil, errNode(meta.ErrNotFound, "", err)
+			return nil, wrapError(meta.ErrNotFound, "descriptor is not found.", err)
 		}
 	}
 	return

@@ -30,7 +30,7 @@ var (
 
 //go:noinline
 func wrapError(code meta.ErrCode, msg string, err error) error {
-	return meta.NewError(meta.NewErrorCode(code, meta.THRIFT), msg, err)
+	return meta.NewError(meta.NewErrorCode(code, meta.PROTOBUF), msg, err)
 }
 
 //go:noinline
@@ -66,7 +66,7 @@ func errNode(code meta.ErrCode, msg string, err error) Node {
 }
 
 const (
-	lastErrNotFoud proto.Type = 0 //?
+	lastErrNotFoud proto.Type = 0 // UNKNOWN Type
 )
 
 //go:noinline
@@ -82,7 +82,7 @@ func errNotFoundLast(ptr unsafe.Pointer, parent proto.Type) Node {
 
 //go:noinline
 func errValue(code meta.ErrCode, msg string, err error) Value {
-	e := meta.NewError(meta.NewErrorCode(code, meta.THRIFT), msg, err).(meta.Error)
+	e := meta.NewError(meta.NewErrorCode(code, meta.PROTOBUF), msg, err).(meta.Error)
 	return Value{
 		Node: Node{
 			t: proto.ERROR,
@@ -95,7 +95,7 @@ func errValue(code meta.ErrCode, msg string, err error) Value {
 //go:noinline
 func errPathNode(code meta.ErrCode, msg string, err error) *PathNode {
 	// panic(code.Behavior())
-	e := meta.NewError(meta.NewErrorCode(code, meta.THRIFT), msg, err).(meta.Error)
+	e := meta.NewError(meta.NewErrorCode(code, meta.PROTOBUF), msg, err).(meta.Error)
 	return &PathNode{
 		Node: Node{
 			t: proto.ERROR,
@@ -105,12 +105,12 @@ func errPathNode(code meta.ErrCode, msg string, err error) *PathNode {
 	}
 }
 
-// IsEmpty tells if the node is thrift.STOP
+// IsEmpty tells if the node is PROTOBUF.STOP
 func (self Node) IsUnKnown() bool {
 	return self.t == proto.UNKNOWN
 }
 
-// IsEmtpy tells if the node is thrift.ERROR
+// IsEmtpy tells if the node is PROTOBUF.ERROR
 func (self Node) IsError() bool {
 	return self.t == proto.ERROR
 }
@@ -151,8 +151,6 @@ func (self Node) Error() string {
 			return (*meta.Error)(self.v).Error()
 		}
 		return fmt.Sprintf("%s", meta.ErrCode(self.l))
-	// case thrift.STOP:
-	// 	return "error empty node"
 	default:
 		return ""
 	}

@@ -1007,8 +1007,7 @@ func (p *BinaryProtocol) ReadMap(desc *proto.FieldDescriptor, copyString bool, d
 	keyDesc := (*desc).MapKey()
 	valueDesc := (*desc).MapValue()
 
-	_, lengthErr := p.ReadLength()
-	if lengthErr != nil {
+	if _, lengthErr := p.ReadLength(); lengthErr != nil {
 		return nil, lengthErr
 	}
 	// read first Pair
@@ -1029,8 +1028,7 @@ func (p *BinaryProtocol) ReadMap(desc *proto.FieldDescriptor, copyString bool, d
 			break
 		}
 		p.Read += n
-		_, pairLenErr := p.ReadLength()
-		if pairLenErr != nil {
+		if _, pairLenErr := p.ReadLength(); pairLenErr != nil {
 			return nil, pairLenErr
 		}
 		key, value, pairReadErr := p.ReadPair(&keyDesc, &valueDesc, copyString, disallowUnknonw, useFieldName)
@@ -1164,6 +1162,6 @@ func (p *BinaryProtocol) ReadBaseTypeWithDesc(desc *proto.FieldDescriptor, copyS
 			return retFieldID, nil
 		}
 	default:
-		return nil, meta.ErrRead
+		return nil, errInvalidDataType
 	}
 }

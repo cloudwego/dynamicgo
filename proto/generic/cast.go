@@ -20,17 +20,7 @@ func (self Node) should(api string, t1 proto.Type) string {
 	return fmt.Sprintf("API `%s` only supports %+v type", api, t1)
 }
 
-func (self Node) should2(api string, t1 proto.Type, t2 proto.Type) string {
-	if self.t == proto.ERROR {
-		return self.Error()
-	}
-	if self.t == t1 || self.t == t2 {
-		return ""
-	}
-	return fmt.Sprintf("API `%s` only supports %s or %s type", api, t1, t2)
-}
-
-// Len returns the element count of container-kind type (LIST/SET/MAP)
+// Len returns the element count of container-kind type (LIST/MAP)
 func (self Node) Len() (int, error) {
 	if self.IsError() {
 		return 0, self
@@ -38,13 +28,12 @@ func (self Node) Len() (int, error) {
 	return self.len()
 }
 
-// TODO: len
 func (self Node) len() (int, error) {
 	switch self.t {
 	case proto.LIST, proto.MAP:
 		return self.size, nil
 	default:
-		return -1, errNode(meta.ErrUnsupportedType, "", nil)
+		return -1, errNode(meta.ErrUnsupportedType, "Node.len: len() only used in LIST/MAP", nil)
 	}
 }
 
@@ -58,23 +47,6 @@ func (self Node) Raw() []byte {
 		return nil
 	}
 	return self.raw()
-}
-
-// Byte returns the byte value contained by a I8/BYTE node
-func (self Node) Byte() (byte, error) {
-	if self.IsError() {
-		return 0, self
-	}
-	return self.byte()
-}
-
-func (self Node) byte() (byte, error) {
-	switch self.t {
-	case proto.BYTE:
-		return byte(protowire.BinaryDecoder{}.DecodeByte(rt.BytesFrom(self.v, int(self.l), int(self.l)))), nil
-	default:
-		return 0, errNode(meta.ErrUnsupportedType, "", nil)
-	}
 }
 
 // Bool returns the bool value contained by a BOOL node
@@ -91,11 +63,11 @@ func (self Node) bool() (bool, error) {
 		v, _ := protowire.BinaryDecoder{}.DecodeBool(rt.BytesFrom(self.v, int(self.l), int(self.l)))
 		return v, nil
 	default:
-		return false, errNode(meta.ErrUnsupportedType, "", nil)
+		return false, errNode(meta.ErrUnsupportedType, "Node.bool: the Node type is not BOOL", nil)
 	}
 }
 
-// Int returns the int value contaned by a I8/I16/I32/I64 node
+// Uint returns the uint value contained by a UINT32/UINT64/FIX32/FIX64 node
 func (self Node) Uint() (uint, error) {
 	if self.IsError() {
 		return 0, self
@@ -119,11 +91,11 @@ func (self Node) uint() (uint, error) {
 		v, _ := protowire.BinaryDecoder{}.DecodeFixed64(buf)
 		return uint(v), nil
 	default:
-		return 0, errNode(meta.ErrUnsupportedType, "", nil)
+		return 0, errNode(meta.ErrUnsupportedType, "Node.uint: the Node type is not UINT32/UINT64/FIX32/FIX64", nil)
 	}
 }
 
-// Int returns the int value contaned by a I8/I16/I32/I64 node
+// Int returns the int value contained by a INT32/SINT32/SFIX32/INT64/SINT64/SFIX64 node
 func (self Node) Int() (int, error) {
 	if self.IsError() {
 		return 0, self
@@ -153,7 +125,7 @@ func (self Node) int() (int, error) {
 		v, _ := protowire.BinaryDecoder{}.DecodeSfixed64(buf)
 		return int(v), nil
 	default:
-		return 0, errNode(meta.ErrUnsupportedType, "", nil)
+		return 0, errNode(meta.ErrUnsupportedType, "Node.int: the Node type is not INT32/SINT32/SFIX32/INT64/SINT64/SFIX64", nil)
 	}
 }
 
@@ -171,7 +143,7 @@ func (self Node) float64() (float64, error) {
 		v, _ := protowire.BinaryDecoder{}.DecodeDouble(rt.BytesFrom(self.v, int(self.l), int(self.l)))
 		return v, nil
 	default:
-		return 0, errNode(meta.ErrUnsupportedType, "", nil)
+		return 0, errNode(meta.ErrUnsupportedType, "Node.float64: the Node type is not DOUBLE", nil)
 	}
 }
 
@@ -187,18 +159,13 @@ func (self Node) string() (string, error) {
 	switch self.t {
 	case proto.STRING:
 		str, _, _ := protowire.BinaryDecoder{}.DecodeString(rt.BytesFrom(self.v, int(self.l), int(self.l)))
-		// if self.d.IsBinary() {
-		// 	if !utf8.Valid(rt.Str2Mem(str)) {
-		// 		return "", errNode(meta.ErrInvalidParam, "invalid utf8 string", nil)
-		// 	}
-		// }
 		return str, nil
 	default:
-		return "", errNode(meta.ErrUnsupportedType, "", nil)
+		return "", errNode(meta.ErrUnsupportedType, "Node.float64: the Node type is not STRING", nil)
 	}
 }
 
-// Binary returns the bytes value contained by a BINARY node
+// Binary returns the bytes value contained by a BYTE node
 func (self Node) Binary() ([]byte, error) {
 	if self.IsError() {
 		return nil, self
@@ -213,7 +180,7 @@ func (self Node) binary() ([]byte, error) {
 		v, _,_ := protowire.BinaryDecoder{}.DecodeBytes(rt.BytesFrom(self.v, int(self.l), int(self.l)))
 		return v, nil
 	default:
-		return nil, errNode(meta.ErrUnsupportedType, "", nil)
+		return nil, errNode(meta.ErrUnsupportedType, "Node.binary: the Node type is not BYTE", nil)
 	}
 }
 
@@ -262,7 +229,7 @@ func (self Value) IntMap(opts *Options) (map[int]interface{}, error) {
 	for key, value := range originalMap {
 		intKey, ok := castInterfaceToInt(key)
 		if !ok {
-			return nil, meta.NewError(meta.ErrConvert, "convert error", nil)
+			return nil, wrapError(meta.ErrConvert, "Value.StrMap: key type is not int", nil)
 		}
 		newMap[intKey] = value
 	}
@@ -278,7 +245,7 @@ func (self Value) StrMap(opts *Options) (map[string]interface{}, error) {
 	for key, value := range originalMap {
 		strKey, ok := key.(string)
 		if !ok {
-			return nil, meta.NewError(meta.ErrConvert, "convert error", nil)
+			return nil, wrapError(meta.ErrConvert, "Value.StrMap: key type is not string", nil)
 		}
 		newMap[strKey] = value
 	}
@@ -292,7 +259,7 @@ func (self Value) Struct(opts *Options) (map[interface{}]interface{}, error) {
 	useFieldName := false
 	ret, err := p.ReadBaseTypeWithDesc(self.Desc,false,opts.DisallowUnknow,useFieldName)
 	if err != nil {
-		return nil, meta.NewError(meta.ErrRead,"read struct error",nil)
+		return nil, wrapError(meta.ErrRead,"Value.Struct: read struct error",nil)
 	}
 
 	result := make(map[interface{}]interface{})
@@ -312,8 +279,8 @@ func (self Value) Struct(opts *Options) (map[interface{}]interface{}, error) {
 }
 
 // Interface returns the go interface value contained by a node.
-// If the node is a STRUCT, it will return a map[thrift.FieldID]interface{}
-// If it is a map, it will return map[int|string|interface{}]interface{}, which depends on the key type
+// If the node is a STRUCT, it will return map[interface{}]interface{}
+// If it is a map, it will return map[int|string]interface{}, which depends on the key type
 func (self Value) Interface(opts *Options) (interface{}, error) {
 	switch self.t {
 	case proto.ERROR:
@@ -339,7 +306,7 @@ func (self Value) Interface(opts *Options) (interface{}, error) {
 		} else if kt.IsInt() {
 			return self.IntMap(opts)
 		} else {
-			return 0, errNode(meta.ErrUnsupportedType, "not support other key type", nil)
+			return 0, errNode(meta.ErrUnsupportedType, "Value.Interface: not support other Mapkey type", nil)
 		}
 	case proto.MESSAGE:
 		return self.Struct(opts)

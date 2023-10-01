@@ -13,14 +13,13 @@ func (self Node) iterFields() (fi structIterator) {
 
 func (self Node) iterElems() (fi listIterator) {
 	buf := self.raw()
-	// fi = listIteratorPool.Get().(*ListIterator)
 	fi.p.Buf = buf
 	if _, wtyp, _, err := fi.p.ConsumeTag(); err != nil {
-		fi.Err = meta.NewError(meta.ErrRead, "", err)
+		fi.Err = wrapError(meta.ErrRead, "ListIterator.iterElems: consume list tag error.", err)
 		return
 	} else {
 		if wtyp != proto.BytesType {
-			fi.Err = wrapError(meta.ErrUnsupportedType, "ListIterator: wire type is not bytes.", nil)
+			fi.Err = wrapError(meta.ErrUnsupportedType, "ListIterator.iterElems: wire type is not bytes.", nil)
 			return
 		}
 		// maybe we could calculate fi.size in the fulture.
@@ -37,11 +36,11 @@ func (self Node) iterPairs() (fi mapIterator) {
 	// fi = pairIteratorPool.Get().(*PairIterator)
 	fi.p.Buf = buf
 	if _, wtyp, _, err := fi.p.ConsumeTagWithoutMove(); err != nil {
-		fi.Err = meta.NewError(meta.ErrRead, "", err)
+		fi.Err = wrapError(meta.ErrRead, "MapIterator.iterPairs: consume map tag error.", err)
 		return
 	} else {
 		if wtyp != proto.BytesType {
-			fi.Err = wrapError(meta.ErrUnsupportedType, "MapIterator: wire type is not bytes.", nil)
+			fi.Err = wrapError(meta.ErrUnsupportedType, "MapIterator.iterPairs: wire type is not bytes.", nil)
 		}
 		// maybe we could calculate fi.size in the fulture.
 		fi.size = -1
@@ -67,15 +66,14 @@ func (it *structIterator) Next(useNative bool) (id proto.FieldNumber, typ proto.
 	tagPos = it.p.Read
 	fieldId, wireType, _, err := it.p.ConsumeTag()
 	if err != nil {
-		it.Err = meta.NewError(meta.ErrRead, "", err)
+		it.Err = wrapError(meta.ErrRead, "StructIterator.Next: consume field tag error.", err)
 		return
 	}
 
 	start = it.p.Read
 	typ = wireType
-	err = it.p.Skip(wireType, useNative)
-	if err != nil {
-		it.Err = meta.NewError(meta.ErrRead, "", err)
+	if err = it.p.Skip(wireType, useNative); err != nil {
+		it.Err = wrapError(meta.ErrRead, "StructIterator.Next: skip field data error.", err)
 		return
 	}
 	end = it.p.Read
@@ -114,9 +112,8 @@ func (it listIterator) WireType() proto.WireType {
 
 func (it *listIterator) Next(useNative bool) (start int, end int) {
 	start = it.p.Read
-	err := it.p.Skip(it.ewt, useNative)
-	if err != nil {
-		it.Err = meta.NewError(meta.ErrRead, "", err)
+	if err := it.p.Skip(it.ewt, useNative); err != nil {
+		it.Err = wrapError(meta.ErrRead, "ListIterator: skip list element error.", err)
 		return
 	}
 	end = it.p.Read
@@ -151,12 +148,12 @@ func (it mapIterator) Pos() int {
 
 func (it *mapIterator) NextStr(useNative bool) (keyStart int, keyString string, start int, end int) {
 	if _, _, _, err := it.p.ConsumeTag(); err != nil {
-		it.Err = meta.NewError(meta.ErrRead, "", err)
+		it.Err = wrapError(meta.ErrRead, "MapIterator: consume pair tag error.", err)
 		return
 	}
 
 	if _, err := it.p.ReadLength(); err != nil {
-		it.Err = meta.NewError(meta.ErrRead, "", err)
+		it.Err = wrapError(meta.ErrRead, "MapIterator: consume pair length error.", err)
 		return
 	}
 
@@ -166,7 +163,7 @@ func (it *mapIterator) NextStr(useNative bool) (keyStart int, keyString string, 
 		// need read tag?
 		_,kwType,_,err := it.p.ConsumeTag()
 		if err != nil {
-			it.Err = meta.NewError(meta.ErrRead, "", err)
+			it.Err = wrapError(meta.ErrRead, "MapIterator: consume key tag error.", err)
 			return
 		}
 
@@ -177,18 +174,18 @@ func (it *mapIterator) NextStr(useNative bool) (keyStart int, keyString string, 
 
 		keyString, err = it.p.ReadString(false)
 		if err != nil {
-			it.Err = meta.NewError(meta.ErrRead, "", err)
+			it.Err = wrapError(meta.ErrRead, "", err)
 			return
 		}
 	} else {
-		it.Err = wrapError(meta.ErrUnsupportedType, "MapIterator.nextStr: key type is not string", nil)
+		it.Err = wrapError(meta.ErrUnsupportedType, "MapIterator.nextStr: key type is not string.", nil)
 		return
 	}
 
 	// read value tag
 	_,ewType,_,err := it.p.ConsumeTag()
 	if err != nil {
-		it.Err = meta.NewError(meta.ErrRead, "", err)
+		it.Err = wrapError(meta.ErrRead, "", err)
 		return
 	}
 
@@ -200,7 +197,7 @@ func (it *mapIterator) NextStr(useNative bool) (keyStart int, keyString string, 
 	start = it.p.Read
 	
 	if err = it.p.Skip(it.vwt,useNative); err != nil {
-		it.Err = meta.NewError(meta.ErrRead, "", err)
+		it.Err = wrapError(meta.ErrRead, "", err)
 		return
 	}
 	end = it.p.Read
@@ -211,12 +208,12 @@ func (it *mapIterator) NextStr(useNative bool) (keyStart int, keyString string, 
 
 func (it *mapIterator) NextInt(useNative bool) (keyStart int, keyInt int, start int, end int) {
 	if _, _, _, err := it.p.ConsumeTag(); err != nil {
-		it.Err = meta.NewError(meta.ErrRead, "", err)
+		it.Err = wrapError(meta.ErrRead, "", err)
 		return
 	}
 
 	if _, err := it.p.ReadLength(); err != nil {
-		it.Err = meta.NewError(meta.ErrRead, "", err)
+		it.Err = wrapError(meta.ErrRead, "", err)
 		return
 	}
 	
@@ -226,7 +223,7 @@ func (it *mapIterator) NextInt(useNative bool) (keyStart int, keyInt int, start 
 		// need read tag?
 		_,kwType,_,err := it.p.ConsumeTag()
 		if err != nil {
-			it.Err = meta.NewError(meta.ErrRead, "", err)
+			it.Err = wrapError(meta.ErrRead, "", err)
 			return
 		}
 
@@ -237,7 +234,7 @@ func (it *mapIterator) NextInt(useNative bool) (keyStart int, keyInt int, start 
 
 		keyInt, err = it.p.ReadInt(it.kt)
 		if err != nil {
-			it.Err = meta.NewError(meta.ErrRead, "", err)
+			it.Err = wrapError(meta.ErrRead, "", err)
 			return
 		}
 
@@ -249,7 +246,7 @@ func (it *mapIterator) NextInt(useNative bool) (keyStart int, keyInt int, start 
 	// read value tag
 	_,ewType,_,err := it.p.ConsumeTag()
 	if err != nil {
-		it.Err = meta.NewError(meta.ErrRead, "", err)
+		it.Err = wrapError(meta.ErrRead, "", err)
 		return
 	}
 
@@ -262,7 +259,7 @@ func (it *mapIterator) NextInt(useNative bool) (keyStart int, keyInt int, start 
 	err = it.p.Skip(it.vwt,
 		 useNative)
 	if err != nil {
-		it.Err = meta.NewError(meta.ErrRead, "", err)
+		it.Err = wrapError(meta.ErrRead, "", err)
 		return
 	}
 	end = it.p.Read
