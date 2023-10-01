@@ -25,16 +25,17 @@ const (
 )
 
 var (
-	errDismatchPrimitive = meta.NewError(meta.ErrDismatchType, "dismatch primitive types", nil)
-	errInvalidDataSize   = meta.NewError(meta.ErrInvalidParam, "invalid data size", nil)
-	errInvalidTag        = meta.NewError(meta.ErrInvalidParam, "invalid tag in ReadMessageBegin", nil)
-	errExceedDepthLimit  = meta.NewError(meta.ErrStackOverflow, "exceed depth limit", nil)
-	errInvalidDataType   = meta.NewError(meta.ErrRead, "invalid data type", nil)
-	errUnknonwField      = meta.NewError(meta.ErrUnknownField, "unknown field", nil)
-	errUnsupportedType   = meta.NewError(meta.ErrUnsupportedType, "unsupported type", nil)
-	errNotImplemented    = meta.NewError(meta.ErrNotImplemented, "not implemted type", nil)
-	errCodeFieldNumber   = meta.NewError(meta.ErrConvert, "invalid field number", nil)
-	errDecodeField       = meta.NewError(meta.ErrRead, "cannot parse invalid wire-format data", nil)
+	errDismatchPrimitive  = meta.NewError(meta.ErrDismatchType, "dismatch primitive types", nil)
+	errInvalidDataSize    = meta.NewError(meta.ErrInvalidParam, "invalid data size", nil)
+	errInvalidTag         = meta.NewError(meta.ErrInvalidParam, "invalid tag in ReadMessageBegin", nil)
+	errInvalidFieldNumber = meta.NewError(meta.ErrInvalidParam, "invalid field number", nil)
+	errExceedDepthLimit   = meta.NewError(meta.ErrStackOverflow, "exceed depth limit", nil)
+	errInvalidDataType    = meta.NewError(meta.ErrRead, "invalid data type", nil)
+	errUnknonwField       = meta.NewError(meta.ErrUnknownField, "unknown field", nil)
+	errUnsupportedType    = meta.NewError(meta.ErrUnsupportedType, "unsupported type", nil)
+	errNotImplemented     = meta.NewError(meta.ErrNotImplemented, "not implemted type", nil)
+	ErrConvert			  = meta.NewError(meta.ErrConvert, "convert type error", nil)
+	errDecodeField        = meta.NewError(meta.ErrRead, "invalid field data", nil)
 )
 
 // We append to an empty array rather than a nil []byte to get non-nil zero-length byte slices.
@@ -136,6 +137,9 @@ func (p *BinaryProtocol) Recycle() {
 // Append Tag
 func (p *BinaryProtocol) AppendTag(num proto.Number, typ proto.WireType) error {
 	tag := uint64(num)<<3 | uint64(typ&7)
+	if num > proto.MaxValidNumber || num < proto.MinValidNumber{
+		return errInvalidFieldNumber
+	}
 	p.Buf = protowire.BinaryEncoder{}.EncodeUint64(p.Buf, tag)
 	return nil
 }
@@ -152,7 +156,7 @@ func (p *BinaryProtocol) ConsumeTag() (proto.Number, proto.WireType, int, error)
 	}
 	num, typ := proto.Number(v>>3), proto.WireType(v&7)
 	if num < proto.MinValidNumber {
-		return 0, 0, n, errCodeFieldNumber
+		return 0, 0, n, errInvalidFieldNumber
 	}
 	return num, typ, n, err
 }
@@ -168,7 +172,7 @@ func (p *BinaryProtocol) ConsumeTagWithoutMove() (proto.Number, proto.WireType, 
 	}
 	num, typ := proto.Number(v>>3), proto.WireType(v&7)
 	if num < proto.MinValidNumber {
-		return 0, 0, n, errCodeFieldNumber
+		return 0, 0, n, errInvalidFieldNumber
 	}
 	return num, typ, n, nil
 }
@@ -343,7 +347,6 @@ func (p *BinaryProtocol) WriteList(desc *proto.FieldDescriptor, val interface{})
 		var pos int
 		p.Buf, pos = AppendSpeculativeLength(p.Buf)
 		for _, v := range vs {
-
 			if err := p.WriteBaseTypeWithDesc(desc, v, true, false, true); err != nil {
 				return err
 			}
@@ -356,7 +359,10 @@ func (p *BinaryProtocol) WriteList(desc *proto.FieldDescriptor, val interface{})
 	kind := fd.Kind()
 	for _, v := range vs {
 		// share the same field number for Tag
-		p.AppendTag(fd.Number(), proto.Kind2Wire[kind])
+		if err := p.AppendTag(fd.Number(), proto.Kind2Wire[kind]); err != nil {
+			return err
+		}
+		
 		if err := p.WriteBaseTypeWithDesc(desc, v, true, false, true); err != nil {
 			return err
 		}
@@ -429,162 +435,222 @@ func (p *BinaryProtocol) WriteMessageSlow(desc *proto.FieldDescriptor, val inter
 // WriteBaseType with desc, not thread safe
 func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val interface{}, cast bool, disallowUnknown bool, useFieldName bool) error {
 	switch (*fd).Kind() {
-	case protoreflect.Kind(proto.BoolKind):
+	case proto.BoolKind:
 		v, ok := val.(bool)
 		if !ok {
-			var err error
-			v, err = primitive.ToBool(val)
-			if err != nil {
-				return err
+			if !cast {
+				return errDismatchPrimitive
+			} else {
+				var err error
+				v, err = primitive.ToBool(val)
+				if err != nil {
+					return meta.NewError(meta.ErrConvert, "", err)
+				}
 			}
 		}
 		p.WriteBool(v)
-	case protoreflect.Kind(proto.EnumKind):
+	case proto.EnumKind:
 		v, ok := val.(proto.EnumNumber)
 		if !ok {
-			return meta.NewError(meta.ErrConvert, "WriteEnum error", nil)
+			return meta.NewError(meta.ErrConvert, "convert enum error", nil)
 		}
 		p.WriteEnum(v)
-	case protoreflect.Kind(proto.Int32Kind):
+	case proto.Int32Kind:
 		v, ok := val.(int32)
 		if !ok {
-			var err error
-			vv, err := primitive.ToInt64(v)
-			if err != nil {
-				return err
+			if !cast {
+				return errDismatchPrimitive
+			} else {
+				var err error
+				vv, err := primitive.ToInt64(v)
+				if err != nil {
+					return meta.NewError(meta.ErrConvert, "", err)
+				}
+				v = int32(vv)
 			}
-			v = int32(vv)
 		}
 		p.WriteI32(v)
-	case protoreflect.Kind(proto.Sint32Kind):
+	case proto.Sint32Kind:
 		v, ok := val.(int32)
 		if !ok {
-			var err error
-			vv, err := primitive.ToInt64(v)
-			if err != nil {
-				return err
+			if !cast {
+				return errDismatchPrimitive
+			} else {
+				var err error
+				vv, err := primitive.ToInt64(v)
+				if err != nil {
+					return meta.NewError(meta.ErrConvert, "", err)
+				}
+				v = int32(vv)
 			}
-			v = int32(vv)
 		}
 		p.WriteSint32(v)
-	case protoreflect.Kind(proto.Uint32Kind):
+	case proto.Uint32Kind:
 		v, ok := val.(uint32)
 		if !ok {
-			var err error
-			vv, err := primitive.ToInt64(v)
-			if err != nil {
-				return err
+			if !cast {
+				return errDismatchPrimitive
+			} else {
+				var err error
+				vv, err := primitive.ToInt64(v)
+				if err != nil {
+					return meta.NewError(meta.ErrConvert, "", err)
+				}
+				v = uint32(vv)
 			}
-			v = uint32(vv)
 		}
 		p.WriteUint32(v)
-	case protoreflect.Kind(proto.Int64Kind):
+	case proto.Int64Kind:
 		v, ok := val.(int64)
 		if !ok {
-			var err error
-			v, err = primitive.ToInt64(v)
-			if err != nil {
-				return err
+			if !cast {
+				return errDismatchPrimitive
+			} else {
+				var err error
+				v, err = primitive.ToInt64(v)
+				if err != nil {
+					return meta.NewError(meta.ErrConvert, "", err)
+				}
 			}
 		}
 		p.WriteI64(v)
-	case protoreflect.Kind(proto.Sint64Kind):
+	case proto.Sint64Kind:
 		v, ok := val.(int64)
 		if !ok {
-			var err error
-			v, err = primitive.ToInt64(v)
-			if err != nil {
-				return err
+			if !cast {
+				return errDismatchPrimitive
+			} else {
+				var err error
+				v, err = primitive.ToInt64(v)
+				if err != nil {
+					return meta.NewError(meta.ErrConvert, "", err)
+				}
 			}
 		}
 		p.WriteSint64(v)
-	case protoreflect.Kind(proto.Uint64Kind):
+	case proto.Uint64Kind:
 		v, ok := val.(uint64)
 		if !ok {
-			var err error
-			vv, err := primitive.ToInt64(v)
-			if err != nil {
-				return err
+			if !cast {
+				return errDismatchPrimitive
+			} else {
+				var err error
+				vv, err := primitive.ToInt64(v)
+				if err != nil {
+					return meta.NewError(meta.ErrConvert, "", err)
+				}
+				v = uint64(vv)
 			}
-			v = uint64(vv)
 		}
 		p.WriteUint64(v)
-	case protoreflect.Kind(proto.Sfixed32Kind):
+	case proto.Sfixed32Kind:
 		v, ok := val.(int32)
 		if !ok {
-			var err error
-			vv, err := primitive.ToInt64(v)
-			if err != nil {
-				return err
+			if !cast {
+				return errDismatchPrimitive
+			} else {
+				var err error
+				vv, err := primitive.ToInt64(v)
+				if err != nil {
+					return meta.NewError(meta.ErrConvert, "", err)
+				}
+				v = int32(vv)
 			}
-			v = int32(vv)
 		}
 		p.WriteSfixed32(v)
-	case protoreflect.Kind(proto.Fixed32Kind):
+	case proto.Fixed32Kind:
 		v, ok := val.(int32)
 		if !ok {
-			var err error
-			vv, err := primitive.ToInt64(v)
-			if err != nil {
-				return err
+			if !cast {
+				return errDismatchPrimitive
+			} else {
+				var err error
+				vv, err := primitive.ToInt64(v)
+				if err != nil {
+					return meta.NewError(meta.ErrConvert, "", err)
+				}
+				v = int32(vv)
 			}
-			v = int32(vv)
 		}
 		p.WriteFixed32(v)
-	case protoreflect.Kind(proto.FloatKind):
+	case proto.FloatKind:
 		v, ok := val.(float32)
 		if !ok {
-			var err error
-			vfloat64, err := primitive.ToFloat64(v)
-			v = float32(vfloat64)
-			if err != nil {
-				return err
+			if !cast {
+				return errDismatchPrimitive
+			} else {
+				var err error
+				vfloat64, err := primitive.ToFloat64(v)
+				v = float32(vfloat64)
+				if err != nil {
+					return meta.NewError(meta.ErrConvert, "", err)
+				}
 			}
 		}
 		p.WriteFloat(v)
-	case protoreflect.Kind(proto.Sfixed64Kind):
+	case proto.Sfixed64Kind:
 		v, ok := val.(int64)
 		if !ok {
-			var err error
-			v, err = primitive.ToInt64(v)
-			if err != nil {
-				return err
+			if !cast {
+				return errDismatchPrimitive
+			} else {
+				var err error
+				v, err = primitive.ToInt64(v)
+				if err != nil {
+					return meta.NewError(meta.ErrConvert, "", err)
+				}
 			}
 		}
 		p.WriteSfixed64(v)
-	case protoreflect.Kind(proto.Fixed64Kind):
+	case proto.Fixed64Kind:
 		v, ok := val.(int64)
 		if !ok {
-			var err error
-			v, err = primitive.ToInt64(v)
-			if err != nil {
-				return err
+			if !cast {
+				return errDismatchPrimitive
+			} else {
+				var err error
+				v, err = primitive.ToInt64(v)
+				if err != nil {
+					return meta.NewError(meta.ErrConvert, "", err)
+				}
 			}
 		}
 		p.WriteSfixed64(v)
-	case protoreflect.Kind(proto.DoubleKind):
+	case proto.DoubleKind:
 		v, ok := val.(float64)
 		if !ok {
-			var err error
-			v, err = primitive.ToFloat64(v)
-			if err != nil {
-				return err
+			if !cast {
+				return errDismatchPrimitive
+			} else {
+				var err error
+				v, err = primitive.ToFloat64(v)
+				if err != nil {
+					return meta.NewError(meta.ErrConvert, "", err)
+				}
 			}
 		}
 		p.WriteDouble(v)
-	case protoreflect.Kind(proto.StringKind):
+	case proto.StringKind:
 		v, ok := val.(string)
 		if !ok {
-			return meta.NewError(meta.ErrConvert, string((*fd).FullName()), nil)
+			if !cast {
+				return errDismatchPrimitive
+			} else {
+				var err error
+				v, err = primitive.ToString(v)
+				if err != nil {
+					return meta.NewError(meta.ErrConvert, "", err)
+				}
+			}
 		}
 		p.WriteString(v)
-	case protoreflect.Kind(proto.BytesKind):
+	case proto.BytesKind:
 		v, ok := val.([]byte)
 		if !ok {
-			return errors.New("WriteBytesType error")
+			return meta.NewError(meta.ErrConvert, "write bytes kind error", nil)
 		}
 		p.WriteBytes(v)
-	case protoreflect.Kind(proto.MessageKind):
+	case proto.MessageKind:
 		var ok bool
 		var pos int
 		p.Buf, pos = AppendSpeculativeLength(p.Buf)
@@ -596,8 +662,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 		if !ok {
 			return errDismatchPrimitive
 		}
-		err := p.WriteMessageSlow(fd, val, cast, disallowUnknown, useFieldName)
-		if err != nil {
+		if err := p.WriteMessageSlow(fd, val, cast, disallowUnknown, useFieldName); err != nil {
 			return err
 		}
 		p.Buf = FinishSpeculativeLength(p.Buf, pos)
@@ -608,7 +673,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 }
 
 // WriteAnyWithDesc explain desc and val and write them into buffer
-//   - LIST/SET will be converted from []interface{}
+//   - LIST will be converted from []interface{}
 //   - MAP will be converted from map[string]interface{} or map[int]interface{}
 //   - STRUCT will be converted from map[FieldNumber]interface{} or map[string]interface{}
 func (p *BinaryProtocol) WriteAnyWithDesc(desc *proto.FieldDescriptor, val interface{}, cast bool, disallowUnknown bool, useFieldName bool) error {
@@ -620,7 +685,7 @@ func (p *BinaryProtocol) WriteAnyWithDesc(desc *proto.FieldDescriptor, val inter
 		return p.WriteMap(desc, val)
 	default:
 		if e := p.AppendTag(proto.Number(fd.Number()), proto.Kind2Wire[fd.Kind()]); e != nil {
-			return meta.NewError(meta.ErrWrite, "AppenddescTag failed", nil)
+			return meta.NewError(meta.ErrWrite, "append field tag failed", nil)
 		}
 		return p.WriteBaseTypeWithDesc(desc, val, cast, disallowUnknown, useFieldName)
 	}
@@ -741,7 +806,7 @@ func (p *BinaryProtocol) ReadUint64() (uint64, error) {
 	return value, err
 }
 
-// ReadVarint return data、length、error
+// ReadVarint
 func (p *BinaryProtocol) ReadVarint() (uint64, error) {
 	value, n := protowire.BinaryDecoder{}.DecodeUint64((p.Buf)[p.Read:])
 	if n < 0 {

@@ -301,7 +301,7 @@ func TestTag(t *testing.T){
 		wtyp proto.WireType
 		err error
 	}{
-		{0, proto.Fixed32Type,errCodeFieldNumber},
+		{0, proto.Fixed32Type,errInvalidTag},
 		{1, proto.Fixed32Type,nil},
 		{proto.FirstReservedNumber, proto.BytesType,nil},
 		{proto.LastReservedNumber, proto.StartGroupType,nil},
@@ -311,7 +311,7 @@ func TestTag(t *testing.T){
 	for _, c := range testCase {
 		p.AppendTag(c.number, c.wtyp)
 		num, _, _, err := p.ConsumeTag()
-		if err != nil && err != errCodeFieldNumber {
+		if err != nil && err != errInvalidTag {
 			t.Fatal(err)
 		}
 		if num != c.number {
