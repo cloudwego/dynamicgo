@@ -258,6 +258,9 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 	kt := self.kt
 	et := self.et
 	size := 0
+	if len(pathes) == 0 {
+		return self, address
+	}
 
 	if self.Error() != "" {
 		return self, address
@@ -420,7 +423,7 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 			return false, v
 		}
 
-		parentPath := path[l-1]
+		targetPath := path[l-1]
 		desc, err := GetDescByPath(self.rootDesc, path[:l-1]...)
 		var fd *proto.FieldDescriptor
 		if err != nil {
@@ -430,24 +433,26 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 			fd = &f
 		}
 
-		if parentPath.t == PathFieldName {
+		if targetPath.t == PathFieldName {
 			if d, ok := (*desc).(proto.MessageDescriptor); ok {
-				f := d.Fields().ByName(proto.FieldName(parentPath.str()))
-				parentPath = NewPathFieldId(f.Number())
+				f := d.Fields().ByName(proto.FieldName(targetPath.str()))
+				targetPath = NewPathFieldId(f.Number())
 				fd = &f
 			} else if d, ok := (*desc).(proto.FieldDescriptor); ok {
-				f := d.Message().Fields().ByName(proto.FieldName(parentPath.str()))
-				parentPath = NewPathFieldId(f.Number())
+				f := d.Message().Fields().ByName(proto.FieldName(targetPath.str()))
+				targetPath = NewPathFieldId(f.Number())
 				fd = &f
 			}
 		}
 
-		if err := v.setNotFound(parentPath, &sub.Node, fd); err != nil {
+		if err := v.setNotFound(targetPath, &sub.Node, fd); err != nil {
 			return false, err
 		}
 	} else {
 		exist = true
 	}
+
+	
 	originLen := len(self.raw())
 	err = self.replace(v.Node, sub.Node)
 	isPacked := path[l-1].t == PathIndex && sub.Node.t != proto.MESSAGE && sub.Node.t != proto.STRING
@@ -455,60 +460,6 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 	return
 }
 
-// func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, path ...Path) {
-// 	afterLen := self.l
-// 	diffLen := afterLen - originLen
-// 	fmt.Println("diffLen", diffLen)
-// 	previousType := proto.UNKNOWN
-
-// 	for i := len(address) - 1; i > 0; i-- {
-// 		pathType := path[i].t
-// 		addressPtr := address[i]
-// 		if previousType == proto.MESSAGE || (previousType == proto.LIST && isPacked) {
-// 			// tag
-// 			buf := rt.BytesFrom(rt.AddPtr(self.v, uintptr(addressPtr)), self.l-addressPtr, self.l-addressPtr)
-// 			_, tagOffset := protowire.ConsumeVarint(buf)
-// 			// length
-// 			length, lenOffset := protowire.ConsumeVarint(buf[tagOffset:])
-// 			newLength := length + uint64(diffLen)
-// 			newBytes := protowire.AppendVarint(nil, newLength)
-// 			subLen := len(newBytes) - lenOffset
-
-// 			if subLen == 0 {
-// 				// no need to change length
-// 				copy(buf[tagOffset:tagOffset+lenOffset], newBytes)
-// 				continue
-// 			}
-
-// 			// split length
-// 			srcHead := rt.AddPtr(self.v, uintptr(addressPtr+tagOffset))
-// 			srcTail := rt.AddPtr(self.v, uintptr(addressPtr+tagOffset+lenOffset))
-// 			l0 := int(uintptr(srcHead) - uintptr(self.v))
-// 			l1 := len(newBytes)
-// 			l2 := int(uintptr(self.v) + uintptr(self.l) - uintptr(srcTail))
-
-// 			// copy three slices into new buffer
-// 			newBuf := make([]byte, l0+l1+l2)
-// 			copy(newBuf[:l0], rt.BytesFrom(self.v, l0, l0))
-// 			copy(newBuf[l0:l0+l1], newBytes)
-// 			copy(newBuf[l0+l1:l0+l1+l2], rt.BytesFrom(srcTail, l2, l2))
-// 			self.v = rt.GetBytePtr(newBuf)
-// 			self.l = int(len(newBuf))
-// 			if isPacked {
-// 				isPacked = false
-// 			}
-// 			diffLen += subLen
-// 		}
-
-// 		if pathType == PathStrKey || pathType == PathIntKey {
-// 			previousType = proto.MAP
-// 		} else if pathType == PathIndex {
-// 			previousType = proto.LIST
-// 		} else {
-// 			previousType = proto.MESSAGE
-// 		}
-// 	}
-// }
 
 func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, path ...Path) {
 	afterLen := self.l
@@ -524,16 +475,15 @@ func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, pa
 			_, tagOffset := protowire.ConsumeVarint(buf)
 			// length
 			length, lenOffset := protowire.ConsumeVarint(buf[tagOffset:])
-			newLength := uint64(int(length) + diffLen)
-			newBytes := protowire.AppendVarint(nil, newLength)
+			newLength := int(length) + diffLen
+			newBytes := protowire.AppendVarint(nil, uint64(newLength))
+			// length == 0 means had been deleted all the data in the field
 			if newLength == 0 {
 				newBytes = newBytes[:0]
 			}
+
 			subLen := len(newBytes) - lenOffset
-			// judge when UnsetByPath, whether parentNode has only one childNode, decreame parentTagLen + parentLengthLen + childNodeDiffLen
-			if newLength == 0 {
-				subLen -= (1 - diffLen)
-			}
+
 			if subLen == 0 {
 				// no need to change length
 				copy(buf[tagOffset:tagOffset+lenOffset], newBytes)
@@ -542,6 +492,12 @@ func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, pa
 
 			// split length
 			srcHead := rt.AddPtr(self.v, uintptr(addressPtr+tagOffset))
+			if newLength == 0 {
+				// delete tag
+				srcHead = rt.AddPtr(self.v, uintptr(addressPtr))
+				subLen -= tagOffset
+			}
+
 			srcTail := rt.AddPtr(self.v, uintptr(addressPtr+tagOffset+lenOffset))
 			l0 := int(uintptr(srcHead) - uintptr(self.v))
 			l1 := len(newBytes)
@@ -570,6 +526,184 @@ func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, pa
 	}
 }
 
+ 
+func (self *Value) findDeleteChild(path Path) (Node, int) {
+	p := binary.BinaryProtocol{}
+	p.Buf = self.raw()
+	tt := self.t // in fact, no need to judge which type
+	valueLen := self.l
+	exist := false
+	var start, end int
+
+	switch self.t {
+	case proto.MESSAGE:
+		if self.rootDesc == nil {
+			if l, err := p.ReadLength(); err != nil {
+				return errNode(meta.ErrRead, "", err), -1
+			} else {
+				valueLen = l
+			}
+		}
+		start = valueLen
+		end = 0
+		// previous has change PathFieldName to PathFieldId
+		if path.Type() != PathFieldId {
+			return errNode(meta.ErrDismatchType, "", nil), -1
+		}
+		messageStart := p.Read
+		id := path.id()
+		for p.Read < messageStart+valueLen {
+			fieldStart := p.Read
+			fieldNumber, wireType, _, tagErr := p.ConsumeTag()
+			if tagErr != nil {
+				return errNode(meta.ErrRead, "", tagErr), -1
+			}
+			if err := p.Skip(wireType, false); err != nil {
+				return errNode(meta.ErrRead, "", err), -1
+			}
+			fieldEnd := p.Read
+			if id == fieldNumber {
+				exist = true
+				if fieldStart < start {
+					start = fieldStart
+				}
+				if fieldEnd > end {
+					end = fieldEnd
+				}
+			}
+		}
+		if !exist {
+			return errNotFound, -1
+		}
+	case proto.LIST:
+		listIndex := 0
+		if path.Type() != PathIndex {
+			return errNode(meta.ErrDismatchType, "", nil), -1
+		}
+		idx := path.int()
+		fieldNumber := (*self.Desc).Number()
+		elemType := proto.Kind2Wire[(*self.Desc).Kind()]
+		if idx >= self.size {
+			return errNotFound, -1
+		}
+		// packed : [tag][l][(l)v][(l)v][(l)v][(l)v].....
+		if (*self.Desc).IsPacked() {
+			if _, _, _, tagErr := p.ConsumeTag(); tagErr != nil {
+				return errNode(meta.ErrRead, "", tagErr), -1
+			}
+
+			if _, lengthErr := p.ReadLength(); lengthErr != nil {
+				return errNode(meta.ErrRead, "", lengthErr), -1
+			}
+
+			for p.Read < valueLen && listIndex <= idx {
+				start = p.Read
+				if err := p.Skip(elemType, false); err != nil {
+					return errNode(meta.ErrRead, "", err), -1
+				}
+				end = p.Read
+				listIndex++
+			}
+		} else {
+			// unpacked : [tag][l][v][tag][l][v][tag][l][v][tag][l][v]....
+			for p.Read < valueLen && listIndex <= idx {
+				start = p.Read
+				itemNumber, _, tagLen, _ := p.ConsumeTagWithoutMove()
+				if itemNumber != fieldNumber {
+					break
+				}
+				p.Read += tagLen
+				if err := p.Skip(elemType, false); err != nil {
+					return errNode(meta.ErrRead, "", err), -1
+				}
+				end = p.Read
+				listIndex++
+			}
+		}
+	case proto.MAP:
+		pairNumber := (*self.Desc).Number()
+		if self.kt == proto.STRING {
+			key := path.str()
+			for p.Read < valueLen {
+				start = p.Read
+				itemNumber, _, pairLen, _ := p.ConsumeTagWithoutMove()
+				if itemNumber != pairNumber {
+					break
+				}
+				p.Read += pairLen
+				if _, err := p.ReadLength(); err != nil {
+					return errNode(meta.ErrRead, "", err), -1
+				}
+				// key
+				if _, _, _, err := p.ConsumeTag(); err != nil {
+					return errNode(meta.ErrRead, "", err), -1
+				}
+
+				k, err := p.ReadString(false)
+				if err != nil {
+					return errNode(meta.ErrRead, "", err), -1
+				}
+
+				// value
+				_, valueWire, _, _ := p.ConsumeTag()
+				if err := p.Skip(valueWire, false); err != nil {
+					return errNode(meta.ErrRead, "", err), -1
+				}
+				end = p.Read
+				if k == key {
+					exist = true
+					break
+				}
+			}
+		} else if self.kt.IsInt() {
+			key := path.Int()
+			pairNumber, _, _, _ := p.ConsumeTagWithoutMove()
+			for p.Read < valueLen {
+				start = p.Read
+				itemNumber, _, pairLen, _ := p.ConsumeTagWithoutMove()
+				if itemNumber != pairNumber {
+					break
+				}
+				p.Read += pairLen
+				if _, err := p.ReadLength(); err != nil {
+					return errNode(meta.ErrRead, "", err), -1
+				}
+
+				// key
+				if _, _, _, err := p.ConsumeTag(); err != nil {
+					return errNode(meta.ErrRead, "", err), -1
+				}
+
+				k, err := p.ReadInt(self.kt)
+				if err != nil {
+					return errNode(meta.ErrRead, "", err), -1
+				}
+
+				//value
+				_, valueWire, _, _ := p.ConsumeTag()
+				if err := p.Skip(valueWire, false); err != nil {
+					return errNode(meta.ErrRead, "", err), -1
+				}
+				end = p.Read
+				if k == key {
+					exist = true
+					break
+				}
+			}
+		}
+		if !exist {
+			return errNotFound, -1
+		}
+	default:
+		return errNotFound, -1
+	}
+	return Node{
+		t: tt,
+		v: rt.AddPtr(self.v, uintptr(start)),
+		l: end - start,
+	}, start
+}
+
 // UnsetByPath searches longitudinally and unsets a sub value at the given path from the value.
 func (self *Value) UnsetByPath(path ...Path) error {
 	l := len(path)
@@ -580,58 +714,47 @@ func (self *Value) UnsetByPath(path ...Path) error {
 	if err := self.Check(); err != nil {
 		return err
 	}
-	// search parent node by path
-	var v, _ = self.GetByPath(path[:l-1]...)
-	// search full node by path
-	var v2, address2 = self.GetByPath(path[:l]...)
-	if v2.IsError() {
-		if v2.IsErrNotFound() {
-			print(address2)
+
+	// search target node by path
+	var parentValue, address = self.GetByPath(path[:l-1]...)
+	if parentValue.IsError() {
+		if parentValue.IsErrNotFound() {
+			print(address)
 			return nil
 		}
-		return v2
+		return parentValue
 	}
 
-	if v.IsError() {
-		if v.IsErrNotFound() {
-			return nil
-		}
-		return v
-	}
-	p := path[l-1]
-	// get parent node descriptor
-	desc, err := GetDescByPath(self.rootDesc, path[:l-1]...)
 	isPacked := false
-	if p.t == PathFieldName {
-		if err != nil {
-			return err
-		}
+	p := path[l-1]
+	var desc *proto.Descriptor
+	var err error
+	desc, err = GetDescByPath(self.rootDesc, path...)
+	if err != nil {
+		return err
+	}
 
-		if d, ok := (*desc).(proto.MessageDescriptor); ok {
-			f := d.Fields().ByName(proto.FieldName(p.str()))
-			p = NewPathFieldId(f.Number())
-		} else if d, ok := (*desc).(proto.FieldDescriptor); ok {
-			f := d.Message().Fields().ByName(proto.FieldName(p.str()))
-			p = NewPathFieldId(f.Number())
+	if p.t == PathFieldName {
+		if d, ok := (*desc).(proto.FieldDescriptor); ok {
+			p = NewPathFieldId(d.Number())
 		}
 	} else if p.t == PathIndex {
-		if err != nil {
-			return err
-		}
 		if d, ok := (*desc).(proto.FieldDescriptor); ok {
 			isPacked = d.IsPacked()
 		}
 	}
-	ret := v.deleteChild(p)
+
+	ret, position := parentValue.findDeleteChild(p)
 	if ret.IsError() {
 		return ret
 	}
-	// isSingle judge whether only one childNode is deleted when parentNode type is Method/Packed List, you need to delete parentNode Tag and Length
+	
 	originLen := len(self.raw())
-	if err = self.replace(ret, Node{t: ret.t}); err != nil {
+	if err := self.replace(ret, Node{t: ret.t}); err != nil {
 		return errValue(meta.ErrWrite, "replace node by empty node failed", err)
 	}
-	self.UpdateByteLen(originLen, address2, isPacked, path...)
+	address = append(address, position) // must add one address align with path length
+	self.UpdateByteLen(originLen, address, isPacked, path...)
 	return nil
 }
 

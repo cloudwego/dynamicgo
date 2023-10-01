@@ -173,16 +173,14 @@ func generateBinaryData() error {
 		return true
 	}
 	var file *os.File
-	if checkExist(exampleProtoPath) == false {
-		file, err = os.Create(exampleProtoPath)
-		if err != nil {
-			panic("create protoBinaryFile failed")
+	if checkExist(exampleProtoPath) == true {
+		if err := os.Remove(exampleProtoPath); err != nil {
+			panic("remove exampleProtoPath failed")
 		}
-	} else {
-		file, err = os.OpenFile(exampleProtoPath, os.O_RDWR, 0666)
-		if err != nil {
-			panic("open protoBinaryFile failed")
-		}
+	}
+	file, err = os.Create(exampleProtoPath)
+	if err != nil {
+		panic("create protoBinaryFile failed")
 	}
 	defer file.Close()
 	if _, err := file.Write(data); err != nil {
@@ -677,18 +675,34 @@ func TestUnsetByPath(t *testing.T) {
 	data := getExample2Data()
 	r := NewRootValue(desc, data)
 
+	// ds := (*desc).Fields().ByName("Subfix")
+	// d1 := (*desc).Fields().ByName("Msg")
+	// d2 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("Base").Message().Fields().ByName("Extra").MapValue()
+	// d3 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListInt32")
+	// d4 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListString")
+
 	v := r.Fork()
 	err := v.UnsetByPath()
 	require.Nil(t, err)
 
 	// test UnsetByPath without varint_length change
-	v = r.Fork()
-	n, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("String"))
-	require.False(t, n.IsError())
-	err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("String"))
-	require.NoError(t, err)
-	n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("String"))
-	require.True(t, n.IsErrNotFound())
+	t.Run("no_parent_length_change", func(t *testing.T) {
+		v = r.Fork()
+		n, _ := v.GetByPath(NewPathFieldName("Msg"))
+		require.False(t, n.IsError())
+		err = v.UnsetByPath(NewPathFieldName("Msg"))
+		require.NoError(t, err)
+		n, _ = v.GetByPath(NewPathFieldName("Msg"))
+		require.True(t, n.IsErrNotFound())
+
+		v = r.Fork()
+		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("String"))
+		require.False(t, n.IsError())
+		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("String"))
+		require.NoError(t, err)
+		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("String"))
+		require.True(t, n.IsErrNotFound())
+	})
 
 	// test UnsetByPath with varint_length change
 

@@ -225,6 +225,33 @@ func (self Value) List(opts *Options) (ret []interface{}, err error) {
 	return
 }
 
+func castInterfaceToInt(key interface{}) (int, bool) {
+	switch key.(type) {
+	case int:
+		return key.(int), true
+	case int8:
+		return int(key.(int8)), true
+	case int16:
+		return int(key.(int16)), true
+	case int32:
+		return int(key.(int32)), true
+	case int64:
+		return int(key.(int64)), true
+	case uint:
+		return int(key.(uint)), true
+	case uint8:
+		return int(key.(uint8)), true
+	case uint16:
+		return int(key.(uint16)), true
+	case uint32:
+		return int(key.(uint32)), true
+	case uint64:
+		return int(key.(uint64)), true
+	default:
+		return 0, false
+	}
+}
+
 // StrMap returns the string keys and interface elements contained by a MAP<STRING,XX> node
 func (self Value) IntMap(opts *Options) (map[int]interface{}, error) {
 	src := rt.BytesFrom(self.v,self.l,self.l)
@@ -233,7 +260,7 @@ func (self Value) IntMap(opts *Options) (map[int]interface{}, error) {
 	
 	newMap := make(map[int]interface{})
 	for key, value := range originalMap {
-		intKey, ok := key.(int)
+		intKey, ok := castInterfaceToInt(key)
 		if !ok {
 			return nil, meta.NewError(meta.ErrConvert, "convert error", nil)
 		}

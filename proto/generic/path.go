@@ -651,6 +651,8 @@ func GetDescByPath(rootDesc *proto.MessageDescriptor, pathes ...Path) (ret *prot
 				valueDesc := (*desc).MapValue()
 				desc = &valueDesc
 			// if LIST keep the same desc
+			case proto.LIST:
+				continue
 			default:
 				return nil, errNode(meta.ErrInvalidParam, "", nil)
 			}
