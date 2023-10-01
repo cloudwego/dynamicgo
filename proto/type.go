@@ -36,16 +36,6 @@ func (p WireType) String() string {
 	}
 }
 
-const (
-	_ = -iota
-	ErrCodeTruncated
-	ErrCodeFieldNumber
-	ErrCodeOverflow
-	ErrCodeReserved
-	ErrCodeEndGroup
-	ErrCodeRecursionDepth
-)
-
 // proto message kind
 type ProtoKind = protoreflect.Kind
 

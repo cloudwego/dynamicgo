@@ -10,8 +10,6 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
-
-	"github.com/cloudwego/dynamicgo/proto"
 )
 
 type (
@@ -227,15 +225,15 @@ func ParseError(n int) error {
 		return nil
 	}
 	switch n {
-	case proto.ErrCodeTruncated:
+	case errCodeTruncated:
 		return io.ErrUnexpectedEOF
-	case proto.ErrCodeFieldNumber:
+	case errCodeFieldNumber:
 		return errFieldNumber
-	case proto.ErrCodeOverflow:
+	case errCodeOverflow:
 		return errOverflow
-	case proto.ErrCodeReserved:
+	case errCodeReserved:
 		return errReserved
-	case proto.ErrCodeEndGroup:
+	case errCodeEndGroup:
 		return errEndGroup
 	default:
 		return errParse
