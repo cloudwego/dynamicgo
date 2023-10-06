@@ -426,8 +426,8 @@ const _TwitterJson = `{
 func TestSonicPreorderDecode(t *testing.T) {
 	var d visitorUserNodeVisitorDecoder
 	t.Run("default", func(t *testing.T) {
-		d.Reset()
-		node, err := d.Decode(_TwitterJson)
+		d.Reset(nil)
+		node, err := d.Decode(_TwitterJson, nil)
 		require.NoError(t, err)
 		fmt.Print(node)
 	})

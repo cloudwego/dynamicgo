@@ -22,6 +22,12 @@ const (
 	exampleProtoPath = "../../testdata/data/example2_pb.bin"
 )
 
+func TestBuildData(t *testing.T) {
+	if err := buildExampleJSONData(); err != nil {
+		panic("build ExampleJSONData error")
+	}
+}
+
 func TestConvJSON2Protobf(t *testing.T) {
 	// buildExampleJSONData()
 	desc := getExampleDesc()
@@ -92,7 +98,7 @@ func getExample2Req() *example2.ExampleReq {
 	req.InnerBase2.Double = float64(22.3)
 	req.InnerBase2.String_ = "hello_inner"
 	req.InnerBase2.ListInt32 = []int32{12, 13, 14, 15, 16, 17}
-	req.InnerBase2.MapStringString = map[string]string{"m1": "aaa", "m2": "bbb", "m3": "ccc", "m4": "ddd"}
+	req.InnerBase2.MapStringString = map[string]string{"m1": "aaa", "m2": "bbb"}
 	req.InnerBase2.SetInt32 = []int32{200, 201, 202, 203, 204, 205}
 	req.InnerBase2.Foo = example2.FOO_FOO_A
 	req.InnerBase2.MapInt32String = map[int32]string{1: "aaa", 2: "bbb", 3: "ccc", 4: "ddd"}
@@ -192,16 +198,14 @@ func buildExampleJSONData() error {
 		return true
 	}
 	var file *os.File
-	if checkExist(exampleJSON) == false {
-		file, err = os.Create(exampleJSON)
-		if err != nil {
-			panic("create protoJSONFile failed")
+	if checkExist(exampleJSON) == true {
+		if err = os.Remove(exampleJSON); err != nil {
+			panic("delete protoJSONFile failed")
 		}
-	} else {
-		file, err = os.OpenFile(exampleJSON, os.O_RDWR, 0666)
-		if err != nil {
-			panic("open protoJSONFile failed")
-		}
+	}
+	file, err = os.Create(exampleJSON)
+	if err != nil {
+		panic("create protoJSONFile failed")
 	}
 	defer file.Close()
 	if _, err := file.WriteString(string(data)); err != nil {
