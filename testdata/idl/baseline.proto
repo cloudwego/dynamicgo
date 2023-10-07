@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package pb3;
+
+option go_package = "pb/baseline";
+
+message Simple {
+    bytes ByteField = 1;
+    int64 I64Field = 2;
+    double DoubleField = 3;
+    int32 I32Field = 4;
+    string StringField = 5;
+    bytes BinaryField = 6;
+    repeated string ListsString = 7;
+}
+
+message PartialSimple {
+    bytes ByteField = 1;
+    double DoubleField = 2;
+    bytes BinaryField = 3;
+}
+
+message Nesting {
+   string String = 1;
+   repeated Simple ListSimple = 2;
+   double Double = 3;
+   int32 I32 = 4;
+   repeated int32 ListI32 = 5;
+   int64 I64 = 6;
+   map<string, string> MapStringString = 7;
+   Simple SimpleStruct = 8;
+   map<int32, int64> MapI32I64 = 9;
+   repeated string ListString = 10;
+   bytes Binary = 11;
+   map<int64, string> MapI64String = 12;
+   repeated int64 ListI64 = 13;
+   bytes Byte = 14;
+   map<string, Simple> MapStringSimple =15;
+}
+
+message PartialNesting {
+   repeated PartialSimple ListSimple = 2;
+   PartialSimple SimpleStruct = 8;
+   map<string, PartialSimple> MapStringSimple = 15;
+}
+
+message Nesting2 {
+   map<int64, Nesting> MapSimpleNesting = 1;
+   Simple SimpleStruct = 2;
+   bytes Byte = 3;
+   double Double = 4;
+   repeated Nesting ListNesting = 5;
+   int64 I64 = 6;
+   Nesting NestingStruct = 7;
+   bytes Binary = 8;
+   string String = 9;
+   repeated Nesting SetNesting = 10;
+   int32 I32 = 11;
+}
+
+service BaselineService {
+   rpc SimpleMethod(Simple) returns (Simple);
+   rpc PartialSimpleMethod(PartialSimple) returns (PartialSimple);
+   rpc NestingMethod(Nesting) returns (Nesting);
+   rpc PartialNestingMethod(PartialNesting) returns (PartialNesting);
+   rpc Nesting2Method(Nesting2) returns (Nesting2);
+}
