@@ -63,6 +63,23 @@ func (self *BinaryConv) Do(ctx context.Context, desc *proto.MessageDescriptor, j
 	return
 }
 
+func (self *BinaryConv) DoInto(ctx context.Context, desc *proto.MessageDescriptor, jbytes []byte, buf *[]byte) error {
+	var req http.RequestGetter
+	if self.opts.EnableHttpMapping {
+		reqi := ctx.Value(conv.CtxKeyHTTPRequest)
+		if reqi != nil {
+			reqi, ok := reqi.(http.RequestGetter)
+			if !ok {
+				return newError(meta.ErrInvalidParam, "invalid http.RequestGetter", nil)
+			}
+			req = reqi
+		} else {
+			return newError(meta.ErrInvalidParam, "EnableHttpMapping but no http response in context", nil)
+		}
+	}
+	return self.do(ctx, jbytes, desc, buf, req)
+}
+
 func toFlags(opts conv.Options) (flags uint64) {
 	if opts.WriteDefaultField {
 		flags |= types.F_WRITE_DEFAULT

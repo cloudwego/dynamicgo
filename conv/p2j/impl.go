@@ -290,8 +290,6 @@ func (self *ProtoConv) unmarshalList(ctx context.Context, resp http.ResponseSett
 	} else {
 		// unpacked ：[tag][length][value][tag][length]....
 		self.unmarshalSingular(ctx, resp, p, out, fd)
-		*out = json.EncodeArrayComma(*out)
-		alreadyWrite := false
 		for p.Read < len(p.Buf) {
 			elementFieldNumber, _, tagLen, err := p.ConsumeTagWithoutMove()
 			if err != nil {
@@ -299,16 +297,12 @@ func (self *ProtoConv) unmarshalList(ctx context.Context, resp http.ResponseSett
 			}
 			// List parse end, pay attention to remove the last ','
 			if elementFieldNumber != fileldNumber {
-				if alreadyWrite {
-					*out = (*out)[:len(*out)-1]
-				}
 				break
 			}
 			// continue parse List
+			*out = json.EncodeArrayComma(*out)
 			p.Read += tagLen
 			self.unmarshalSingular(ctx, resp, p, out, fd)
-			*out = json.EncodeArrayComma(*out)
-			alreadyWrite = true
 		}
 	}
 

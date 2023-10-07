@@ -116,7 +116,7 @@ func (self *visitorUserNodeVisitorDecoder) incrSP() error {
 }
 
 func (self *visitorUserNodeVisitorDecoder) OnNull() error {
-	self.stk[self.sp].val = &visitorUserNull{}
+	// self.stk[self.sp].val = &visitorUserNull{}
 	if err := self.incrSP(); err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func (self *visitorUserNodeVisitorDecoder) OnNull() error {
 
 func (self *visitorUserNodeVisitorDecoder) OnBool(v bool) error {
 	var err error
-	self.stk[self.sp].val = &visitorUserBool{Value: v}
+	// self.stk[self.sp].val = &visitorUserBool{Value: v}
 	curDesc := self.stk[self.SearchPrevStateNodeIndex()].state.desc
 	convertDesc := (*curDesc).(proto.FieldDescriptor)
 	if err = self.p.WriteAnyWithDesc(&convertDesc, v, false, false, true); err != nil {
@@ -142,9 +142,20 @@ func (self *visitorUserNodeVisitorDecoder) OnString(v string) error {
 	curDesc := self.stk[self.SearchPrevStateNodeIndex()].state.desc
 	convertDesc := (*curDesc).(proto.FieldDescriptor)
 	convertData := self.EncodePbData(convertDesc, v)
-	self.stk[self.sp].val = &visitorUserString{Value: v}
-	if err = self.p.WriteAnyWithDesc(&convertDesc, convertData, false, false, true); err != nil {
-		return err
+	// self.stk[self.sp].val = &visitorUserString{Value: v}
+	// case Unpacked Type(List<String>、List<Bytes>), one value once range
+	if convertDesc.IsList() {
+		if err = self.p.AppendTag(convertDesc.Number(), proto.Kind2Wire[convertDesc.Kind()]); err != nil {
+			return meta.NewError(meta.ErrWrite, "append field tag failed", err)
+		}
+		if err = self.p.WriteBaseTypeWithDesc(&convertDesc, convertData, false, false, true); err != nil {
+			return meta.NewError(meta.ErrWrite, "write scalar string failed", err)
+		}
+	} else {
+		// case scalarType
+		if err = self.p.WriteAnyWithDesc(&convertDesc, convertData, false, false, true); err != nil {
+			return err
+		}
 	}
 	if err = self.incrSP(); err != nil {
 		return err
@@ -157,7 +168,7 @@ func (self *visitorUserNodeVisitorDecoder) OnInt64(v int64, n json.Number) error
 	curDesc := self.stk[self.SearchPrevStateNodeIndex()].state.desc
 	convertDesc := (*curDesc).(proto.FieldDescriptor)
 	convertData := self.EncodePbData(convertDesc, v)
-	self.stk[self.sp].val = &visitorUserInt64{Value: v}
+	// self.stk[self.sp].val = &visitorUserInt64{Value: v}
 	if convertDesc.IsList() {
 		if err = self.p.WriteBaseTypeWithDesc(&convertDesc, convertData, false, false, true); err != nil {
 			return err
@@ -178,7 +189,7 @@ func (self *visitorUserNodeVisitorDecoder) OnFloat64(v float64, n json.Number) e
 	curDesc := self.stk[self.SearchPrevStateNodeIndex()].state.desc
 	convertDesc := (*curDesc).(proto.FieldDescriptor)
 	convertData := self.EncodePbData(convertDesc, v)
-	self.stk[self.sp].val = &visitorUserFloat64{Value: v}
+	// self.stk[self.sp].val = &visitorUserFloat64{Value: v}
 	if err = self.p.WriteAnyWithDesc(&convertDesc, convertData, false, false, true); err != nil {
 		return nil
 	}
@@ -213,7 +224,7 @@ func (self *visitorUserNodeVisitorDecoder) EncodePbData(fieldDesc proto.FieldDes
 	case proto.StringKind:
 		value = val.(string)
 	case proto.BytesKind:
-		// encoding/json encode byte[] use base64 format
+		// encoding/json encode byte[] use base64 format, need perf
 		str := val.(string)
 		base64DecodeData, err := base64.StdEncoding.DecodeString(str)
 		if err != nil {
@@ -347,7 +358,7 @@ func (self *visitorUserNodeVisitorDecoder) SearchPrevStateNodeIndex() int {
 }
 
 func (self *visitorUserNodeVisitorDecoder) OnObjectEnd() error {
-	self.stk[self.sp-1].val = &visitorUserObject{Value: self.stk[self.sp-1].obj}
+	// self.stk[self.sp-1].val = &visitorUserObject{Value: self.stk[self.sp-1].obj}
 	self.stk[self.sp-1].obj = nil
 
 	// fill prefix_length when MessageEnd, may have problem with rootDesc
@@ -369,7 +380,7 @@ func (self *visitorUserNodeVisitorDecoder) OnArrayBegin(capacity int) error {
 }
 
 func (self *visitorUserNodeVisitorDecoder) OnArrayEnd() error {
-	self.stk[self.sp-1].val = &visitorUserArray{Value: self.stk[self.sp-1].arr}
+	// self.stk[self.sp-1].val = &visitorUserArray{Value: self.stk[self.sp-1].arr}
 	self.stk[self.sp-1].arr = nil
 
 	// case arrayEnd, fill arrayPrefixLen
@@ -392,13 +403,13 @@ func (self *visitorUserNodeVisitorDecoder) onValueEnd() error {
 	}
 	// [..., Array, Value, sp]
 	if self.stk[self.sp-2].arr != nil {
-		self.stk[self.sp-2].arr = append(self.stk[self.sp-2].arr, self.stk[self.sp-1].val)
+		// self.stk[self.sp-2].arr = append(self.stk[self.sp-2].arr, self.stk[self.sp-1].val)
 		self.sp--
 		return nil
 	}
 	// [..., Object, ObjectKey, Value, sp]
 	if self.stk[self.sp-3].obj != nil {
-		self.stk[self.sp-3].obj[self.stk[self.sp-2].key] = self.stk[self.sp-1].val
+		// self.stk[self.sp-3].obj[self.stk[self.sp-2].key] = self.stk[self.sp-1].val
 		self.sp -= 2
 
 		// case MapValueEnd, fill pairLength, need to exclude Message[Message]
