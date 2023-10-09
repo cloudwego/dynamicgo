@@ -98,7 +98,7 @@ func (x *Simple) fastReadField7(buf []byte, _type int8) (offset int, err error) 
 	if err != nil {
 		return offset, err
 	}
-	x.ListsString = append(x.ListsString, v)
+	x.ListString = append(x.ListString, v)
 	return offset, err
 }
 
@@ -109,13 +109,13 @@ func (x *PartialSimple) FastRead(buf []byte, _type int8, number int32) (offset i
 		if err != nil {
 			goto ReadFieldError
 		}
-	case 2:
-		offset, err = x.fastReadField2(buf, _type)
+	case 3:
+		offset, err = x.fastReadField3(buf, _type)
 		if err != nil {
 			goto ReadFieldError
 		}
-	case 3:
-		offset, err = x.fastReadField3(buf, _type)
+	case 6:
+		offset, err = x.fastReadField6(buf, _type)
 		if err != nil {
 			goto ReadFieldError
 		}
@@ -137,12 +137,12 @@ func (x *PartialSimple) fastReadField1(buf []byte, _type int8) (offset int, err 
 	return offset, err
 }
 
-func (x *PartialSimple) fastReadField2(buf []byte, _type int8) (offset int, err error) {
+func (x *PartialSimple) fastReadField3(buf []byte, _type int8) (offset int, err error) {
 	x.DoubleField, offset, err = fastpb.ReadDouble(buf, _type)
 	return offset, err
 }
 
-func (x *PartialSimple) fastReadField3(buf []byte, _type int8) (offset int, err error) {
+func (x *PartialSimple) fastReadField6(buf []byte, _type int8) (offset int, err error) {
 	x.BinaryField, offset, err = fastpb.ReadBytes(buf, _type)
 	return offset, err
 }
@@ -725,11 +725,11 @@ func (x *Simple) fastWriteField6(buf []byte) (offset int) {
 }
 
 func (x *Simple) fastWriteField7(buf []byte) (offset int) {
-	if len(x.ListsString) == 0 {
+	if len(x.ListString) == 0 {
 		return offset
 	}
-	for i := range x.GetListsString() {
-		offset += fastpb.WriteString(buf[offset:], 7, x.GetListsString()[i])
+	for i := range x.GetListString() {
+		offset += fastpb.WriteString(buf[offset:], 7, x.GetListString()[i])
 	}
 	return offset
 }
@@ -739,8 +739,8 @@ func (x *PartialSimple) FastWrite(buf []byte) (offset int) {
 		return offset
 	}
 	offset += x.fastWriteField1(buf[offset:])
-	offset += x.fastWriteField2(buf[offset:])
 	offset += x.fastWriteField3(buf[offset:])
+	offset += x.fastWriteField6(buf[offset:])
 	return offset
 }
 
@@ -752,19 +752,19 @@ func (x *PartialSimple) fastWriteField1(buf []byte) (offset int) {
 	return offset
 }
 
-func (x *PartialSimple) fastWriteField2(buf []byte) (offset int) {
+func (x *PartialSimple) fastWriteField3(buf []byte) (offset int) {
 	if x.DoubleField == 0 {
 		return offset
 	}
-	offset += fastpb.WriteDouble(buf[offset:], 2, x.GetDoubleField())
+	offset += fastpb.WriteDouble(buf[offset:], 3, x.GetDoubleField())
 	return offset
 }
 
-func (x *PartialSimple) fastWriteField3(buf []byte) (offset int) {
+func (x *PartialSimple) fastWriteField6(buf []byte) (offset int) {
 	if len(x.BinaryField) == 0 {
 		return offset
 	}
-	offset += fastpb.WriteBytes(buf[offset:], 3, x.GetBinaryField())
+	offset += fastpb.WriteBytes(buf[offset:], 6, x.GetBinaryField())
 	return offset
 }
 
@@ -1181,11 +1181,11 @@ func (x *Simple) sizeField6() (n int) {
 }
 
 func (x *Simple) sizeField7() (n int) {
-	if len(x.ListsString) == 0 {
+	if len(x.ListString) == 0 {
 		return n
 	}
-	for i := range x.GetListsString() {
-		n += fastpb.SizeString(7, x.GetListsString()[i])
+	for i := range x.GetListString() {
+		n += fastpb.SizeString(7, x.GetListString()[i])
 	}
 	return n
 }
@@ -1195,8 +1195,8 @@ func (x *PartialSimple) Size() (n int) {
 		return n
 	}
 	n += x.sizeField1()
-	n += x.sizeField2()
 	n += x.sizeField3()
+	n += x.sizeField6()
 	return n
 }
 
@@ -1208,19 +1208,19 @@ func (x *PartialSimple) sizeField1() (n int) {
 	return n
 }
 
-func (x *PartialSimple) sizeField2() (n int) {
+func (x *PartialSimple) sizeField3() (n int) {
 	if x.DoubleField == 0 {
 		return n
 	}
-	n += fastpb.SizeDouble(2, x.GetDoubleField())
+	n += fastpb.SizeDouble(3, x.GetDoubleField())
 	return n
 }
 
-func (x *PartialSimple) sizeField3() (n int) {
+func (x *PartialSimple) sizeField6() (n int) {
 	if len(x.BinaryField) == 0 {
 		return n
 	}
-	n += fastpb.SizeBytes(3, x.GetBinaryField())
+	n += fastpb.SizeBytes(6, x.GetBinaryField())
 	return n
 }
 
@@ -1581,13 +1581,13 @@ var fieldIDToName_Simple = map[int32]string{
 	4: "I32Field",
 	5: "StringField",
 	6: "BinaryField",
-	7: "ListsString",
+	7: "ListString",
 }
 
 var fieldIDToName_PartialSimple = map[int32]string{
 	1: "ByteField",
-	2: "DoubleField",
-	3: "BinaryField",
+	3: "DoubleField",
+	6: "BinaryField",
 }
 
 var fieldIDToName_Nesting = map[int32]string{

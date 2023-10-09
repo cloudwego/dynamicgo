@@ -11,13 +11,13 @@ message Simple {
     int32 I32Field = 4;
     string StringField = 5;
     bytes BinaryField = 6;
-    repeated string ListsString = 7;
+    repeated string ListString = 7;
 }
 
 message PartialSimple {
     bytes ByteField = 1;
-    double DoubleField = 2;
-    bytes BinaryField = 3;
+    double DoubleField = 3;
+    bytes BinaryField = 6;
 }
 
 message Nesting {
@@ -35,7 +35,7 @@ message Nesting {
    map<int64, string> MapI64String = 12;
    repeated int64 ListI64 = 13;
    bytes Byte = 14;
-   map<string, Simple> MapStringSimple =15;
+   map<string, Simple> MapStringSimple = 15;
 }
 
 message PartialNesting {

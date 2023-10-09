@@ -73,7 +73,7 @@ func getPbSimpleValue() *baseline.Simple {
 		I32Field:    math.MaxInt32,
 		StringField: getString(),
 		BinaryField: getBytes(),
-		ListsString: []string{"aaaa", "bbbb", "cccc"},
+		ListString: []string{"aaaa", "bbbb", "cccc"},
 	}
 }
 
@@ -115,6 +115,23 @@ func getPbNestingValue() *baseline.Nesting {
 		ret.MapI32I64[int32(i)] = math.MinInt64
 		ret.MapI64String[int64(i)] = getString()
 		ret.MapStringSimple[strconv.Itoa(i)] = getPbSimpleValue()
+	}
+
+	return ret
+}
+
+func getPbPartialNestingValue() *baseline.PartialNesting {
+	var ret = &baseline.PartialNesting{
+		ListSimple:      	[]*baseline.PartialSimple{},
+		SimpleStruct:		getPbPartialSimpleValue(),
+		MapStringSimple:	map[string]*baseline.PartialSimple{},
+	}
+	for i := 0; i < listCount; i++ {
+		ret.ListSimple = append(ret.ListSimple, getPbPartialSimpleValue())
+	}
+
+	for i := 0; i < mapCount; i++ {
+		ret.MapStringSimple[strconv.Itoa(i)] = getPbPartialSimpleValue()
 	}
 
 	return ret
