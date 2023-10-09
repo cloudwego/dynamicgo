@@ -23,8 +23,11 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.MessageD
 		// empty body
 	}
 
-	p := binary.NewBinaryProtocolBuffer()
-	if err := self.Unmarshal(src, p, desc); err != nil {
+	// p := binary.NewBinaryProtocolBuffer()
+	var p = binary.BinaryProtocol{
+		Buf: *buf,
+	}
+	if err := self.Unmarshal(src, &p, desc); err != nil {
 		return meta.NewError(meta.ErrConvert, fmt.Sprintf("json convert to protobuf failed, MessageDescriptor: %v", (*desc).Name()), err)
 	}
 	*buf = p.RawBuf()
@@ -34,10 +37,13 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.MessageD
 func (self *BinaryConv) Unmarshal(src []byte, p *binary.BinaryProtocol, desc *proto.MessageDescriptor) error {
 	// use sonic to decode json bytes, get visitorUserNode
 	var d visitorUserNodeVisitorDecoder
-	rootDesc := (*desc).(proto.Descriptor)
+	rootDesc, ok := (*desc).(proto.Descriptor)
+	if !ok {
+		return newError(meta.ErrDismatchType, "descriptor match failed", nil)
+	}
 	d.Reset(p)
 	// use Visitor onxxx() to decode json2pb
-	_, err := d.Decode(string(src), &rootDesc)
+	_, err := d.Decode(src, &rootDesc)
 	if err != nil {
 		return newError(meta.ErrConvert, "sonic decode json bytes failed", err)
 	}

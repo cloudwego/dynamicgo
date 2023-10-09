@@ -427,7 +427,7 @@ func TestSonicPreorderDecode(t *testing.T) {
 	var d visitorUserNodeVisitorDecoder
 	t.Run("default", func(t *testing.T) {
 		d.Reset(nil)
-		node, err := d.Decode(_TwitterJson, nil)
+		node, err := d.Decode([]byte(_TwitterJson), nil)
 		require.NoError(t, err)
 		fmt.Print(node)
 	})

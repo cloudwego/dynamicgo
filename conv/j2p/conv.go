@@ -5,29 +5,25 @@ import (
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
-	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
 )
 
 // BinaryConv is a converter from json to protobuf binary
 type BinaryConv struct {
-	opts  conv.Options
-	flags uint64
+	opts conv.Options
 }
 
 // NewBinaryConv returns a new BinaryConv
 func NewBinaryConv(opts conv.Options) BinaryConv {
 	return BinaryConv{
-		opts:  opts,
-		flags: toFlags(opts),
+		opts: opts,
 	}
 }
 
 // SetOptions sets options
 func (self *BinaryConv) SetOptions(opts conv.Options) {
 	self.opts = opts
-	self.flags = toFlags(self.opts)
 }
 
 // Do converts json bytes (jbytes) to protobuf binary (tbytes)
@@ -78,35 +74,4 @@ func (self *BinaryConv) DoInto(ctx context.Context, desc *proto.MessageDescripto
 		}
 	}
 	return self.do(ctx, jbytes, desc, buf, req)
-}
-
-func toFlags(opts conv.Options) (flags uint64) {
-	if opts.WriteDefaultField {
-		flags |= types.F_WRITE_DEFAULT
-	}
-	if !opts.DisallowUnknownField {
-		flags |= types.F_ALLOW_UNKNOWN
-	}
-	if opts.EnableValueMapping {
-		flags |= types.F_VALUE_MAPPING
-	}
-	if opts.EnableHttpMapping {
-		flags |= types.F_HTTP_MAPPING
-	}
-	if opts.String2Int64 {
-		flags |= types.F_STRING_INT
-	}
-	if opts.WriteRequireField {
-		flags |= types.F_WRITE_REQUIRE
-	}
-	if opts.NoBase64Binary {
-		flags |= types.F_NO_BASE64
-	}
-	if opts.WriteOptionalField {
-		flags |= types.F_WRITE_OPTIONAL
-	}
-	if opts.ReadHttpValueFallback {
-		flags |= types.F_TRACE_BACK
-	}
-	return
 }
