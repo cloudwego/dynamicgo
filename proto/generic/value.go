@@ -332,6 +332,8 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 			mapFieldNumber := (*desc).Number()
 			start, err = searchStrKey(&p, path.str(), proto.STRING, mapFieldNumber)
 			tt = proto.FromProtoKindToType((*desc).MapValue().Kind(), false, false)
+			valueDesc := (*desc).MapValue()
+			desc = &valueDesc
 			if err == errNotFound {
 				tt = proto.MAP
 			}
@@ -340,6 +342,8 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 			mapFieldNumber := (*desc).Number()
 			start, err = searchIntKey(&p, path.int(), keyType, mapFieldNumber)
 			tt = proto.FromProtoKindToType((*desc).MapValue().Kind(), false, false)
+			valueDesc := (*desc).MapValue()
+			desc = &valueDesc
 			if err == errNotFound {
 				tt = proto.MAP
 			}
