@@ -517,7 +517,7 @@ func BenchmarkProtoMarshallPartial_KitexFast(b *testing.B) {
 	})
 }
 
-func BenchmarkProtoUnmarshallAll_KitexFast(b *testing.B) {
+func BenchmarkProtoUnmarshalAll_KitexFast(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		obj := getPbSimpleValue()
 		data := make([]byte, obj.Size())
@@ -567,7 +567,7 @@ func BenchmarkProtoUnmarshallAll_KitexFast(b *testing.B) {
 	})
 }
 
-func BenchmarkProtoUnmarshallPartial_KitexFast(b *testing.B) {
+func BenchmarkProtoUnmarshalPartial_KitexFast(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		obj := getPbPartialSimpleValue()
 		data := make([]byte, obj.Size())
@@ -665,6 +665,112 @@ func BenchmarkProtoMarshalTo_KitexFast(b *testing.B) {
 	})
 }
 
+
+func BenchmarkProtoMarshallAll_DynamicGo(b *testing.B) {
+	b.Run("small", func(b *testing.B) {
+		desc := getPbSimpleDesc()
+		obj := getPbSimpleValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+
+		v := generic.NewRootValue(desc, data)
+		p := generic.PathNode{
+			Node: v.Node,
+		}
+		opts := &generic.Options{}
+		require.Nil(b, p.Load(true, opts, desc))
+		out, err := p.Marshal(opts)
+		require.Nil(b, err)
+		require.Equal(b, data, out)
+
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = p.Marshal(opts)
+		}
+	})
+
+	b.Run("medium", func(b *testing.B) {
+		desc := getPbNestingDesc()
+		obj := getPbNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+		v := generic.NewRootValue(desc, data)
+		p := generic.PathNode{
+			Node: v.Node,
+		}
+		opts := &generic.Options{}
+		require.Nil(b, p.Load(true, opts, desc))
+		out, err := p.Marshal(opts)
+		require.Nil(b, err)
+		require.Equal(b, data, out)
+
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = p.Marshal(opts)
+		}
+	})
+}
+
+func BenchmarkProtoMarshallPartial_DynamicGo(b *testing.B) {
+	b.Run("small", func(b *testing.B) {
+		desc := getPbPartialSimpleDesc()
+		obj := getPbPartialSimpleValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+
+		v := generic.NewRootValue(desc, data)
+		p := generic.PathNode{
+			Node: v.Node,
+		}
+		opts := &generic.Options{}
+		require.Nil(b, p.Load(true, opts, desc))
+		out, err := p.Marshal(opts)
+		require.Nil(b, err)
+		require.Equal(b, data, out)
+
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = p.Marshal(opts)
+		}
+	})
+
+	b.Run("medium", func(b *testing.B) {
+		desc := getPbPartialNestingDesc()
+		obj := getPbPartialNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+		v := generic.NewRootValue(desc, data)
+		p := generic.PathNode{
+			Node: v.Node,
+		}
+		opts := &generic.Options{}
+		require.Nil(b, p.Load(true, opts, desc))
+		out, err := p.Marshal(opts)
+		require.Nil(b, err)
+		require.Equal(b, data, out)
+
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = p.Marshal(opts)
+		}
+	})
+}
 
 func BenchmarkProtoGetAll_New(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
