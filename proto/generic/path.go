@@ -584,7 +584,7 @@ func (self *PathNode) handleListChild(in *[]PathNode, lp *int, cp *int, p *binar
 // Load loads self's all children ( and children's children if recurse is true) into self.Next,
 // no matter whether self.Next is empty or set before (will be reset).
 // NOTICE: if opts.NotScanParentNode is true, the parent nodes (PathNode.Node) of complex (map/list/struct) type won't be assgined data
-func (self *PathNode) Load(recurse bool, opts *Options, desc *proto.Descriptor) error {
+func (self *PathNode) Load(recurse bool, opts *Options, desc *proto.MessageDescriptor) error {
 	if self == nil {
 		panic("nil PathNode")
 	}
@@ -595,7 +595,11 @@ func (self *PathNode) Load(recurse bool, opts *Options, desc *proto.Descriptor) 
 	p := binary.BinaryProtocol{
 		Buf: self.Node.raw(),
 	}
-	return self.scanChildren(&p, recurse, opts, desc, len(p.Buf))
+	fd, ok := (*desc).(proto.Descriptor)
+	if !ok {
+		return wrapError(meta.ErrInvalidParam, "invalid descriptor", nil)
+	}
+	return self.scanChildren(&p, recurse, opts, &fd, len(p.Buf))
 }
 
 
@@ -660,4 +664,163 @@ func GetDescByPath(rootDesc *proto.MessageDescriptor, pathes ...Path) (ret *prot
 		}
 	}
 	return
+}
+
+func (self PathNode) Marshal(opt *Options) (out []byte, err error) {
+	p := binary.NewBinaryProtocolBuffer()
+	rootLayer := true
+	err = self.marshal(p, rootLayer, opt)
+	if err == nil {
+		out = make([]byte, len(p.Buf))
+		copy(out, p.Buf)
+	}
+	binary.FreeBinaryProtocol(p)
+	return
+}
+
+func (self PathNode) marshal(p *binary.BinaryProtocol, rootLayer bool, opts *Options) error {
+	if self.IsError() {
+		return self.Node
+	}
+
+	if len(self.Next) == 0 {
+		p.Buf = append(p.Buf, self.Node.raw()...)
+		return nil
+	}
+	
+	var err error
+
+	switch self.Node.t {
+	case proto.MESSAGE:
+		pos := -1
+		// only root layer no need append message tag and write prefix length
+		if !rootLayer {
+			p.Buf, pos = binary.AppendSpeculativeLength(p.Buf)
+			if pos < 0 {
+				return wrapError(meta.ErrWrite, "PathNode.marshal: append speculative length failed", nil)
+			}
+		} 
+		
+		for _, v := range self.Next {
+			// when node type is not LIST/MAP write tag
+			if v.Node.t != proto.LIST && v.Node.t != proto.MAP {
+				err = p.AppendTag(v.Path.Id(), proto.Kind2Wire[v.Node.t.TypeToKind()])
+			}
+			if err != nil {
+				return wrapError(meta.ErrWrite, "PathNode.marshal: append tag failed", err)
+			}
+
+			if err = v.marshal(p, false, opts); err != nil {
+				return unwrapError(fmt.Sprintf("field %d  marshal failed", v.Path.id()), err) 
+			}
+		}
+		if !rootLayer {
+			p.Buf = binary.FinishSpeculativeLength(p.Buf, pos)
+		}
+	case proto.LIST:
+		et := self.et
+		filedNumber := self.Path.Id()
+		IsUnPacked := et == proto.STRING || et.IsComplex()
+		pos := -1
+		// packed just need first list tag and write prefix length
+		if !IsUnPacked {
+			err = p.AppendTag(filedNumber, proto.BytesType)
+			if err != nil {
+				return wrapError(meta.ErrWrite, "PathNode.marshal: append tag failed", err)
+			}
+			p.Buf, pos = binary.AppendSpeculativeLength(p.Buf)
+			if pos < 0 {
+				return wrapError(meta.ErrWrite, "PathNode.marshal: append speculative length failed", nil)
+			}
+		}
+
+		for _, v := range self.Next {
+			// unpacked need append tag first
+			if IsUnPacked {
+				err = p.AppendTag(filedNumber, proto.Kind2Wire[v.Node.t.TypeToKind()])
+				if err != nil {
+					return wrapError(meta.ErrWrite, "PathNode.marshal: append tag failed", err)
+				}
+			}
+
+			if err = v.marshal(p, false, opts); err != nil {
+				return unwrapError(fmt.Sprintf("field %d  marshal failed", v.Path.id()), err) 
+			}
+		}
+
+		// packed mode need update prefix length
+		if !IsUnPacked {
+			p.Buf = binary.FinishSpeculativeLength(p.Buf, pos)
+		}
+	
+	case proto.MAP:
+		kt := self.kt
+		et := self.et
+		filedNumber := self.Path.Id()
+		pos := -1
+
+		for _, v := range self.Next {
+			// append pair tag and write prefix length
+			err = p.AppendTag(filedNumber, proto.BytesType)
+			if err != nil {
+				return wrapError(meta.ErrWrite, "PathNode.marshal: append tag failed", err)
+			}
+			p.Buf, pos = binary.AppendSpeculativeLength(p.Buf)
+			if pos < 0 {
+				return wrapError(meta.ErrWrite, "PathNode.marshal: append speculative length failed", nil)
+			}
+			
+			// write key tag + value
+			if kt == proto.STRING {
+				err = p.AppendTag(1, proto.BytesType)
+				if err != nil {
+					return wrapError(meta.ErrWrite, "PathNode.marshal: append tag failed", err)
+				}
+				err = p.WriteString(v.Path.Str())
+				if err != nil {
+					return wrapError(meta.ErrWrite, "PathNode.marshal: append string failed", err)
+				}
+			} else if kt.IsInt() {
+				wt := proto.Kind2Wire[kt.TypeToKind()]
+				err = p.AppendTag(1, wt)
+				if err != nil {
+					return wrapError(meta.ErrWrite, "PathNode.marshal: append tag failed", err)
+				}
+				if wt == proto.VarintType {
+					err = p.WriteI64(int64(v.Path.int()))
+				} else if wt == proto.Fixed32Type {
+					err = p.WriteSfixed32(int32(v.Path.int()))
+				} else if wt == proto.Fixed64Type {
+					err = p.WriteSfixed64(int64(v.Path.int()))
+				}
+				if err != nil {
+					return wrapError(meta.ErrWrite, "PathNode.marshal: append int failed", err)
+				}
+			} else {
+				return wrapError(meta.ErrUnsupportedType, "PathNode.marshal: unsupported map key type", nil)
+			}
+
+			// if value is basic type, need append tag first
+			if v.Node.t != proto.LIST && v.Node.t != proto.MAP {
+				err = p.AppendTag(2, proto.Kind2Wire[et.TypeToKind()])
+				if err != nil {
+					return wrapError(meta.ErrWrite, "PathNode.marshal: append tag failed", err)
+				}
+			}
+			
+			if err = v.marshal(p, false, opts); err != nil {
+				return unwrapError(fmt.Sprintf("field %d  marshal failed", v.Path.id()), err) 
+			}
+			p.Buf = binary.FinishSpeculativeLength(p.Buf, pos)
+		}
+	case proto.BOOL, proto.INT32, proto.SINT32, proto.UINT32, proto.FIX32, proto.SFIX32, proto.INT64, proto.SINT64, proto.UINT64, proto.FIX64, proto.SFIX64, proto.FLOAT, proto.DOUBLE, proto.STRING, proto.BYTE:
+		p.Buf = append(p.Buf, self.Node.raw()...)
+	case proto.UNKNOWN:
+		// unknown bytes can also be marshaled, but we don't know its real type, so we can't read it, just skip it.
+		p.Buf = append(p.Buf, self.Node.raw()...)
+	default:
+		return wrapError(meta.ErrUnsupportedType, "PathNode.marshal: unsupported type", nil)
+	}
+
+	return err
 }
