@@ -8,7 +8,6 @@ import (
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
-	"github.com/cloudwego/dynamicgo/proto/binary"
 )
 
 const (
@@ -23,29 +22,25 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.MessageD
 		// empty body
 	}
 
-	// p := binary.NewBinaryProtocolBuffer()
-	var p = binary.BinaryProtocol{
-		Buf: *buf,
-	}
-	if err := self.Unmarshal(src, &p, desc); err != nil {
+	if err := self.Unmarshal(src, buf, desc); err != nil {
 		return meta.NewError(meta.ErrConvert, fmt.Sprintf("json convert to protobuf failed, MessageDescriptor: %v", (*desc).Name()), err)
 	}
-	*buf = p.RawBuf()
 	return nil
 }
 
-func (self *BinaryConv) Unmarshal(src []byte, p *binary.BinaryProtocol, desc *proto.MessageDescriptor) error {
+func (self *BinaryConv) Unmarshal(src []byte, out *[]byte, desc *proto.MessageDescriptor) error {
 	// use sonic to decode json bytes, get visitorUserNode
-	var d visitorUserNodeVisitorDecoder
+	vu := NewVisitorUserNodeBuffer()
 	rootDesc, ok := (*desc).(proto.Descriptor)
 	if !ok {
 		return newError(meta.ErrDismatchType, "descriptor match failed", nil)
 	}
-	d.Reset(p)
 	// use Visitor onxxx() to decode json2pb
-	_, err := d.Decode(src, &rootDesc)
+	data, err := vu.Decode(src, &rootDesc)
+	vu.Recycle()
 	if err != nil {
 		return newError(meta.ErrConvert, "sonic decode json bytes failed", err)
 	}
+	*out = data
 	return nil
 }

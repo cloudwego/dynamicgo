@@ -34,7 +34,7 @@ var (
 	errUnknonwField       = meta.NewError(meta.ErrUnknownField, "unknown field", nil)
 	errUnsupportedType    = meta.NewError(meta.ErrUnsupportedType, "unsupported type", nil)
 	errNotImplemented     = meta.NewError(meta.ErrNotImplemented, "not implemted type", nil)
-	ErrConvert			  = meta.NewError(meta.ErrConvert, "convert type error", nil)
+	ErrConvert            = meta.NewError(meta.ErrConvert, "convert type error", nil)
 	errDecodeField        = meta.NewError(meta.ErrRead, "invalid field data", nil)
 )
 
@@ -137,11 +137,16 @@ func (p *BinaryProtocol) Recycle() {
 // Append Tag
 func (p *BinaryProtocol) AppendTag(num proto.Number, typ proto.WireType) error {
 	tag := uint64(num)<<3 | uint64(typ&7)
-	if num > proto.MaxValidNumber || num < proto.MinValidNumber{
+	if num > proto.MaxValidNumber || num < proto.MinValidNumber {
 		return errInvalidFieldNumber
 	}
 	p.Buf = protowire.BinaryEncoder{}.EncodeUint64(p.Buf, tag)
 	return nil
+}
+
+// Append Tag With FieldDescriptor
+func (p *BinaryProtocol) AppendTagByDesc(desc *proto.FieldDescriptor) error {
+	return p.AppendTag((*desc).Number(), proto.Kind2Wire[(*desc).Kind()])
 }
 
 // ConsumeTag parses b as a varint-encoded tag, reporting its length.
@@ -362,7 +367,7 @@ func (p *BinaryProtocol) WriteList(desc *proto.FieldDescriptor, val interface{})
 		if err := p.AppendTag(fd.Number(), proto.Kind2Wire[kind]); err != nil {
 			return err
 		}
-		
+
 		if err := p.WriteBaseTypeWithDesc(desc, v, true, false, true); err != nil {
 			return err
 		}
