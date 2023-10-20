@@ -30,7 +30,7 @@ var (
 
 //go:noinline
 func wrapError(code meta.ErrCode, msg string, err error) error {
-	return meta.NewError(meta.NewErrorCode(code, meta.PROTOBUF), msg, err)
+	return meta.NewError(meta.NewErrorCode(code, meta.THRIFT), msg, err)
 }
 
 //go:noinline
