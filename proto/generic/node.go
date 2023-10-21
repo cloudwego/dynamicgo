@@ -318,3 +318,31 @@ func (o *Node) setNotFound(path Path, n *Node, desc *proto.FieldDescriptor) erro
 	o.l = 0
 	return nil
 }
+
+
+func (self *Node) replaceMany(ps *pnSlice) error {
+	var buf []byte
+	// Sort pathes by original value address
+	ps.Sort()
+
+	// sequentially set new values into buffer according to sorted pathes
+	buf = make([]byte, 0, self.l)
+	last := self.v
+	for i := 0; i < len(ps.a); i++ {
+		lastLen := rt.PtrOffset(ps.a[i].Node.v, last)
+		// copy last slice from original buffer
+		buf = append(buf, rt.BytesFrom(last, lastLen, lastLen)...)
+		// copy new value's buffer into buffer
+		buf = append(buf, ps.b[i].Node.raw()...)
+		// update last index
+		last = ps.a[i].offset()
+	}
+	if tail := self.offset(); uintptr(last) < uintptr(tail) {
+		// copy last slice from original buffer
+		buf = append(buf, rt.BytesFrom(last, rt.PtrOffset(tail, last), rt.PtrOffset(tail, last))...)
+	}
+
+	self.v = rt.GetBytePtr(buf)
+	self.l = int(len(buf))
+	return nil
+}

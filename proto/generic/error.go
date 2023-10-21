@@ -105,7 +105,7 @@ func errPathNode(code meta.ErrCode, msg string, err error) *PathNode {
 	}
 }
 
-// IsEmpty tells if the node is PROTOBUF.STOP
+// IsEmpty tells if the node is proto.UNKNOWN
 func (self Node) IsUnKnown() bool {
 	return self.t == proto.UNKNOWN
 }

@@ -1303,3 +1303,78 @@ func (self Value) Gets(keys []PathNode, opts *Options) error {
 	return nil
 }
 
+
+func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, address []int, path ...Path) (err error) {
+	if len(pathes) == 0 {
+		return nil
+	}
+	
+	if err := self.Check(); err != nil {
+		return err
+	}
+
+	// copy original pathes
+	ps := pnsPool.Get().(*pnSlice)
+	if cap(ps.a) < len(pathes) {
+		ps.a = make([]PathNode, len(pathes))
+	} else {
+		ps.a = ps.a[:len(pathes)]
+	}
+	copy(ps.a, pathes)
+	ps.b = pathes
+	isPacked := false
+	originLen := len(self.raw()) // current buf length
+	rootLen := len(root.raw()) // root buf length
+	currentAdd := []int{0, 0}
+	// get original values
+	if err = self.getMany(ps.a, true, opts); err != nil {
+		goto ret
+	}
+
+	// handle not found values
+	for i, a := range ps.a {
+		if a.IsUnKnown() {
+			var sp unsafe.Pointer
+			if self.t.IsComplex() {
+				sp = rt.AddPtr(self.v, uintptr(self.l))
+			}
+			ps.a[i].Node = errNotFoundLast(sp, self.t)
+			ps.a[i].Node.setNotFound(a.Path, &ps.b[i].Node, self.Desc)
+		}
+	}
+
+	if self.t == proto.LIST {
+		isPacked = (*self.Desc).IsPacked()
+	}
+
+	// update current Node length
+	err = self.replaceMany(ps)
+	if self.t == proto.LIST && isPacked {
+		// update root length
+		Ps := []Path{NewPathIndex(0),NewPathIndex(0)}
+		self.UpdateByteLen(originLen,currentAdd,isPacked,Ps...)
+	} else if self.t == proto.MESSAGE && self.rootDesc == nil {
+		buf := self.raw()
+		_, lenOffset := protowire.ConsumeVarint(buf)
+		byteLen := len(buf) - lenOffset
+		newLen := protowire.AppendVarint(nil, uint64(byteLen))
+		// newLen + buf[lenOffset:]
+		l0 := len(newLen)
+		l1 := byteLen
+		newBuf := make([]byte, l0+l1)
+		copy(newBuf[:l0], newLen)
+		copy(newBuf[l0:], buf[lenOffset:])
+		self.v = rt.GetBytePtr(newBuf)
+		self.l = int(len(newBuf))
+	}
+
+	// update root length
+	err = root.replaceMany(ps)
+	address = append(address, 0) // must add one address align with path length
+	path = append(path, Path{})
+	root.UpdateByteLen(rootLen, address, isPacked, path...)
+ret:
+	ps.b = nil
+	pnsPool.Put(ps)
+	return
+}
