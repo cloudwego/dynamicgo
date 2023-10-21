@@ -2,7 +2,6 @@ package testdata
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/internal/util_test"
@@ -66,19 +65,14 @@ func BenchmarkProtoSkip(b *testing.B) {
 
 		require.Equal(b, len(data), p.Read)
 
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
 		b.Run("go", func(b *testing.B) {
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				p := binary.NewBinaryProtol(data)
 				for p.Left() > 0 {
-					_, wireType, _, err := p.ConsumeTag()
-					if err != nil {
-						b.Fatal(err)
-					}
-					if err := p.Skip(wireType, false); err != nil {
-						b.Fatal(err)
-					}
+					_, wireType, _, _ := p.ConsumeTag()
+					_ = p.Skip(wireType, false)
 				}
 			}			
 		})
@@ -111,19 +105,14 @@ func BenchmarkProtoSkip(b *testing.B) {
 
 		require.Equal(b, len(data), p.Read)
 
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
 		b.Run("go", func(b *testing.B) {
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				p := binary.NewBinaryProtol(data)
 				for p.Left() > 0 {
-					_, wireType, _, err := p.ConsumeTag()
-					if err != nil {
-						b.Fatal(err)
-					}
-					if err := p.Skip(wireType, false); err != nil {
-						b.Fatal(err)
-					}
+					_, wireType, _, _ := p.ConsumeTag()
+					_ = p.Skip(wireType, false)
 				}
 			}			
 		})
@@ -147,10 +136,9 @@ func BenchmarkProtoGetOne(b *testing.B) {
 		bs, err := vv.Binary()
 		require.Nil(b, err)
 		require.Equal(b, obj.BinaryField, bs)
-
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
 		b.Run("go", func(b *testing.B) {
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, _ = v.GetByPath(generic.NewPathFieldId(6))
 			}
@@ -172,10 +160,9 @@ func BenchmarkProtoGetOne(b *testing.B) {
 		bs, err := vv.Int()
 		require.Nil(b, err)
 		require.Equal(b, obj.I64, int64(bs))
-
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
 		b.Run("go", func(b *testing.B) {
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, _ = v.GetByPath(generic.NewPathFieldId(6))
 			}
@@ -217,12 +204,13 @@ func BenchmarkProtoMarshalTo(b *testing.B) {
 			b.Fatal("test failed")
 		}
 
+		opts = generic.Options{
+			UseNativeSkip: false,
+		}
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+
 		b.Run("go", func(b *testing.B) {
-			opts := generic.Options{
-				UseNativeSkip: false,
-			}
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, _ = v.MarshalTo(part, &opts)
 			}
@@ -262,12 +250,13 @@ func BenchmarkProtoMarshalTo(b *testing.B) {
 			b.Fatal("test failed")
 		}
 
+		opts = generic.Options{
+			UseNativeSkip: false,
+		}
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+
 		b.Run("go", func(b *testing.B) {
-			opts := generic.Options{
-				UseNativeSkip: false,
-			}
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, _ = v.MarshalTo(part, &opts)
 			}
@@ -294,9 +283,9 @@ func BenchmarkProtoSetOne(b *testing.B) {
 		nn, _ := v.GetByPath(generic.NewPathFieldId(6))
 		require.Equal(b, n.Raw(), nn.Raw())
 
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
 		b.Run("go", func(b *testing.B) {
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, _ = v.SetByPath(n, generic.NewPathFieldId(6))
 			}
@@ -322,9 +311,9 @@ func BenchmarkProtoSetOne(b *testing.B) {
 		nn, _ := v.GetByPath(generic.NewPathFieldId(15), generic.NewPathStrKey("0"), generic.NewPathFieldId(6))
 		require.Equal(b, n.Raw(), nn.Raw())
 
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
 		b.Run("go", func(b *testing.B) {
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, _ = v.SetByPath(n, generic.NewPathFieldId(15), generic.NewPathStrKey("0"), generic.NewPathFieldId(6))
 			}
@@ -785,8 +774,7 @@ func BenchmarkProtoGetAll_New(b *testing.B) {
 		v := generic.NewRootValue(desc, data)
 		out := []generic.PathNode{}
 		require.Nil(b, v.Children(&out, false, &generic.Options{UseNativeSkip: false}, desc))
-		_ = v.Children(&out, false, &generic.Options{UseNativeSkip: false}, desc)
-		fmt.Println(out)
+
 		b.Run("go", func(b *testing.B) {
 			opts := &generic.Options{
 				UseNativeSkip: false,
@@ -812,10 +800,6 @@ func BenchmarkProtoGetAll_New(b *testing.B) {
 
 		v := generic.NewRootValue(desc, data)
 		out := []generic.PathNode{}
-		a := v.Children(&out, true, &generic.Options{UseNativeSkip: false}, desc)
-		fmt.Println(a)
-
-
 		require.Nil(b, v.Children(&out, false, &generic.Options{UseNativeSkip: false}, desc))
 
 		b.Run("go", func(b *testing.B) {
@@ -827,6 +811,193 @@ func BenchmarkProtoGetAll_New(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				out := []generic.PathNode{}
 				_ = v.Children(&out,true, opts, desc)
+			}
+		})
+	})
+}
+
+func BenchmarkProtoGetPartial_New(b *testing.B) {
+	b.Run("small", func(b *testing.B) {
+		desc := getPbPartialSimpleDesc()
+		obj := getPbPartialSimpleValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret, len(data))
+		}
+
+		v := generic.NewRootValue(desc, data)
+		out := []generic.PathNode{}
+		require.Nil(b, v.Children(&out, false, &generic.Options{UseNativeSkip: false}, desc))
+
+		b.Run("go", func(b *testing.B) {
+			opts := &generic.Options{
+				UseNativeSkip: false,
+				// OnlyScanStruct: true,
+			}
+			b.SetBytes(int64(len(data)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				out = out[:0]
+				_ = v.Children(&out, true, opts, desc)
+			}
+		})
+	})
+
+	b.Run("medium", func(b *testing.B) {
+		desc := getPbPartialNestingDesc()
+		obj := getPbPartialNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret, len(data))
+		}
+
+		v := generic.NewRootValue(desc, data)
+		out := []generic.PathNode{}
+		require.Nil(b, v.Children(&out, false, &generic.Options{UseNativeSkip: false}, desc))
+
+		b.Run("go", func(b *testing.B) {
+			opts := &generic.Options{
+				UseNativeSkip: false,
+			}
+			b.SetBytes(int64(len(data)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				out := []generic.PathNode{}
+				_ = v.Children(&out,true, opts, desc)
+			}
+		})
+	})
+
+}
+
+func BenchmarkProtoGetAll_ReuseMemory(b *testing.B) {
+	b.Run("small", func(b *testing.B) {
+		desc := getPbSimpleDesc()
+		obj := getPbSimpleValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret, len(data))
+		}
+		v := generic.NewRootValue(desc, data)
+		r := generic.NewPathNode()
+		r.Node = v.Node
+		r.Load(true, &generic.Options{UseNativeSkip: false}, desc)
+		r.ResetAll()
+		generic.FreePathNode(r)
+
+		b.Run("go", func(b *testing.B) {
+			opts := &generic.Options{
+				UseNativeSkip: false,
+			}
+			b.SetBytes(int64(len(data)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				r := generic.NewPathNode()
+				r.Node = v.Node
+				r.Load(true, opts, desc)
+				r.ResetAll()
+				generic.FreePathNode(r)
+			}
+		})
+
+	})
+
+	b.Run("medium", func(b *testing.B) {
+		desc := getPbNestingDesc()
+		obj := getPbNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret, len(data))
+		}
+		v := generic.NewRootValue(desc, data)
+		r := generic.NewPathNode()
+		r.Node = v.Node
+		r.Load(true, &generic.Options{UseNativeSkip: false}, desc)
+		r.ResetAll()
+		generic.FreePathNode(r)
+
+		b.Run("go", func(b *testing.B) {
+			opts := &generic.Options{
+				UseNativeSkip: false,
+			}
+			b.SetBytes(int64(len(data)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				r := generic.NewPathNode()
+				r.Node = v.Node
+				r.Load(true, opts, desc)
+				r.ResetAll()
+				generic.FreePathNode(r)
+			}
+		})
+	})
+}
+
+
+func BenchmarkProtoGetPartial_ReuseMemory(b *testing.B) {
+	b.Run("small", func(b *testing.B) {
+		desc := getPbPartialSimpleDesc()
+		obj := getPbPartialSimpleValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret, len(data))
+		}
+		v := generic.NewRootValue(desc, data)
+		r := generic.NewPathNode()
+		r.Node = v.Node
+		r.Load(true, &generic.Options{UseNativeSkip: false}, desc)
+		r.ResetAll()
+		generic.FreePathNode(r)
+
+		b.Run("go", func(b *testing.B) {
+			opts := &generic.Options{
+				UseNativeSkip: false,
+			}
+			b.SetBytes(int64(len(data)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				r := generic.NewPathNode()
+				r.Node = v.Node
+				r.Load(true, opts, desc)
+				r.ResetAll()
+				generic.FreePathNode(r)
+			}
+		})
+
+	})
+
+	b.Run("medium", func(b *testing.B) {
+		desc := getPbPartialNestingDesc()
+		obj := getPbPartialNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret, len(data))
+		}
+		v := generic.NewRootValue(desc, data)
+		r := generic.NewPathNode()
+		r.Node = v.Node
+		r.Load(true, &generic.Options{UseNativeSkip: false}, desc)
+		r.ResetAll()
+		generic.FreePathNode(r)
+
+		b.Run("go", func(b *testing.B) {
+			opts := &generic.Options{
+				UseNativeSkip: false,
+			}
+			b.SetBytes(int64(len(data)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				r := generic.NewPathNode()
+				r.Node = v.Node
+				r.Load(true, opts, desc)
+				r.ResetAll()
+				generic.FreePathNode(r)
 			}
 		})
 	})
