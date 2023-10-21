@@ -170,6 +170,179 @@ func BenchmarkProtoGetOne(b *testing.B) {
 	})
 }
 
+
+func BenchmarkProtoGetMany(b *testing.B) {
+	b.Run("small", func(b *testing.B) {
+		desc := getPbSimpleDesc()
+		obj := getPbSimpleValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+
+		opts := generic.Options{}
+
+		v := generic.NewRootValue(desc, data)
+
+		ps := []generic.PathNode{
+			{Path: generic.NewPathFieldId(1)},
+			{Path: generic.NewPathFieldId(3)},
+			{Path: generic.NewPathFieldId(6)},
+		}
+
+		err := v.GetMany(ps, &opts)
+		require.Nil(b, err)
+
+		b.Run("go", func(b *testing.B) {
+			opts.UseNativeSkip = false
+			b.SetBytes(int64(len(data)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = v.GetMany(ps, &opts)
+			}
+		})
+	})
+
+	b.Run("medium", func(b *testing.B) {
+		desc := getPbNestingDesc()
+		obj := getPbNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+
+		opts := generic.Options{}
+
+		v := generic.NewRootValue(desc, data)
+
+		ps := []generic.PathNode{
+			{Path: generic.NewPathFieldId(2)},
+			{Path: generic.NewPathFieldId(8)},
+			{Path: generic.NewPathFieldId(15)},
+		}
+
+		err := v.GetMany(ps, &opts)
+		require.Nil(b, err)
+
+		b.Run("go", func(b *testing.B) {
+			opts.UseNativeSkip = false
+			b.SetBytes(int64(len(data)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = v.GetMany(ps, &opts)
+			}
+		})
+	})
+}
+
+
+func BenchmarkProtoMarshalMany(b *testing.B) {
+	b.Run("small", func(b *testing.B) {
+		desc := getPbSimpleDesc()
+		obj := getPbSimpleValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+
+		opts := generic.Options{}
+
+		v := generic.NewRootValue(desc, data)
+		ps := []generic.PathNode{
+			{Path: generic.NewPathFieldId(1)},
+			{Path: generic.NewPathFieldId(3)},
+			{Path: generic.NewPathFieldId(6)},
+		}
+
+		err := v.GetMany(ps, &opts)
+		require.Nil(b, err)
+
+		n := generic.PathNode{
+			Path: generic.NewPathFieldId(1),
+			Node: v.Node,
+			Next: ps,
+		}
+		
+		buf ,err := n.Marshal(&opts)
+		require.Nil(b, err)
+		exp := baseline.PartialSimple{}
+		dataLen := len(buf)
+		l := 0
+		for l < dataLen {
+			id, wtyp, tagLen := goprotowire.ConsumeTag(buf)
+			if tagLen < 0 {
+				b.Fatal("test failed")
+			}
+			l += tagLen
+			buf = buf[tagLen:]
+			offset, err := exp.FastRead(buf, int8(wtyp), int32(id))
+			require.Nil(b, err)
+			buf = buf[offset:]
+			l += offset
+		}
+		if len(buf) != 0 {
+			b.Fatal("test failed")
+		}
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i:= 0; i < b.N; i++ {
+			_, _ = n.Marshal(&opts)
+		}
+	})
+
+	b.Run("medium", func(b *testing.B) {
+		desc := getPbNestingDesc()
+		obj := getPbNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+		opts := generic.Options{}
+		v := generic.NewRootValue(desc, data)
+		ps := []generic.PathNode{
+			{Path: generic.NewPathFieldId(2)},
+			{Path: generic.NewPathFieldId(8)},
+			{Path: generic.NewPathFieldId(15)},
+		}
+		err := v.GetMany(ps, &opts)
+		require.Nil(b, err)
+		n := generic.PathNode{
+			Path: generic.NewPathFieldId(2),
+			Node: v.Node,
+			Next: ps,
+		}
+		buf ,err := n.Marshal(&opts)
+		require.Nil(b, err)
+		exp := baseline.PartialNesting{}
+		dataLen := len(buf)
+		l := 0
+		for l < dataLen {
+			id, wtyp, tagLen := goprotowire.ConsumeTag(buf)
+			if tagLen < 0 {
+				b.Fatal("test failed")
+			}
+			l += tagLen
+			buf = buf[tagLen:]
+			offset, err := exp.FastRead(buf, int8(wtyp), int32(id))
+			require.Nil(b, err)
+			buf = buf[offset:]
+			l += offset
+		}
+		if len(buf) != 0 {
+			b.Fatal("test failed")
+		}
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i:= 0; i < b.N; i++ {
+			_, _ = n.Marshal(&opts)
+		}
+	})
+}
+
 func BenchmarkProtoMarshalTo(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		desc := getPbSimpleDesc()
@@ -1002,3 +1175,4 @@ func BenchmarkProtoGetPartial_ReuseMemory(b *testing.B) {
 		})
 	})
 }
+
