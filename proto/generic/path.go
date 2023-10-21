@@ -236,6 +236,16 @@ func NewPathNode() *PathNode {
 	return pathNodePool.Get().(*PathNode)
 }
 
+// ResetAll resets self and its children, including path and node both
+func (self *PathNode) ResetAll() {
+	for i := range self.Next {
+		self.Next[i].ResetAll()
+	}
+	self.Node = Node{}
+	self.Path = Path{}
+	self.Next = self.Next[:0]
+}
+
 // FreePathNode put a PathNode back to memory pool
 func FreePathNode(p *PathNode) {
 	p.Path = Path{}
@@ -291,7 +301,7 @@ func DescriptorToPathNode(desc *proto.FieldDescriptor, root *PathNode, opts *Opt
 
 
 
-func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts *Options, desc *proto.Descriptor,messageLen int) (err error) {
+func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts *Options, desc *proto.Descriptor, messageLen int) (err error) {
 	next := self.Next[:0] // []PathNode len=0
 	l := len(next)
 	c := cap(next)
@@ -460,27 +470,64 @@ func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *binary.Bi
 	start := p.Read
 	buf := p.Buf
 	kind := (*desc).Kind()
-	et := proto.FromProtoKindToType(kind,(*desc).IsList(),(*desc).IsMap())
+	tt := proto.FromProtoKindToType(kind,(*desc).IsList(),(*desc).IsMap())
+	et := proto.UNKNOWN
+	kt := proto.UNKNOWN
+	IsPacked := (*desc).IsPacked()
+	size := 0
 
-	if recurse && (et.IsComplex() && opts.NotScanParentNode) {
+	if recurse && (tt.IsComplex() && opts.NotScanParentNode) {
 		v.Node = Node{
-			t: et,
+			t: tt,
 			l: 0,
 			v: unsafe.Pointer(uintptr(self.Node.v) + uintptr(start)),
 		}
 	} else {
-		if e := p.Skip(proto.Kind2Wire[kind], opts.UseNativeSkip); e != nil {
+		skipType := proto.Kind2Wire[kind]
+		if tt == proto.LIST {
+			et = proto.FromProtoKindToType((*desc).Kind(),false,false)
+			skipType = proto.BytesType
+		}
+
+		if e := p.Skip(skipType, opts.UseNativeSkip); e != nil {
 			return nil, wrapError(meta.ErrRead, "skip field failed", e)
 		}
-		v.Node = self.slice(start, p.Read, et)
+		
+
+		// unpacked LIST & MAP
+		if (tt == proto.LIST && IsPacked == false) || tt == proto.MAP {
+			fieldNumber := (*desc).Number()
+			size += 1
+			if tt == proto.MAP {
+				kt = proto.FromProtoKindToType((*desc).MapKey().Kind(),false,false)
+				et = proto.FromProtoKindToType((*desc).MapValue().Kind(),false,false)
+			}
+			
+			for p.Read < len(p.Buf) {
+				number, wt, tagLen, err := p.ConsumeTagWithoutMove()
+				if err != nil {
+					return nil, err
+				}
+				if number != fieldNumber {
+					break
+				}
+				p.Read += tagLen
+				if e := p.Skip(wt, opts.UseNativeSkip); e != nil {
+					return nil, wrapError(meta.ErrRead, "skip field failed", e)
+				}
+				size += 1
+			}
+		}
+		v.Node = self.sliceComplex(start, p.Read, tt, kt, et, size)
+		
 	}
 
-	if recurse && et.IsComplex() {
+	if recurse && tt.IsComplex() {
 		p.Buf = p.Buf[start:]
 		p.Read = 0
 		parentDesc := (*desc).(proto.Descriptor)
 		messageLen := 0
-		if et == proto.MESSAGE {
+		if tt == proto.MESSAGE {
 			parentDesc = (*desc).Message().(proto.Descriptor)
 			var err error
 			messageLen, err = p.ReadLength()
