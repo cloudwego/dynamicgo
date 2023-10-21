@@ -2,6 +2,7 @@ package generic
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 	"unsafe"
 
@@ -870,4 +871,28 @@ func (self PathNode) marshal(p *binary.BinaryProtocol, rootLayer bool, opts *Opt
 	}
 
 	return err
+}
+
+
+// pathNode Slice Pool
+type pnSlice struct {
+	a []PathNode
+	b []PathNode
+}
+
+func (self pnSlice) Len() int {
+	return len(self.a)
+}
+
+func (self *pnSlice) Swap(i, j int) {
+	self.a[i], self.a[j] = self.a[j], self.a[i]
+	self.b[i], self.b[j] = self.b[j], self.b[i]
+}
+
+func (self pnSlice) Less(i, j int) bool {
+	return int(uintptr(self.a[i].Node.v)) < int(uintptr(self.a[j].Node.v))
+}
+
+func (self *pnSlice) Sort() {
+	sort.Sort(self)
 }

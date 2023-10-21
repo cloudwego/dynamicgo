@@ -2,6 +2,7 @@ package generic
 
 import (
 	"fmt"
+	"sync"
 	"unsafe"
 
 	"github.com/cloudwego/dynamicgo/internal/rt"
@@ -15,6 +16,14 @@ type Value struct {
 	Node
 	rootDesc *proto.MessageDescriptor
 	Desc     *proto.FieldDescriptor
+}
+
+var pnsPool = sync.Pool{
+	New: func() interface{} {
+		return &pnSlice{
+			a: make([]PathNode, 0, DefaultNodeSliceCap),
+		}
+	},
 }
 
 func NewRootValue(desc *proto.MessageDescriptor, src []byte) Value {
@@ -915,7 +924,7 @@ func (self Value) Index(i int) (v Value) {
 	}
 
 	var s, e int
-	dataLen := 0 // when not packed, start need to contation length, like STRING and MESSAGE type
+	// dataLen := 0 // when not packed, start need to contation length, like STRING and MESSAGE type
 	it := self.iterElems()
 	if it.Err != nil {
 		return errValue(meta.ErrRead, "", it.Err)
@@ -954,7 +963,7 @@ func (self Value) Index(i int) (v Value) {
 
 	s, e = it.Next(UseNativeSkipForGet)
 
-	v = wrapValue(self.Node.slice(s-dataLen, e, self.et), self.Desc)
+	v = wrapValue(self.Node.slice(s, e, self.et), self.Desc)
 
 	return
 }
@@ -1077,3 +1086,220 @@ func (self Value) Field(id proto.FieldNumber) (v Value) {
 ret:
 	return
 }
+
+
+// GetMany searches transversely and returns all the sub nodes along with the given pathes.
+func (self Value) GetMany(pathes []PathNode, opts *Options) error {
+	if len(pathes) == 0 {
+		return nil
+	}
+	return self.getMany(pathes, opts.ClearDirtyValues, opts)
+}
+
+func (self Value) getMany(pathes []PathNode, clearDirty bool, opts *Options) error {
+	if clearDirty {
+		for i := range pathes {
+			pathes[i].Node = Node{}
+		}
+	}
+	p := pathes[0]
+	switch p.Path.t {
+	case PathFieldId:
+		return self.Fields(pathes, opts)
+	case PathIndex:
+		return self.Indexes(pathes, opts)
+	case PathStrKey, PathIntKey, PathBinKey:
+		return self.Gets(pathes, opts)
+	default:
+		return errValue(meta.ErrUnsupportedType, fmt.Sprintf("invalid path: %#v", p), nil)
+	}
+}
+
+func (self Value) Fields(ids []PathNode, opts *Options) error {
+	if err := self.should("Fields", proto.MESSAGE); err != "" {
+		return errValue(meta.ErrUnsupportedType, err, nil)
+	}
+
+	if len(ids) == 0 {
+		return nil
+	}
+
+	if opts.ClearDirtyValues {
+		for i := range ids {
+			ids[i].Node = Node{}
+		}
+	}
+
+	it := self.iterFields()
+	if it.Err != nil {
+		return errValue(meta.ErrRead, "", it.Err)
+	}
+
+	var Fields proto.FieldDescriptors
+	if self.rootDesc != nil {
+		Fields = (*self.rootDesc).Fields()
+	} else {
+		Fields = (*self.Desc).Message().Fields()
+		if _, err := it.p.ReadLength(); err != nil {
+			return errValue(meta.ErrRead, "", err)
+		}
+	}
+
+	need := len(ids)
+	for count := 0; it.HasNext() && count < need; {
+		var p *PathNode
+		i, _, s, e, tagPos := it.Next(UseNativeSkipForGet)
+		if it.Err != nil {
+			return errValue(meta.ErrRead, "", it.Err)
+		}
+		f := Fields.ByNumber(i)
+		if f.IsMap() || f.IsList() {
+			it.p.Read = tagPos
+			if f.IsMap() {
+				if _, err := it.p.ReadMap(&f, false, false, false); err != nil {
+					return errValue(meta.ErrRead, "", err)
+				}
+			} else {
+				if _, err := it.p.ReadList(&f, false, false, false); err != nil {
+					return errValue(meta.ErrRead, "", err)
+				}
+			}
+			s = tagPos
+			e = it.p.Read
+		}
+
+
+		v := self.slice(s, e, &f)
+
+		//TODO: use bitmap to avoid repeatedly scan
+		for j, id := range ids {
+			if id.Path.t == PathFieldId && id.Path.id() == i {
+				p = &ids[j]
+				count += 1
+				break
+			}
+		}
+
+		if p != nil {
+			p.Node = v.Node
+		}
+	}
+
+	return nil
+}
+
+func (self Value) Indexes(ins []PathNode, opts *Options) error {
+	if err := self.should("Indexes", proto.LIST); err != "" {
+		return errValue(meta.ErrUnsupportedType, err, nil)
+	}
+
+	if len(ins) == 0 {
+		return nil
+	}
+
+	if opts.ClearDirtyValues {
+		for i := range ins {
+			ins[i].Node = Node{}
+		}
+	}
+
+	it := self.iterElems()
+	if it.Err != nil {
+		return errValue(meta.ErrRead, "", it.Err)
+	}
+
+	need := len(ins)
+	IsPacked := (*self.Desc).IsPacked()
+
+	if IsPacked {
+		if _, err := it.p.ReadLength(); err != nil {
+			return errValue(meta.ErrRead, "", err)
+		}
+	}
+	
+	for count, i := 0, 0; it.HasNext() && count < need; i++ {
+		s, e := it.Next(UseNativeSkipForGet)
+		if it.Err != nil {
+			return errValue(meta.ErrRead, "", it.Err)
+		}
+
+		var p *PathNode
+		for j, id := range ins {
+			if id.Path.t != PathIndex {
+				continue
+			}
+			k := id.Path.int()
+			if k >= it.size {
+				continue
+			}
+			if k == i {
+				p = &ins[j]
+				count += 1
+				break
+			}
+		}
+		// unpacked mode, skip tag
+		if IsPacked == false && it.HasNext() {
+			if _, _, _, err := it.p.ConsumeTag(); err != nil {
+				return errValue(meta.ErrRead, "", err)
+			}
+		}
+		if p != nil {
+			p.Node = self.Node.slice(s, e, self.et)
+		}
+	}
+	return nil
+}
+
+func (self Value) Gets(keys []PathNode, opts *Options) error {
+	if err := self.should("Gets", proto.MAP); err != "" {
+		return errValue(meta.ErrUnsupportedType, err, nil)
+	}
+
+	if len(keys) == 0 {
+		return nil
+	}
+
+	if opts.ClearDirtyValues {
+		for i := range keys {
+			keys[i].Node = Node{}
+		}
+	}
+
+	et := self.et
+	it := self.iterPairs()
+	if it.Err != nil {
+		return errValue(meta.ErrRead, "", it.Err)
+	}
+
+	need := len(keys)
+	for count := 0; it.HasNext() && count < need; {
+		for j, id := range keys {
+			if id.Path.Type() == PathStrKey {
+				exp := id.Path.str()
+				_, key, s, e := it.NextStr(UseNativeSkipForGet)
+				if it.Err != nil {
+					return errValue(meta.ErrRead, "", it.Err)
+				}
+				if key == exp {
+					keys[j].Node = self.Node.slice(s, e, et)
+					count += 1
+					break
+				}
+			} else if id.Path.Type() == PathIntKey {
+				exp := id.Path.int()
+				_, key, s, e := it.NextInt(UseNativeSkipForGet)
+				if it.Err != nil {
+					return errValue(meta.ErrRead, "", it.Err)
+				}
+				if key == exp {
+					keys[j].Node = self.Node.slice(s, e, et)
+					count += 1
+					break
+				}
+			}
+		}
+	}
+	return nil
+}
+

@@ -22,8 +22,13 @@ func (self Node) iterElems() (fi listIterator) {
 			fi.Err = wrapError(meta.ErrUnsupportedType, "ListIterator.iterElems: wire type is not bytes.", nil)
 			return
 		}
-		// maybe we could calculate fi.size in the fulture.
-		fi.size = -1
+		
+		size, err := self.Len()
+		if err != nil {
+			fi.Err = wrapError(meta.ErrRead, "ListIterator.iterElems: get list size error.", err)
+			return
+		}
+		fi.size = size
 		fi.et = proto.Type(self.et)
 		kind := fi.et.TypeToKind()
 		fi.ewt = proto.Kind2Wire[kind]
@@ -42,8 +47,13 @@ func (self Node) iterPairs() (fi mapIterator) {
 		if wtyp != proto.BytesType {
 			fi.Err = wrapError(meta.ErrUnsupportedType, "MapIterator.iterPairs: wire type is not bytes.", nil)
 		}
-		// maybe we could calculate fi.size in the fulture.
-		fi.size = -1
+
+		size, err := self.Len()
+		if err != nil {
+			fi.Err = wrapError(meta.ErrRead, "MapIterator.iterPairs: get map size error.", err)
+			return
+		}
+		fi.size = size
 		fi.vt = proto.Type(self.et)
 		fi.vwt = proto.Kind2Wire[fi.vt.TypeToKind()]
 		fi.kt = proto.Type(self.kt)
