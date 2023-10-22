@@ -873,3 +873,229 @@ func TestUnsetByPath(t *testing.T) {
 	})
 
 }
+
+
+
+func TestSetMany(t *testing.T) {
+	desc := getExample2Desc()
+	data := getExample2Data()
+	opts := &Options{
+		UseNativeSkip: true,
+	}
+	r := NewRootValue(desc, data)
+	d1 := (*desc).Fields().ByName("Msg")
+	d2 := (*desc).Fields().ByName("Subfix")
+	address := make([]int, 0)
+	pathes := make([]Path, 0)
+	PathInnerBase = NewPathFieldName("InnerBase2")
+	PathExampleListInt32 = []Path{PathInnerBase, NewPathFieldId(proto.FieldNumber(8))}
+
+	t.Run("insert", func(t *testing.T) {
+		v := r.Fork()
+		exp1 := int32(-1024)
+		n1 := NewNodeInt32(exp1)
+		err := v.SetMany([]PathNode{
+			{
+				Path: NewPathFieldId(2),
+				Node: n1,
+			},
+		}, opts, &v, address, pathes...)
+		require.Nil(t, err)
+		v1, _ := v.GetByPath(NewPathFieldName("A"))
+		act1, err := v1.Int()
+		require.NoError(t, err)
+		require.Equal(t, exp1, int32(act1))
+
+		exp21 := int32(math.MinInt32)
+		exp22 := int32(math.MaxInt32)
+		n21 := NewNodeInt32(exp21)
+		n22 := NewNodeInt32(exp22)
+		vv, listInt2root := v.GetByPath(PathExampleListInt32...)
+		l2, err := vv.Len()
+		require.NoError(t, err)
+		// the last value of path2root and address2root is only a flag not using real value
+		path2root := []Path{ NewPathFieldName("InnerBase2"), NewPathFieldId(proto.FieldNumber(8)), NewPathIndex(1024)}
+		address2root := append(listInt2root, 0)
+		
+		err = vv.SetMany([]PathNode{
+			{
+				Path: NewPathIndex(1024),
+				Node: n21,
+			},
+			{
+				Path: NewPathIndex(1024),
+				Node: n22,
+			},
+		}, opts, &v, address2root, path2root...)
+		require.NoError(t, err)
+		v21, _ := vv.GetByPath(NewPathIndex(6))
+		act21, err := v21.Int()
+		require.NoError(t, err)
+		require.Equal(t, exp21, int32(act21))
+		v22, _ := vv.GetByPath(NewPathIndex(7))
+		act22, err := v22.Int()
+		require.NoError(t, err)
+		require.Equal(t, exp22, int32(act22))
+		ll2, err := vv.Len()
+		require.Nil(t, err)
+		require.Equal(t, l2+2, ll2)
+
+
+		vx, base2root := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListBase"))
+		vv = vx
+		m1, e := vv.Len()
+		require.Nil(t, e)
+		// the last value of path2root and address2root is only a flag not using real value
+		path2root = []Path{ NewPathFieldName("InnerBase2"), NewPathFieldName("ListBase"), NewPathIndex(1024)}
+		address2root = append(base2root, 0)
+		err = vv.SetMany([]PathNode{
+			{
+				Path: NewPathIndex(1024),
+				Node: v.FieldByName("InnerBase2").FieldByName("Base").Node,
+			}}, opts, &v, address2root, path2root...)
+		require.Nil(t, err)
+		vx, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListBase"))
+		m2, e := vx.Len()
+		require.Nil(t, e)
+		require.Equal(t, m1+1, m2)
+	})
+
+	t.Run("replace", func(t *testing.T) {
+		vRoot := r.Fork()
+		exp1 := "exp1"
+		exp2 := float64(-225.0001)
+		p := binary.NewBinaryProtocolBuffer()
+		p.WriteString(exp1)
+
+		v1 := NewValue(&d1, []byte(string(p.Buf)))
+		p.Buf = p.Buf[:0]
+		p.WriteDouble(exp2)
+		v2 := NewValue(&d2, []byte(string(p.Buf)))
+		err := vRoot.SetMany([]PathNode{
+			{
+				Path: NewPathFieldId(1),
+				Node: v1.Node,
+			},
+			{
+				Path: NewPathFieldId(32767),
+				Node: v2.Node,
+			},
+		}, opts, &vRoot, address, pathes...)
+		require.Nil(t, err)
+
+		exp := example2.ExampleReq{}
+		// fast read
+		dataLen := vRoot.l
+		data := vRoot.raw()
+		l := 0
+		for l < dataLen {
+			id, wtyp, tagLen := goprotowire.ConsumeTag(data)
+			if tagLen < 0 {
+				t.Fatal("test failed")
+			}
+			l += tagLen
+			data = data[tagLen:]
+			offset, err := exp.FastRead(data, int8(wtyp), int32(id))
+			require.Nil(t, err)
+			data = data[offset:]
+			l += offset
+		}
+		
+
+		
+		require.Equal(t, exp.Msg, exp1)
+		require.Equal(t, exp.Subfix, exp2)
+
+		vx, base2root := vRoot.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"))
+		vv := vx
+		// the last value of path2root and address2root is only a flag not using real value
+		path2root := []Path{ NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldId(1024)}
+		address2root := append(base2root, 0)
+		err = vv.SetMany([]PathNode{
+			{
+				Path: NewPathFieldId(1),
+				Node: vRoot.FieldByName("InnerBase2").FieldByName("Base").FieldByName("LogID").Node,
+			},
+			{
+				Path: NewPathFieldId(2),
+				Node: vRoot.FieldByName("InnerBase2").FieldByName("Base").FieldByName("Caller").Node,
+			},
+			{
+				Path: NewPathFieldId(3),
+				Node: vRoot.FieldByName("InnerBase2").FieldByName("Base").FieldByName("Addr").Node,
+			},
+			{
+				Path: NewPathFieldId(4),
+				Node: vRoot.FieldByName("InnerBase2").FieldByName("Base").FieldByName("Client").Node,
+			},
+			{
+				Path: NewPathFieldId(5),
+				Node: vRoot.FieldByName("InnerBase2").FieldByName("Base").FieldByName("TrafficEnv").Node,
+			},
+			{
+				Path: NewPathFieldId(6),
+				Node: vRoot.FieldByName("InnerBase2").FieldByName("Base").FieldByName("Extra").Node,
+			},
+		}, opts, &vRoot, address2root, path2root...)
+		require.Nil(t, err)
+		require.Equal(t, vx.raw(), vv.raw())
+
+		inner, inner2root := vRoot.GetByPath(NewPathFieldName("InnerBase2"))
+		p = binary.NewBinaryProtocolBuffer()
+		e1 := false
+		p.WriteBool(e1)
+		v1 = NewValue(&d1, []byte(string(p.Buf)))
+		p.Buf = p.Buf[:0]
+		e2 := float64(-255.0001)
+		p.WriteDouble(e2)
+		v2 = NewValue(&d1, []byte(string(p.Buf)))
+		p.Buf = p.Buf[:0]
+		
+		// the last value of path2root and address2root is only a flag not using real value
+		path2root = []Path{ NewPathFieldName("InnerBase2"), NewPathFieldId(1024)}
+		address2root = append(inner2root, 0)
+
+		err = inner.SetMany([]PathNode{
+			{
+				Path: NewPathFieldId(1),
+				Node: v1.Node,
+			},
+			{
+				Path: NewPathFieldId(6),
+				Node: v2.Node,
+			},
+			{
+				Path: NewPathFieldId(255),
+				Node: vx.Node,
+			},
+		}, opts, &vRoot, address2root, path2root...)
+		require.Nil(t, err)
+
+		expx := example2.InnerBase2{}
+		// fast read
+		data = inner.raw()
+		byteLen, offset := goprotowire.ConsumeVarint(data)
+		fmt.Println(byteLen)
+		
+		data = data[offset:]
+		dataLen = len(data)
+		l = 0
+		for l < dataLen {
+			id, wtyp, tagLen := goprotowire.ConsumeTag(data)
+			if tagLen < 0 {
+				t.Fatal("test failed")
+			}
+			l += tagLen
+			data = data[tagLen:]
+			offset, err := expx.FastRead(data, int8(wtyp), int32(id))
+			require.Nil(t, err)
+			data = data[offset:]
+			l += offset
+		}
+
+		require.Equal(t, expx.Bool, e1)
+		require.Equal(t, expx.Double, e2)
+		require.Equal(t, expx.Base, exp.InnerBase2.Base)
+	})
+
+}

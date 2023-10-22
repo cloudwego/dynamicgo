@@ -238,6 +238,72 @@ func BenchmarkProtoGetMany(b *testing.B) {
 }
 
 
+func BenchmarkProtoSetMany(b *testing.B) {
+	b.Run("small", func(b *testing.B) {
+		desc := getPbSimpleDesc()
+		obj := getPbSimpleValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			panic(ret)
+		}
+
+		opts := generic.Options{}
+		v := generic.NewRootValue(desc, data)
+		ps := []generic.PathNode{
+			{Path: generic.NewPathFieldId(1)},
+			{Path: generic.NewPathFieldId(3)},
+			{Path: generic.NewPathFieldId(6)},
+		}
+
+		adress2root := make([]int, 0)
+		path2root := make([]generic.Path, 0)
+		require.Nil(b, v.GetMany(ps, &opts))
+		require.Nil(b, v.SetMany(ps, &opts, &v, adress2root, path2root...))
+
+		b.Run("go", func(b *testing.B) {
+			opts.UseNativeSkip = false
+			b.SetBytes(int64(len(data)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = v.SetMany(ps, &opts, &v, adress2root, path2root...)
+			}
+		})
+	})
+
+	b.Run("medium", func(b *testing.B) {
+		desc := getPbNestingDesc()
+		obj := getPbNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			panic(ret)
+		}
+
+		opts := generic.Options{}
+		v := generic.NewRootValue(desc, data)
+		ps := []generic.PathNode{
+			{Path: generic.NewPathFieldId(2)},
+			{Path: generic.NewPathFieldId(8)},
+			{Path: generic.NewPathFieldId(15)},
+		}
+
+		adress2root := make([]int, 0)
+		path2root := make([]generic.Path, 0)
+		require.Nil(b, v.GetMany(ps, &opts))
+		require.Nil(b, v.SetMany(ps, &opts, &v, adress2root, path2root...))
+
+		b.Run("go", func(b *testing.B) {
+			opts.UseNativeSkip = false
+			b.SetBytes(int64(len(data)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_ = v.SetMany(ps, &opts, &v, adress2root, path2root...)
+			}
+		})
+	})
+}
+
 func BenchmarkProtoMarshalMany(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		desc := getPbSimpleDesc()
