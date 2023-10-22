@@ -267,6 +267,7 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 	kt := self.kt
 	et := self.et
 	size := 0
+	isRoot := false
 	if len(pathes) == 0 {
 		return self, address
 	}
@@ -279,15 +280,25 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 		Buf: self.raw(),
 	}
 
+	if self.rootDesc != nil {
+		isRoot = true
+	} else {
+		desc = self.Desc
+		if self.t == proto.LIST || self.t == proto.MAP {
+			p.ConsumeTag()
+		}
+	}
+
 	for i, path := range pathes {
 		switch path.t {
 		case PathFieldId:
 			id := path.id()
 			var fd proto.FieldDescriptor
 			messageLen := 0
-			if i == 0 {
+			if isRoot {
 				fd = (*self.rootDesc).Fields().ByNumber(id)
 				messageLen = len(p.Buf)
+				isRoot = false
 			} else {
 				fd = (*desc).Message().Fields().ByNumber(id)
 				Len, err := p.ReadLength()
@@ -308,9 +319,10 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 			name := proto.FieldName(path.str())
 			var fd proto.FieldDescriptor
 			messageLen := 0
-			if i == 0 {
+			if isRoot {
 				fd = (*self.rootDesc).Fields().ByName(name)
 				messageLen = len(p.Buf)
+				isRoot = false
 			} else {
 				fd = (*desc).Message().Fields().ByName(name)
 				Len, err := p.ReadLength()
@@ -974,11 +986,16 @@ func (self Value) FieldByName(name string) (v Value) {
 		return errValue(meta.ErrUnsupportedType, err, nil)
 	}
 
+	it := self.iterFields()
+
 	var f proto.FieldDescriptor
 	if self.rootDesc != nil {
 		f = (*self.rootDesc).Fields().ByName(proto.FieldName(name))
 	} else {
 		f = (*self.Desc).Message().Fields().ByName(proto.FieldName(name))
+		if _, err := it.p.ReadLength(); err != nil {
+			return errValue(meta.ErrRead, "", err)
+		}
 	}
 
 	if f == nil {
@@ -986,19 +1003,28 @@ func (self Value) FieldByName(name string) (v Value) {
 	}
 
 	// not found, try to scan the whole bytes
-	it := self.iterFields()
+	
 	if it.Err != nil {
 		return errValue(meta.ErrRead, "", it.Err)
 	}
 	for it.HasNext() {
 		i, wt, s, e, tagPos := it.Next(UseNativeSkipForGet)
 		if i == f.Number() {
-			if f.IsMap() {
+			if f.IsMap() || f.IsList() {
 				it.p.Read = tagPos
-				if _, err := it.p.ReadMap(&f, false, false, false); err != nil {
-					return errValue(meta.ErrRead, "", err)
+				if f.IsMap() {
+					if _, err := it.p.ReadMap(&f, false, false, false); err != nil {
+						return errValue(meta.ErrRead, "", err)
+					}
+				} else {
+					if _, err := it.p.ReadList(&f, false, false, false); err != nil {
+						return errValue(meta.ErrRead, "", err)
+					}
 				}
-				v = self.slice(s, it.p.Read, &f)
+				s = tagPos
+				e = it.p.Read
+
+				v = self.slice(s, e, &f)
 				goto ret
 			}
 
@@ -1325,7 +1351,7 @@ func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, addres
 	isPacked := false
 	originLen := len(self.raw()) // current buf length
 	rootLen := len(root.raw()) // root buf length
-	currentAdd := []int{0, 0}
+	
 	// get original values
 	if err = self.getMany(ps.a, true, opts); err != nil {
 		goto ret
@@ -1340,6 +1366,9 @@ func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, addres
 			}
 			ps.a[i].Node = errNotFoundLast(sp, self.t)
 			ps.a[i].Node.setNotFound(a.Path, &ps.b[i].Node, self.Desc)
+			if self.t == proto.LIST || self.t == proto.MAP{
+				self.size += 1
+			}
 		}
 	}
 
@@ -1348,30 +1377,31 @@ func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, addres
 	}
 
 	// update current Node length
-	err = self.replaceMany(ps)
-	if self.t == proto.LIST && isPacked {
-		// update root length
-		Ps := []Path{NewPathIndex(0),NewPathIndex(0)}
-		self.UpdateByteLen(originLen,currentAdd,isPacked,Ps...)
-	} else if self.t == proto.MESSAGE && self.rootDesc == nil {
-		buf := self.raw()
-		_, lenOffset := protowire.ConsumeVarint(buf)
-		byteLen := len(buf) - lenOffset
-		newLen := protowire.AppendVarint(nil, uint64(byteLen))
-		// newLen + buf[lenOffset:]
-		l0 := len(newLen)
-		l1 := byteLen
-		newBuf := make([]byte, l0+l1)
-		copy(newBuf[:l0], newLen)
-		copy(newBuf[l0:], buf[lenOffset:])
-		self.v = rt.GetBytePtr(newBuf)
-		self.l = int(len(newBuf))
+	if self.rootDesc == nil {
+		err = self.replaceMany(ps)
+		if self.t == proto.LIST && isPacked {
+			currentAdd := []int{0, -1}
+			currentPath := []Path{NewPathIndex(-1), NewPathIndex(-1)}
+			self.UpdateByteLen(originLen,currentAdd,isPacked,currentPath...)
+		} else if self.t == proto.MESSAGE {
+			buf := self.raw()
+			_, lenOffset := protowire.ConsumeVarint(buf)
+			byteLen := len(buf) - lenOffset
+			newLen := protowire.AppendVarint(nil, uint64(byteLen))
+			// newLen + buf[lenOffset:]
+			l0 := len(newLen)
+			l1 := byteLen
+			newBuf := make([]byte, l0+l1)
+			copy(newBuf[:l0], newLen)
+			copy(newBuf[l0:], buf[lenOffset:])
+			self.v = rt.GetBytePtr(newBuf)
+			self.l = int(len(newBuf))
+		}
 	}
+	
 
 	// update root length
 	err = root.replaceMany(ps)
-	address = append(address, 0) // must add one address align with path length
-	path = append(path, Path{})
 	root.UpdateByteLen(rootLen, address, isPacked, path...)
 ret:
 	ps.b = nil
