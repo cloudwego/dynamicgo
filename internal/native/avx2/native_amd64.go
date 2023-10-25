@@ -26,6 +26,12 @@ import (
 )
 
 var (
+	__i64toa func(out unsafe.Pointer, val int64) (ret int)
+
+    __f64toa func(out unsafe.Pointer, val float64) (ret int)
+
+	__quote func(sp unsafe.Pointer, nb int, dp unsafe.Pointer, dn unsafe.Pointer, flags uint64) (ret int)
+
 	__tb_write_i64 func(buf unsafe.Pointer, v int64) (ret uint64)
 
 	__hm_get func(hm unsafe.Pointer, k unsafe.Pointer) (val unsafe.Pointer)
@@ -36,6 +42,21 @@ var (
 
 	__tb_skip func(st unsafe.Pointer, s unsafe.Pointer, n int, t uint8) (ret int)
 )
+
+//go:nosplit
+func i64toa(out *byte, val int64) (ret int) {
+    return __i64toa(rt.NoEscape(unsafe.Pointer(out)), val)
+}
+
+//go:nosplit
+func f64toa(out *byte, val float64) (ret int) {
+    return __f64toa(rt.NoEscape(unsafe.Pointer(out)), val)
+}
+
+//go:nosplit
+func quote(sp unsafe.Pointer, nb int, dp unsafe.Pointer, dn *int, flags uint64) (ret int) {
+    return __quote(rt.NoEscape(unsafe.Pointer(sp)), nb, rt.NoEscape(unsafe.Pointer(dp)), rt.NoEscape(unsafe.Pointer(dn)), flags)
+}
 
 //go:nosplit
 func tb_write_i64(buf *[]byte, v int64) (ret uint64) {

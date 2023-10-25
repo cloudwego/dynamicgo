@@ -42,6 +42,9 @@ var stubs = []loader.GoC{
 	{"_trie_get", nil, &__trie_get},
 	{"_j2t_fsm_exec", nil, &__j2t_fsm_exec},
 	{"_tb_skip", nil, &__tb_skip},
+	{"_f64toa", nil, &__f64toa},
+	{"_i64toa", nil, &__i64toa},
+    {"_quote", nil, &__quote},
 }
 
 func TestMain(m *testing.M) {

@@ -8,7 +8,12 @@ import (
 )
 
 const (
+    _entry__f64toa = 464
+    _entry__format_significand = 48640
+    _entry__format_integer = 3264
     _entry__hm_get = 27952
+    _entry__i64toa = 3696
+    _entry__u64toa = 3824
     _entry__j2t_fsm_exec = 39280
     _entry__advance_ns = 12720
     _entry__fsm_exec = 19536
@@ -30,13 +35,19 @@ const (
     _entry__tb_write_default_or_empty = 31248
     _entry__j2t_write_unset_fields = 33344
     _entry__j2t_find_field_key = 36528
+    _entry__quote = 5136
     _entry__tb_skip = 47600
     _entry__tb_write_i64 = 29504
     _entry__trie_get = 28768
 )
 
 const (
+    _stack__f64toa = 80
+    _stack__format_significand = 24
+    _stack__format_integer = 16
     _stack__hm_get = 16
+    _stack__i64toa = 16
+    _stack__u64toa = 8
     _stack__j2t_fsm_exec = 592
     _stack__advance_ns = 16
     _stack__fsm_exec = 208
@@ -58,13 +69,19 @@ const (
     _stack__tb_write_default_or_empty = 56
     _stack__j2t_write_unset_fields = 176
     _stack__j2t_find_field_key = 32
+    _stack__quote = 64
     _stack__tb_skip = 48
     _stack__tb_write_i64 = 8
     _stack__trie_get = 32
 )
 
 const (
+    _size__f64toa = 2800
+    _size__format_significand = 464
+    _size__format_integer = 432
     _size__hm_get = 464
+    _size__i64toa = 48
+    _size__u64toa = 1264
     _size__j2t_fsm_exec = 7800
     _size__advance_ns = 704
     _size__fsm_exec = 1416
@@ -86,12 +103,50 @@ const (
     _size__tb_write_default_or_empty = 1024
     _size__j2t_write_unset_fields = 864
     _size__j2t_find_field_key = 752
+    _size__quote = 1728
     _size__tb_skip = 968
     _size__tb_write_i64 = 64
     _size__trie_get = 304
 )
 
 var (
+    _pcsp__f64toa = [][2]uint32{
+        {1, 0},
+        {4, 8},
+        {6, 16},
+        {8, 24},
+        {10, 32},
+        {12, 40},
+        {13, 48},
+        {2740, 56},
+        {2744, 48},
+        {2745, 40},
+        {2747, 32},
+        {2749, 24},
+        {2751, 16},
+        {2753, 8},
+        {2754, 0},
+        {2792, 56},
+    }
+    _pcsp__format_significand = [][2]uint32{
+        {1, 0},
+        {4, 8},
+        {6, 16},
+        {452, 24},
+        {453, 16},
+        {455, 8},
+        {457, 0},
+    }
+    _pcsp__format_integer = [][2]uint32{
+        {1, 0},
+        {4, 8},
+        {412, 16},
+        {413, 8},
+        {414, 0},
+        {423, 16},
+        {424, 8},
+        {426, 0},
+    }
     _pcsp__hm_get = [][2]uint32{
         {1, 0},
         {4, 8},
@@ -104,6 +159,22 @@ var (
         {458, 16},
         {459, 8},
         {461, 0},
+    }
+    _pcsp__i64toa = [][2]uint32{
+        {14, 0},
+        {34, 8},
+        {36, 0},
+    }
+    _pcsp__u64toa = [][2]uint32{
+        {1, 0},
+        {161, 8},
+        {162, 0},
+        {457, 8},
+        {458, 0},
+        {772, 8},
+        {773, 0},
+        {1249, 8},
+        {1251, 0},
     }
     _pcsp__j2t_fsm_exec = [][2]uint32{
         {1, 0},
@@ -435,6 +506,24 @@ var (
         {727, 0},
         {738, 32},
     }
+    _pcsp__quote = [][2]uint32{
+        {1, 0},
+        {4, 8},
+        {6, 16},
+        {8, 24},
+        {10, 32},
+        {12, 40},
+        {13, 48},
+        {1681, 64},
+        {1685, 48},
+        {1686, 40},
+        {1688, 32},
+        {1690, 24},
+        {1692, 16},
+        {1694, 8},
+        {1695, 0},
+        {1722, 64},
+    }
     _pcsp__tb_skip = [][2]uint32{
         {1, 0},
         {4, 8},
@@ -473,7 +562,12 @@ var (
 
 var Funcs = []loader.CFunc{
     {"__native_entry__", 0, 67, 0, nil},
+    {"_f64toa", _entry__f64toa, _size__f64toa, _stack__f64toa, _pcsp__f64toa},
+    {"_format_significand", _entry__format_significand, _size__format_significand, _stack__format_significand, _pcsp__format_significand},
+    {"_format_integer", _entry__format_integer, _size__format_integer, _stack__format_integer, _pcsp__format_integer},
     {"_hm_get", _entry__hm_get, _size__hm_get, _stack__hm_get, _pcsp__hm_get},
+    {"_i64toa", _entry__i64toa, _size__i64toa, _stack__i64toa, _pcsp__i64toa},
+    {"_u64toa", _entry__u64toa, _size__u64toa, _stack__u64toa, _pcsp__u64toa},
     {"_j2t_fsm_exec", _entry__j2t_fsm_exec, _size__j2t_fsm_exec, _stack__j2t_fsm_exec, _pcsp__j2t_fsm_exec},
     {"_advance_ns", _entry__advance_ns, _size__advance_ns, _stack__advance_ns, _pcsp__advance_ns},
     {"_fsm_exec", _entry__fsm_exec, _size__fsm_exec, _stack__fsm_exec, _pcsp__fsm_exec},
@@ -495,6 +589,7 @@ var Funcs = []loader.CFunc{
     {"_tb_write_default_or_empty", _entry__tb_write_default_or_empty, _size__tb_write_default_or_empty, _stack__tb_write_default_or_empty, _pcsp__tb_write_default_or_empty},
     {"_j2t_write_unset_fields", _entry__j2t_write_unset_fields, _size__j2t_write_unset_fields, _stack__j2t_write_unset_fields, _pcsp__j2t_write_unset_fields},
     {"_j2t_find_field_key", _entry__j2t_find_field_key, _size__j2t_find_field_key, _stack__j2t_find_field_key, _pcsp__j2t_find_field_key},
+    {"_quote", _entry__quote, _size__quote, _stack__quote, _pcsp__quote},
     {"_tb_skip", _entry__tb_skip, _size__tb_skip, _stack__tb_skip, _pcsp__tb_skip},
     {"_tb_write_i64", _entry__tb_write_i64, _size__tb_write_i64, _stack__tb_write_i64, _pcsp__tb_write_i64},
     {"_trie_get", _entry__trie_get, _size__trie_get, _stack__trie_get, _pcsp__trie_get},
