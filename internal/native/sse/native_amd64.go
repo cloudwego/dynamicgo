@@ -17,115 +17,47 @@
  */
 
 package sse
-
 import (
-    `unsafe`
+	"unsafe"
 
-    `github.com/cloudwego/dynamicgo/internal/native/types`
-    `github.com/cloudwego/dynamicgo/internal/caching`
+	"github.com/cloudwego/dynamicgo/internal/caching"
+	"github.com/cloudwego/dynamicgo/internal/rt"
+	"github.com/cloudwego/dynamicgo/internal/native/types"
+)
+
+var (
+	__tb_write_i64 func(buf unsafe.Pointer, v int64) (ret uint64)
+
+	__hm_get func(hm unsafe.Pointer, k unsafe.Pointer) (val unsafe.Pointer)
+
+	__trie_get func(hm unsafe.Pointer, k unsafe.Pointer) (val unsafe.Pointer)
+
+	__j2t_fsm_exec func(fsm unsafe.Pointer, buf unsafe.Pointer, src unsafe.Pointer, flag uint64) (ret uint64)
+
+	__tb_skip func(st unsafe.Pointer, s unsafe.Pointer, n int, t uint8) (ret int)
 )
 
 //go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __i64toa(out *byte, val int64) (ret int)
+func tb_write_i64(buf *[]byte, v int64) (ret uint64) {
+	return __tb_write_i64(rt.NoEscape(unsafe.Pointer(buf)), v)
+}
 
 //go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __u64toa(out *byte, val uint64) (ret int)
+func hm_get(hm *caching.HashMap, k *string) (val unsafe.Pointer) {
+	return __hm_get(rt.NoEscape(unsafe.Pointer(hm)), rt.NoEscape(unsafe.Pointer(k)))
+}
 
 //go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __f64toa(out *byte, val float64) (ret int)
+func trie_get(hm *caching.TrieTree, k *string) (val unsafe.Pointer){
+	return __trie_get(rt.NoEscape(unsafe.Pointer(hm)), rt.NoEscape(unsafe.Pointer(k)))
+}
 
 //go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __lspace(sp unsafe.Pointer, nb int, off int) (ret int)
+func j2t_fsm_exec(fsm *types.J2TStateMachine, buf *[]byte, src *string, flag uint64) (ret uint64) {
+	return __j2t_fsm_exec(rt.NoEscape(unsafe.Pointer(fsm)), rt.NoEscape(unsafe.Pointer(buf)), rt.NoEscape(unsafe.Pointer(src)), flag)
+}
 
 //go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __quote(sp unsafe.Pointer, nb int, dp unsafe.Pointer, dn *int, flags uint64) (ret int)
-
-//go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __html_escape(sp unsafe.Pointer, nb int, dp unsafe.Pointer, dn *int) (ret int)
-
-//go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __unquote(sp unsafe.Pointer, nb int, dp unsafe.Pointer, ep *int, flags uint64) (ret int)
-
-//go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __value(s unsafe.Pointer, n int, p int, v *types.JsonState, allow_control int) (ret int)
-
-//go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __vstring(s *string, p *int, v *types.JsonState)
-
-//go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __vnumber(s *string, p *int, v *types.JsonState)
-
-//go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __vsigned(s *string, p *int, v *types.JsonState)
-
-//go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __vunsigned(s *string, p *int, v *types.JsonState)
-
-//go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __skip_one(s *string, p *int, m *types.StateMachine) (ret int)
-
-//go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __skip_array(s *string, p *int, m *types.StateMachine) (ret int)
-
-//go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __skip_object(s *string, p *int, m *types.StateMachine) (ret int)
-
-//go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __validate_one(s *string, p *int, m *types.StateMachine) (ret int)
-
-//go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __tb_write_i64(buf *[]byte, v int64) (ret uint64)
-
-//go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __hm_get(hm *caching.HashMap, k *string) (val unsafe.Pointer)
-
-//go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __trie_get(hm *caching.TrieTree, k *string) (val unsafe.Pointer)
-
-//go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __j2t_fsm_exec(fsm *types.J2TStateMachine, buf *[]byte, src *string, flag uint64) (ret uint64)
-
-//go:nosplit
-//go:noescape
-//goland:noinspection GoUnusedParameter
-func __tb_skip(st *types.TStateMachine, s *byte, n int, t uint8) (ret int)
+func tb_skip(st *types.TStateMachine, s *byte, n int, t uint8) (ret int) {
+	return __tb_skip(rt.NoEscape(unsafe.Pointer(st)), rt.NoEscape(unsafe.Pointer(s)), n , t )
+}
