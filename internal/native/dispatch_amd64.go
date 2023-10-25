@@ -41,18 +41,6 @@ var (
 func Quote(s unsafe.Pointer, nb int, dp unsafe.Pointer, dn *int, flags uint64) int
 
 //go:nosplit
-//go:linkname Unquote github.com/bytedance/sonic/internal/native.Unquote
-func Unquote(s unsafe.Pointer, nb int, dp unsafe.Pointer, ep *int, flags uint64) int
-
-//go:nosplit
-//go:linkname Value github.com/bytedance/sonic/internal/native.Value
-func Value(s unsafe.Pointer, n int, p int, v *types.JsonState, allow_control int) int
-
-//go:nosplit
-//go:linkname SkipOne github.com/bytedance/sonic/internal/native.SkipOne
-func SkipOne(s *string, p *int, m *types.StateMachine) int
-
-//go:nosplit
 //go:linkname I64toa github.com/bytedance/sonic/internal/native.I64toa
 func I64toa(out *byte, val int64) (ret int)
 

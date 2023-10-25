@@ -31,15 +31,16 @@ import (
 	"time"
 	"unsafe"
 
+	sjson "github.com/bytedance/sonic/ast"
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
-	sjson "github.com/cloudwego/dynamicgo/internal/json"
 	"github.com/cloudwego/dynamicgo/internal/util_test"
 	"github.com/cloudwego/dynamicgo/meta"
 	kbase "github.com/cloudwego/dynamicgo/testdata/kitex_gen/base"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/example3"
 	"github.com/cloudwego/dynamicgo/thrift"
 	"github.com/cloudwego/dynamicgo/thrift/base"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -642,6 +643,7 @@ func TestOptionalDefaultValue(t *testing.T) {
 		ctx := context.WithValue(context.Background(), conv.CtxKeyHTTPResponse, resp)
 		out, err := cv.Do(ctx, desc, in)
 		require.NoError(t, err)
+		spew.Dump(string(out))
 		act := &example3.ExampleOptionalDefaultValue{}
 		err = json.Unmarshal(out, act)
 		require.NoError(t, err)

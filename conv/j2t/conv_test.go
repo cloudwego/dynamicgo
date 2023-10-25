@@ -37,7 +37,7 @@ import (
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
-	sjson "github.com/cloudwego/dynamicgo/internal/json"
+	sjson "github.com/bytedance/sonic/ast"
 	"github.com/cloudwego/dynamicgo/internal/native"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"

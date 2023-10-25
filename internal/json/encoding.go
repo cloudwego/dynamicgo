@@ -17,7 +17,19 @@
 package json
 
 import (
+	"runtime"
+	"unsafe"
+
 	"github.com/cloudwego/dynamicgo/internal/native/types"
+	"github.com/cloudwego/dynamicgo/internal/rt"
+)
+
+const (
+	bytesNull   = "null"
+	bytesTrue   = "true"
+	bytesFalse  = "false"
+	bytesObject = "{}"
+	bytesArray  = "[]"
 )
 
 func EncodeNull(buf []byte) []byte {
@@ -48,16 +60,17 @@ func EncodeBase64(buf []byte, val []byte) []byte {
 }
 
 func EncodeString(buf []byte, val string) []byte {
+	buf = append(buf, '"')
 	if len(val) == 0 {
-		buf = append(buf, '"', '"')
+		buf = append(buf, '"')
 		return buf
 	}
-
-	quote(&buf, val)
+	NoQuote(&buf, val)
+	buf = append(buf, '"')
+	println(val, string(buf))
 	return buf
 }
 
-// func EncodeNumber(buf []byte, val json.Number) ([]byte, error)
 
 func EncodeInt64(buf []byte, val int64) []byte {
 	i64toa(&buf, val)
@@ -105,57 +118,26 @@ func EncodeEmptyObject(buf []byte) []byte {
 	return append(buf, '{', '}')
 }
 
-func DecodeNull(src string, pos int) (ret int) {
-	return decodeNull(src, SkipBlank(src, pos))
+func IsSpace(c byte) bool {
+	return (int(1<<c) & _blankCharsMask) != 0
 }
 
-func DecodeBool(src string, pos int) (ret int, v bool) {
-	pos = SkipBlank(src, pos)
-	ret = pos + 4
-	if ret > len(src) {
-		return -int(types.ERR_EOF), false
+const _blankCharsMask = (1 << ' ') | (1 << '\t') | (1 << '\r') | (1 << '\n')
+
+//go:nocheckptr
+func SkipBlank(src string, pos int) int {
+	se := uintptr(rt.IndexChar(src, len(src)))
+	sp := uintptr(rt.IndexChar(src, pos))
+
+	for sp < se {
+		if !IsSpace(*(*byte)(unsafe.Pointer(sp))) {
+			break
+		}
+		sp += 1
 	}
-	if src[pos:ret] == bytesTrue {
-		return ret, true
+	if sp >= se {
+		return -int(types.ERR_EOF)
 	}
-	ret += 1
-	if ret > len(src) {
-		return -int(types.ERR_EOF), false
-	}
-	if src[pos:ret] == bytesFalse {
-		return ret, false
-	}
-	return -int(types.ERR_INVALID_CHAR), false
-}
-
-func DecodeString(src string, pos int) (ret int, v string) {
-	return decodeString(src, SkipBlank(src, pos))
-}
-
-func DecodeBinary(src string, pos int) (ret int, v []byte) {
-	return decodeBinary(src, SkipBlank(src, pos))
-}
-
-func DecodeInt64(src string, pos int) (ret int, v int64, err error) {
-	return decodeInt64(src, SkipBlank(src, pos))
-}
-
-func DecodeFloat64(src string, pos int) (ret int, v float64, err error) {
-	return decodeFloat64(src, SkipBlank(src, pos))
-}
-
-func SkipNumber(src string, pos int) int {
-	return skipNumber(src, SkipBlank(src, pos))
-}
-
-func SkipString(src string, pos int) (int, int) {
-	return skipString(src, SkipBlank(src, pos))
-}
-
-func SkipArray(src string, pos int) int {
-	return skipPair(src, SkipBlank(src, pos), '[', ']')
-}
-
-func SkipObject(src string, pos int) int {
-	return skipPair(src, SkipBlank(src, pos), '{', '}')
+	runtime.KeepAlive(src)
+	return int(sp - uintptr(rt.IndexChar(src, 0)))
 }
