@@ -33,7 +33,7 @@ import (
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/conv/j2t"
 	"github.com/cloudwego/dynamicgo/http"
-	"github.com/cloudwego/dynamicgo/internal/json"
+	json "github.com/bytedance/sonic/ast"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/baseline"
 	"github.com/cloudwego/kitex/pkg/generic"
 	"github.com/cloudwego/kitex/pkg/generic/descriptor"
