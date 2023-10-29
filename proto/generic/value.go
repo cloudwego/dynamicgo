@@ -162,11 +162,7 @@ func searchIntKey(p *binary.BinaryProtocol, key int, keyType proto.Type, mapFiel
 
 		if k == key {
 			exist = true
-			_, _, tagLen, err := p.ConsumeTagWithoutMove() // skip value taglen
-			if err != nil {
-				return 0, wrapError(meta.ErrRead, "searchIntKey: read value tag failed", nil)
-			}
-			start = p.Read + tagLen // then p.Read will point to real value part
+			start = p.Read // then p.Read will point to value tag
 			break
 		}
 
@@ -220,11 +216,7 @@ func searchStrKey(p *binary.BinaryProtocol, key string, keyType proto.Type, mapF
 
 		if k == key {
 			exist = true
-			_, _, tagLen, err := p.ConsumeTagWithoutMove() // skip value taglen
-			if err != nil {
-				return 0, wrapError(meta.ErrRead, "searchStrKey: read value tag failed", nil)
-			}
-			start = p.Read + tagLen // then p.Read will point to real value part
+			start = p.Read // then p.Read will point to value tag
 			break
 		}
 
@@ -409,7 +401,10 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 			size = len(v)
 		}
 	} else {
+		// node condition: simple field element, message, packed list element, map value element
 		skipType := proto.Kind2Wire[(*desc).Kind()]
+		
+		// only packed list element no tag to skip
 		if (*desc).IsPacked() == false {
 			if _, _, _, err := p.ConsumeTag(); err != nil {
 				return errValue(meta.ErrRead, "invalid field tag.", err), address

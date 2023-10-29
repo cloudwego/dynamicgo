@@ -6,7 +6,6 @@ import (
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
-	"github.com/cloudwego/dynamicgo/proto/binary"
 	"github.com/cloudwego/dynamicgo/proto/protowire"
 )
 
@@ -185,11 +184,51 @@ func (self Node) binary() ([]byte, error) {
 }
 
 // List returns interface elements contained by a LIST/SET node
-func (self Value) List(opts *Options) (ret []interface{}, err error) {
-	src := rt.BytesFrom(self.v,self.l,self.l)
-	p := binary.NewBinaryProtol(src)
-	ret, err = p.ReadList(self.Desc,false,false,false)
-	return
+func (self Value) List(opts *Options) ([]interface{}, error) {
+	if self.IsError() {
+		return nil, self
+	}
+
+	if err := self.should("List", proto.LIST); err != "" {
+		return nil, errValue(meta.ErrUnsupportedType, err, nil)
+	}
+
+	it := self.iterElems()
+	if it.Err != nil {
+		return nil, it.Err
+	}
+	ret := make([]interface{}, 0, it.Size())
+	isPacked := (*self.Desc).IsPacked()
+
+	if isPacked {
+		if _, err := it.p.ReadLength(); err != nil {
+			return nil, errValue(meta.ErrRead, "", err)
+		}
+	} 
+	
+	for it.HasNext() {
+		s,e := it.Next(UseNativeSkipForGet)
+		if it.Err != nil {
+			return nil, it.Err
+		}
+		v := wrapValue(self.slice(s, e, self.et), self.Desc)
+		vv, err := v.Interface(opts)
+		if err != nil {
+			return ret, err
+		}
+		ret = append(ret, vv)
+
+		if !isPacked && it.HasNext() {
+			if _, _, _, err := it.p.ConsumeTag(); err != nil {
+				return nil, errValue(meta.ErrRead, "", err)
+			}
+		}
+	}
+
+	if it.Err != nil {
+		return nil, errValue(meta.ErrRead, "", it.Err)
+	}
+	return ret, nil
 }
 
 func castInterfaceToInt(key interface{}) (int, bool) {
@@ -221,61 +260,66 @@ func castInterfaceToInt(key interface{}) (int, bool) {
 
 // StrMap returns the string keys and interface elements contained by a MAP<STRING,XX> node
 func (self Value) IntMap(opts *Options) (map[int]interface{}, error) {
-	src := rt.BytesFrom(self.v,self.l,self.l)
-	p := binary.NewBinaryProtol(src)
-	originalMap, err := p.ReadMap(self.Desc,false,false,false)
-	
-	newMap := make(map[int]interface{})
-	for key, value := range originalMap {
-		intKey, ok := castInterfaceToInt(key)
-		if !ok {
-			return nil, wrapError(meta.ErrConvert, "Value.StrMap: key type is not int", nil)
-		}
-		newMap[intKey] = value
+	if self.IsError() {
+		return nil, self
 	}
-	return newMap, err
+	if err := self.should("IntMap", proto.MAP); err != "" {
+		return nil, errNode(meta.ErrUnsupportedType, err, nil)
+	}
+	if !self.kt.IsInt() {
+		return nil, errNode(meta.ErrUnsupportedType, "key must be INT type", nil)
+	}
+	it := self.iterPairs()
+	if it.Err != nil {
+		return nil, it.Err
+	}
+	ret := make(map[int]interface{}, it.size)
+	valueDesc := (*self.Desc).MapValue()
+	for it.HasNext() {
+		_, ks, s, e := it.NextInt(opts.UseNativeSkip)
+		if it.Err != nil {
+			return nil, it.Err
+		}
+		v := self.sliceWithDesc(s, e, &valueDesc)
+		vv, err := v.Interface(opts)
+		if err != nil {
+			return ret, err
+		}
+		ret[ks] = vv
+	}
+	return ret, it.Err
 }
 
 // StrMap returns the integer keys and interface elements contained by a MAP<I8|I16|I32|I64,XX> node
 func (self Value) StrMap(opts *Options) (map[string]interface{}, error) {
-	src := rt.BytesFrom(self.v,self.l,self.l)
-	p := binary.NewBinaryProtol(src)
-	originalMap, err := p.ReadMap(self.Desc,false,false,false)
-	newMap := make(map[string]interface{})
-	for key, value := range originalMap {
-		strKey, ok := key.(string)
-		if !ok {
-			return nil, wrapError(meta.ErrConvert, "Value.StrMap: key type is not string", nil)
-		}
-		newMap[strKey] = value
+	if self.IsError() {
+		return nil, self
 	}
-	return newMap, err
-}
-
-
-func (self Value) Struct(opts *Options) (map[interface{}]interface{}, error) {
-	src := rt.BytesFrom(self.v,self.l,self.l)
-	p := binary.NewBinaryProtol(src)
-	useFieldName := false
-	ret, err := p.ReadBaseTypeWithDesc(self.Desc,false,opts.DisallowUnknow,useFieldName)
-	if err != nil {
-		return nil, wrapError(meta.ErrRead,"Value.Struct: read struct error",nil)
+	if err := self.should("StrMap", proto.MAP); err != "" {
+		return nil, errNode(meta.ErrUnsupportedType, err, nil)
 	}
-
-	result := make(map[interface{}]interface{})
-
-	switch m := ret.(type) {
-	case map[proto.FieldNumber]interface{}:
-		for key, value := range m {
-			result[interface{}(key)] = value
-		}
-	case map[string]interface{}:
-		for key, value := range m {
-			result[interface{}(key)] = value
-		}
+	it := self.iterPairs()
+	if it.Err != nil {
+		return nil, it.Err
 	}
-
-	return result, nil
+	if self.kt != proto.STRING {
+		return nil, errNode(meta.ErrUnsupportedType, "key type must be STRING", nil)
+	}
+	ret := make(map[string]interface{}, it.size)
+	valueDesc := (*self.Desc).MapValue()
+	for it.HasNext() {
+		_, ks, s, e := it.NextStr(opts.UseNativeSkip)
+		if it.Err != nil {
+			return nil, it.Err
+		}
+		v := self.sliceWithDesc(s, e, &valueDesc)
+		vv, err := v.Interface(opts)
+		if err != nil {
+			return ret, err
+		}
+		ret[ks] = vv
+	}
+	return ret, it.Err
 }
 
 // Interface returns the go interface value contained by a node.
@@ -306,10 +350,76 @@ func (self Value) Interface(opts *Options) (interface{}, error) {
 		} else if kt.IsInt() {
 			return self.IntMap(opts)
 		} else {
-			return 0, errNode(meta.ErrUnsupportedType, "Value.Interface: not support other Mapkey type", nil)
+			return 0, errValue(meta.ErrUnsupportedType, "Value.Interface: not support other Mapkey type", nil)
 		}
 	case proto.MESSAGE:
-		return self.Struct(opts)
+		it := self.iterFields()
+		var fds proto.FieldDescriptors
+		if self.rootDesc != nil {
+			fds = (*self.rootDesc).Fields()
+		} else {
+			fds = (*self.Desc).Message().Fields()
+			if _, err := it.p.ReadLength(); err != nil {
+				return nil, errValue(meta.ErrRead, "", err)
+			}
+		}
+
+		if it.Err != nil {
+			return nil, it.Err
+		}
+
+		var ret1 map[proto.FieldNumber]interface{}
+		var ret2 map[int]interface{}
+		if opts.MapStructById {
+			ret1 = make(map[proto.FieldNumber]interface{}, DefaultNodeSliceCap)
+		} else {
+			ret2 = make(map[int]interface{}, DefaultNodeSliceCap)
+		}
+
+		for it.HasNext() {
+			id, wt, s, e, tagPos := it.Next(UseNativeSkipForGet)
+			f := fds.ByNumber(id)
+
+			if f == nil {
+				return nil, errValue(meta.ErrUnknownField, fmt.Sprintf("unknown field id %d", id), nil)
+			}
+
+			if id == f.Number() {
+				if f.IsMap() || f.IsList() {
+					it.p.Read = tagPos
+					if _, err := it.p.SkipAllElements(id,f.IsPacked()); err != nil {
+						return nil, errValue(meta.ErrRead, "SkipAllElements in LIST/MAP failed", err)
+					}
+					s = tagPos
+					e = it.p.Read
+				}
+			}
+
+			t := proto.Kind2Wire[f.Kind()]
+			if wt != t {
+				return nil, errValue(meta.ErrDismatchType, fmt.Sprintf("field '%s' expects type %s, buf got type %s", f.Name(), t, wt), nil)
+			}
+			v := self.sliceWithDesc(s, e, &f)
+			vv, err := v.Interface(opts)
+			if err != nil {
+				return nil, err
+			}
+
+			if opts.MapStructById {
+				ret1[id] = vv
+			} else {
+				ret2[int(id)] = vv
+			}
+		}
+
+		if it.Err != nil {
+			return nil, errValue(meta.ErrRead, "", it.Err)
+		}
+
+		if opts.MapStructById {
+			return ret1, nil
+		}
+		return ret2, nil
 	default:
 		return 0, errNode(meta.ErrUnsupportedType, "", nil)
 	}

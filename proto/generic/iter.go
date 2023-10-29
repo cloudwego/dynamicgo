@@ -170,7 +170,6 @@ func (it *mapIterator) NextStr(useNative bool) (keyStart int, keyString string, 
 	keyStart = it.p.Read
 	var err error
 	if it.kt == proto.STRING {
-		// need read tag?
 		_,kwType,_,err := it.p.ConsumeTag()
 		if err != nil {
 			it.Err = wrapError(meta.ErrRead, "MapIterator: consume key tag error.", err)

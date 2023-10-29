@@ -935,7 +935,7 @@ func (p *BinaryProtocol) ReadEnum() (proto.EnumNumber, error) {
 //
 //	packed：[tag][length][value value value value....]
 //	normal：[tag][(length)][value][tag][(length)][value][tag][(length)][value]....
-func (p *BinaryProtocol) ReadList(desc *proto.FieldDescriptor, copyString bool, disallowUnknonw bool, useFieldName bool) ([]interface{}, error) {
+func (p *BinaryProtocol) ReadList(desc *proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) ([]interface{}, error) {
 	fieldNumber, _, _, listTagErr := p.ConsumeTag()
 	if listTagErr != nil {
 		return nil, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
@@ -951,7 +951,7 @@ func (p *BinaryProtocol) ReadList(desc *proto.FieldDescriptor, copyString bool, 
 		// read list
 		start := p.Read
 		for p.Read < start+length {
-			v, err := p.ReadBaseTypeWithDesc(desc, copyString, disallowUnknonw, useFieldName)
+			v, err := p.ReadBaseTypeWithDesc(desc, copyString, disallowUnknown, useFieldName)
 			if err != nil {
 				return nil, err
 			}
@@ -959,7 +959,7 @@ func (p *BinaryProtocol) ReadList(desc *proto.FieldDescriptor, copyString bool, 
 		}
 	} else {
 		// normal Type : [tag][(length)][value][tag][(length)][value][tag][(length)][value]....
-		v, err := p.ReadBaseTypeWithDesc(desc, copyString, disallowUnknonw, useFieldName)
+		v, err := p.ReadBaseTypeWithDesc(desc, copyString, disallowUnknown, useFieldName)
 		if err != nil {
 			return nil, err
 		}
@@ -975,7 +975,7 @@ func (p *BinaryProtocol) ReadList(desc *proto.FieldDescriptor, copyString bool, 
 				break
 			}
 			p.Read += n
-			v, err := p.ReadBaseTypeWithDesc(desc, copyString, disallowUnknonw, useFieldName)
+			v, err := p.ReadBaseTypeWithDesc(desc, copyString, disallowUnknown, useFieldName)
 			if err != nil {
 				return nil, err
 			}
@@ -985,13 +985,13 @@ func (p *BinaryProtocol) ReadList(desc *proto.FieldDescriptor, copyString bool, 
 	return list, nil
 }
 
-func (p *BinaryProtocol) ReadPair(keyDesc *proto.FieldDescriptor, valueDesc *proto.FieldDescriptor, copyString bool, disallowUnknonw bool, useFieldName bool) (interface{}, interface{}, error) {
-	key, err := p.ReadAnyWithDesc(keyDesc, copyString, disallowUnknonw, useFieldName)
+func (p *BinaryProtocol) ReadPair(keyDesc *proto.FieldDescriptor, valueDesc *proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) (interface{}, interface{}, error) {
+	key, err := p.ReadAnyWithDesc(keyDesc, copyString, disallowUnknown, useFieldName)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	value, err := p.ReadAnyWithDesc(valueDesc, copyString, disallowUnknonw, useFieldName)
+	value, err := p.ReadAnyWithDesc(valueDesc, copyString, disallowUnknown, useFieldName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1000,7 +1000,7 @@ func (p *BinaryProtocol) ReadPair(keyDesc *proto.FieldDescriptor, valueDesc *pro
 
 // ReadMap
 // Map format ：[Pairtag][Pairlength][keyTag(L)V][valueTag(L)V] [Pairtag][Pairlength][keyTag(L)V][valueTag(L)V]....
-func (p *BinaryProtocol) ReadMap(desc *proto.FieldDescriptor, copyString bool, disallowUnknonw bool, useFieldName bool) (map[interface{}]interface{}, error) {
+func (p *BinaryProtocol) ReadMap(desc *proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) (map[interface{}]interface{}, error) {
 	// make a map
 	fieldNumber, mapWireType, _, mapTagErr := p.ConsumeTag()
 	if mapTagErr != nil {
@@ -1019,7 +1019,7 @@ func (p *BinaryProtocol) ReadMap(desc *proto.FieldDescriptor, copyString bool, d
 		return nil, lengthErr
 	}
 	// read first Pair
-	key, value, pairReadErr := p.ReadPair(&keyDesc, &valueDesc, copyString, disallowUnknonw, useFieldName)
+	key, value, pairReadErr := p.ReadPair(&keyDesc, &valueDesc, copyString, disallowUnknown, useFieldName)
 	if pairReadErr != nil {
 		return nil, pairReadErr
 	}
@@ -1039,7 +1039,7 @@ func (p *BinaryProtocol) ReadMap(desc *proto.FieldDescriptor, copyString bool, d
 		if _, pairLenErr := p.ReadLength(); pairLenErr != nil {
 			return nil, pairLenErr
 		}
-		key, value, pairReadErr := p.ReadPair(&keyDesc, &valueDesc, copyString, disallowUnknonw, useFieldName)
+		key, value, pairReadErr := p.ReadPair(&keyDesc, &valueDesc, copyString, disallowUnknown, useFieldName)
 		if pairReadErr != nil {
 			return nil, pairReadErr
 		}
@@ -1053,18 +1053,18 @@ func (p *BinaryProtocol) ReadMap(desc *proto.FieldDescriptor, copyString bool, d
 //   - LIST/SET will be converted to []interface{}
 //   - MAP will be converted from map[string]interface{} or map[int]interface{}
 //   - STRUCT will be converted from map[FieldID]interface{}
-func (p *BinaryProtocol) ReadAnyWithDesc(desc *proto.FieldDescriptor, copyString bool, disallowUnknonw bool, useFieldName bool) (interface{}, error) {
+func (p *BinaryProtocol) ReadAnyWithDesc(desc *proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) (interface{}, error) {
 	switch {
 	case (*desc).IsList():
-		return p.ReadList(desc, copyString, disallowUnknonw, useFieldName)
+		return p.ReadList(desc, copyString, disallowUnknown, useFieldName)
 	case (*desc).IsMap():
-		return p.ReadMap(desc, copyString, disallowUnknonw, useFieldName)
+		return p.ReadMap(desc, copyString, disallowUnknown, useFieldName)
 	default:
 		_, _, _, err := p.ConsumeTag()
 		if err != nil {
 			return nil, meta.NewError(meta.ErrRead, "ConsumeTag failed", nil)
 		}
-		return p.ReadBaseTypeWithDesc(desc, copyString, disallowUnknonw, useFieldName)
+		return p.ReadBaseTypeWithDesc(desc, copyString, disallowUnknown, useFieldName)
 	}
 }
 
