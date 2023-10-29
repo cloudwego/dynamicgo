@@ -197,11 +197,14 @@ func FinishSpeculativeLength(b []byte, pos int) []byte {
 	mlen := len(b) - pos - speculativeLength
 	msiz := protowire.SizeVarint(uint64(mlen))
 	if msiz != speculativeLength {
-		for i := 0; i < msiz-speculativeLength; i++ {
-			b = append(b, 0)
+		if cap(b) >= pos+msiz+mlen {
+			b = b[:pos+msiz+mlen]
+		} else {
+			newSlice := make([]byte, pos+msiz+mlen)
+			copy(newSlice, b)
+			b = newSlice
 		}
 		copy(b[pos+msiz:], b[pos+speculativeLength:])
-		b = b[:pos+msiz+mlen]
 	}
 	protowire.AppendVarint(b[:pos], uint64(mlen))
 	return b
@@ -885,10 +888,10 @@ func (p *BinaryProtocol) ReadDouble() (float64, error) {
 func (p *BinaryProtocol) ReadBytes() ([]byte, error) {
 	value, n, all := protowire.BinaryDecoder{}.DecodeBytes((p.Buf)[p.Read:])
 	if n < 0 {
-		return append(emptyBuf[:], value...), errDecodeField
+		return emptyBuf[:], errDecodeField
 	}
 	_, err := p.next(all)
-	return append(emptyBuf[:], value...), err
+	return value, err
 }
 
 // ReadLength return dataLength, and move pointer in the begin of data
