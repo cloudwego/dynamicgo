@@ -101,18 +101,20 @@ func (stk *VisitorUserNodeStack) Reset() {
 
 func (self *VisitorUserNode) Push(isMap bool, isObj bool, isList bool, desc *proto.FieldDescriptor, pos int) error {
 	err := self.incrSP()
-	self.stk[self.sp].state = visitorUserNodeState{
+	t := nilStkType
+	if isMap {
+		t = mapStkType
+	} else if isObj {
+		t = objStkType
+	} else if isList {
+		t = arrStkType
+	}
+
+	self.stk[self.sp] = VisitorUserNodeStack{typ: t, state: visitorUserNodeState{
 		msgDesc:   nil,
 		fieldDesc: desc,
 		lenPos:    pos,
-	}
-	if isMap {
-		self.stk[self.sp].typ = mapStkType
-	} else if isObj {
-		self.stk[self.sp].typ = objStkType
-	} else {
-		self.stk[self.sp].typ = arrStkType
-	}
+	}}
 	return err
 }
 
