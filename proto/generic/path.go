@@ -347,6 +347,7 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 		FieldDesc := (*desc).(proto.FieldDescriptor)
 		fieldNumber := FieldDesc.Number()
 		start := p.Read
+		// must set list element type first, so that handleChild will can handle the element correctly
 		self.et = proto.FromProtoKindToType(FieldDesc.Kind(),false,false)
 		listIndex := 0
 		// packed
@@ -395,6 +396,7 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 		mapDesc := (*desc).(proto.FieldDescriptor)
 		keyDesc := mapDesc.MapKey()
 		valueDesc := mapDesc.MapValue()
+		// set map key type and value type
 		self.kt = proto.FromProtoKindToType(keyDesc.Kind(),keyDesc.IsList(),keyDesc.IsMap())
 		self.et = proto.FromProtoKindToType(valueDesc.Kind(),valueDesc.IsList(),valueDesc.IsMap())
 		for p.Read < len(p.Buf) {
@@ -449,7 +451,7 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 			} else {
 				return wrapError(meta.ErrUnsupportedType, "PathNode.scanChildren: Unsupported map key type", nil)
 			}
-			self.size++
+			self.size++ // map enrty size ++ 
 		}
 	default:
 		return wrapError(meta.ErrUnsupportedType, "PathNode.scanChildren: Unsupported children type", nil)
@@ -526,25 +528,36 @@ func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *binary.Bi
 		v.Node = self.slice(start, p.Read, tt)
 	}
 
-	if recurse && tt.IsComplex() {
-		p.Buf = p.Buf[start:]
-		p.Read = 0
-		parentDesc := (*desc).(proto.Descriptor)
-		messageLen := 0
-		if tt == proto.MESSAGE {
-			parentDesc = (*desc).Message().(proto.Descriptor)
-			var err error
-			messageLen, err = p.ReadLength()
-			if messageLen<= 0 || err != nil {
-				return nil, wrapError(meta.ErrRead, "read message length failed", err)
+	if tt.IsComplex() {
+		if recurse {
+			p.Buf = p.Buf[start:]
+			p.Read = 0
+			parentDesc := (*desc).(proto.Descriptor)
+			messageLen := 0
+			if tt == proto.MESSAGE {
+				parentDesc = (*desc).Message().(proto.Descriptor)
+				var err error
+				messageLen, err = p.ReadLength()
+				if messageLen<= 0 || err != nil {
+					return nil, wrapError(meta.ErrRead, "read message length failed", err)
+				}
+			}
+
+			if err := v.scanChildren(p, recurse, opts, &parentDesc,messageLen); err != nil {
+				return nil, err
+			}
+			p.Buf = buf
+			p.Read = start + p.Read
+		} else {
+			// complex when lazy load
+			if tt == proto.LIST {
+				v.et = proto.FromProtoKindToType((*desc).Kind(),false,false)
+			} else if tt == proto.MAP {
+				v.kt = proto.FromProtoKindToType((*desc).MapKey().Kind(),false,false)
+				v.et = proto.FromProtoKindToType((*desc).MapValue().Kind(),false,false)
 			}
 		}
-
-		if err := v.scanChildren(p, recurse, opts, &parentDesc,messageLen); err != nil {
-			return nil, err
-		}
-		p.Buf = buf
-		p.Read = start + p.Read
+		
 	}
 
 	*in = con

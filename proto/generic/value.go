@@ -49,7 +49,7 @@ func (self Value) Fork() Value {
 }
 
 // TODO: need change
-func (self Value) slice(s int, e int, desc *proto.FieldDescriptor) Value {
+func (self Value) sliceWithDesc(s int, e int, desc *proto.FieldDescriptor) Value {
 	t := proto.FromProtoKindToType((*desc).Kind(), (*desc).IsList(), (*desc).IsMap())
 	ret := Value{
 		Node: Node{
@@ -383,24 +383,25 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 
 	}
 
-	if tt == proto.MAP {
+	switch tt {
+	case proto.MAP:
 		kt = proto.FromProtoKindToType((*desc).MapKey().Kind(), false, false)
 		et = proto.FromProtoKindToType((*desc).MapValue().Kind(), false, false)
-		if v, err := p.ReadMap(desc, false, false, false); err != nil {
-			en := err.(Node)
-			return errValue(en.ErrCode().Behavior(), "invalid map node.", err), address
-		} else {
-			size = len(v)
-		}
-	} else if tt == proto.LIST {
-		et = proto.FromProtoKindToType((*desc).Kind(), false, false)
-		if v, err := p.ReadList(desc, false, false, false); err != nil {
+		if s, err := p.SkipAllElements((*desc).Number(),(*desc).IsPacked()); err != nil {
 			en := err.(Node)
 			return errValue(en.ErrCode().Behavior(), "invalid list node.", err), address
 		} else {
-			size = len(v)
+			size = s
 		}
-	} else {
+	case proto.LIST:
+		et = proto.FromProtoKindToType((*desc).Kind(), false, false)
+		if s, err := p.SkipAllElements((*desc).Number(),(*desc).IsPacked()); err != nil {
+			en := err.(Node)
+			return errValue(en.ErrCode().Behavior(), "invalid list node.", err), address
+		} else {
+			size = s
+		}
+	default:
 		// node condition: simple field element, message, packed list element, map value element
 		skipType := proto.Kind2Wire[(*desc).Kind()]
 		
@@ -416,6 +417,7 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 			return errValue(meta.ErrRead, "skip field error.", err), address
 		}
 	}
+	
 	return wrapValue(self.Node.sliceComplex(start, p.Read, tt, kt, et, size), desc), address
 }
 
@@ -862,116 +864,30 @@ func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *
 }
 
 func (self Value) GetByStr(key string) (v Value) {
-	if err := self.should("Get", proto.MAP); err != "" {
-		return errValue(meta.ErrUnsupportedType, err, nil)
+	n := self.Node.GetByStr(key)
+	vd := (*self.Desc).MapValue()
+	if n.IsError() {
+		return wrapValue(n, nil)
 	}
-
-	if self.kt != proto.STRING {
-		return errValue(meta.ErrUnsupportedType, "key type is not string", nil)
-	}
-
-	it := self.iterPairs()
-	if it.Err != nil {
-		return errValue(meta.ErrRead, "", it.Err)
-	}
-
-	for it.HasNext() {
-		_, s, ss, e := it.NextStr(UseNativeSkipForGet)
-		if it.Err != nil {
-			v = errValue(meta.ErrRead, "", it.Err)
-			goto ret
-		}
-
-		if s == key {
-			vd := (*self.Desc).MapValue()
-			v = self.slice(ss, e, &vd)
-			goto ret
-		}
-	}
-	v = errValue(meta.ErrNotFound, "", nil)
-ret:
-	return
+	return wrapValue(n, &vd)
 }
 
 func (self Value) GetByInt(key int) (v Value) {
-	if err := self.should("Get", proto.MAP); err != "" {
-		return errValue(meta.ErrUnsupportedType, err, nil)
+	n := self.Node.GetByInt(key)
+	vd := (*self.Desc).MapValue()
+	if n.IsError() {
+		return wrapValue(n, nil)
 	}
-
-	if !self.kt.IsInt() {
-		return errValue(meta.ErrUnsupportedType, "key type is not int", nil)
-	}
-
-	it := self.iterPairs()
-	if it.Err != nil {
-		return errValue(meta.ErrRead, "", it.Err)
-	}
-
-	for it.HasNext() {
-		_, i, ss, e := it.NextInt(UseNativeSkipForGet)
-		if it.Err != nil {
-			v = errValue(meta.ErrRead, "", it.Err)
-			goto ret
-		}
-		if i == key {
-			vd := (*self.Desc).MapValue()
-			v = self.slice(ss, e, &vd)
-			goto ret
-		}
-	}
-	v = errValue(meta.ErrNotFound, fmt.Sprintf("key '%d' is not found in this value", key), nil)
-ret:
-	return
+	return wrapValue(n, &vd)
 }
 
 // Index returns a sub node at the given index from a LIST value.
 func (self Value) Index(i int) (v Value) {
-	if err := self.should("Index", proto.LIST); err != "" {
-		return errValue(meta.ErrUnsupportedType, err, nil)
+	n := self.Node.Index(i)
+	if n.IsError() {
+		return wrapValue(n, nil)
 	}
-
-	var s, e int
-	// dataLen := 0 // when not packed, start need to contation length, like STRING and MESSAGE type
-	it := self.iterElems()
-	if it.Err != nil {
-		return errValue(meta.ErrRead, "", it.Err)
-	}
-
-	if (*self.Desc).IsPacked() {
-		if _, err := it.p.ReadLength(); err != nil {
-			return errValue(meta.ErrRead, "", err)
-		}
-
-		for j := 0; it.HasNext() && j < i; j++ {
-			it.Next(UseNativeSkipForGet)
-		}
-	} else {
-		for j := 0; it.HasNext() && j < i; j++ {
-			it.Next(UseNativeSkipForGet)
-			if it.Err != nil {
-				return errValue(meta.ErrRead, "", it.Err)
-			}
-
-			if it.HasNext() {
-				if _, _, _, err := it.p.ConsumeTag(); err != nil {
-					return errValue(meta.ErrRead, "", err)
-				}
-			}
-		}
-	}
-
-	if it.Err != nil {
-		return errValue(meta.ErrRead, "", it.Err)
-	}
-
-	if i > it.k {
-		return errValue(meta.ErrInvalidParam, fmt.Sprintf("index '%d' is out of range", i), nil)
-	}
-
-	s, e = it.Next(UseNativeSkipForGet)
-
-	v = wrapValue(self.Node.slice(s, e, self.et), self.Desc)
-
+	v = wrapValue(n, self.Desc)
 	return
 }
 
@@ -1007,19 +923,13 @@ func (self Value) FieldByName(name string) (v Value) {
 		if i == f.Number() {
 			if f.IsMap() || f.IsList() {
 				it.p.Read = tagPos
-				if f.IsMap() {
-					if _, err := it.p.ReadMap(&f, false, false, false); err != nil {
-						return errValue(meta.ErrRead, "", err)
-					}
-				} else {
-					if _, err := it.p.ReadList(&f, false, false, false); err != nil {
-						return errValue(meta.ErrRead, "", err)
-					}
+				if _, err := it.p.SkipAllElements(i,f.IsPacked()); err != nil {
+					return errValue(meta.ErrRead, "SkipAllElements in LIST/MAP failed", err)
 				}
 				s = tagPos
 				e = it.p.Read
 
-				v = self.slice(s, e, &f)
+				v = self.sliceWithDesc(s, e, &f)
 				goto ret
 			}
 
@@ -1028,7 +938,7 @@ func (self Value) FieldByName(name string) (v Value) {
 				v = errValue(meta.ErrDismatchType, fmt.Sprintf("field '%s' expects type %s, buf got type %s", string(f.Name()), t, wt), nil)
 				goto ret
 			}
-			v = self.slice(s, e, &f)
+			v = self.sliceWithDesc(s, e, &f)
 			goto ret
 		} else if it.Err != nil {
 			v = errValue(meta.ErrRead, "", it.Err)
@@ -1074,19 +984,13 @@ func (self Value) Field(id proto.FieldNumber) (v Value) {
 		if i == f.Number() {
 			if f.IsMap() || f.IsList() {
 				it.p.Read = tagPos
-				if f.IsMap() {
-					if _, err := it.p.ReadMap(&f, false, false, false); err != nil {
-						return errValue(meta.ErrRead, "", err)
-					}
-				} else {
-					if _, err := it.p.ReadList(&f, false, false, false); err != nil {
-						return errValue(meta.ErrRead, "", err)
-					}
+				if _, err := it.p.SkipAllElements(i,f.IsPacked()); err != nil {
+					return errValue(meta.ErrRead, "SkipAllElements in LIST/MAP failed", err)
 				}
 				s = tagPos
 				e = it.p.Read
 
-				v = self.slice(s, e, &f)
+				v = self.sliceWithDesc(s, e, &f)
 				goto ret
 			}
 
@@ -1095,7 +999,7 @@ func (self Value) Field(id proto.FieldNumber) (v Value) {
 				v = errValue(meta.ErrDismatchType, fmt.Sprintf("field '%s' expects type %s, buf got type %s", f.Name(), t, wt), nil)
 				goto ret
 			}
-			v = self.slice(s, e, &f)
+			v = self.sliceWithDesc(s, e, &f)
 			goto ret
 		} else if it.Err != nil {
 			v = errValue(meta.ErrRead, "", it.Err)
@@ -1176,21 +1080,15 @@ func (self Value) Fields(ids []PathNode, opts *Options) error {
 		f := Fields.ByNumber(i)
 		if f.IsMap() || f.IsList() {
 			it.p.Read = tagPos
-			if f.IsMap() {
-				if _, err := it.p.ReadMap(&f, false, false, false); err != nil {
-					return errValue(meta.ErrRead, "", err)
-				}
-			} else {
-				if _, err := it.p.ReadList(&f, false, false, false); err != nil {
-					return errValue(meta.ErrRead, "", err)
-				}
+			if _, err := it.p.SkipAllElements(i,f.IsPacked()); err != nil {
+				return errValue(meta.ErrRead, "SkipAllElements in LIST/MAP failed", err)
 			}
 			s = tagPos
 			e = it.p.Read
 		}
 
 
-		v := self.slice(s, e, &f)
+		v := self.sliceWithDesc(s, e, &f)
 
 		//TODO: use bitmap to avoid repeatedly scan
 		for j, id := range ids {

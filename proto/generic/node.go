@@ -346,3 +346,114 @@ func (self *Node) replaceMany(ps *pnSlice) error {
 	self.l = int(len(buf))
 	return nil
 }
+
+func (self Node) Index(idx int) (v Node) {
+	if err := self.should("Index", proto.LIST); err != "" {
+		return errNode(meta.ErrUnsupportedType, err, nil)
+	}
+
+	var s, e int
+	isPacked := self.et.IsInt()
+	it := self.iterElems() // it will read tag once
+	if it.Err != nil {
+		return errNode(meta.ErrRead, "", it.Err)
+	}
+
+	// it.size=0 maybe list node is in lazyload mode
+	if it.size > 0 && idx >= it.size {
+		return errNode(meta.ErrInvalidParam, fmt.Sprintf("index %d exceeds list/set bound", idx), nil)
+	}
+
+	if isPacked {
+		if _, err := it.p.ReadLength(); err != nil {
+			return errNode(meta.ErrRead, "", err)
+		}
+
+		for j := 0; it.HasNext() && j < idx; j++ {
+			it.Next(UseNativeSkipForGet)
+		}
+	} else {
+		for j := 0; it.HasNext() && j < idx; j++ {
+			it.Next(UseNativeSkipForGet)
+			if it.HasNext() {
+				if _, _, _, err := it.p.ConsumeTag(); err != nil {
+					return errNode(meta.ErrRead, "", err)
+				}
+			}
+		}
+	}
+
+	if it.Err != nil {
+		return errNode(meta.ErrRead, "", it.Err)
+	}
+
+	if idx > it.k {
+		return errNode(meta.ErrInvalidParam, fmt.Sprintf("index '%d' is out of range", idx), nil)
+	}
+
+	s, e = it.Next(UseNativeSkipForGet)
+	v = self.slice(s, e, self.et)
+	return v
+}
+
+func (self Node) GetByStr(key string) (v Node) {
+	if err := self.should("Get", proto.MAP); err != "" {
+		return errNode(meta.ErrUnsupportedType, err, nil)
+	}
+
+	if self.kt != proto.STRING {
+		return errNode(meta.ErrUnsupportedType, "key type is not string", nil)
+	}
+
+	it := self.iterPairs()
+	if it.Err != nil {
+		return errNode(meta.ErrRead, "", it.Err)
+	}
+
+	for it.HasNext() {
+		_, s, ss, e := it.NextStr(UseNativeSkipForGet)
+		if it.Err != nil {
+			v = errNode(meta.ErrRead, "", it.Err)
+			goto ret
+		}
+
+		if s == key {
+			v = self.slice(ss, e, self.et)
+			goto ret
+		}
+	}
+	v = errNode(meta.ErrNotFound, fmt.Sprintf("key '%s' is not found in this value", key), errNotFound)
+ret:
+	return
+}
+
+
+func (self Node) GetByInt(key int) (v Node) {
+	if err := self.should("Get", proto.MAP); err != "" {
+		return errNode(meta.ErrUnsupportedType, err, nil)
+	}
+
+	if !self.kt.IsInt() {
+		return errNode(meta.ErrUnsupportedType, "key type is not int", nil)
+	}
+
+	it := self.iterPairs()
+	if it.Err != nil {
+		return errNode(meta.ErrRead, "", it.Err)
+	}
+
+	for it.HasNext() {
+		_, i, ss, e := it.NextInt(UseNativeSkipForGet)
+		if it.Err != nil {
+			v = errNode(meta.ErrRead, "", it.Err)
+			goto ret
+		}
+		if i == key {
+			v = self.slice(ss, e, self.et)
+			goto ret
+		}
+	}
+	v = errNode(meta.ErrNotFound, fmt.Sprintf("key '%d' is not found in this value", key), nil)
+ret:
+	return
+}
