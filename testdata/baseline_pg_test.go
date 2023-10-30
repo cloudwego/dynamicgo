@@ -131,7 +131,7 @@ func BenchmarkProtoGetOne(b *testing.B) {
 		}
 
 		v := generic.NewRootValue(desc, data)
-		vv, _ := v.GetByPath(generic.NewPathFieldId(6))
+		vv := v.GetByPath(generic.NewPathFieldId(6))
 		require.Nil(b, vv.Check())
 		bs, err := vv.Binary()
 		require.Nil(b, err)
@@ -140,7 +140,7 @@ func BenchmarkProtoGetOne(b *testing.B) {
 		b.ResetTimer()
 		b.Run("go", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_, _ = v.GetByPath(generic.NewPathFieldId(6))
+				_ = v.GetByPath(generic.NewPathFieldId(6))
 			}
 		})
 	})
@@ -155,7 +155,7 @@ func BenchmarkProtoGetOne(b *testing.B) {
 		}
 
 		v := generic.NewRootValue(desc, data)
-		vv, _ := v.GetByPath(generic.NewPathFieldId(6))
+		vv := v.GetByPath(generic.NewPathFieldId(6))
 		require.Nil(b, vv.Check())
 		bs, err := vv.Int()
 		require.Nil(b, err)
@@ -164,7 +164,7 @@ func BenchmarkProtoGetOne(b *testing.B) {
 		b.ResetTimer()
 		b.Run("go", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_, _ = v.GetByPath(generic.NewPathFieldId(6))
+				_ = v.GetByPath(generic.NewPathFieldId(6))
 			}
 		})
 	})
@@ -519,7 +519,7 @@ func BenchmarkProtoSetOne(b *testing.B) {
 		n := generic.NewValue(&fd6, p.Buf)
 		_, err := v.SetByPath(n, generic.NewPathFieldId(6))
 		require.Nil(b, err)
-		nn, _ := v.GetByPath(generic.NewPathFieldId(6))
+		nn := v.GetByPath(generic.NewPathFieldId(6))
 		require.Equal(b, n.Raw(), nn.Raw())
 
 		b.SetBytes(int64(len(data)))
@@ -547,7 +547,7 @@ func BenchmarkProtoSetOne(b *testing.B) {
 		n := generic.NewValue(&fd15, p.Buf)
 		_, err := v.SetByPath(n, generic.NewPathFieldId(15), generic.NewPathStrKey("0"), generic.NewPathFieldId(6))
 		require.Nil(b, err)
-		nn, _ := v.GetByPath(generic.NewPathFieldId(15), generic.NewPathStrKey("0"), generic.NewPathFieldId(6))
+		nn := v.GetByPath(generic.NewPathFieldId(15), generic.NewPathStrKey("0"), generic.NewPathFieldId(6))
 		require.Equal(b, n.Raw(), nn.Raw())
 
 		b.SetBytes(int64(len(data)))

@@ -35,11 +35,11 @@ var (
 	}
 )
 
-func NewBytesPool() []byte {
+func NewBytesFromPool() []byte {
 	return bytesPool.Get().([]byte)
 }
 
-func FreeBytesPool(b []byte) {
+func FreeBytesToPool(b []byte) {
 	b = b[:0]
 	bytesPool.Put(b)
 }
@@ -269,8 +269,12 @@ func searchStrKey(p *binary.BinaryProtocol, key string, keyType proto.Type, mapF
 }
 
 func (self Value) GetByPath(pathes ...Path) Value {
-	value, _ := self.getByPath()
+	value, _ := self.getByPath(pathes...)
 	return value
+}
+
+func (self Value) GetByPathWithAddress(pathes ...Path) (Value, []int) {
+	return self.getByPath(pathes...)
 }
 
 // inner use
@@ -500,7 +504,7 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 
 	originLen := len(self.raw())
 	err = self.replace(v.Node, sub.Node)
-	isPacked := path[l-1].t == PathIndex && sub.Node.t != proto.MESSAGE && sub.Node.t != proto.STRING
+	isPacked := path[l-1].t == PathIndex && sub.Node.t.IsInt()
 	self.UpdateByteLen(originLen, address, isPacked, path...)
 	return
 }
@@ -514,7 +518,7 @@ func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, pa
 		pathType := path[i].t
 		addressPtr := address[i]
 		if previousType == proto.MESSAGE || (previousType == proto.LIST && isPacked) {
-			newBytes := NewBytesPool()
+			newBytes := NewBytesFromPool()
 			// tag
 			buf := rt.BytesFrom(rt.AddPtr(self.v, uintptr(addressPtr)), self.l-addressPtr, self.l-addressPtr)
 			_, tagOffset := protowire.ConsumeVarint(buf)
@@ -559,7 +563,7 @@ func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, pa
 				isPacked = false
 			}
 			diffLen += subLen
-			FreeBytesPool(newBytes)
+			FreeBytesToPool(newBytes)
 		}
 
 		if pathType == PathStrKey || pathType == PathIntKey {
