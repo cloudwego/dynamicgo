@@ -348,7 +348,7 @@ func TestGet(t *testing.T) {
 
 	req := getExample2Req()
 	t.Run("GetByStr()", func(t *testing.T) {
-		v, _ := v.GetByPath(PathExampleMapStringString...)
+		v, _ := v.getByPath(PathExampleMapStringString...)
 		require.Nil(t, v.Check())
 		v1, err := v.GetByStr("m1").String()
 		require.NoError(t, err)
@@ -360,7 +360,7 @@ func TestGet(t *testing.T) {
 	})
 
 	t.Run("GetByInt()", func(t *testing.T) {
-		v, _ := v.GetByPath(PathExampleMapInt32String...)
+		v, _ := v.getByPath(PathExampleMapInt32String...)
 		require.Nil(t, v.Check())
 		v1, err := v.GetByInt(1).String()
 		require.NoError(t, err)
@@ -372,7 +372,7 @@ func TestGet(t *testing.T) {
 	})
 
 	t.Run("Index()", func(t *testing.T) {
-		v, _ := v.GetByPath(PathExampleListInt32...)
+		v, _ := v.getByPath(PathExampleListInt32...)
 		require.Nil(t, v.Check())
 		v1, err := v.Index(1).Int()
 		require.NoError(t, err)
@@ -462,10 +462,10 @@ func TestGet(t *testing.T) {
 		require.Equal(t, exp.InnerBase2.ListString[2], s)
 	})
 
-	t.Run("GetByPath()", func(t *testing.T) {
+	t.Run("getByPath()", func(t *testing.T) {
 		exp := req.InnerBase2.ListInt32[1]
 
-		v1, _ := v.GetByPath(NewPathFieldId(proto.FieldNumber(3)), NewPathFieldId(8), NewPathIndex(1))
+		v1, _ := v.getByPath(NewPathFieldId(proto.FieldNumber(3)), NewPathFieldId(8), NewPathIndex(1))
 		if v1.Error() != "" {
 			t.Fatal(v1.Error())
 		}
@@ -473,24 +473,24 @@ func TestGet(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int(exp), act)
 
-		v2, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1))
+		v2, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1))
 		if v2.Error() != "" {
 			t.Fatal(v2.Error())
 		}
 		require.Equal(t, v1, v2)
-		v3, _ := v.GetByPath(NewPathFieldId(proto.FieldNumber(3)), NewPathFieldName("ListInt32"), NewPathIndex(1))
+		v3, _ := v.getByPath(NewPathFieldId(proto.FieldNumber(3)), NewPathFieldName("ListInt32"), NewPathIndex(1))
 		if v3.Error() != "" {
 			t.Fatal(v3.Error())
 		}
 		require.Equal(t, v1, v3)
-		v4, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(8), NewPathIndex(1))
+		v4, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(8), NewPathIndex(1))
 		if v4.Error() != "" {
 			t.Fatal(v4.Error())
 		}
 		require.Equal(t, v1, v4)
 
 		exp2 := req.InnerBase2.MapInt32String[2]
-		v5, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(12), NewPathIntKey(2))
+		v5, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(12), NewPathIntKey(2))
 		if v5.Error() != "" {
 			t.Fatal(v5.Error())
 		}
@@ -498,14 +498,14 @@ func TestGet(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, exp2, act2)
 
-		v6, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapInt32String"), NewPathIntKey(2))
+		v6, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapInt32String"), NewPathIntKey(2))
 		if v6.Error() != "" {
 			t.Fatal(v6.Error())
 		}
 		require.Equal(t, v5, v6)
 
 		exp3 := req.InnerBase2.MapStringString["m1"]
-		v7, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(9), NewPathStrKey("m1"))
+		v7, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(9), NewPathStrKey("m1"))
 		if v5.Error() != "" {
 			t.Fatal(v7.Error())
 		}
@@ -513,16 +513,16 @@ func TestGet(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, exp3, act3)
 
-		v8, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringString"), NewPathStrKey("m1"))
+		v8, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringString"), NewPathStrKey("m1"))
 		if v8.Error() != "" {
 			t.Fatal(v8.Error())
 		}
 		require.Equal(t, v8, v7)
 
-		v9, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(9), NewPathStrKey("m8"))
+		v9, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(9), NewPathStrKey("m8"))
 		require.Error(t, v9.Check())
 
-		v10, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(21), NewPathIndex(2))
+		v10, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(21), NewPathIndex(2))
 		if v10.Error() != "" {
 			t.Fatal(v10.Error())
 		}
@@ -530,7 +530,7 @@ func TestGet(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, req.InnerBase2.ListString[2], act10)
 
-		v11, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(19), NewPathIndex(1))
+		v11, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(19), NewPathIndex(1))
 		if v11.Error() != "" {
 			t.Fatal(v11.Error())
 		}
@@ -554,7 +554,7 @@ func TestSetByPath(t *testing.T) {
 	require.Nil(t, err)
 
 	t.Run("replace", func(t *testing.T) {
-		s, _ := v.GetByPath(NewPathFieldName("Subfix"))
+		s, _ := v.getByPath(NewPathFieldName("Subfix"))
 		require.Empty(t, s.Error())
 		f, _ := s.Float64()
 		require.Equal(t, math.MaxFloat64, f)
@@ -562,7 +562,7 @@ func TestSetByPath(t *testing.T) {
 		e, err := v.SetByPath(Value{NewNodeDouble(exp), nil, &ds}, NewPathFieldName("Subfix"))
 		require.True(t, e)
 		require.Nil(t, err)
-		s, _ = v.GetByPath(NewPathFieldName("Subfix"))
+		s, _ = v.getByPath(NewPathFieldName("Subfix"))
 		require.Empty(t, s.Error())
 		f, _ = s.Float64()
 		require.Equal(t, exp, f)
@@ -573,14 +573,14 @@ func TestSetByPath(t *testing.T) {
 		e, err2 := v.SetByPath(NewValue(&d2, p.Buf), NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("1b"))
 		require.True(t, e)
 		require.Nil(t, err2)
-		s2, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("1b"))
+		s2, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("1b"))
 		require.Empty(t, s2.Error())
 		f2, _ := s2.String()
 		require.Equal(t, exp2, f2)
 		e, err2 = v.SetByPath(NewValue(&d2, p.Buf), NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("2b"))
 		require.True(t, e)
 		require.Nil(t, err2)
-		s2, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("2b"))
+		s2, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("2b"))
 		require.Empty(t, s2.Error())
 		f2, _ = s2.String()
 		require.Equal(t, exp2, f2)
@@ -588,60 +588,60 @@ func TestSetByPath(t *testing.T) {
 		exp3 := int32(math.MinInt32) + 1
 		v3 := Value{NewNodeInt32(exp3), nil, &d3}
 		ps := []Path{NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(2)}
-		parent, _ := v.GetByPath(ps[:len(ps)-1]...)
+		parent, _ := v.getByPath(ps[:len(ps)-1]...)
 		l3, err := parent.Len()
 		require.Nil(t, err)
 		e, err = v.SetByPath(v3, ps...)
 		require.True(t, e)
 		require.Nil(t, err)
-		s3, _ := v.GetByPath(ps...)
+		s3, _ := v.getByPath(ps...)
 		act3, _ := s3.Int()
 		require.Equal(t, exp3, int32(act3))
-		parent, _ = v.GetByPath(ps[:len(ps)-1]...)
+		parent, _ = v.getByPath(ps[:len(ps)-1]...)
 		l3a, err := parent.Len()
 		require.Nil(t, err)
 		require.Equal(t, l3, l3a)
 	})
 
 	t.Run("insert", func(t *testing.T) {
-		s, _ := v.GetByPath(NewPathFieldName("A"))
+		s, _ := v.getByPath(NewPathFieldName("A"))
 		require.True(t, s.IsErrNotFound())
 		exp := int32(-1024)
 		v1 := Value{NewNodeInt32(exp), nil, &d3}
 		e, err := v.SetByPath(v1, NewPathFieldName("A"))
 		require.False(t, e)
 		require.Nil(t, err)
-		s, _ = v.GetByPath(NewPathFieldName("A"))
+		s, _ = v.getByPath(NewPathFieldName("A"))
 		require.Empty(t, s.Error())
 		act, _ := s.Int()
 		require.Equal(t, exp, int32(act))
 
-		s2, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("x"))
+		s2, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("x"))
 		require.True(t, s2.IsErrNotFound())
 		exp2 := "中文xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\bb"
 		v2 := Value{NewNodeString(exp2), nil, &d3}
 		e, err2 := v.SetByPath(v2, NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("x"))
 		require.False(t, e)
 		require.Nil(t, err2)
-		s2, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("x"))
+		s2, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("x"))
 		require.Empty(t, s2.Error())
 		act2, _ := s2.String()
 		require.Equal(t, exp2, act2)
 
-		parent, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"))
+		parent, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"))
 		l3, err := parent.Len()
 		require.Nil(t, err)
-		s3, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1024))
+		s3, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1024))
 		require.True(t, s3.IsErrNotFound())
 		exp3 := rand.Int31()
 		v3 := Value{NewNodeInt32(exp3), nil, &d3}
 		e, err = v.SetByPath(v3, NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1024))
 		require.False(t, e)
 		require.NoError(t, err)
-		s3, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(6)) // 6 + 1
+		s3, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(6)) // 6 + 1
 		act3, _ := s3.Int()
 		require.Equal(t, exp3, int32(act3))
-		parent, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"))
+		parent, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"))
 		l3a, err := parent.Len()
 		require.Nil(t, err)
 		require.Equal(t, l3+1, l3a)
@@ -650,10 +650,10 @@ func TestSetByPath(t *testing.T) {
 		e, err = v.SetByPath(v3, NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1024))
 		require.False(t, e)
 		require.NoError(t, err)
-		s3, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(7))
+		s3, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(7))
 		act3, _ = s3.Int()
 		require.Equal(t, exp3, int32(act3))
-		parent, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"))
+		parent, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"))
 		l3a, err = parent.Len()
 		require.Nil(t, err)
 		require.Equal(t, l3+2, l3a)
@@ -664,7 +664,7 @@ func TestSetByPath(t *testing.T) {
 		e, err = v.SetByPath(v4, NewPathFieldName("InnerBase2"), NewPathFieldName("ListString"), NewPathIndex(1024))
 		require.False(t, e)
 		require.NoError(t, err)
-		s4, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListString"), NewPathIndex(6))
+		s4, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListString"), NewPathIndex(6))
 		act4, _ := s4.String()
 		DeepEqual(exp4, act4)
 	})
@@ -680,7 +680,6 @@ func TestUnsetByPath(t *testing.T) {
 	d1 := (*desc).Fields().ByName("Msg")
 	// d2 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("Base").Message().Fields().ByName("Extra").MapValue()
 	// d3 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListInt32")
-	
 
 	v := r.Fork()
 	err := v.UnsetByPath()
@@ -689,23 +688,23 @@ func TestUnsetByPath(t *testing.T) {
 	// test UnsetByPath without varint_length change
 	t.Run("no_parent_length_change", func(t *testing.T) {
 		v = r.Fork()
-		n, _ := v.GetByPath(NewPathFieldName("Msg"))
-		exp , _ := n.String()
+		n, _ := v.getByPath(NewPathFieldName("Msg"))
+		exp, _ := n.String()
 		require.False(t, n.IsError())
 		err = v.UnsetByPath(NewPathFieldName("Msg"))
 		require.NoError(t, err)
-		n, _ = v.GetByPath(NewPathFieldName("Msg"))
+		n, _ = v.getByPath(NewPathFieldName("Msg"))
 		require.True(t, n.IsErrNotFound())
 		p := binary.NewBinaryProtocolBuffer()
 		p.WriteString(exp)
 		Msg := Value{NewNode(proto.STRING, p.Buf), nil, &d1}
 		exist, _ := v.SetByPath(Msg, NewPathFieldName("Msg"))
 		require.False(t, exist)
-		n, _ = v.GetByPath(NewPathFieldName("Msg"))
-		act , _ := n.String()
+		n, _ = v.getByPath(NewPathFieldName("Msg"))
+		act, _ := n.String()
 		require.Equal(t, exp, act)
 		v = r.Fork()
-		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("String"))
+		n, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("String"))
 		require.False(t, n.IsError())
 		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("String"))
 		require.NoError(t, err)
@@ -714,21 +713,21 @@ func TestUnsetByPath(t *testing.T) {
 	// test UnsetByPath with varint_length change
 	t.Run("parent_length_change", func(t *testing.T) {
 		v = r.Fork()
-		err = v.UnsetByPath(NewPathFieldName("InnerBase2"),NewPathFieldId(8))
-		err = v.UnsetByPath(NewPathFieldName("InnerBase2"),NewPathFieldId(9))
-		err = v.UnsetByPath(NewPathFieldName("InnerBase2"),NewPathFieldId(10))
-		err = v.UnsetByPath(NewPathFieldName("InnerBase2"),NewPathFieldId(11))
-		err = v.UnsetByPath(NewPathFieldName("InnerBase2"),NewPathFieldId(20))
-		err = v.UnsetByPath(NewPathFieldName("InnerBase2"),NewPathFieldId(13))
-		err = v.UnsetByPath(NewPathFieldName("InnerBase2"),NewPathFieldId(14))
-		err = v.UnsetByPath(NewPathFieldName("InnerBase2"),NewPathFieldId(15))
-		err = v.UnsetByPath(NewPathFieldName("InnerBase2"),NewPathFieldId(16))
-		err = v.UnsetByPath(NewPathFieldName("InnerBase2"),NewPathFieldId(17))
-		err = v.UnsetByPath(NewPathFieldName("InnerBase2"),NewPathFieldId(18))
-		err = v.UnsetByPath(NewPathFieldName("InnerBase2"),NewPathFieldId(19))
-		err = v.UnsetByPath(NewPathFieldName("InnerBase2"),NewPathFieldId(21))
-		err = v.UnsetByPath(NewPathFieldName("InnerBase2"),NewPathFieldId(255))
-		n, _ := v.GetByPath(NewPathFieldName("InnerBase2"),NewPathFieldId(12))
+		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(8))
+		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(9))
+		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(10))
+		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(11))
+		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(20))
+		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(13))
+		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(14))
+		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(15))
+		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(16))
+		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(17))
+		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(18))
+		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(19))
+		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(21))
+		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(255))
+		n, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(12))
 		require.False(t, n.IsError())
 		x, _ := n.IntMap(&Options{})
 		DeepEqual(x, req.InnerBase2.MapInt32String)
@@ -736,75 +735,75 @@ func TestUnsetByPath(t *testing.T) {
 
 	t.Run("delete_list_index", func(t *testing.T) {
 		v = r.Fork()
-		n, address := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
+		n, address := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
 		fmt.Println(address)
 		require.False(t, n.IsError())
-		exp , _ := n.Int()
+		exp, _ := n.Int()
 		fmt.Println(exp)
 		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
 		require.NoError(t, err)
 
-		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
+		n, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
 		require.False(t, n.IsError())
-		exp , _ = n.Int()
+		exp, _ = n.Int()
 		fmt.Println(exp)
 		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
 		require.NoError(t, err)
 
-		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
+		n, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
 		require.False(t, n.IsError())
-		exp , _ = n.Int()
+		exp, _ = n.Int()
 		fmt.Println(exp)
 		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
 		require.NoError(t, err)
 
-		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
+		n, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
 		require.False(t, n.IsError())
-		exp , _ = n.Int()
+		exp, _ = n.Int()
 		fmt.Println(exp)
 		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
 		require.NoError(t, err)
 
-		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
+		n, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
 		require.False(t, n.IsError())
-		exp , _ = n.Int()
+		exp, _ = n.Int()
 		fmt.Println(exp)
 		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
 		require.NoError(t, err)
 
-		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
+		n, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
 		require.False(t, n.IsError())
-		exp , _ = n.Int()
+		exp, _ = n.Int()
 		fmt.Println(exp)
 		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
 		require.NoError(t, err)
 
-		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
+		n, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
 		require.True(t, n.IsError())
 
-		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringString"), NewPathStrKey("m1"))
-		act , _ := n.string()
+		n, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringString"), NewPathStrKey("m1"))
+		act, _ := n.string()
 		require.Equal(t, "aaa", act)
 	})
 	t.Run("delete_list", func(t *testing.T) {
 		v = r.Fork()
-		n, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListBase"))
+		n, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListBase"))
 		require.False(t, n.IsError())
 		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListBase"))
 		require.NoError(t, err)
-		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListBase"))
+		n, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListBase"))
 		require.True(t, n.IsErrNotFound())
-		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListString"))
+		n, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListString"))
 		require.False(t, n.IsError())
 		act, _ := n.List(&Options{})
 		fmt.Println(act)
-		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"))
+		n, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"))
 		require.False(t, n.IsError())
 		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"))
 		require.NoError(t, err)
-		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"))
+		n, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"))
 		require.True(t, n.IsErrNotFound())
-		mp, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringString"))
+		mp, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringString"))
 		vmp, err := mp.StrMap(&Options{})
 		require.Nil(t, err)
 		fmt.Println(vmp)
@@ -812,39 +811,39 @@ func TestUnsetByPath(t *testing.T) {
 
 	t.Run("delete_map", func(t *testing.T) {
 		v = r.Fork()
-		n, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringString"))
+		n, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringString"))
 		require.False(t, n.IsError())
 		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringString"))
 		require.NoError(t, err)
-		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringString"))
+		n, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringString"))
 		require.True(t, n.IsErrNotFound())
-		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapInt32String"))
+		n, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapInt32String"))
 		require.False(t, n.IsError())
 		len1, err := n.Len()
 		require.NoError(t, err)
 		act, _ := n.IntMap(&Options{}) // TODO: can not convert map[interface{}]interface{} to map[int]interface{}
 		fmt.Println(act)
 		DeepEqual(req.InnerBase2.MapInt32String, act)
-		
+
 		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapInt32String"), NewPathIntKey(1))
 		require.NoError(t, err)
-		n2, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapInt32String"))
+		n2, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapInt32String"))
 		require.False(t, n.IsError())
-		len2 , err := n2.Len()
+		len2, err := n2.Len()
 		require.NoError(t, err)
 		act, _ = n2.IntMap(&Options{})
 		fmt.Println(act)
 		require.Equal(t, len1-1, len2)
 
-		n3, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapUint32String"), NewPathIntKey(1))
+		n3, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapUint32String"), NewPathIntKey(1))
 		require.False(t, n3.IsError())
 		act3, _ := n3.String()
 		require.Equal(t, req.InnerBase2.MapUint32String[1], act3)
 		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapUint32String"), NewPathIntKey(1))
 		require.NoError(t, err)
-		mp4, _ := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapUint32String"))
+		mp4, _ := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapUint32String"))
 		require.False(t, mp4.IsError())
-		v , err := mp4.IntMap(&Options{})
+		v, err := mp4.IntMap(&Options{})
 		require.NoError(t, err)
 		fmt.Println(v)
 		DeepEqual(v, req.InnerBase2.MapUint32String)
@@ -853,28 +852,26 @@ func TestUnsetByPath(t *testing.T) {
 	t.Run("delete_field", func(t *testing.T) {
 		v = r.Fork()
 		bytelen := v.l
-		n, _ := v.GetByPath(NewPathFieldName("Msg"))
+		n, _ := v.getByPath(NewPathFieldName("Msg"))
 		require.False(t, n.IsError())
 		field1Len := n.l
 		err := v.UnsetByPath(NewPathFieldName("Msg"))
 		require.NoError(t, err)
-		require.Equal(t, bytelen - field1Len - 1, v.l) // 1 is the calculated varint taglen of Msg
-		n, _ = v.GetByPath(NewPathFieldName("InnerBase2"))
+		require.Equal(t, bytelen-field1Len-1, v.l) // 1 is the calculated varint taglen of Msg
+		n, _ = v.getByPath(NewPathFieldName("InnerBase2"))
 		require.False(t, n.IsError())
 		field2Len := n.l
 		err = v.UnsetByPath(NewPathFieldName("InnerBase2"))
 		require.NoError(t, err)
-		require.Equal(t, bytelen - field1Len - field2Len - 1 - 1, v.l) 
+		require.Equal(t, bytelen-field1Len-field2Len-1-1, v.l)
 		fmt.Println(v.l)
-		n, _ = v.GetByPath(NewPathFieldName("Subfix"))
+		n, _ = v.getByPath(NewPathFieldName("Subfix"))
 		require.False(t, n.IsError())
 		act, _ := n.Float64()
 		require.Equal(t, math.MaxFloat64, act)
 	})
 
 }
-
-
 
 func TestSetMany(t *testing.T) {
 	desc := getExample2Desc()
@@ -901,7 +898,7 @@ func TestSetMany(t *testing.T) {
 			},
 		}, opts, &v, address, pathes...)
 		require.Nil(t, err)
-		v1, _ := v.GetByPath(NewPathFieldName("A"))
+		v1, _ := v.getByPath(NewPathFieldName("A"))
 		act1, err := v1.Int()
 		require.NoError(t, err)
 		require.Equal(t, exp1, int32(act1))
@@ -910,13 +907,13 @@ func TestSetMany(t *testing.T) {
 		exp22 := int32(math.MaxInt32)
 		n21 := NewNodeInt32(exp21)
 		n22 := NewNodeInt32(exp22)
-		vv, listInt2root := v.GetByPath(PathExampleListInt32...)
+		vv, listInt2root := v.getByPath(PathExampleListInt32...)
 		l2, err := vv.Len()
 		require.NoError(t, err)
 		// the last value of path2root and address2root is only a flag not using real value
-		path2root := []Path{ NewPathFieldName("InnerBase2"), NewPathFieldId(proto.FieldNumber(8)), NewPathIndex(1024)}
+		path2root := []Path{NewPathFieldName("InnerBase2"), NewPathFieldId(proto.FieldNumber(8)), NewPathIndex(1024)}
 		address2root := append(listInt2root, 0)
-		
+
 		err = vv.SetMany([]PathNode{
 			{
 				Path: NewPathIndex(1024),
@@ -928,11 +925,11 @@ func TestSetMany(t *testing.T) {
 			},
 		}, opts, &v, address2root, path2root...)
 		require.NoError(t, err)
-		v21, _ := vv.GetByPath(NewPathIndex(6))
+		v21, _ := vv.getByPath(NewPathIndex(6))
 		act21, err := v21.Int()
 		require.NoError(t, err)
 		require.Equal(t, exp21, int32(act21))
-		v22, _ := vv.GetByPath(NewPathIndex(7))
+		v22, _ := vv.getByPath(NewPathIndex(7))
 		act22, err := v22.Int()
 		require.NoError(t, err)
 		require.Equal(t, exp22, int32(act22))
@@ -940,13 +937,12 @@ func TestSetMany(t *testing.T) {
 		require.Nil(t, err)
 		require.Equal(t, l2+2, ll2)
 
-
-		vx, base2root := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListBase"))
+		vx, base2root := v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListBase"))
 		vv = vx
 		m1, e := vv.Len()
 		require.Nil(t, e)
 		// the last value of path2root and address2root is only a flag not using real value
-		path2root = []Path{ NewPathFieldName("InnerBase2"), NewPathFieldName("ListBase"), NewPathIndex(1024)}
+		path2root = []Path{NewPathFieldName("InnerBase2"), NewPathFieldName("ListBase"), NewPathIndex(1024)}
 		address2root = append(base2root, 0)
 		err = vv.SetMany([]PathNode{
 			{
@@ -954,7 +950,7 @@ func TestSetMany(t *testing.T) {
 				Node: v.FieldByName("InnerBase2").FieldByName("Base").Node,
 			}}, opts, &v, address2root, path2root...)
 		require.Nil(t, err)
-		vx, _ = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListBase"))
+		vx, _ = v.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListBase"))
 		m2, e := vx.Len()
 		require.Nil(t, e)
 		require.Equal(t, m1+1, m2)
@@ -1000,16 +996,14 @@ func TestSetMany(t *testing.T) {
 			data = data[offset:]
 			l += offset
 		}
-		
 
-		
 		require.Equal(t, exp.Msg, exp1)
 		require.Equal(t, exp.Subfix, exp2)
 
-		vx, base2root := vRoot.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"))
+		vx, base2root := vRoot.getByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"))
 		vv := vx
 		// the last value of path2root and address2root is only a flag not using real value
-		path2root := []Path{ NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldId(1024)}
+		path2root := []Path{NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldId(1024)}
 		address2root := append(base2root, 0)
 		err = vv.SetMany([]PathNode{
 			{
@@ -1040,7 +1034,7 @@ func TestSetMany(t *testing.T) {
 		require.Nil(t, err)
 		require.Equal(t, vx.raw(), vv.raw())
 
-		inner, inner2root := vRoot.GetByPath(NewPathFieldName("InnerBase2"))
+		inner, inner2root := vRoot.getByPath(NewPathFieldName("InnerBase2"))
 		p = binary.NewBinaryProtocolBuffer()
 		e1 := false
 		p.WriteBool(e1)
@@ -1050,9 +1044,9 @@ func TestSetMany(t *testing.T) {
 		p.WriteDouble(e2)
 		v2 = NewValue(&d1, []byte(string(p.Buf)))
 		p.Buf = p.Buf[:0]
-		
+
 		// the last value of path2root and address2root is only a flag not using real value
-		path2root = []Path{ NewPathFieldName("InnerBase2"), NewPathFieldId(1024)}
+		path2root = []Path{NewPathFieldName("InnerBase2"), NewPathFieldId(1024)}
 		address2root = append(inner2root, 0)
 
 		err = inner.SetMany([]PathNode{
@@ -1076,7 +1070,7 @@ func TestSetMany(t *testing.T) {
 		data = inner.raw()
 		byteLen, offset := goprotowire.ConsumeVarint(data)
 		fmt.Println(byteLen)
-		
+
 		data = data[offset:]
 		dataLen = len(data)
 		l = 0

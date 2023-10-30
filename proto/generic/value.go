@@ -12,18 +12,36 @@ import (
 	"github.com/cloudwego/dynamicgo/proto/protowire"
 )
 
+const defaultBytesSize = 64
+
 type Value struct {
 	Node
 	rootDesc *proto.MessageDescriptor
 	Desc     *proto.FieldDescriptor
 }
 
-var pnsPool = sync.Pool{
-	New: func() interface{} {
-		return &pnSlice{
-			a: make([]PathNode, 0, DefaultNodeSliceCap),
-		}
-	},
+var (
+	pnsPool = sync.Pool{
+		New: func() interface{} {
+			return &pnSlice{
+				a: make([]PathNode, 0, DefaultNodeSliceCap),
+			}
+		},
+	}
+	bytesPool = sync.Pool{
+		New: func() interface{} {
+			return make([]byte, 0, defaultBytesSize)
+		},
+	}
+)
+
+func NewBytesPool() []byte {
+	return bytesPool.Get().([]byte)
+}
+
+func FreeBytesPool(b []byte) {
+	b = b[:0]
+	bytesPool.Put(b)
 }
 
 func NewRootValue(desc *proto.MessageDescriptor, src []byte) Value {
@@ -250,7 +268,13 @@ func searchStrKey(p *binary.BinaryProtocol, key string, keyType proto.Type, mapF
 	return start, nil
 }
 
-func (self Value) GetByPath(pathes ...Path) (Value, []int) {
+func (self Value) GetByPath(pathes ...Path) Value {
+	value, _ := self.getByPath()
+	return value
+}
+
+// inner use
+func (self Value) getByPath(pathes ...Path) (Value, []int) {
 	address := make([]int, len(pathes))
 	start := 0
 	var desc *proto.FieldDescriptor
@@ -387,7 +411,7 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 	case proto.MAP:
 		kt = proto.FromProtoKindToType((*desc).MapKey().Kind(), false, false)
 		et = proto.FromProtoKindToType((*desc).MapValue().Kind(), false, false)
-		if s, err := p.SkipAllElements((*desc).Number(),(*desc).IsPacked()); err != nil {
+		if s, err := p.SkipAllElements((*desc).Number(), (*desc).IsPacked()); err != nil {
 			en := err.(Node)
 			return errValue(en.ErrCode().Behavior(), "invalid list node.", err), address
 		} else {
@@ -395,7 +419,7 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 		}
 	case proto.LIST:
 		et = proto.FromProtoKindToType((*desc).Kind(), false, false)
-		if s, err := p.SkipAllElements((*desc).Number(),(*desc).IsPacked()); err != nil {
+		if s, err := p.SkipAllElements((*desc).Number(), (*desc).IsPacked()); err != nil {
 			en := err.(Node)
 			return errValue(en.ErrCode().Behavior(), "invalid list node.", err), address
 		} else {
@@ -404,7 +428,7 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 	default:
 		// node condition: simple field element, message, packed list element, map value element
 		skipType := proto.Kind2Wire[(*desc).Kind()]
-		
+
 		// only packed list element no tag to skip
 		if (*desc).IsPacked() == false {
 			if _, _, _, err := p.ConsumeTag(); err != nil {
@@ -417,7 +441,7 @@ func (self Value) GetByPath(pathes ...Path) (Value, []int) {
 			return errValue(meta.ErrRead, "skip field error.", err), address
 		}
 	}
-	
+
 	return wrapValue(self.Node.sliceComplex(start, p.Read, tt, kt, et, size), desc), address
 }
 
@@ -439,7 +463,7 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 	}
 
 	// search source node by path
-	v, address := self.GetByPath(path...)
+	v, address := self.getByPath(path...)
 	if v.IsError() {
 		if !v.isErrNotFoundLast() {
 			return false, v
@@ -474,14 +498,12 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 		exist = true
 	}
 
-	
 	originLen := len(self.raw())
 	err = self.replace(v.Node, sub.Node)
 	isPacked := path[l-1].t == PathIndex && sub.Node.t != proto.MESSAGE && sub.Node.t != proto.STRING
 	self.UpdateByteLen(originLen, address, isPacked, path...)
 	return
 }
-
 
 func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, path ...Path) {
 	afterLen := self.l
@@ -492,13 +514,14 @@ func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, pa
 		pathType := path[i].t
 		addressPtr := address[i]
 		if previousType == proto.MESSAGE || (previousType == proto.LIST && isPacked) {
+			newBytes := NewBytesPool()
 			// tag
 			buf := rt.BytesFrom(rt.AddPtr(self.v, uintptr(addressPtr)), self.l-addressPtr, self.l-addressPtr)
 			_, tagOffset := protowire.ConsumeVarint(buf)
 			// length
 			length, lenOffset := protowire.ConsumeVarint(buf[tagOffset:])
 			newLength := int(length) + diffLen
-			newBytes := protowire.AppendVarint(nil, uint64(newLength))
+			newBytes = protowire.AppendVarint(newBytes, uint64(newLength))
 			// length == 0 means had been deleted all the data in the field
 			if newLength == 0 {
 				newBytes = newBytes[:0]
@@ -536,6 +559,7 @@ func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, pa
 				isPacked = false
 			}
 			diffLen += subLen
+			FreeBytesPool(newBytes)
 		}
 
 		if pathType == PathStrKey || pathType == PathIntKey {
@@ -548,7 +572,6 @@ func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, pa
 	}
 }
 
- 
 func (self *Value) findDeleteChild(path Path) (Node, int) {
 	tt := self.t // in fact, no need to judge which type
 	valueLen := self.l
@@ -567,7 +590,7 @@ func (self *Value) findDeleteChild(path Path) (Node, int) {
 			}
 		}
 		start = valueLen // start initial at the end of the message
-		end = 0 // end initial at the begin of the message
+		end = 0          // end initial at the begin of the message
 
 		// previous has change PathFieldName to PathFieldId
 		if path.Type() != PathFieldId {
@@ -612,9 +635,9 @@ func (self *Value) findDeleteChild(path Path) (Node, int) {
 		if err != nil {
 			return errNode(meta.ErrRead, "", err), -1
 		}
-		
+
 		// size = 0 maybe list in lazy load, need to check idx
-		if size > 0 && idx >= size{
+		if size > 0 && idx >= size {
 			return errNotFound, -1
 		}
 		// packed : [tag][l][(l)v][(l)v][(l)v][(l)v].....
@@ -689,7 +712,7 @@ func (self *Value) findDeleteChild(path Path) (Node, int) {
 			key := path.Int()
 			for it.p.Read < valueLen {
 				start = it.p.Read
-				
+
 				if _, _, _, err := it.p.ConsumeTag(); err != nil {
 					return errNode(meta.ErrRead, "", err), -1
 				}
@@ -745,7 +768,7 @@ func (self *Value) UnsetByPath(path ...Path) error {
 	}
 
 	// search target node by path
-	var parentValue, address = self.GetByPath(path[:l-1]...)
+	var parentValue, address = self.getByPath(path[:l-1]...)
 	if parentValue.IsError() {
 		if parentValue.IsErrNotFound() {
 			print(address)
@@ -777,7 +800,7 @@ func (self *Value) UnsetByPath(path ...Path) error {
 	if ret.IsError() {
 		return ret
 	}
-	
+
 	originLen := len(self.raw())
 	if err := self.replace(ret, Node{t: ret.t}); err != nil {
 		return errValue(meta.ErrWrite, "replace node by empty node failed", err)
@@ -916,7 +939,7 @@ func (self Value) FieldByName(name string) (v Value) {
 	}
 
 	// not found, try to scan the whole bytes
-	
+
 	if it.Err != nil {
 		return errValue(meta.ErrRead, "", it.Err)
 	}
@@ -925,7 +948,7 @@ func (self Value) FieldByName(name string) (v Value) {
 		if i == f.Number() {
 			if f.IsMap() || f.IsList() {
 				it.p.Read = tagPos
-				if _, err := it.p.SkipAllElements(i,f.IsPacked()); err != nil {
+				if _, err := it.p.SkipAllElements(i, f.IsPacked()); err != nil {
 					return errValue(meta.ErrRead, "SkipAllElements in LIST/MAP failed", err)
 				}
 				s = tagPos
@@ -986,7 +1009,7 @@ func (self Value) Field(id proto.FieldNumber) (v Value) {
 		if i == f.Number() {
 			if f.IsMap() || f.IsList() {
 				it.p.Read = tagPos
-				if _, err := it.p.SkipAllElements(i,f.IsPacked()); err != nil {
+				if _, err := it.p.SkipAllElements(i, f.IsPacked()); err != nil {
 					return errValue(meta.ErrRead, "SkipAllElements in LIST/MAP failed", err)
 				}
 				s = tagPos
@@ -1013,7 +1036,6 @@ func (self Value) Field(id proto.FieldNumber) (v Value) {
 ret:
 	return
 }
-
 
 // GetMany searches transversely and returns all the sub nodes along with the given pathes.
 func (self Value) GetMany(pathes []PathNode, opts *Options) error {
@@ -1082,13 +1104,12 @@ func (self Value) Fields(ids []PathNode, opts *Options) error {
 		f := Fields.ByNumber(i)
 		if f.IsMap() || f.IsList() {
 			it.p.Read = tagPos
-			if _, err := it.p.SkipAllElements(i,f.IsPacked()); err != nil {
+			if _, err := it.p.SkipAllElements(i, f.IsPacked()); err != nil {
 				return errValue(meta.ErrRead, "SkipAllElements in LIST/MAP failed", err)
 			}
 			s = tagPos
 			e = it.p.Read
 		}
-
 
 		v := self.sliceWithDesc(s, e, &f)
 
@@ -1141,7 +1162,7 @@ func (self Value) Indexes(ins []PathNode, opts *Options) error {
 			return errValue(meta.ErrRead, "", err)
 		}
 	}
-	
+
 	for count, i := 0, 0; it.HasNext() && count < need; i++ {
 		s, e := it.Next(UseNativeSkipForGet)
 		if it.Err != nil {
@@ -1224,12 +1245,11 @@ func (self Value) Gets(keys []PathNode, opts *Options) error {
 	return nil
 }
 
-
 func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, address []int, path ...Path) (err error) {
 	if len(pathes) == 0 {
 		return nil
 	}
-	
+
 	if err := self.Check(); err != nil {
 		return err
 	}
@@ -1245,8 +1265,8 @@ func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, addres
 	ps.b = pathes
 	isPacked := false
 	originLen := len(self.raw()) // current buf length
-	rootLen := len(root.raw()) // root buf length
-	
+	rootLen := len(root.raw())   // root buf length
+
 	// get original values
 	if err = self.getMany(ps.a, true, opts); err != nil {
 		goto ret
@@ -1261,7 +1281,7 @@ func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, addres
 			}
 			ps.a[i].Node = errNotFoundLast(sp, self.t)
 			ps.a[i].Node.setNotFound(a.Path, &ps.b[i].Node, self.Desc)
-			if self.t == proto.LIST || self.t == proto.MAP{
+			if self.t == proto.LIST || self.t == proto.MAP {
 				self.size += 1
 			}
 		}
@@ -1277,7 +1297,7 @@ func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, addres
 		if self.t == proto.LIST && isPacked {
 			currentAdd := []int{0, -1}
 			currentPath := []Path{NewPathIndex(-1), NewPathIndex(-1)}
-			self.UpdateByteLen(originLen,currentAdd,isPacked,currentPath...)
+			self.UpdateByteLen(originLen, currentAdd, isPacked, currentPath...)
 		} else if self.t == proto.MESSAGE {
 			buf := self.raw()
 			_, lenOffset := protowire.ConsumeVarint(buf)
@@ -1293,7 +1313,6 @@ func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, addres
 			self.l = int(len(newBuf))
 		}
 	}
-	
 
 	// update root length
 	err = root.replaceMany(ps)
