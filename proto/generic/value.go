@@ -550,8 +550,6 @@ func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, pa
 
  
 func (self *Value) findDeleteChild(path Path) (Node, int) {
-	p := binary.BinaryProtocol{}
-	p.Buf = self.raw()
 	tt := self.t // in fact, no need to judge which type
 	valueLen := self.l
 	exist := false
@@ -559,31 +557,35 @@ func (self *Value) findDeleteChild(path Path) (Node, int) {
 
 	switch self.t {
 	case proto.MESSAGE:
+		it := self.iterFields()
+		// if not root node
 		if self.rootDesc == nil {
-			if l, err := p.ReadLength(); err != nil {
+			if l, err := it.p.ReadLength(); err != nil {
 				return errNode(meta.ErrRead, "", err), -1
 			} else {
 				valueLen = l
 			}
 		}
-		start = valueLen
-		end = 0
+		start = valueLen // start initial at the end of the message
+		end = 0 // end initial at the begin of the message
+
 		// previous has change PathFieldName to PathFieldId
 		if path.Type() != PathFieldId {
 			return errNode(meta.ErrDismatchType, "path type is not PathFieldId", nil), -1
 		}
-		messageStart := p.Read
+
+		messageStart := it.p.Read
 		id := path.id()
-		for p.Read < messageStart+valueLen {
-			fieldStart := p.Read
-			fieldNumber, wireType, _, tagErr := p.ConsumeTag()
+		for it.p.Read < messageStart+valueLen {
+			fieldStart := it.p.Read
+			fieldNumber, wireType, _, tagErr := it.p.ConsumeTag()
 			if tagErr != nil {
 				return errNode(meta.ErrRead, "", tagErr), -1
 			}
-			if err := p.Skip(wireType, false); err != nil {
+			if err := it.p.Skip(wireType, false); err != nil {
 				return errNode(meta.ErrRead, "", err), -1
 			}
-			fieldEnd := p.Read
+			fieldEnd := it.p.Read
 			if id == fieldNumber {
 				exist = true
 				if fieldStart < start {
@@ -598,85 +600,86 @@ func (self *Value) findDeleteChild(path Path) (Node, int) {
 			return errNotFound, -1
 		}
 	case proto.LIST:
+		it := self.iterElems()
 		listIndex := 0
 		if path.Type() != PathIndex {
 			return errNode(meta.ErrDismatchType, "path type is not PathIndex", nil), -1
 		}
 		idx := path.int()
-		fieldNumber := (*self.Desc).Number()
+
 		elemType := proto.Kind2Wire[(*self.Desc).Kind()]
 		size, err := self.Len()
 		if err != nil {
 			return errNode(meta.ErrRead, "", err), -1
 		}
 		
-		if idx >= size{
+		// size = 0 maybe list in lazy load, need to check idx
+		if size > 0 && idx >= size{
 			return errNotFound, -1
 		}
 		// packed : [tag][l][(l)v][(l)v][(l)v][(l)v].....
 		if (*self.Desc).IsPacked() {
-			if _, _, _, tagErr := p.ConsumeTag(); tagErr != nil {
-				return errNode(meta.ErrRead, "", tagErr), -1
+			if _, _, _, err := it.p.ConsumeTag(); err != nil {
+				return errNode(meta.ErrRead, "", err), -1
 			}
 
-			if _, lengthErr := p.ReadLength(); lengthErr != nil {
+			if _, lengthErr := it.p.ReadLength(); lengthErr != nil {
 				return errNode(meta.ErrRead, "", lengthErr), -1
 			}
 
-			for p.Read < valueLen && listIndex <= idx {
-				start = p.Read
-				if err := p.Skip(elemType, false); err != nil {
+			for it.p.Read < valueLen && listIndex <= idx {
+				start = it.p.Read
+				if err := it.p.Skip(elemType, false); err != nil {
 					return errNode(meta.ErrRead, "", err), -1
 				}
-				end = p.Read
+				end = it.p.Read
 				listIndex++
 			}
 		} else {
 			// unpacked : [tag][l][v][tag][l][v][tag][l][v][tag][l][v]....
-			for p.Read < valueLen && listIndex <= idx {
-				start = p.Read
-				itemNumber, _, tagLen, _ := p.ConsumeTagWithoutMove()
-				if itemNumber != fieldNumber {
-					break
-				}
-				p.Read += tagLen
-				if err := p.Skip(elemType, false); err != nil {
+			for it.p.Read < valueLen && listIndex <= idx {
+				start = it.p.Read
+				if _, _, _, err := it.p.ConsumeTag(); err != nil {
 					return errNode(meta.ErrRead, "", err), -1
 				}
-				end = p.Read
+
+				if err := it.p.Skip(elemType, false); err != nil {
+					return errNode(meta.ErrRead, "", err), -1
+				}
+				end = it.p.Read
 				listIndex++
 			}
 		}
 	case proto.MAP:
-		pairNumber := (*self.Desc).Number()
+		it := self.iterPairs()
+
 		if self.kt == proto.STRING {
 			key := path.str()
-			for p.Read < valueLen {
-				start = p.Read
-				itemNumber, _, pairLen, _ := p.ConsumeTagWithoutMove()
-				if itemNumber != pairNumber {
-					break
-				}
-				p.Read += pairLen
-				if _, err := p.ReadLength(); err != nil {
+			for it.p.Read < valueLen {
+				start = it.p.Read
+				// pair
+				if _, _, _, err := it.p.ConsumeTag(); err != nil {
 					return errNode(meta.ErrRead, "", err), -1
 				}
-				// key
-				if _, _, _, err := p.ConsumeTag(); err != nil {
+				if _, err := it.p.ReadLength(); err != nil {
 					return errNode(meta.ErrRead, "", err), -1
 				}
 
-				k, err := p.ReadString(false)
+				// key
+				if _, _, _, err := it.p.ConsumeTag(); err != nil {
+					return errNode(meta.ErrRead, "", err), -1
+				}
+				k, err := it.p.ReadString(false)
 				if err != nil {
 					return errNode(meta.ErrRead, "", err), -1
 				}
 
 				// value
-				_, valueWire, _, _ := p.ConsumeTag()
-				if err := p.Skip(valueWire, false); err != nil {
+				_, valueWire, _, _ := it.p.ConsumeTag()
+				if err := it.p.Skip(valueWire, false); err != nil {
 					return errNode(meta.ErrRead, "", err), -1
 				}
-				end = p.Read
+				end = it.p.Read
 				if k == key {
 					exist = true
 					break
@@ -684,34 +687,33 @@ func (self *Value) findDeleteChild(path Path) (Node, int) {
 			}
 		} else if self.kt.IsInt() {
 			key := path.Int()
-			pairNumber, _, _, _ := p.ConsumeTagWithoutMove()
-			for p.Read < valueLen {
-				start = p.Read
-				itemNumber, _, pairLen, _ := p.ConsumeTagWithoutMove()
-				if itemNumber != pairNumber {
-					break
+			for it.p.Read < valueLen {
+				start = it.p.Read
+				
+				if _, _, _, err := it.p.ConsumeTag(); err != nil {
+					return errNode(meta.ErrRead, "", err), -1
 				}
-				p.Read += pairLen
-				if _, err := p.ReadLength(); err != nil {
+
+				if _, err := it.p.ReadLength(); err != nil {
 					return errNode(meta.ErrRead, "", err), -1
 				}
 
 				// key
-				if _, _, _, err := p.ConsumeTag(); err != nil {
+				if _, _, _, err := it.p.ConsumeTag(); err != nil {
 					return errNode(meta.ErrRead, "", err), -1
 				}
 
-				k, err := p.ReadInt(self.kt)
+				k, err := it.p.ReadInt(self.kt)
 				if err != nil {
 					return errNode(meta.ErrRead, "", err), -1
 				}
 
 				//value
-				_, valueWire, _, _ := p.ConsumeTag()
-				if err := p.Skip(valueWire, false); err != nil {
+				_, valueWire, _, _ := it.p.ConsumeTag()
+				if err := it.p.Skip(valueWire, false); err != nil {
 					return errNode(meta.ErrRead, "", err), -1
 				}
-				end = p.Read
+				end = it.p.Read
 				if k == key {
 					exist = true
 					break
@@ -1128,9 +1130,13 @@ func (self Value) Indexes(ins []PathNode, opts *Options) error {
 	}
 
 	need := len(ins)
-	IsPacked := (*self.Desc).IsPacked()
+	IsPacked := it.IsPacked()
 
+	// read packed list tag and bytelen
 	if IsPacked {
+		if _, _, _, err := it.p.ConsumeTag(); err != nil {
+			return errValue(meta.ErrRead, "", err)
+		}
 		if _, err := it.p.ReadLength(); err != nil {
 			return errValue(meta.ErrRead, "", err)
 		}
@@ -1142,6 +1148,7 @@ func (self Value) Indexes(ins []PathNode, opts *Options) error {
 			return errValue(meta.ErrRead, "", it.Err)
 		}
 
+		// check if the index is in the pathes
 		var p *PathNode
 		for j, id := range ins {
 			if id.Path.t != PathIndex {
@@ -1157,12 +1164,7 @@ func (self Value) Indexes(ins []PathNode, opts *Options) error {
 				break
 			}
 		}
-		// unpacked mode, skip tag
-		if IsPacked == false && it.HasNext() {
-			if _, _, _, err := it.p.ConsumeTag(); err != nil {
-				return errValue(meta.ErrRead, "", err)
-			}
-		}
+		// PathNode is found
 		if p != nil {
 			p.Node = self.Node.slice(s, e, self.et)
 		}

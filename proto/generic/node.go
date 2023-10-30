@@ -353,40 +353,36 @@ func (self Node) Index(idx int) (v Node) {
 	}
 
 	var s, e int
-	isPacked := self.et.IsInt()
-	it := self.iterElems() // it will read tag once
+	it := self.iterElems()
 	if it.Err != nil {
 		return errNode(meta.ErrRead, "", it.Err)
 	}
+	isPacked := it.IsPacked()
 
-	// it.size=0 maybe list node is in lazyload mode
+	// size = 0 maybe list node is in lazyload mode, need to check idx
 	if it.size > 0 && idx >= it.size {
 		return errNode(meta.ErrInvalidParam, fmt.Sprintf("index %d exceeds list/set bound", idx), nil)
 	}
 
+	// read packed list tag and bytelen
 	if isPacked {
+		if _, _, _, err := it.p.ConsumeTag(); err != nil {
+			return errNode(meta.ErrRead, "", err)
+		}
 		if _, err := it.p.ReadLength(); err != nil {
 			return errNode(meta.ErrRead, "", err)
 		}
+	}
 
-		for j := 0; it.HasNext() && j < idx; j++ {
-			it.Next(UseNativeSkipForGet)
-		}
-	} else {
-		for j := 0; it.HasNext() && j < idx; j++ {
-			it.Next(UseNativeSkipForGet)
-			if it.HasNext() {
-				if _, _, _, err := it.p.ConsumeTag(); err != nil {
-					return errNode(meta.ErrRead, "", err)
-				}
-			}
-		}
+	for j := 0; it.HasNext() && j < idx; j++ {
+		it.Next(UseNativeSkipForGet)
 	}
 
 	if it.Err != nil {
 		return errNode(meta.ErrRead, "", it.Err)
 	}
 
+	// when lazy load, size = 0, use it.k which is counted after it.Next() to check valid idx
 	if idx > it.k {
 		return errNode(meta.ErrInvalidParam, fmt.Sprintf("index '%d' is out of range", idx), nil)
 	}

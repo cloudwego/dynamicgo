@@ -14,7 +14,7 @@ func (self Node) iterFields() (fi structIterator) {
 func (self Node) iterElems() (fi listIterator) {
 	buf := self.raw()
 	fi.p.Buf = buf
-	if _, wtyp, _, err := fi.p.ConsumeTag(); err != nil {
+	if _, wtyp, _, err := fi.p.ConsumeTagWithoutMove(); err != nil {
 		fi.Err = wrapError(meta.ErrRead, "ListIterator.iterElems: consume list tag error.", err)
 		return
 	} else {
@@ -32,14 +32,14 @@ func (self Node) iterElems() (fi listIterator) {
 		fi.et = proto.Type(self.et)
 		kind := fi.et.TypeToKind()
 		fi.ewt = proto.Kind2Wire[kind]
+		fi.isPacked = self.et.IsInt()
 	}
 	return
 }
 
 func (self Node) iterPairs() (fi mapIterator) {
-	buf := self.raw()
+	fi.p.Buf = self.raw()
 	// fi = pairIteratorPool.Get().(*PairIterator)
-	fi.p.Buf = buf
 	if _, wtyp, _, err := fi.p.ConsumeTagWithoutMove(); err != nil {
 		fi.Err = wrapError(meta.ErrRead, "MapIterator.iterPairs: consume map tag error.", err)
 		return
@@ -97,6 +97,7 @@ type listIterator struct {
 	Err  error
 	size int
 	k    int
+	isPacked bool
 	et   proto.Type
 	ewt  proto.WireType
 	p    binary.BinaryProtocol
@@ -106,6 +107,9 @@ func (it listIterator) HasNext() bool {
 	return it.Err == nil && it.p.Left() > 0
 }
 
+func (it listIterator) IsPacked() bool {
+	return it.isPacked
+}
 
 func (it listIterator) Size() int {
 	return it.size
@@ -121,6 +125,13 @@ func (it listIterator) WireType() proto.WireType {
 
 
 func (it *listIterator) Next(useNative bool) (start int, end int) {
+	if !it.isPacked {
+		if _, _, _, err := it.p.ConsumeTag(); err != nil {
+			it.Err = wrapError(meta.ErrRead, "ListIterator: consume list tag error.", err)
+			return
+		}
+	}
+
 	start = it.p.Read
 	if err := it.p.Skip(it.ewt, useNative); err != nil {
 		it.Err = wrapError(meta.ErrRead, "ListIterator: skip list element error.", err)
@@ -157,6 +168,7 @@ func (it mapIterator) Pos() int {
 }
 
 func (it *mapIterator) NextStr(useNative bool) (keyStart int, keyString string, start int, end int) {
+	// pair tag
 	if _, _, _, err := it.p.ConsumeTag(); err != nil {
 		it.Err = wrapError(meta.ErrRead, "MapIterator: consume pair tag error.", err)
 		return
@@ -166,7 +178,8 @@ func (it *mapIterator) NextStr(useNative bool) (keyStart int, keyString string, 
 		it.Err = wrapError(meta.ErrRead, "MapIterator: consume pair length error.", err)
 		return
 	}
-
+	
+	// read key tag
 	keyStart = it.p.Read
 	var err error
 	if it.kt == proto.STRING {

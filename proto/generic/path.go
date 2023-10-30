@@ -492,7 +492,7 @@ func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *binary.Bi
 		skipType := proto.Kind2Wire[kind]
 
 		if tt == proto.LIST || tt == proto.MAP {
-			// when list/map we need to contain the tag
+			// when list/map the parent node need to contain the tag
 			start = start - tagL
 			if start < 0 {
 				return nil, wrapError(meta.ErrRead, "invalid start", nil)

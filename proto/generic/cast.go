@@ -200,7 +200,11 @@ func (self Value) List(opts *Options) ([]interface{}, error) {
 	ret := make([]interface{}, 0, it.Size())
 	isPacked := (*self.Desc).IsPacked()
 
+	// read packed list tag and bytelen
 	if isPacked {
+		if _, _, _, err := it.p.ConsumeTag(); err != nil {
+			return nil, errValue(meta.ErrRead, "", err)
+		}
 		if _, err := it.p.ReadLength(); err != nil {
 			return nil, errValue(meta.ErrRead, "", err)
 		}
@@ -211,18 +215,13 @@ func (self Value) List(opts *Options) ([]interface{}, error) {
 		if it.Err != nil {
 			return nil, it.Err
 		}
+
 		v := wrapValue(self.slice(s, e, self.et), self.Desc)
 		vv, err := v.Interface(opts)
 		if err != nil {
 			return ret, err
 		}
 		ret = append(ret, vv)
-
-		if !isPacked && it.HasNext() {
-			if _, _, _, err := it.p.ConsumeTag(); err != nil {
-				return nil, errValue(meta.ErrRead, "", err)
-			}
-		}
 	}
 
 	if it.Err != nil {
