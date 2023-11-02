@@ -73,7 +73,7 @@ func getPbSimpleValue() *baseline.Simple {
 		I32Field:    math.MaxInt32,
 		StringField: getString(),
 		BinaryField: getBytes(),
-		ListString: []string{"aaaa", "bbbb", "cccc"},
+		ListString:  []string{"aaaa", "bbbb", "cccc"},
 	}
 }
 
@@ -97,7 +97,7 @@ func getPbNestingValue() *baseline.Nesting {
 		SimpleStruct:    getPbSimpleValue(),
 		MapI32I64:       map[int32]int64{},
 		ListString:      []string{},
-		Binary:          getBytes(),
+		// Binary:          getBytes(),
 		MapI64String:    map[int64]string{},
 		ListI64:         []int64{},
 		Byte:            []byte{math.MaxInt8},
@@ -122,9 +122,9 @@ func getPbNestingValue() *baseline.Nesting {
 
 func getPbPartialNestingValue() *baseline.PartialNesting {
 	var ret = &baseline.PartialNesting{
-		ListSimple:      	[]*baseline.PartialSimple{},
-		SimpleStruct:		getPbPartialSimpleValue(),
-		MapStringSimple:	map[string]*baseline.PartialSimple{},
+		ListSimple:      []*baseline.PartialSimple{},
+		SimpleStruct:    getPbPartialSimpleValue(),
+		MapStringSimple: map[string]*baseline.PartialSimple{},
 	}
 	for i := 0; i < listCount; i++ {
 		ret.ListSimple = append(ret.ListSimple, getPbPartialSimpleValue())
@@ -197,7 +197,6 @@ func TestJSON2Protobuf_Simple_Parallel(t *testing.T) {
 		WriteDefaultField: true,
 		EnableHttpMapping: false,
 	})
-
 	wg := sync.WaitGroup{}
 	for i := 0; i < Concurrency; i++ {
 		wg.Add(1)

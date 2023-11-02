@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	goprotowire "google.golang.org/protobuf/encoding/protowire"
 	goproto "google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 func init() {
@@ -35,7 +37,6 @@ func getPbServiceDescriptor() *proto.ServiceDescriptor {
 	}
 	return svc
 }
-
 
 func BenchmarkProtoSkip(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
@@ -74,7 +75,7 @@ func BenchmarkProtoSkip(b *testing.B) {
 					_, wireType, _, _ := p.ConsumeTag()
 					_ = p.Skip(wireType, false)
 				}
-			}			
+			}
 		})
 	})
 
@@ -114,11 +115,10 @@ func BenchmarkProtoSkip(b *testing.B) {
 					_, wireType, _, _ := p.ConsumeTag()
 					_ = p.Skip(wireType, false)
 				}
-			}			
+			}
 		})
 	})
 }
-
 
 func BenchmarkProtoGetOne(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
@@ -170,6 +170,66 @@ func BenchmarkProtoGetOne(b *testing.B) {
 	})
 }
 
+func BenchmarkDynamicPbGetOne(b *testing.B) {
+	b.Run("small", func(b *testing.B) {
+		// build desc、obj
+		desc := getPbSimpleDesc()
+		obj := getPbSimpleValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+		// build dynamicpb Message
+		message := dynamicpb.NewMessage(*desc)
+		if err := goproto.Unmarshal(data, message); err != nil {
+			b.Fatal("build dynamicpb failed")
+		}
+		targetDesc := (*desc).Fields().ByNumber(6)
+		if !message.Has(targetDesc) {
+			b.Fatal("dynamicpb can't find targetDesc")
+		}
+		value := message.Get(targetDesc)
+		require.Equal(b, obj.BinaryField, value.Bytes())
+		b.ResetTimer()
+		b.Run("go", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = goproto.Unmarshal(data, message)
+				_ = message.Get(targetDesc)
+				// _ = goproto.Marshal(message)
+			}
+		})
+	})
+
+	b.Run("medium", func(b *testing.B) {
+		// build desc、obj
+		desc := getPbNestingDesc()
+		obj := getPbNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+		// build dynamicpb Message
+		message := dynamicpb.NewMessage(*desc)
+		if err := goproto.Unmarshal(data, message); err != nil {
+			b.Fatal("build dynamicpb failed")
+		}
+		targetDesc := (*desc).Fields().ByNumber(6)
+		if !message.Has(targetDesc) {
+			b.Fatal("dynamicpb can't find targetDesc")
+		}
+		value := message.Get(targetDesc)
+		require.Equal(b, obj.I64, value.Int())
+		b.ResetTimer()
+		b.Run("go", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = goproto.Unmarshal(data, message)
+				_ = message.Get(targetDesc)
+			}
+		})
+	})
+}
 
 func BenchmarkProtoGetMany(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
@@ -236,7 +296,6 @@ func BenchmarkProtoGetMany(b *testing.B) {
 		})
 	})
 }
-
 
 func BenchmarkProtoSetMany(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
@@ -331,8 +390,8 @@ func BenchmarkProtoMarshalMany(b *testing.B) {
 			Node: v.Node,
 			Next: ps,
 		}
-		
-		buf ,err := n.Marshal(&opts)
+
+		buf, err := n.Marshal(&opts)
 		require.Nil(b, err)
 		exp := baseline.PartialSimple{}
 		dataLen := len(buf)
@@ -354,7 +413,7 @@ func BenchmarkProtoMarshalMany(b *testing.B) {
 		}
 		b.SetBytes(int64(len(data)))
 		b.ResetTimer()
-		for i:= 0; i < b.N; i++ {
+		for i := 0; i < b.N; i++ {
 			_, _ = n.Marshal(&opts)
 		}
 	})
@@ -381,7 +440,7 @@ func BenchmarkProtoMarshalMany(b *testing.B) {
 			Node: v.Node,
 			Next: ps,
 		}
-		buf ,err := n.Marshal(&opts)
+		buf, err := n.Marshal(&opts)
 		require.Nil(b, err)
 		exp := baseline.PartialNesting{}
 		dataLen := len(buf)
@@ -403,7 +462,7 @@ func BenchmarkProtoMarshalMany(b *testing.B) {
 		}
 		b.SetBytes(int64(len(data)))
 		b.ResetTimer()
-		for i:= 0; i < b.N; i++ {
+		for i := 0; i < b.N; i++ {
 			_, _ = n.Marshal(&opts)
 		}
 	})
@@ -560,6 +619,34 @@ func BenchmarkProtoSetOne(b *testing.B) {
 	})
 }
 
+func BenchmarkDynamicpbSetOne(b *testing.B) {
+	b.Run("small", func(b *testing.B) {
+		desc := getPbSimpleDesc()
+		obj := getPbSimpleValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+		message := dynamicpb.NewMessage(*desc)
+		targetDesc := (*desc).Fields().ByNumber(6)
+		fieldValue := protoreflect.ValueOfBytes(obj.BinaryField)
+		message.Set(targetDesc, fieldValue)
+		if !message.Has(targetDesc) {
+			b.Fatal("dynamicpb can't find targetDesc")
+		}
+		find := message.Get(targetDesc)
+		require.Equal(b, obj.BinaryField, find.Bytes())
+		b.ResetTimer()
+		b.Run("go", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				message = dynamicpb.NewMessage(*desc)
+				message.Set(targetDesc, fieldValue)
+			}
+		})
+	})
+}
+
 func BenchmarkProtoMarshalAll_ProtoBufGo(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		obj := getPbSimpleValue()
@@ -580,7 +667,7 @@ func BenchmarkProtoMarshalAll_ProtoBufGo(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		
+
 		b.SetBytes(int64(len(data)))
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -609,7 +696,7 @@ func BenchmarkProtoMarshalPartial_ProtoBufGo(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		
+
 		b.SetBytes(int64(len(data)))
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -677,7 +764,6 @@ func BenchmarkProtoUnmarshalPartial_ProtoBufGo(b *testing.B) {
 		}
 	})
 }
-
 
 func BenchmarkProtoMarshallAll_KitexFast(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
@@ -893,7 +979,6 @@ func BenchmarkProtoMarshalTo_KitexFast(b *testing.B) {
 	})
 }
 
-
 func BenchmarkProtoMarshallAll_DynamicGo(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		desc := getPbSimpleDesc()
@@ -1049,7 +1134,7 @@ func BenchmarkProtoGetAll_New(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				out := []generic.PathNode{}
-				_ = v.Children(&out,true, opts, desc)
+				_ = v.Children(&out, true, opts, desc)
 			}
 		})
 	})
@@ -1104,7 +1189,7 @@ func BenchmarkProtoGetPartial_New(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				out := []generic.PathNode{}
-				_ = v.Children(&out,true, opts, desc)
+				_ = v.Children(&out, true, opts, desc)
 			}
 		})
 	})
@@ -1176,7 +1261,6 @@ func BenchmarkProtoGetAll_ReuseMemory(b *testing.B) {
 	})
 }
 
-
 func BenchmarkProtoGetPartial_ReuseMemory(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		desc := getPbPartialSimpleDesc()
@@ -1242,3 +1326,4 @@ func BenchmarkProtoGetPartial_ReuseMemory(b *testing.B) {
 	})
 }
 
+func BenchmarkProto

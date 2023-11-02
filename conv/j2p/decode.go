@@ -20,11 +20,11 @@ const (
 	// new = old + old >> growSliceFactor
 	growStkFactory = 1
 
-	defaultStkDepth = 256
-	nilStkType uint8 = 0
-	objStkType uint8 = 1
-	arrStkType uint8 = 2
-	mapStkType uint8 = 3
+	defaultStkDepth       = 256
+	nilStkType      uint8 = 0
+	objStkType      uint8 = 1
+	arrStkType      uint8 = 2
+	mapStkType      uint8 = 3
 )
 
 var (
@@ -88,8 +88,8 @@ type VisitorUserNode struct {
 // keep hierarchy of Array and Object, arr represent current is List, obj represent current is Map/Object
 // objStkType —— Message、arrStkType —— List、mapStkType —— Map
 type VisitorUserNodeStack struct {
-	typ       uint8
-	state     visitorUserNodeState
+	typ   uint8
+	state visitorUserNodeState
 }
 
 func (stk *VisitorUserNodeStack) Reset() {
@@ -308,7 +308,7 @@ func (self *VisitorUserNode) OnObjectBegin(capacity int) error {
 	if self.globalFieldDesc == nil && top.typ == arrStkType {
 		fieldDesc = top.state.fieldDesc
 	}
-	
+
 	if fieldDesc != nil {
 		if (*fieldDesc).IsMap() {
 			// case Map, push MapDesc
@@ -400,7 +400,7 @@ func (self *VisitorUserNode) OnObjectKey(key string) error {
 			if err := self.DecodeMapKey(key, &mapKeyDesc); err != nil {
 				return newError(meta.ErrUnsupportedType, "unsatfisied mapKeyDescriptor Type", err)
 			}
-			
+
 			// push MapDesc into stack
 			if err = self.Push(true, false, false, top.state.fieldDesc, curNodeLenPos); err != nil {
 				return err

@@ -1,12 +1,18 @@
 package binary
 
 import (
+	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
 )
 
-
 const MaxSkipDepth = 1023
 
+var (
+	errWireType  = meta.NewError(meta.ErrDismatchType, "invalid wireType to skip", nil)
+	errSkipField = meta.NewError(meta.ErrRead, "skip field failed", nil)
+)
+
+// normalType、Message skip, p point to LV
 func (p *BinaryProtocol) Skip(wireType proto.WireType, useNative bool) (err error) {
 	switch wireType {
 	case proto.VarintType:
@@ -25,7 +31,7 @@ func (p *BinaryProtocol) Skip(wireType proto.WireType, useNative bool) (err erro
 func (p *BinaryProtocol) SkipAllElements(fieldNumber proto.FieldNumber, ispacked bool) (size int, err error) {
 	size = 0
 	if ispacked {
-		if _,_,_, err := p.ConsumeTag(); err != nil {
+		if _, _, _, err := p.ConsumeTag(); err != nil {
 			return -1, err
 		}
 		bytelen, err := p.ReadLength()
@@ -33,7 +39,7 @@ func (p *BinaryProtocol) SkipAllElements(fieldNumber proto.FieldNumber, ispacked
 			return -1, err
 		}
 		start := p.Read
-		for p.Read < start + int(bytelen) {
+		for p.Read < start+int(bytelen) {
 			if _, err := p.ReadVarint(); err != nil {
 				return -1, err
 			}
@@ -55,9 +61,6 @@ func (p *BinaryProtocol) SkipAllElements(fieldNumber proto.FieldNumber, ispacked
 			size++
 		}
 	}
-	
+
 	return size, nil
 }
-
-
-
