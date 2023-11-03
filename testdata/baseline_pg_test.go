@@ -1,7 +1,13 @@
 package testdata
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
+	"fmt"
+	"math"
+	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/internal/util_test"
@@ -1326,4 +1332,131 @@ func BenchmarkProtoGetPartial_ReuseMemory(b *testing.B) {
 	})
 }
 
-func BenchmarkProto
+const (
+	factor          = 0.2
+	defaultListSize = 512
+)
+
+func sizeNestingField(obj *baseline.Nesting, id int) int {
+	value := reflect.ValueOf(obj)
+	name := fmt.Sprintf("%s%s", "SizeField", strconv.FormatInt(int64(id), 10))
+	method := value.MethodByName(name)
+	argument := []reflect.Value{}
+	ans := method.Call(argument)
+	return int(ans[0].Int())
+}
+
+func encNestingField(obj *baseline.Nesting, id int, b []byte) error {
+	value := reflect.ValueOf(obj)
+	name := fmt.Sprintf("%s%s", "FastWriteField", strconv.FormatInt(int64(id), 10))
+	method := value.MethodByName(name)
+	argument := []reflect.Value{reflect.ValueOf(b)}
+	method.Call(argument)
+	return nil
+}
+
+func parseBytes(key interface{}) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	if err := enc.Encode(key); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func BenchmarkProtoRation(b *testing.B) {
+	b.Run("ration", func(b *testing.B) {
+		desc := getPbNestingDesc()
+		fieldNums := (*desc).Fields().Len()
+		obj := getPbNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+
+		v := generic.NewRootValue(desc, data)
+		testNums := int(math.Ceil(float64(fieldNums) * factor))
+
+		for id := 1; id <= testNums; id++ {
+			vv := v.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+			require.Nil(b, vv.Check())
+			size := sizeNestingField(obj, id)
+			data := make([]byte, size)
+			if err := encNestingField(obj, id, data); err != nil {
+				b.Fatal("encNestingField failed, fieldId: {}", id)
+			}
+			// skip Tag
+			t := vv.Node.Type()
+			if t != proto.LIST && t != proto.MAP {
+				data = data[1:]
+			}
+			vdata := vv.Raw()
+			for j := 0; j < size; j++ {
+				if !bytes.Equal(vdata[:j], data[:j]) {
+					fmt.Print(j)
+				}
+			}
+			if t != proto.MAP {
+				require.Equal(b, data, vdata)
+			} else {
+				require.Equal(b, len(data), len(vdata))
+			}
+		}
+		b.ResetTimer()
+		b.Run("go", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				option := generic.Options{}
+				for id := 1; id <= testNums; id++ {
+					vv := v.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+					vv.Interface(&option)
+				}
+			}
+		})
+	})
+}
+
+func BenchmarkDynamicpbRation(b *testing.B) {
+	b.Run("ration", func(b *testing.B) {
+		desc := getPbNestingDesc()
+		fieldNums := (*desc).Fields().Len()
+		obj := getPbNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+
+		testNums := int(math.Ceil(float64(fieldNums) * factor))
+		// build dynamicpb Message
+		message := dynamicpb.NewMessage(*desc)
+		if err := goproto.Unmarshal(data, message); err != nil {
+			b.Fatal("build dynamicpb failed")
+		}
+		for id := 1; id <= testNums; id++ {
+			// dynamicpb read data
+			targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+			if !message.Has(targetDesc) {
+				b.Fatal("dynamicpb can't find targetDesc")
+			}
+			_ = message.Get(targetDesc)
+			// fastRead data
+			size := sizeNestingField(obj, id)
+			data := make([]byte, size)
+			if err := encNestingField(obj, id, data); err != nil {
+				b.Fatal("encNestingField failed, fieldId: {}", id)
+			}
+		}
+		b.ResetTimer()
+		b.Run("go", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				_ = goproto.Unmarshal(data, message)
+				for id := 1; id <= testNums; id++ {
+					targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+					v := message.Get(targetDesc)
+					v.Interface()
+				}
+			}
+		})
+	})
+}
