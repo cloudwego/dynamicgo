@@ -336,6 +336,8 @@ func (self Value) Interface(opts *Options) (interface{}, error) {
 		return self.uint()
 	case proto.DOUBLE:
 		return self.float64()
+	case proto.BYTE:
+		return self.binary()
 	case proto.STRING:
 		if opts.CastStringAsBinary {
 			return self.binary()
@@ -354,8 +356,8 @@ func (self Value) Interface(opts *Options) (interface{}, error) {
 	case proto.MESSAGE:
 		it := self.iterFields()
 		var fds proto.FieldDescriptors
-		if self.rootDesc != nil {
-			fds = (*self.rootDesc).Fields()
+		if self.RootDesc != nil {
+			fds = (*self.RootDesc).Fields()
 		} else {
 			fds = (*self.Desc).Message().Fields()
 			if _, err := it.p.ReadLength(); err != nil {

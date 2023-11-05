@@ -76,6 +76,14 @@ func (self Node) offset() unsafe.Pointer {
 	return rt.AddPtr(self.v, uintptr(self.l))
 }
 
+func (self *Node) SetElemType(et proto.Type) {
+	self.et = et
+}
+
+func (self *Node) SetKeyType(kt proto.Type) {
+	self.kt = kt
+}
+
 // NewNode method: creates a new node from a byte slice
 func NewNode(t proto.Type, src []byte) Node {
 	ret := Node{

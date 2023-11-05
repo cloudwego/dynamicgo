@@ -16,7 +16,7 @@ const defaultBytesSize = 64
 
 type Value struct {
 	Node
-	rootDesc *proto.MessageDescriptor
+	RootDesc *proto.MessageDescriptor
 	Desc     *proto.FieldDescriptor
 }
 
@@ -47,10 +47,11 @@ func FreeBytesToPool(b []byte) {
 func NewRootValue(desc *proto.MessageDescriptor, src []byte) Value {
 	return Value{
 		Node:     NewNode(proto.MESSAGE, src),
-		rootDesc: desc,
+		RootDesc: desc,
 	}
 }
 
+// only for basic Node
 func NewValue(desc *proto.FieldDescriptor, src []byte) Value {
 	typ := proto.FromProtoKindToType((*desc).Kind(), (*desc).IsList(), (*desc).IsMap())
 	return Value{
@@ -58,6 +59,29 @@ func NewValue(desc *proto.FieldDescriptor, src []byte) Value {
 		Desc: desc,
 	}
 }
+
+// only for LIST/MAP parent Node
+func NewComplexValue(desc *proto.FieldDescriptor, src []byte) Value {
+	field := *desc
+	t := proto.FromProtoKindToType(field.Kind(),field.IsList(),field.IsMap())
+	et := proto.UNKNOWN
+	kt := proto.UNKNOWN
+	if t == proto.LIST {
+		et = proto.FromProtoKindToType(field.Kind(),false,false)
+	} else if t == proto.MAP {
+		t = proto.MAP
+		et = proto.FromProtoKindToType(field.MapKey().Kind(),false,false)
+		kt = proto.FromProtoKindToType(field.MapValue().Kind(),false,false)
+	} else {
+		panic("invalid type")
+	}
+
+	return Value{
+		Node: NewComplexNode(t, et, kt, src),
+		Desc: desc,
+	}
+}
+
 
 // NewValueFromNode copy both Node and TypeDescriptor from another Value.
 func (self Value) Fork() Value {
@@ -300,7 +324,7 @@ func (self Value) getByPath(pathes ...Path) (Value, []int) {
 		Buf: self.raw(),
 	}
 
-	if self.rootDesc != nil {
+	if self.RootDesc != nil {
 		isRoot = true
 	} else {
 		desc = self.Desc
@@ -316,7 +340,7 @@ func (self Value) getByPath(pathes ...Path) (Value, []int) {
 			var fd proto.FieldDescriptor
 			messageLen := 0
 			if isRoot {
-				fd = (*self.rootDesc).Fields().ByNumber(id)
+				fd = (*self.RootDesc).Fields().ByNumber(id)
 				messageLen = len(p.Buf)
 				isRoot = false
 			} else {
@@ -340,7 +364,7 @@ func (self Value) getByPath(pathes ...Path) (Value, []int) {
 			var fd proto.FieldDescriptor
 			messageLen := 0
 			if isRoot {
-				fd = (*self.rootDesc).Fields().ByName(name)
+				fd = (*self.RootDesc).Fields().ByName(name)
 				messageLen = len(p.Buf)
 				isRoot = false
 			} else {
@@ -474,7 +498,7 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 		}
 
 		targetPath := path[l-1]
-		desc, err := GetDescByPath(self.rootDesc, path[:l-1]...)
+		desc, err := GetDescByPath(self.RootDesc, path[:l-1]...)
 		var fd *proto.FieldDescriptor
 		if err != nil {
 			return false, err
@@ -586,7 +610,7 @@ func (self *Value) findDeleteChild(path Path) (Node, int) {
 	case proto.MESSAGE:
 		it := self.iterFields()
 		// if not root node
-		if self.rootDesc == nil {
+		if self.RootDesc == nil {
 			if l, err := it.p.ReadLength(); err != nil {
 				return errNode(meta.ErrRead, "", err), -1
 			} else {
@@ -785,7 +809,7 @@ func (self *Value) UnsetByPath(path ...Path) error {
 	p := path[l-1]
 	var desc *proto.Descriptor
 	var err error
-	desc, err = GetDescByPath(self.rootDesc, path...)
+	desc, err = GetDescByPath(self.RootDesc, path...)
 	if err != nil {
 		return err
 	}
@@ -820,7 +844,7 @@ func (self Value) MarshalTo(to *proto.MessageDescriptor, opts *Options) ([]byte,
 	var w = binary.NewBinaryProtocolBuffer()
 	var r = binary.BinaryProtocol{}
 	r.Buf = self.raw()
-	var from = self.rootDesc
+	var from = self.RootDesc
 	messageLen := len(r.Buf)
 	if err := marshalTo(&r, w, from, to, opts, messageLen); err != nil {
 		return nil, err
@@ -929,8 +953,8 @@ func (self Value) FieldByName(name string) (v Value) {
 	it := self.iterFields()
 
 	var f proto.FieldDescriptor
-	if self.rootDesc != nil {
-		f = (*self.rootDesc).Fields().ByName(proto.FieldName(name))
+	if self.RootDesc != nil {
+		f = (*self.RootDesc).Fields().ByName(proto.FieldName(name))
 	} else {
 		f = (*self.Desc).Message().Fields().ByName(proto.FieldName(name))
 		if _, err := it.p.ReadLength(); err != nil {
@@ -990,8 +1014,8 @@ func (self Value) Field(id proto.FieldNumber) (v Value) {
 	it := self.iterFields()
 
 	var f proto.FieldDescriptor
-	if self.rootDesc != nil {
-		f = (*self.rootDesc).Fields().ByNumber(id)
+	if self.RootDesc != nil {
+		f = (*self.RootDesc).Fields().ByNumber(id)
 	} else {
 		f = (*self.Desc).Message().Fields().ByNumber(id)
 		if _, err := it.p.ReadLength(); err != nil {
@@ -1089,8 +1113,8 @@ func (self Value) Fields(ids []PathNode, opts *Options) error {
 	}
 
 	var Fields proto.FieldDescriptors
-	if self.rootDesc != nil {
-		Fields = (*self.rootDesc).Fields()
+	if self.RootDesc != nil {
+		Fields = (*self.RootDesc).Fields()
 	} else {
 		Fields = (*self.Desc).Message().Fields()
 		if _, err := it.p.ReadLength(); err != nil {
@@ -1296,7 +1320,7 @@ func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, addres
 	}
 
 	// update current Node length
-	if self.rootDesc == nil {
+	if self.RootDesc == nil {
 		err = self.replaceMany(ps)
 		if self.t == proto.LIST && isPacked {
 			currentAdd := []int{0, -1}

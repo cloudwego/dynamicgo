@@ -124,13 +124,15 @@ func (self Path) Value() interface{} {
 
 // ToRaw converts underlying value to thrift-encoded bytes
 func (self Path) ToRaw(t proto.Type) []byte {
-	kind := t.TypeToKind()
 	switch self.t {
 	case PathFieldId:
 		// tag
 		ret := make([]byte, 0, 8)
-		tag := uint64(self.l) << 3 | uint64(proto.Kind2Wire[kind])
-		ret = protowire.BinaryEncoder{}.EncodeUint64(ret, tag)
+		if t != proto.LIST && t != proto.MAP {
+			kind := t.TypeToKind()
+			tag := uint64(self.l) << 3 | uint64(proto.Kind2Wire[kind])
+			ret = protowire.BinaryEncoder{}.EncodeUint64(ret, tag)
+		}
 		return ret
 	case PathStrKey:
 		// tag + string key
@@ -141,6 +143,7 @@ func (self Path) ToRaw(t proto.Type) []byte {
 		return ret
 	case PathIntKey:
 		// tag + int key
+		kind := t.TypeToKind()
 		ret := make([]byte, 0, 8)
 		tag := uint64(1) << 3 | uint64(proto.Kind2Wire[kind])
 		ret = protowire.BinaryEncoder{}.EncodeUint64(ret, tag)

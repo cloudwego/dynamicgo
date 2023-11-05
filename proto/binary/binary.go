@@ -371,7 +371,7 @@ func (p *BinaryProtocol) WriteList(desc *proto.FieldDescriptor, val interface{})
 			return err
 		}
 
-		if err := p.WriteBaseTypeWithDesc(desc, v, true, false, true); err != nil {
+		if err := p.WriteBaseTypeWithDesc(desc, v, true, false, false); err != nil {
 			return err
 		}
 	}
@@ -387,18 +387,42 @@ func (p *BinaryProtocol) WriteMap(desc *proto.FieldDescriptor, val interface{}) 
 	fd := *desc
 	MapKey := fd.MapKey()
 	MapValue := fd.MapValue()
-	vs, ok := val.(map[interface{}]interface{})
+	// check val is map[string]interface{} or map[int]interface{}
+	var vs map[string]interface{}
+	var vs2 map[int]interface{}
+	var ok bool
+	if vs, ok = val.(map[string]interface{}); !ok {
+		vs2, ok = val.(map[int]interface{})
+	}
+
+	
+
 	if !ok {
 		return errDismatchPrimitive
 	}
-
-	for k, v := range vs {
-		p.AppendTag(fd.Number(), proto.BytesType)
-		var pos int
-		p.Buf, pos = AppendSpeculativeLength(p.Buf)
-		p.WriteAnyWithDesc(&MapKey, k, true, false, true)
-		p.WriteAnyWithDesc(&MapValue, v, true, false, true)
-		p.Buf = FinishSpeculativeLength(p.Buf, pos)
+	if vs != nil {
+		for k, v := range vs {
+			p.AppendTag(fd.Number(), proto.BytesType)
+			var pos int
+			p.Buf, pos = AppendSpeculativeLength(p.Buf)
+			p.AppendTag(MapKey.Number(), proto.Kind2Wire[MapKey.Kind()])
+			p.WriteString(k)
+			p.AppendTag(MapValue.Number(), proto.Kind2Wire[MapValue.Kind()])
+			p.WriteBaseTypeWithDesc(&MapValue, v, true, false, false)
+			p.Buf = FinishSpeculativeLength(p.Buf, pos)
+		}
+	} else {
+		for k, v := range vs2 {
+			p.AppendTag(fd.Number(), proto.BytesType)
+			var pos int
+			p.Buf, pos = AppendSpeculativeLength(p.Buf)
+			p.AppendTag(MapKey.Number(), proto.Kind2Wire[MapKey.Kind()])
+			p.WriteI64(int64(k))
+			// p.WriteBaseTypeWithDesc(&MapKey, k, true, false, false)
+			p.AppendTag(MapValue.Number(), proto.Kind2Wire[MapValue.Kind()])
+			p.WriteBaseTypeWithDesc(&MapValue, v, true, false, false)
+			p.Buf = FinishSpeculativeLength(p.Buf, pos)
+		}
 	}
 
 	return nil
@@ -470,7 +494,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 				return errDismatchPrimitive
 			} else {
 				var err error
-				vv, err := primitive.ToInt64(v)
+				vv, err := primitive.ToInt64(val)
 				if err != nil {
 					return meta.NewError(meta.ErrConvert, "", err)
 				}
@@ -485,7 +509,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 				return errDismatchPrimitive
 			} else {
 				var err error
-				vv, err := primitive.ToInt64(v)
+				vv, err := primitive.ToInt64(val)
 				if err != nil {
 					return meta.NewError(meta.ErrConvert, "", err)
 				}
@@ -500,7 +524,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 				return errDismatchPrimitive
 			} else {
 				var err error
-				vv, err := primitive.ToInt64(v)
+				vv, err := primitive.ToInt64(val)
 				if err != nil {
 					return meta.NewError(meta.ErrConvert, "", err)
 				}
@@ -515,7 +539,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 				return errDismatchPrimitive
 			} else {
 				var err error
-				v, err = primitive.ToInt64(v)
+				v, err = primitive.ToInt64(val)
 				if err != nil {
 					return meta.NewError(meta.ErrConvert, "", err)
 				}
@@ -529,7 +553,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 				return errDismatchPrimitive
 			} else {
 				var err error
-				v, err = primitive.ToInt64(v)
+				v, err = primitive.ToInt64(val)
 				if err != nil {
 					return meta.NewError(meta.ErrConvert, "", err)
 				}
@@ -543,7 +567,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 				return errDismatchPrimitive
 			} else {
 				var err error
-				vv, err := primitive.ToInt64(v)
+				vv, err := primitive.ToInt64(val)
 				if err != nil {
 					return meta.NewError(meta.ErrConvert, "", err)
 				}
@@ -558,7 +582,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 				return errDismatchPrimitive
 			} else {
 				var err error
-				vv, err := primitive.ToInt64(v)
+				vv, err := primitive.ToInt64(val)
 				if err != nil {
 					return meta.NewError(meta.ErrConvert, "", err)
 				}
@@ -573,7 +597,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 				return errDismatchPrimitive
 			} else {
 				var err error
-				vv, err := primitive.ToInt64(v)
+				vv, err := primitive.ToInt64(val)
 				if err != nil {
 					return meta.NewError(meta.ErrConvert, "", err)
 				}
@@ -588,7 +612,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 				return errDismatchPrimitive
 			} else {
 				var err error
-				vfloat64, err := primitive.ToFloat64(v)
+				vfloat64, err := primitive.ToFloat64(val)
 				v = float32(vfloat64)
 				if err != nil {
 					return meta.NewError(meta.ErrConvert, "", err)
@@ -603,7 +627,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 				return errDismatchPrimitive
 			} else {
 				var err error
-				v, err = primitive.ToInt64(v)
+				v, err = primitive.ToInt64(val)
 				if err != nil {
 					return meta.NewError(meta.ErrConvert, "", err)
 				}
@@ -617,7 +641,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 				return errDismatchPrimitive
 			} else {
 				var err error
-				v, err = primitive.ToInt64(v)
+				v, err = primitive.ToInt64(val)
 				if err != nil {
 					return meta.NewError(meta.ErrConvert, "", err)
 				}
@@ -631,7 +655,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 				return errDismatchPrimitive
 			} else {
 				var err error
-				v, err = primitive.ToFloat64(v)
+				v, err = primitive.ToFloat64(val)
 				if err != nil {
 					return meta.NewError(meta.ErrConvert, "", err)
 				}
@@ -645,7 +669,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val in
 				return errDismatchPrimitive
 			} else {
 				var err error
-				v, err = primitive.ToString(v)
+				v, err = primitive.ToString(val)
 				if err != nil {
 					return meta.NewError(meta.ErrConvert, "", err)
 				}

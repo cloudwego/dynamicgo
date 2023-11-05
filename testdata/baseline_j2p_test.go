@@ -97,7 +97,7 @@ func getPbNestingValue() *baseline.Nesting {
 		SimpleStruct:    getPbSimpleValue(),
 		MapI32I64:       map[int32]int64{},
 		ListString:      []string{},
-		// Binary:          getBytes(),
+		Binary:          getBytes(),
 		MapI64String:    map[int64]string{},
 		ListI64:         []int64{},
 		Byte:            []byte{math.MaxInt8},

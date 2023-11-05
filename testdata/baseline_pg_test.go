@@ -1333,12 +1333,11 @@ func BenchmarkProtoGetPartial_ReuseMemory(b *testing.B) {
 }
 
 const (
-	factor          = 0.2
-	defaultListSize = 512
+	factor         = 1.0
+	defaultBufSize = 512
 )
 
-func sizeNestingField(obj *baseline.Nesting, id int) int {
-	value := reflect.ValueOf(obj)
+func sizeNestingField(value reflect.Value, id int) int {
 	name := fmt.Sprintf("%s%s", "SizeField", strconv.FormatInt(int64(id), 10))
 	method := value.MethodByName(name)
 	argument := []reflect.Value{}
@@ -1346,8 +1345,7 @@ func sizeNestingField(obj *baseline.Nesting, id int) int {
 	return int(ans[0].Int())
 }
 
-func encNestingField(obj *baseline.Nesting, id int, b []byte) error {
-	value := reflect.ValueOf(obj)
+func encNestingField(value reflect.Value, id int, b []byte) error {
 	name := fmt.Sprintf("%s%s", "FastWriteField", strconv.FormatInt(int64(id), 10))
 	method := value.MethodByName(name)
 	argument := []reflect.Value{reflect.ValueOf(b)}
@@ -1364,7 +1362,31 @@ func parseBytes(key interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func BenchmarkProtoRation(b *testing.B) {
+func collectMarshalData(id int, value reflect.Value, b *[]byte) error {
+	size := sizeNestingField(value, id)
+	data := make([]byte, size)
+	if err := encNestingField(value, id, data); err != nil {
+		return err
+	}
+	*b = append(*b, data...)
+	return nil
+}
+
+func buildBinaryProtocolByFieldId(id int, p *binary.BinaryProtocol, value reflect.Value, desc *proto.FieldDescriptor) error {
+	var err error
+	size := sizeNestingField(value, id)
+	data := make([]byte, size)
+	if err = encNestingField(value, id, data); err != nil {
+		return err
+	}
+	if !(*desc).IsList() && !(*desc).IsMap() {
+		data = data[1:] // skip Tag because the test case tag len is 1, we just use 1, it is not always 1, please use comsumevarint
+	}
+	p.Buf = data
+	return nil
+}
+
+func BenchmarkProtoRationGet(b *testing.B) {
 	b.Run("ration", func(b *testing.B) {
 		desc := getPbNestingDesc()
 		fieldNums := (*desc).Fields().Len()
@@ -1377,19 +1399,19 @@ func BenchmarkProtoRation(b *testing.B) {
 
 		v := generic.NewRootValue(desc, data)
 		testNums := int(math.Ceil(float64(fieldNums) * factor))
-
+		value := reflect.ValueOf(obj)
 		for id := 1; id <= testNums; id++ {
 			vv := v.GetByPath(generic.NewPathFieldId(proto.Number(id)))
 			require.Nil(b, vv.Check())
-			size := sizeNestingField(obj, id)
+			size := sizeNestingField(value, id)
 			data := make([]byte, size)
-			if err := encNestingField(obj, id, data); err != nil {
+			if err := encNestingField(value, id, data); err != nil {
 				b.Fatal("encNestingField failed, fieldId: {}", id)
 			}
 			// skip Tag
 			t := vv.Node.Type()
 			if t != proto.LIST && t != proto.MAP {
-				data = data[1:]
+				data = data[1:] // skip Tag because the test case tag len is 1, we just use 1, it is not always 1, please use comsumevarint
 			}
 			vdata := vv.Raw()
 			for j := 0; j < size; j++ {
@@ -1416,7 +1438,7 @@ func BenchmarkProtoRation(b *testing.B) {
 	})
 }
 
-func BenchmarkDynamicpbRation(b *testing.B) {
+func BenchmarkDynamicpbRationGet(b *testing.B) {
 	b.Run("ration", func(b *testing.B) {
 		desc := getPbNestingDesc()
 		fieldNums := (*desc).Fields().Len()
@@ -1433,6 +1455,7 @@ func BenchmarkDynamicpbRation(b *testing.B) {
 		if err := goproto.Unmarshal(data, message); err != nil {
 			b.Fatal("build dynamicpb failed")
 		}
+		value := reflect.ValueOf(obj)
 		for id := 1; id <= testNums; id++ {
 			// dynamicpb read data
 			targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
@@ -1441,9 +1464,9 @@ func BenchmarkDynamicpbRation(b *testing.B) {
 			}
 			_ = message.Get(targetDesc)
 			// fastRead data
-			size := sizeNestingField(obj, id)
+			size := sizeNestingField(value, id)
 			data := make([]byte, size)
-			if err := encNestingField(obj, id, data); err != nil {
+			if err := encNestingField(value, id, data); err != nil {
 				b.Fatal("encNestingField failed, fieldId: {}", id)
 			}
 		}
@@ -1460,3 +1483,402 @@ func BenchmarkDynamicpbRation(b *testing.B) {
 		})
 	})
 }
+
+// not used 
+func BenchmarkProtoRationSetBefore(b *testing.B) {
+	b.Run("ration", func(b *testing.B) {
+		desc := getPbNestingDesc()
+		fieldNums := (*desc).Fields().Len()
+		obj := getPbNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+
+		v := generic.NewRootValue(desc, nil)
+		opts := generic.Options{}
+		ps := make([]generic.PathNode, 0)
+		testNums := int(math.Ceil(float64(fieldNums) * factor))
+		mObj := make([]byte, 0)
+		value := reflect.ValueOf(obj)
+		for id := 1; id <= testNums; id++ {
+			p := binary.NewBinaryProtocolBuffer()
+			fieldDesc := (*desc).Fields().ByNumber(proto.Number(id))
+			if err := collectMarshalData(id, value, &mObj); err != nil {
+				b.Fatal("collect MarshalData failed")
+			}
+			if err := buildBinaryProtocolByFieldId(id, p, value, &fieldDesc); err != nil {
+				b.Fatal("build BinaryProtocolByFieldId failed")
+			}
+			field := (*desc).Fields().ByNumber(proto.Number(id))
+			n := generic.NewValue(&field, p.Buf)
+			_, err := v.SetByPath(n, generic.NewPathFieldId(proto.Number(id)))
+			require.Nil(b, err)
+			nn := v.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+			nndata := nn.Raw()
+			ndata := n.Raw()
+			if nn.Type() != proto.MAP {
+				require.Equal(b, nndata, ndata)
+			} else {
+				require.Equal(b, len(nndata), len(ndata))
+			}
+			pnode := generic.PathNode{
+				Path: generic.NewPathFieldId(proto.FieldNumber(id)),
+				Node: n.Node,
+			}
+			ps = append(ps, pnode)
+			p.Recycle()
+		}
+		n := generic.PathNode{
+			Path: generic.NewPathFieldId(1),
+			Node: v.Node,
+			Next: ps,
+		}
+		mProto, err := n.Marshal(&opts)
+		if err != nil {
+			b.Fatal("marshal PathNode failed")
+		}
+		require.Equal(b, len(mProto), len(mObj))
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		b.Run("go", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				opts := generic.Options{}
+				v := generic.NewRootValue(desc, nil)
+				ps := make([]generic.PathNode, 0)
+				for id := 1; id <= testNums; id++ {
+					p := binary.NewBinaryProtocolBuffer()
+					fieldDesc := (*desc).Fields().ByNumber(proto.Number(id))
+					_ = buildBinaryProtocolByFieldId(id, p, value, &fieldDesc)
+					field := (*desc).Fields().ByNumber(proto.Number(id))
+					n := generic.NewValue(&field, p.Buf)
+					_, _ = v.SetByPath(n, generic.NewPathFieldId(proto.Number(id)))
+					pnode := generic.PathNode{
+						Path: generic.NewPathFieldId(proto.FieldNumber(id)),
+						Node: n.Node,
+					}
+					ps = append(ps, pnode)
+					p.Recycle()
+				}
+				n := generic.PathNode{
+					Path: generic.NewPathFieldId(1),
+					Node: v.Node,
+					Next: ps,
+				}
+				_, _ = n.Marshal(&opts)
+			}
+		})
+	})
+}
+
+
+func BenchmarkProtoRationSet(b *testing.B) {
+	b.Run("ration", func(b *testing.B) {
+		desc := getPbNestingDesc()
+		fieldNums := (*desc).Fields().Len()
+		obj := getPbNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+
+		testNums := int(math.Ceil(float64(fieldNums) * factor))
+		objRoot := generic.NewRootValue(desc, data)
+		newRoot := generic.NewRootValue(desc, nil)
+		ps := make([]generic.PathNode, 0)
+		p := binary.NewBinaryProtocolBuffer()
+		mObj := make([]byte, 0)
+		value := reflect.ValueOf(obj)
+		for id := 1; id <= testNums; id++ {
+			if err := collectMarshalData(id, value, &mObj); err != nil {
+				b.Fatal("collect MarshalData failed")
+			}
+			x := objRoot.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+			require.Nil(b, x.Check())
+			m, err := x.Interface(&generic.Options{MapStructById: true})
+			require.Nil(b, err)
+			field := (*desc).Fields().ByNumber(proto.Number(id))
+			if field.IsMap() {
+				err = p.WriteMap(&field, m)
+			} else if field.IsList() {
+				err = p.WriteList(&field, m)
+			} else {
+				// bacause basic type node buf no tag, just LV
+				err = p.WriteBaseTypeWithDesc(&field, m, true, false, false)
+			}
+			// fmt.Println(id)
+			require.Nil(b, err)
+			newValue := generic.NewValue(&field, p.Buf)
+			if field.IsMap() || field.IsList() {
+				newValue = generic.NewComplexValue(&field, p.Buf)
+			}
+			// fmt.Println(id)
+			require.Equal(b, len(newValue.Raw()), len(x.Raw()))
+			_, err = newRoot.SetByPath(newValue, generic.NewPathFieldId(proto.Number(id)))
+			require.Nil(b, err)
+			vv := newRoot.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+			require.Equal(b, len(newValue.Raw()), len(vv.Raw()))
+			p.Recycle()
+			ps = append(ps, generic.PathNode{ Path: generic.NewPathFieldId(proto.FieldNumber(id)), Node: newValue.Node })
+		}
+
+		n := generic.PathNode{
+			Path: generic.NewPathFieldId(1),
+			Node: newRoot.Node,
+			Next: ps,
+		}
+		mProto, err := n.Marshal(&generic.Options{})
+		if err != nil {
+			b.Fatal("marshal PathNode failed")
+		}
+		require.Equal(b, len(mProto), len(mObj))
+
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		b.Run("go", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				objRoot := generic.NewRootValue(desc, data)
+				newRoot := generic.NewRootValue(desc, nil)
+				ps := make([]generic.PathNode, 0)
+				p := binary.NewBinaryProtocolBuffer()
+				opt := &generic.Options{MapStructById: true}
+				for id := 1; id <= testNums; id++ {
+					x := objRoot.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+					newValue := x.Fork()
+					_, err = newRoot.SetByPath(newValue, generic.NewPathFieldId(proto.Number(id)))
+					p.Recycle()
+					ps = append(ps, generic.PathNode{Path: generic.NewPathFieldId(proto.FieldNumber(id))})
+				}
+				_ = newRoot.GetMany(ps,opt)
+				n := generic.PathNode{
+					Path: generic.NewPathFieldId(1),
+					Node: newRoot.Node,
+					Next: ps,
+				}
+
+				_, _ = n.Marshal(opt)
+			}
+		})
+
+	})
+}
+
+func BenchmarkProtoRationSetByInterface(b *testing.B) {
+	b.Run("ration", func(b *testing.B) {
+		desc := getPbNestingDesc()
+		fieldNums := (*desc).Fields().Len()
+		obj := getPbNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+
+		testNums := int(math.Ceil(float64(fieldNums) * factor))
+		objRoot := generic.NewRootValue(desc, data)
+		newRoot := generic.NewRootValue(desc, nil)
+		ps := make([]generic.PathNode, 0)
+		p := binary.NewBinaryProtocolBuffer()
+		mObj := make([]byte, 0)
+		value := reflect.ValueOf(obj)
+		for id := 1; id <= testNums; id++ {
+			if err := collectMarshalData(id, value, &mObj); err != nil {
+				b.Fatal("collect MarshalData failed")
+			}
+			x := objRoot.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+			require.Nil(b, x.Check())
+			m, err := x.Interface(&generic.Options{MapStructById: true})
+			require.Nil(b, err)
+			field := (*desc).Fields().ByNumber(proto.Number(id))
+			if field.IsMap() {
+				err = p.WriteMap(&field, m)
+			} else if field.IsList() {
+				err = p.WriteList(&field, m)
+			} else {
+				// bacause basic type node buf no tag, just LV
+				err = p.WriteBaseTypeWithDesc(&field, m, true, false, false)
+			}
+			// fmt.Println(id)
+			require.Nil(b, err)
+			newValue := generic.NewValue(&field, p.Buf)
+			if field.IsMap() || field.IsList() {
+				newValue = generic.NewComplexValue(&field, p.Buf)
+			}
+			// fmt.Println(id)
+			require.Equal(b, len(newValue.Raw()), len(x.Raw()))
+			_, err = newRoot.SetByPath(newValue, generic.NewPathFieldId(proto.Number(id)))
+			require.Nil(b, err)
+			vv := newRoot.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+			require.Equal(b, len(newValue.Raw()), len(vv.Raw()))
+			p.Recycle()
+			ps = append(ps, generic.PathNode{ Path: generic.NewPathFieldId(proto.FieldNumber(id)), Node: newValue.Node })
+		}
+
+		n := generic.PathNode{
+			Path: generic.NewPathFieldId(1),
+			Node: newRoot.Node,
+			Next: ps,
+		}
+		mProto, err := n.Marshal(&generic.Options{})
+		if err != nil {
+			b.Fatal("marshal PathNode failed")
+		}
+		require.Equal(b, len(mProto), len(mObj))
+
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		b.Run("go", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				objRoot := generic.NewRootValue(desc, data)
+				newRoot := generic.NewRootValue(desc, nil)
+				ps := make([]generic.PathNode, 0)
+				p := binary.NewBinaryProtocolBuffer()
+				opt := &generic.Options{MapStructById: true}
+				for id := 1; id <= testNums; id++ {
+					x := objRoot.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+					m, _ := x.Interface(opt)
+					field := (*desc).Fields().ByNumber(proto.Number(id))
+					if field.IsMap() {
+						_ = p.WriteMap(&field, m)
+					} else if field.IsList() {
+						_ = p.WriteList(&field, m)
+					} else {
+						// bacause basic type node buf no tag, just LV
+						_ = p.WriteBaseTypeWithDesc(&field, m, true, false, false)
+					}
+					newValue := generic.NewValue(&field, p.Buf)
+					// can not set when set complex value if latter use GetMany else we need to append a right node to ps
+					
+					// if field.IsList() {
+					// 	et := proto.FromProtoKindToType(field.Kind(), false, false)
+					// 	newValue.SetElemType(et)
+					// } else if field.IsMap() {
+					// 	kt := proto.FromProtoKindToType(field.MapKey().Kind(), false, false)
+					// 	newValue.SetKeyType(kt)
+					// 	et := proto.FromProtoKindToType(field.MapValue().Kind(), false, false)
+					// 	newValue.SetElemType(et)
+					// }
+					_, err = newRoot.SetByPath(newValue, generic.NewPathFieldId(proto.Number(id)))
+					p.Recycle()
+					ps = append(ps, generic.PathNode{Path: generic.NewPathFieldId(proto.FieldNumber(id)), Node: newValue.Node})
+				}
+				// _ = newRoot.GetMany(ps,opt)
+				n := generic.PathNode{
+					Path: generic.NewPathFieldId(1),
+					Node: newRoot.Node,
+					Next: ps,
+				}
+
+				_, _ = n.Marshal(opt)
+			}
+		})
+
+	})
+}
+
+func BenchmarkDynamicpbRationSet(b *testing.B) {
+	b.Run("ration", func(b *testing.B) {
+		desc := getPbNestingDesc()
+		fieldNums := (*desc).Fields().Len()
+		obj := getPbNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+
+		objMessage := dynamicpb.NewMessage(*desc)
+		if err := goproto.Unmarshal(data, objMessage); err != nil {
+			b.Fatal("build dynamicpb failed")
+		}
+
+		testNums := int(math.Ceil(float64(fieldNums) * factor))
+
+		message := dynamicpb.NewMessage(*desc)
+		for id := 1; id <= testNums; id++ {
+			targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+			fieldValue := objMessage.Get(targetDesc)
+			v := fieldValue.Interface()
+			newValue := protoreflect.ValueOf(v)
+			message.Set(targetDesc, newValue)
+		}
+		out, err := goproto.Marshal(message)
+		if err != nil {
+			b.Fatal("Dynamicpb marshal failed")
+		}
+		fmt.Println(len(out))
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		b.Run("go", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				objMessage := dynamicpb.NewMessage(*desc)
+				if err := goproto.Unmarshal(data, objMessage); err != nil {
+					b.Fatal("build dynamicpb failed")
+				}
+				message := dynamicpb.NewMessage(*desc)
+				for id := 1; id <= testNums; id++ {
+					targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+					fieldValue := objMessage.Get(targetDesc)
+					message.Set(targetDesc, fieldValue)
+				}
+				_, _ = goproto.Marshal(message)
+			}
+		})
+	})
+}
+
+func BenchmarkDynamicpbRationSetByInterface(b *testing.B) {
+	b.Run("ration", func(b *testing.B) {
+		desc := getPbNestingDesc()
+		fieldNums := (*desc).Fields().Len()
+		obj := getPbNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+
+		objMessage := dynamicpb.NewMessage(*desc)
+		if err := goproto.Unmarshal(data, objMessage); err != nil {
+			b.Fatal("build dynamicpb failed")
+		}
+
+		testNums := int(math.Ceil(float64(fieldNums) * factor))
+
+		message := dynamicpb.NewMessage(*desc)
+		for id := 1; id <= testNums; id++ {
+			targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+			fieldValue := objMessage.Get(targetDesc)
+			v := fieldValue.Interface()
+			newValue := protoreflect.ValueOf(v)
+			message.Set(targetDesc, newValue)
+		}
+		out, err := goproto.Marshal(message)
+		if err != nil {
+			b.Fatal("Dynamicpb marshal failed")
+		}
+		fmt.Println(len(out))
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		b.Run("go", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				objMessage := dynamicpb.NewMessage(*desc)
+				if err := goproto.Unmarshal(data, objMessage); err != nil {
+					b.Fatal("build dynamicpb failed")
+				}
+				message := dynamicpb.NewMessage(*desc)
+				for id := 1; id <= testNums; id++ {
+					targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+					fieldValue := objMessage.Get(targetDesc)
+					v := fieldValue.Interface()
+					newValue := protoreflect.ValueOf(v)
+					message.Set(targetDesc, newValue)
+				}
+				_, _ = goproto.Marshal(message)
+			}
+		})
+	})
+}
+
