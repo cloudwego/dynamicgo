@@ -325,11 +325,10 @@ func BenchmarkProtoSetMany(b *testing.B) {
 		path2root := make([]generic.Path, 0)
 		require.Nil(b, v.GetMany(ps, &opts))
 		require.Nil(b, v.SetMany(ps, &opts, &v, adress2root, path2root...))
-
+		opts.UseNativeSkip = false
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
 		b.Run("go", func(b *testing.B) {
-			opts.UseNativeSkip = false
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_ = v.SetMany(ps, &opts, &v, adress2root, path2root...)
 			}
@@ -357,11 +356,10 @@ func BenchmarkProtoSetMany(b *testing.B) {
 		path2root := make([]generic.Path, 0)
 		require.Nil(b, v.GetMany(ps, &opts))
 		require.Nil(b, v.SetMany(ps, &opts, &v, adress2root, path2root...))
-
+		opts.UseNativeSkip = false
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
 		b.Run("go", func(b *testing.B) {
-			opts.UseNativeSkip = false
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_ = v.SetMany(ps, &opts, &v, adress2root, path2root...)
 			}
@@ -1333,7 +1331,7 @@ func BenchmarkProtoGetPartial_ReuseMemory(b *testing.B) {
 }
 
 const (
-	factor         = 1.0
+	factor         = 1.0 // change set/get field ratio
 	defaultBufSize = 512
 )
 
@@ -1484,7 +1482,44 @@ func BenchmarkDynamicpbRationGet(b *testing.B) {
 	})
 }
 
-// not used 
+
+
+// func GetBytes(p *binary.BinaryProtocol, obj *baseline.Nesting, id int, desc *proto.FieldDescriptor) (err error) {
+// 	switch id {
+// 	case 1:
+// 		err = p.WriteString(obj.String_)
+// 	case 2:
+// 		err = p.WriteListFast(desc, obj.ListSimple)
+// 	case 3:
+// 		err = p.WriteDouble(obj.Double)
+// 	case 4:
+// 		err = p.WriteI32(obj.I32)
+// 	case 5:
+// 		err = p.WriteListFast(desc, obj.ListI32)
+// 	case 6:
+// 		err = p.WriteI64(obj.I64)
+// 	case 7:
+// 		err = p.WriteMap(desc, obj.MapStringString)
+// 	case 8:
+// 		err = p.WriteMessageSlow(desc, obj.SimpleStruct, false, false, false)
+// 	case 9:
+// 		err = p.WriteMapFast(desc, obj.MapI32I64)
+// 	case 10:
+// 		err = p.WriteListFast(desc, obj.ListString)
+// 	case 11:
+// 		err = p.WriteBytes(obj.Binary)
+// 	case 12:
+// 		err = p.WriteMapFast(desc, obj.MapI64String)
+// 	case 13:
+// 		err = p.WriteListFast(desc, obj.ListI64)
+// 	case 14:
+// 		err = p.WriteBytes(obj.Byte)
+// 	case 15:
+// 		err = p.WriteMapFast(desc, obj.MapStringSimple)
+// 	}
+// 	return err
+// }
+
 func BenchmarkProtoRationSetBefore(b *testing.B) {
 	b.Run("ration", func(b *testing.B) {
 		desc := getPbNestingDesc()
@@ -1749,8 +1784,7 @@ func BenchmarkProtoRationSetByInterface(b *testing.B) {
 						_ = p.WriteBaseTypeWithDesc(&field, m, true, false, false)
 					}
 					newValue := generic.NewValue(&field, p.Buf)
-					// can not set when set complex value if latter use GetMany else we need to append a right node to ps
-					
+					// can not set when set complex value if use GetMany
 					// if field.IsList() {
 					// 	et := proto.FromProtoKindToType(field.Kind(), false, false)
 					// 	newValue.SetElemType(et)
@@ -1762,9 +1796,9 @@ func BenchmarkProtoRationSetByInterface(b *testing.B) {
 					// }
 					_, err = newRoot.SetByPath(newValue, generic.NewPathFieldId(proto.Number(id)))
 					p.Recycle()
-					ps = append(ps, generic.PathNode{Path: generic.NewPathFieldId(proto.FieldNumber(id)), Node: newValue.Node})
+					ps = append(ps, generic.PathNode{Path: generic.NewPathFieldId(proto.FieldNumber(id))})
 				}
-				// _ = newRoot.GetMany(ps,opt)
+				_ = newRoot.GetMany(ps,opt)
 				n := generic.PathNode{
 					Path: generic.NewPathFieldId(1),
 					Node: newRoot.Node,
@@ -1775,6 +1809,83 @@ func BenchmarkProtoRationSetByInterface(b *testing.B) {
 			}
 		})
 
+	})
+}
+
+func BenchmarkProtoRationSetMany(b *testing.B) {
+	b.Run("ration", func(b *testing.B) {
+		desc := getPbNestingDesc()
+		fieldNums := (*desc).Fields().Len()
+		obj := getPbNestingValue()
+		data := make([]byte, obj.Size())
+		ret := obj.FastWrite(data)
+		if ret != len(data) {
+			b.Fatal(ret)
+		}
+		testNums := int(math.Ceil(float64(fieldNums) * factor))
+		objRoot := generic.NewRootValue(desc, data)
+		newRoot := generic.NewRootValue(desc, nil)
+		ps := make([]generic.PathNode, testNums)
+		opts := generic.Options{}
+		mObj := make([]byte, 0)
+		value := reflect.ValueOf(obj)
+		
+		for id := 1; id <= testNums; id++ {
+			if err := collectMarshalData(id, value, &mObj); err != nil {
+				b.Fatal("collect MarshalData failed")
+			}
+			ps[id-1] = generic.PathNode{Path: generic.NewPathFieldId(proto.FieldNumber(id))}
+		}
+		err := objRoot.GetMany(ps, &opts)
+		if err != nil {
+			b.Fatal("getMany failed")
+		}
+		adress2root := []int{}
+		path2root := []generic.Path{}
+		err = newRoot.SetMany(ps, &opts, &newRoot, adress2root, path2root...)
+		if err != nil {
+			b.Fatal("getMany failed")
+		}
+		err = newRoot.GetMany(ps, &generic.Options{ClearDirtyValues: true})
+		if err != nil {
+			b.Fatal("getMany failed")
+		}
+
+		n := generic.PathNode{
+			Path: generic.NewPathFieldId(1),
+			Node: newRoot.Node,
+			Next: ps,
+		}
+		mProto, err := n.Marshal(&generic.Options{})
+		if err != nil {
+			b.Fatal("marshal PathNode failed")
+		}
+		require.Equal(b, len(mProto), len(mObj))
+		fmt.Println(len(mProto))
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		b.Run("go", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				objRoot := generic.NewRootValue(desc, data)
+				newRoot := generic.NewRootValue(desc, nil)
+				ps := make([]generic.PathNode, testNums)
+				for id := 1; id <= testNums; id++ {
+					ps[id-1] = generic.PathNode{Path: generic.NewPathFieldId(proto.FieldNumber(id))}
+				}
+				_ = objRoot.GetMany(ps, &opts)
+				adress2root := make([]int, 0)
+				path2root := make([]generic.Path, 0)
+				newRoot.SetMany(ps, &opts, &newRoot, adress2root, path2root...)
+				_ = newRoot.GetMany(ps, &generic.Options{ClearDirtyValues: true})
+				n := generic.PathNode{
+					Path: generic.NewPathFieldId(1),
+					Node: newRoot.Node,
+					Next: ps,
+				}
+				_, _ = n.Marshal(&generic.Options{})
+				
+			}
+		})
 	})
 }
 
