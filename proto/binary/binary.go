@@ -390,16 +390,18 @@ func (p *BinaryProtocol) WriteMap(desc *proto.FieldDescriptor, val interface{}) 
 	// check val is map[string]interface{} or map[int]interface{}
 	var vs map[string]interface{}
 	var vs2 map[int]interface{}
+	var vs3 map[interface{}]interface{}
 	var ok bool
+
 	if vs, ok = val.(map[string]interface{}); !ok {
-		vs2, ok = val.(map[int]interface{})
-	}
+		if vs2, ok = val.(map[int]interface{}); !ok {
+			if vs3, ok = val.(map[interface{}]interface{}); !ok {
+				return errDismatchPrimitive
+			}
+		}
+	} 
 
 	
-
-	if !ok {
-		return errDismatchPrimitive
-	}
 	if vs != nil {
 		for k, v := range vs {
 			p.AppendTag(fd.Number(), proto.BytesType)
@@ -411,7 +413,7 @@ func (p *BinaryProtocol) WriteMap(desc *proto.FieldDescriptor, val interface{}) 
 			p.WriteBaseTypeWithDesc(&MapValue, v, true, false, false)
 			p.Buf = FinishSpeculativeLength(p.Buf, pos)
 		}
-	} else {
+	} else if vs2 != nil {
 		for k, v := range vs2 {
 			p.AppendTag(fd.Number(), proto.BytesType)
 			var pos int
@@ -421,6 +423,15 @@ func (p *BinaryProtocol) WriteMap(desc *proto.FieldDescriptor, val interface{}) 
 			// p.WriteBaseTypeWithDesc(&MapKey, k, true, false, false)
 			p.AppendTag(MapValue.Number(), proto.Kind2Wire[MapValue.Kind()])
 			p.WriteBaseTypeWithDesc(&MapValue, v, true, false, false)
+			p.Buf = FinishSpeculativeLength(p.Buf, pos)
+		}
+	} else {
+		for k, v := range vs3 {
+			p.AppendTag(fd.Number(), proto.BytesType)
+			var pos int
+			p.Buf, pos = AppendSpeculativeLength(p.Buf)
+			p.WriteAnyWithDesc(&MapKey, k, true, false, true)
+			p.WriteAnyWithDesc(&MapValue, v, true, false, true)
 			p.Buf = FinishSpeculativeLength(p.Buf, pos)
 		}
 	}
