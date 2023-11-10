@@ -213,6 +213,27 @@ func NewPathNode() *PathNode {
 	return pathNodePool.Get().(*PathNode)
 }
 
+// CopyTo deeply copy self and its children to a PathNode
+func (self PathNode) CopyTo(to *PathNode) {
+	to.Path = self.Path
+	to.Node = self.Node
+	if cap(to.Next) < len(self.Next) {
+		to.Next = make([]PathNode, len(self.Next))
+	}
+	to.Next = to.Next[:len(self.Next)]
+	for i, c := range self.Next {
+		c.CopyTo(&to.Next[i])
+	}
+}
+
+// ResetValue resets self's node and its children's node
+func (self *PathNode) ResetValue() {
+	self.Node = Node{}
+	for i := range self.Next {
+		self.Next[i].ResetValue()
+	}
+}
+
 // ResetAll resets self and its children, including path and node both
 func (self *PathNode) ResetAll() {
 	for i := range self.Next {

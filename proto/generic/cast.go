@@ -351,7 +351,7 @@ func (self Value) Interface(opts *Options) (interface{}, error) {
 		}
 
 		for it.HasNext() {
-			id, wt, s, e, tagPos := it.Next(UseNativeSkipForGet)
+			id, _, s, e, tagPos := it.Next(UseNativeSkipForGet)
 			f := fds.ByNumber(id)
 
 			if f == nil {
@@ -369,10 +369,6 @@ func (self Value) Interface(opts *Options) (interface{}, error) {
 				}
 			}
 
-			t := proto.Kind2Wire[f.Kind()]
-			if wt != t {
-				return nil, errValue(meta.ErrDismatchType, fmt.Sprintf("field '%s' expects type %s, buf got type %s", f.Name(), t, wt), nil)
-			}
 			v := self.sliceWithDesc(s, e, &f)
 			vv, err := v.Interface(opts)
 			if err != nil {

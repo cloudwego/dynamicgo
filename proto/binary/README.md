@@ -8,69 +8,71 @@ import "github.com/cloudwego/dynamicgo/proto/binary"
 
 ## Index
 
-- [Variables](<#variables>)
-- [func AppendSpeculativeLength\(b \[\]byte\) \(\[\]byte, int\)](<#AppendSpeculativeLength>)
-- [func FinishSpeculativeLength\(b \[\]byte, pos int\) \[\]byte](<#FinishSpeculativeLength>)
-- [func FreeBinaryProtocol\(bp \*BinaryProtocol\)](<#FreeBinaryProtocol>)
-- [type BinaryProtocol](<#BinaryProtocol>)
-  - [func NewBinaryProtocolBuffer\(\) \*BinaryProtocol](<#NewBinaryProtocolBuffer>)
-  - [func NewBinaryProtol\(buf \[\]byte\) \*BinaryProtocol](<#NewBinaryProtol>)
-  - [func \(p \*BinaryProtocol\) AppendTag\(num proto.Number, typ proto.WireType\) error](<#BinaryProtocol.AppendTag>)
-  - [func \(p \*BinaryProtocol\) AppendTagByDesc\(desc \*proto.FieldDescriptor\) error](<#BinaryProtocol.AppendTagByDesc>)
-  - [func \(p \*BinaryProtocol\) ConsumeTag\(\) \(proto.Number, proto.WireType, int, error\)](<#BinaryProtocol.ConsumeTag>)
-  - [func \(p \*BinaryProtocol\) ConsumeTagWithoutMove\(\) \(proto.Number, proto.WireType, int, error\)](<#BinaryProtocol.ConsumeTagWithoutMove>)
-  - [func \(p \*BinaryProtocol\) Left\(\) int](<#BinaryProtocol.Left>)
-  - [func \(p \*BinaryProtocol\) RawBuf\(\) \[\]byte](<#BinaryProtocol.RawBuf>)
-  - [func \(p \*BinaryProtocol\) ReadAnyWithDesc\(desc \*proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool\) \(interface\{\}, error\)](<#BinaryProtocol.ReadAnyWithDesc>)
-  - [func \(p \*BinaryProtocol\) ReadBaseTypeWithDesc\(desc \*proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool\) \(interface\{\}, error\)](<#BinaryProtocol.ReadBaseTypeWithDesc>)
-  - [func \(p \*BinaryProtocol\) ReadBool\(\) \(bool, error\)](<#BinaryProtocol.ReadBool>)
-  - [func \(p \*BinaryProtocol\) ReadByte\(\) \(value byte, err error\)](<#BinaryProtocol.ReadByte>)
-  - [func \(p \*BinaryProtocol\) ReadBytes\(\) \(\[\]byte, error\)](<#BinaryProtocol.ReadBytes>)
-  - [func \(p \*BinaryProtocol\) ReadDouble\(\) \(float64, error\)](<#BinaryProtocol.ReadDouble>)
-  - [func \(p \*BinaryProtocol\) ReadEnum\(\) \(proto.EnumNumber, error\)](<#BinaryProtocol.ReadEnum>)
-  - [func \(p \*BinaryProtocol\) ReadFixed32\(\) \(int32, error\)](<#BinaryProtocol.ReadFixed32>)
-  - [func \(p \*BinaryProtocol\) ReadFixed64\(\) \(int64, error\)](<#BinaryProtocol.ReadFixed64>)
-  - [func \(p \*BinaryProtocol\) ReadFloat\(\) \(float32, error\)](<#BinaryProtocol.ReadFloat>)
-  - [func \(p \*BinaryProtocol\) ReadInt\(t proto.Type\) \(value int, err error\)](<#BinaryProtocol.ReadInt>)
-  - [func \(p \*BinaryProtocol\) ReadInt32\(\) \(int32, error\)](<#BinaryProtocol.ReadInt32>)
-  - [func \(p \*BinaryProtocol\) ReadInt64\(\) \(int64, error\)](<#BinaryProtocol.ReadInt64>)
-  - [func \(p \*BinaryProtocol\) ReadLength\(\) \(int, error\)](<#BinaryProtocol.ReadLength>)
-  - [func \(p \*BinaryProtocol\) ReadList\(desc \*proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool\) \(\[\]interface\{\}, error\)](<#BinaryProtocol.ReadList>)
-  - [func \(p \*BinaryProtocol\) ReadMap\(desc \*proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool\) \(map\[interface\{\}\]interface\{\}, error\)](<#BinaryProtocol.ReadMap>)
-  - [func \(p \*BinaryProtocol\) ReadPair\(keyDesc \*proto.FieldDescriptor, valueDesc \*proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool\) \(interface\{\}, interface\{\}, error\)](<#BinaryProtocol.ReadPair>)
-  - [func \(p \*BinaryProtocol\) ReadSfixed32\(\) \(int32, error\)](<#BinaryProtocol.ReadSfixed32>)
-  - [func \(p \*BinaryProtocol\) ReadSfixed64\(\) \(int64, error\)](<#BinaryProtocol.ReadSfixed64>)
-  - [func \(p \*BinaryProtocol\) ReadSint32\(\) \(int32, error\)](<#BinaryProtocol.ReadSint32>)
-  - [func \(p \*BinaryProtocol\) ReadSint64\(\) \(int64, error\)](<#BinaryProtocol.ReadSint64>)
-  - [func \(p \*BinaryProtocol\) ReadString\(copy bool\) \(value string, err error\)](<#BinaryProtocol.ReadString>)
-  - [func \(p \*BinaryProtocol\) ReadUint32\(\) \(uint32, error\)](<#BinaryProtocol.ReadUint32>)
-  - [func \(p \*BinaryProtocol\) ReadUint64\(\) \(uint64, error\)](<#BinaryProtocol.ReadUint64>)
-  - [func \(p \*BinaryProtocol\) ReadVarint\(\) \(uint64, error\)](<#BinaryProtocol.ReadVarint>)
-  - [func \(p \*BinaryProtocol\) Recycle\(\)](<#BinaryProtocol.Recycle>)
-  - [func \(p \*BinaryProtocol\) Reset\(\)](<#BinaryProtocol.Reset>)
-  - [func \(p \*BinaryProtocol\) Skip\(wireType proto.WireType, useNative bool\) \(err error\)](<#BinaryProtocol.Skip>)
-  - [func \(p \*BinaryProtocol\) SkipAllElements\(fieldNumber proto.FieldNumber, ispacked bool\) \(size int, err error\)](<#BinaryProtocol.SkipAllElements>)
-  - [func \(p \*BinaryProtocol\) WriteAnyWithDesc\(desc \*proto.FieldDescriptor, val interface\{\}, cast bool, disallowUnknown bool, useFieldName bool\) error](<#BinaryProtocol.WriteAnyWithDesc>)
-  - [func \(p \*BinaryProtocol\) WriteBaseTypeWithDesc\(fd \*proto.FieldDescriptor, val interface\{\}, cast bool, disallowUnknown bool, useFieldName bool\) error](<#BinaryProtocol.WriteBaseTypeWithDesc>)
-  - [func \(p \*BinaryProtocol\) WriteBool\(value bool\) error](<#BinaryProtocol.WriteBool>)
-  - [func \(p \*BinaryProtocol\) WriteBytes\(value \[\]byte\) error](<#BinaryProtocol.WriteBytes>)
-  - [func \(p \*BinaryProtocol\) WriteDouble\(value float64\) error](<#BinaryProtocol.WriteDouble>)
-  - [func \(p \*BinaryProtocol\) WriteEnum\(value proto.EnumNumber\) error](<#BinaryProtocol.WriteEnum>)
-  - [func \(p \*BinaryProtocol\) WriteFixed32\(value int32\) error](<#BinaryProtocol.WriteFixed32>)
-  - [func \(p \*BinaryProtocol\) WriteFixed64\(value uint64\) error](<#BinaryProtocol.WriteFixed64>)
-  - [func \(p \*BinaryProtocol\) WriteFloat\(value float32\) error](<#BinaryProtocol.WriteFloat>)
-  - [func \(p \*BinaryProtocol\) WriteInt32\(value int32\) error](<#BinaryProtocol.WriteInt32>)
-  - [func \(p \*BinaryProtocol\) WriteInt64\(value int64\) error](<#BinaryProtocol.WriteInt64>)
-  - [func \(p \*BinaryProtocol\) WriteList\(desc \*proto.FieldDescriptor, val interface\{\}\) error](<#BinaryProtocol.WriteList>)
-  - [func \(p \*BinaryProtocol\) WriteMap\(desc \*proto.FieldDescriptor, val interface\{\}\) error](<#BinaryProtocol.WriteMap>)
-  - [func \(p \*BinaryProtocol\) WriteMessageFields\(desc \*proto.FieldDescriptor, val interface\{\}, cast bool, disallowUnknown bool, useFieldName bool\) error](<#BinaryProtocol.WriteMessageFields>)
-  - [func \(p \*BinaryProtocol\) WriteSfixed32\(value int32\) error](<#BinaryProtocol.WriteSfixed32>)
-  - [func \(p \*BinaryProtocol\) WriteSfixed64\(value int64\) error](<#BinaryProtocol.WriteSfixed64>)
-  - [func \(p \*BinaryProtocol\) WriteSint32\(value int32\) error](<#BinaryProtocol.WriteSint32>)
-  - [func \(p \*BinaryProtocol\) WriteSint64\(value int64\) error](<#BinaryProtocol.WriteSint64>)
-  - [func \(p \*BinaryProtocol\) WriteString\(value string\) error](<#BinaryProtocol.WriteString>)
-  - [func \(p \*BinaryProtocol\) WriteUint32\(value uint32\) error](<#BinaryProtocol.WriteUint32>)
-  - [func \(p \*BinaryProtocol\) WriteUint64\(value uint64\) error](<#BinaryProtocol.WriteUint64>)
+- [binary](#binary)
+  - [Index](#index)
+  - [Variables](#variables)
+  - [func AppendSpeculativeLength](#func-appendspeculativelength)
+  - [func FinishSpeculativeLength](#func-finishspeculativelength)
+  - [func FreeBinaryProtocol](#func-freebinaryprotocol)
+  - [type BinaryProtocol](#type-binaryprotocol)
+    - [func NewBinaryProtocolBuffer](#func-newbinaryprotocolbuffer)
+    - [func NewBinaryProtol](#func-newbinaryprotol)
+    - [func (\*BinaryProtocol) AppendTag](#func-binaryprotocol-appendtag)
+    - [func (\*BinaryProtocol) AppendTagByDesc](#func-binaryprotocol-appendtagbydesc)
+    - [func (\*BinaryProtocol) ConsumeTag](#func-binaryprotocol-consumetag)
+    - [func (\*BinaryProtocol) ConsumeTagWithoutMove](#func-binaryprotocol-consumetagwithoutmove)
+    - [func (\*BinaryProtocol) Left](#func-binaryprotocol-left)
+    - [func (\*BinaryProtocol) RawBuf](#func-binaryprotocol-rawbuf)
+    - [func (\*BinaryProtocol) ReadAnyWithDesc](#func-binaryprotocol-readanywithdesc)
+    - [func (\*BinaryProtocol) ReadBaseTypeWithDesc](#func-binaryprotocol-readbasetypewithdesc)
+    - [func (\*BinaryProtocol) ReadBool](#func-binaryprotocol-readbool)
+    - [func (\*BinaryProtocol) ReadByte](#func-binaryprotocol-readbyte)
+    - [func (\*BinaryProtocol) ReadBytes](#func-binaryprotocol-readbytes)
+    - [func (\*BinaryProtocol) ReadDouble](#func-binaryprotocol-readdouble)
+    - [func (\*BinaryProtocol) ReadEnum](#func-binaryprotocol-readenum)
+    - [func (\*BinaryProtocol) ReadFixed32](#func-binaryprotocol-readfixed32)
+    - [func (\*BinaryProtocol) ReadFixed64](#func-binaryprotocol-readfixed64)
+    - [func (\*BinaryProtocol) ReadFloat](#func-binaryprotocol-readfloat)
+    - [func (\*BinaryProtocol) ReadInt](#func-binaryprotocol-readint)
+    - [func (\*BinaryProtocol) ReadInt32](#func-binaryprotocol-readint32)
+    - [func (\*BinaryProtocol) ReadInt64](#func-binaryprotocol-readint64)
+    - [func (\*BinaryProtocol) ReadLength](#func-binaryprotocol-readlength)
+    - [func (\*BinaryProtocol) ReadList](#func-binaryprotocol-readlist)
+    - [func (\*BinaryProtocol) ReadMap](#func-binaryprotocol-readmap)
+    - [func (\*BinaryProtocol) ReadPair](#func-binaryprotocol-readpair)
+    - [func (\*BinaryProtocol) ReadSfixed32](#func-binaryprotocol-readsfixed32)
+    - [func (\*BinaryProtocol) ReadSfixed64](#func-binaryprotocol-readsfixed64)
+    - [func (\*BinaryProtocol) ReadSint32](#func-binaryprotocol-readsint32)
+    - [func (\*BinaryProtocol) ReadSint64](#func-binaryprotocol-readsint64)
+    - [func (\*BinaryProtocol) ReadString](#func-binaryprotocol-readstring)
+    - [func (\*BinaryProtocol) ReadUint32](#func-binaryprotocol-readuint32)
+    - [func (\*BinaryProtocol) ReadUint64](#func-binaryprotocol-readuint64)
+    - [func (\*BinaryProtocol) ReadVarint](#func-binaryprotocol-readvarint)
+    - [func (\*BinaryProtocol) Recycle](#func-binaryprotocol-recycle)
+    - [func (\*BinaryProtocol) Reset](#func-binaryprotocol-reset)
+    - [func (\*BinaryProtocol) Skip](#func-binaryprotocol-skip)
+    - [func (\*BinaryProtocol) SkipAllElements](#func-binaryprotocol-skipallelements)
+    - [func (\*BinaryProtocol) WriteAnyWithDesc](#func-binaryprotocol-writeanywithdesc)
+    - [func (\*BinaryProtocol) WriteBaseTypeWithDesc](#func-binaryprotocol-writebasetypewithdesc)
+    - [func (\*BinaryProtocol) WriteBool](#func-binaryprotocol-writebool)
+    - [func (\*BinaryProtocol) WriteBytes](#func-binaryprotocol-writebytes)
+    - [func (\*BinaryProtocol) WriteDouble](#func-binaryprotocol-writedouble)
+    - [func (\*BinaryProtocol) WriteEnum](#func-binaryprotocol-writeenum)
+    - [func (\*BinaryProtocol) WriteFixed32](#func-binaryprotocol-writefixed32)
+    - [func (\*BinaryProtocol) WriteFixed64](#func-binaryprotocol-writefixed64)
+    - [func (\*BinaryProtocol) WriteFloat](#func-binaryprotocol-writefloat)
+    - [func (\*BinaryProtocol) WriteInt32](#func-binaryprotocol-writeint32)
+    - [func (\*BinaryProtocol) WriteInt64](#func-binaryprotocol-writeint64)
+    - [func (\*BinaryProtocol) WriteList](#func-binaryprotocol-writelist)
+    - [func (\*BinaryProtocol) WriteMap](#func-binaryprotocol-writemap)
+    - [func (\*BinaryProtocol) WriteMessageFields](#func-binaryprotocol-writemessagefields)
+    - [func (\*BinaryProtocol) WriteSfixed32](#func-binaryprotocol-writesfixed32)
+    - [func (\*BinaryProtocol) WriteSfixed64](#func-binaryprotocol-writesfixed64)
+    - [func (\*BinaryProtocol) WriteSint32](#func-binaryprotocol-writesint32)
+    - [func (\*BinaryProtocol) WriteSint64](#func-binaryprotocol-writesint64)
+    - [func (\*BinaryProtocol) WriteString](#func-binaryprotocol-writestring)
+    - [func (\*BinaryProtocol) WriteUint32](#func-binaryprotocol-writeuint32)
+    - [func (\*BinaryProtocol) WriteUint64](#func-binaryprotocol-writeuint64)
 
 
 ## Variables
@@ -90,7 +92,7 @@ var (
 func AppendSpeculativeLength(b []byte) ([]byte, int)
 ```
 
-When encoding length\-prefixed fields, we speculatively set aside some number of bytes for the length, encode the data, and then encode the length \(shifting the data if necessary to make room\).
+When encoding length-prefixed fields, we speculatively set aside some number of bytes for the length, encode the data, and then encode the length (shifting the data if necessary to make room).
 
 <a name="FinishSpeculativeLength"></a>
 ## func [FinishSpeculativeLength](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L195>)
@@ -141,7 +143,7 @@ func NewBinaryProtol(buf []byte) *BinaryProtocol
 BinaryProtocol Method
 
 <a name="BinaryProtocol.AppendTag"></a>
-### func \(\*BinaryProtocol\) [AppendTag](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L139>)
+### func (*BinaryProtocol) [AppendTag](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L139>)
 
 ```go
 func (p *BinaryProtocol) AppendTag(num proto.Number, typ proto.WireType) error
@@ -150,7 +152,7 @@ func (p *BinaryProtocol) AppendTag(num proto.Number, typ proto.WireType) error
 Append Tag
 
 <a name="BinaryProtocol.AppendTagByDesc"></a>
-### func \(\*BinaryProtocol\) [AppendTagByDesc](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L149>)
+### func (*BinaryProtocol) [AppendTagByDesc](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L149>)
 
 ```go
 func (p *BinaryProtocol) AppendTagByDesc(desc *proto.FieldDescriptor) error
@@ -159,25 +161,25 @@ func (p *BinaryProtocol) AppendTagByDesc(desc *proto.FieldDescriptor) error
 Append Tag With FieldDescriptor
 
 <a name="BinaryProtocol.ConsumeTag"></a>
-### func \(\*BinaryProtocol\) [ConsumeTag](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L154>)
+### func (*BinaryProtocol) [ConsumeTag](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L154>)
 
 ```go
 func (p *BinaryProtocol) ConsumeTag() (proto.Number, proto.WireType, int, error)
 ```
 
-ConsumeTag parses b as a varint\-encoded tag, reporting its length.
+ConsumeTag parses b as a varint-encoded tag, reporting its length.
 
 <a name="BinaryProtocol.ConsumeTagWithoutMove"></a>
-### func \(\*BinaryProtocol\) [ConsumeTagWithoutMove](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L171>)
+### func (*BinaryProtocol) [ConsumeTagWithoutMove](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L171>)
 
 ```go
 func (p *BinaryProtocol) ConsumeTagWithoutMove() (proto.Number, proto.WireType, int, error)
 ```
 
-ConsumeChildTag parses b as a varint\-encoded tag, don't move p.Read
+ConsumeChildTag parses b as a varint-encoded tag, don't move p.Read
 
 <a name="BinaryProtocol.Left"></a>
-### func \(\*BinaryProtocol\) [Left](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L112>)
+### func (*BinaryProtocol) [Left](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L112>)
 
 ```go
 func (p *BinaryProtocol) Left() int
@@ -186,7 +188,7 @@ func (p *BinaryProtocol) Left() int
 Left returns the left bytes to read
 
 <a name="BinaryProtocol.RawBuf"></a>
-### func \(\*BinaryProtocol\) [RawBuf](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L107>)
+### func (*BinaryProtocol) [RawBuf](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L107>)
 
 ```go
 func (p *BinaryProtocol) RawBuf() []byte
@@ -195,7 +197,7 @@ func (p *BinaryProtocol) RawBuf() []byte
 RawBuf returns the raw buffer of the protocol
 
 <a name="BinaryProtocol.ReadAnyWithDesc"></a>
-### func \(\*BinaryProtocol\) [ReadAnyWithDesc](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L1107>)
+### func (*BinaryProtocol) [ReadAnyWithDesc](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L1107>)
 
 ```go
 func (p *BinaryProtocol) ReadAnyWithDesc(desc *proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) (interface{}, error)
@@ -203,12 +205,12 @@ func (p *BinaryProtocol) ReadAnyWithDesc(desc *proto.FieldDescriptor, copyString
 
 ReadAnyWithDesc read any type by desc and val, the first Tag is parsed outside when use ReadBaseTypeWithDesc
 
-- LIST/SET will be converted to \[\]interface\{\}
-- MAP will be converted to map\[string\]interface\{\} or map\[int\]interface\{\} or map\[interface\{\}\]interface\{\}
-- MESSAGE will be converted to map\[proto.FieldNumber\]interface\{\} or map\[string\]interface\{\}
+- LIST/SET will be converted to []interface{}
+- MAP will be converted to map[string]interface{} or map[int]interface{} or map[interface{}]interface{}
+- MESSAGE will be converted to map[proto.FieldNumber]interface{} or map[string]interface{}
 
 <a name="BinaryProtocol.ReadBaseTypeWithDesc"></a>
-### func \(\*BinaryProtocol\) [ReadBaseTypeWithDesc](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L1122>)
+### func (*BinaryProtocol) [ReadBaseTypeWithDesc](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L1122>)
 
 ```go
 func (p *BinaryProtocol) ReadBaseTypeWithDesc(desc *proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) (interface{}, error)
@@ -217,7 +219,7 @@ func (p *BinaryProtocol) ReadBaseTypeWithDesc(desc *proto.FieldDescriptor, copyS
 ReadBaseType with desc, not thread safe
 
 <a name="BinaryProtocol.ReadBool"></a>
-### func \(\*BinaryProtocol\) [ReadBool](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L761>)
+### func (*BinaryProtocol) [ReadBool](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L761>)
 
 ```go
 func (p *BinaryProtocol) ReadBool() (bool, error)
@@ -226,7 +228,7 @@ func (p *BinaryProtocol) ReadBool() (bool, error)
 ReadBool
 
 <a name="BinaryProtocol.ReadByte"></a>
-### func \(\*BinaryProtocol\) [ReadByte](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L752>)
+### func (*BinaryProtocol) [ReadByte](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L752>)
 
 ```go
 func (p *BinaryProtocol) ReadByte() (value byte, err error)
@@ -235,7 +237,7 @@ func (p *BinaryProtocol) ReadByte() (value byte, err error)
 ReadByte
 
 <a name="BinaryProtocol.ReadBytes"></a>
-### func \(\*BinaryProtocol\) [ReadBytes](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L933>)
+### func (*BinaryProtocol) [ReadBytes](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L933>)
 
 ```go
 func (p *BinaryProtocol) ReadBytes() ([]byte, error)
@@ -244,7 +246,7 @@ func (p *BinaryProtocol) ReadBytes() ([]byte, error)
 ReadBytes return bytesData and the sum length of L、V in TLV
 
 <a name="BinaryProtocol.ReadDouble"></a>
-### func \(\*BinaryProtocol\) [ReadDouble](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L923>)
+### func (*BinaryProtocol) [ReadDouble](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L923>)
 
 ```go
 func (p *BinaryProtocol) ReadDouble() (float64, error)
@@ -253,7 +255,7 @@ func (p *BinaryProtocol) ReadDouble() (float64, error)
 ReadDouble
 
 <a name="BinaryProtocol.ReadEnum"></a>
-### func \(\*BinaryProtocol\) [ReadEnum](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L970>)
+### func (*BinaryProtocol) [ReadEnum](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L970>)
 
 ```go
 func (p *BinaryProtocol) ReadEnum() (proto.EnumNumber, error)
@@ -262,7 +264,7 @@ func (p *BinaryProtocol) ReadEnum() (proto.EnumNumber, error)
 ReadEnum
 
 <a name="BinaryProtocol.ReadFixed32"></a>
-### func \(\*BinaryProtocol\) [ReadFixed32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L873>)
+### func (*BinaryProtocol) [ReadFixed32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L873>)
 
 ```go
 func (p *BinaryProtocol) ReadFixed32() (int32, error)
@@ -271,7 +273,7 @@ func (p *BinaryProtocol) ReadFixed32() (int32, error)
 ReadFixed32
 
 <a name="BinaryProtocol.ReadFixed64"></a>
-### func \(\*BinaryProtocol\) [ReadFixed64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L903>)
+### func (*BinaryProtocol) [ReadFixed64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L903>)
 
 ```go
 func (p *BinaryProtocol) ReadFixed64() (int64, error)
@@ -280,7 +282,7 @@ func (p *BinaryProtocol) ReadFixed64() (int64, error)
 ReadFixed64
 
 <a name="BinaryProtocol.ReadFloat"></a>
-### func \(\*BinaryProtocol\) [ReadFloat](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L893>)
+### func (*BinaryProtocol) [ReadFloat](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L893>)
 
 ```go
 func (p *BinaryProtocol) ReadFloat() (float32, error)
@@ -289,7 +291,7 @@ func (p *BinaryProtocol) ReadFloat() (float32, error)
 ReadFloat
 
 <a name="BinaryProtocol.ReadInt"></a>
-### func \(\*BinaryProtocol\) [ReadInt](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L771>)
+### func (*BinaryProtocol) [ReadInt](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L771>)
 
 ```go
 func (p *BinaryProtocol) ReadInt(t proto.Type) (value int, err error)
@@ -298,7 +300,7 @@ func (p *BinaryProtocol) ReadInt(t proto.Type) (value int, err error)
 ReadInt containing INT32, SINT32, SFIX32, INT64, SINT64, SFIX64, UINT32, UINT64
 
 <a name="BinaryProtocol.ReadInt32"></a>
-### func \(\*BinaryProtocol\) [ReadInt32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L803>)
+### func (*BinaryProtocol) [ReadInt32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L803>)
 
 ```go
 func (p *BinaryProtocol) ReadInt32() (int32, error)
@@ -307,7 +309,7 @@ func (p *BinaryProtocol) ReadInt32() (int32, error)
 ReadI32
 
 <a name="BinaryProtocol.ReadInt64"></a>
-### func \(\*BinaryProtocol\) [ReadInt64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L833>)
+### func (*BinaryProtocol) [ReadInt64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L833>)
 
 ```go
 func (p *BinaryProtocol) ReadInt64() (int64, error)
@@ -316,7 +318,7 @@ func (p *BinaryProtocol) ReadInt64() (int64, error)
 ReadI64
 
 <a name="BinaryProtocol.ReadLength"></a>
-### func \(\*BinaryProtocol\) [ReadLength](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L943>)
+### func (*BinaryProtocol) [ReadLength](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L943>)
 
 ```go
 func (p *BinaryProtocol) ReadLength() (int, error)
@@ -325,7 +327,7 @@ func (p *BinaryProtocol) ReadLength() (int, error)
 ReadLength return dataLength, and move pointer in the begin of data
 
 <a name="BinaryProtocol.ReadList"></a>
-### func \(\*BinaryProtocol\) [ReadList](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L980>)
+### func (*BinaryProtocol) [ReadList](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L980>)
 
 ```go
 func (p *BinaryProtocol) ReadList(desc *proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) ([]interface{}, error)
@@ -334,7 +336,7 @@ func (p *BinaryProtocol) ReadList(desc *proto.FieldDescriptor, copyString bool, 
 ReadList
 
 <a name="BinaryProtocol.ReadMap"></a>
-### func \(\*BinaryProtocol\) [ReadMap](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L1049>)
+### func (*BinaryProtocol) [ReadMap](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L1049>)
 
 ```go
 func (p *BinaryProtocol) ReadMap(desc *proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) (map[interface{}]interface{}, error)
@@ -343,7 +345,7 @@ func (p *BinaryProtocol) ReadMap(desc *proto.FieldDescriptor, copyString bool, d
 ReadMap
 
 <a name="BinaryProtocol.ReadPair"></a>
-### func \(\*BinaryProtocol\) [ReadPair](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L1035>)
+### func (*BinaryProtocol) [ReadPair](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L1035>)
 
 ```go
 func (p *BinaryProtocol) ReadPair(keyDesc *proto.FieldDescriptor, valueDesc *proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) (interface{}, interface{}, error)
@@ -352,7 +354,7 @@ func (p *BinaryProtocol) ReadPair(keyDesc *proto.FieldDescriptor, valueDesc *pro
 
 
 <a name="BinaryProtocol.ReadSfixed32"></a>
-### func \(\*BinaryProtocol\) [ReadSfixed32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L883>)
+### func (*BinaryProtocol) [ReadSfixed32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L883>)
 
 ```go
 func (p *BinaryProtocol) ReadSfixed32() (int32, error)
@@ -361,7 +363,7 @@ func (p *BinaryProtocol) ReadSfixed32() (int32, error)
 ReadSFixed32
 
 <a name="BinaryProtocol.ReadSfixed64"></a>
-### func \(\*BinaryProtocol\) [ReadSfixed64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L913>)
+### func (*BinaryProtocol) [ReadSfixed64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L913>)
 
 ```go
 func (p *BinaryProtocol) ReadSfixed64() (int64, error)
@@ -370,7 +372,7 @@ func (p *BinaryProtocol) ReadSfixed64() (int64, error)
 ReadSFixed64
 
 <a name="BinaryProtocol.ReadSint32"></a>
-### func \(\*BinaryProtocol\) [ReadSint32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L813>)
+### func (*BinaryProtocol) [ReadSint32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L813>)
 
 ```go
 func (p *BinaryProtocol) ReadSint32() (int32, error)
@@ -379,7 +381,7 @@ func (p *BinaryProtocol) ReadSint32() (int32, error)
 ReadSint32
 
 <a name="BinaryProtocol.ReadSint64"></a>
-### func \(\*BinaryProtocol\) [ReadSint64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L843>)
+### func (*BinaryProtocol) [ReadSint64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L843>)
 
 ```go
 func (p *BinaryProtocol) ReadSint64() (int64, error)
@@ -388,7 +390,7 @@ func (p *BinaryProtocol) ReadSint64() (int64, error)
 ReadSint64
 
 <a name="BinaryProtocol.ReadString"></a>
-### func \(\*BinaryProtocol\) [ReadString](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L953>)
+### func (*BinaryProtocol) [ReadString](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L953>)
 
 ```go
 func (p *BinaryProtocol) ReadString(copy bool) (value string, err error)
@@ -397,7 +399,7 @@ func (p *BinaryProtocol) ReadString(copy bool) (value string, err error)
 ReadString
 
 <a name="BinaryProtocol.ReadUint32"></a>
-### func \(\*BinaryProtocol\) [ReadUint32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L823>)
+### func (*BinaryProtocol) [ReadUint32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L823>)
 
 ```go
 func (p *BinaryProtocol) ReadUint32() (uint32, error)
@@ -406,7 +408,7 @@ func (p *BinaryProtocol) ReadUint32() (uint32, error)
 ReadUint32
 
 <a name="BinaryProtocol.ReadUint64"></a>
-### func \(\*BinaryProtocol\) [ReadUint64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L853>)
+### func (*BinaryProtocol) [ReadUint64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L853>)
 
 ```go
 func (p *BinaryProtocol) ReadUint64() (uint64, error)
@@ -415,7 +417,7 @@ func (p *BinaryProtocol) ReadUint64() (uint64, error)
 ReadUint64
 
 <a name="BinaryProtocol.ReadVarint"></a>
-### func \(\*BinaryProtocol\) [ReadVarint](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L863>)
+### func (*BinaryProtocol) [ReadVarint](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L863>)
 
 ```go
 func (p *BinaryProtocol) ReadVarint() (uint64, error)
@@ -424,7 +426,7 @@ func (p *BinaryProtocol) ReadVarint() (uint64, error)
 ReadVarint
 
 <a name="BinaryProtocol.Recycle"></a>
-### func \(\*BinaryProtocol\) [Recycle](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L133>)
+### func (*BinaryProtocol) [Recycle](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L133>)
 
 ```go
 func (p *BinaryProtocol) Recycle()
@@ -433,7 +435,7 @@ func (p *BinaryProtocol) Recycle()
 
 
 <a name="BinaryProtocol.Reset"></a>
-### func \(\*BinaryProtocol\) [Reset](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L101>)
+### func (*BinaryProtocol) [Reset](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L101>)
 
 ```go
 func (p *BinaryProtocol) Reset()
@@ -442,16 +444,16 @@ func (p *BinaryProtocol) Reset()
 Reset resets the buffer and read position
 
 <a name="BinaryProtocol.Skip"></a>
-### func \(\*BinaryProtocol\) [Skip](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary_skip.go#L8>)
+### func (*BinaryProtocol) [Skip](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary_skip.go#L8>)
 
 ```go
 func (p *BinaryProtocol) Skip(wireType proto.WireType, useNative bool) (err error)
 ```
 
-skip \(L\)V once by wireType, useNative is not implemented
+skip (L)V once by wireType, useNative is not implemented
 
 <a name="BinaryProtocol.SkipAllElements"></a>
-### func \(\*BinaryProtocol\) [SkipAllElements](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary_skip.go#L23>)
+### func (*BinaryProtocol) [SkipAllElements](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary_skip.go#L23>)
 
 ```go
 func (p *BinaryProtocol) SkipAllElements(fieldNumber proto.FieldNumber, ispacked bool) (size int, err error)
@@ -460,7 +462,7 @@ func (p *BinaryProtocol) SkipAllElements(fieldNumber proto.FieldNumber, ispacked
 fast skip all elements in LIST/MAP
 
 <a name="BinaryProtocol.WriteAnyWithDesc"></a>
-### func \(\*BinaryProtocol\) [WriteAnyWithDesc](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L731>)
+### func (*BinaryProtocol) [WriteAnyWithDesc](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L731>)
 
 ```go
 func (p *BinaryProtocol) WriteAnyWithDesc(desc *proto.FieldDescriptor, val interface{}, cast bool, disallowUnknown bool, useFieldName bool) error
@@ -468,21 +470,21 @@ func (p *BinaryProtocol) WriteAnyWithDesc(desc *proto.FieldDescriptor, val inter
 
 WriteAnyWithDesc explain desc and val and write them into buffer
 
-- LIST will be converted from \[\]interface\{\}
-- MAP will be converted from map\[string\]interface\{\} or map\[int\]interface\{\} or map\[interface\{\}\]interface\{\}
-- MESSAGE will be converted from map\[FieldNumber\]interface\{\} or map\[string\]interface\{\}
+- LIST will be converted from []interface{}
+- MAP will be converted from map[string]interface{} or map[int]interface{} or map[interface{}]interface{}
+- MESSAGE will be converted from map[FieldNumber]interface{} or map[string]interface{}
 
 <a name="BinaryProtocol.WriteBaseTypeWithDesc"></a>
-### func \(\*BinaryProtocol\) [WriteBaseTypeWithDesc](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L486>)
+### func (*BinaryProtocol) [WriteBaseTypeWithDesc](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L486>)
 
 ```go
 func (p *BinaryProtocol) WriteBaseTypeWithDesc(fd *proto.FieldDescriptor, val interface{}, cast bool, disallowUnknown bool, useFieldName bool) error
 ```
 
-WriteBaseType Fields with FieldDescriptor format: \(L\)V
+WriteBaseType Fields with FieldDescriptor format: (L)V
 
 <a name="BinaryProtocol.WriteBool"></a>
-### func \(\*BinaryProtocol\) [WriteBool](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L217>)
+### func (*BinaryProtocol) [WriteBool](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L217>)
 
 ```go
 func (p *BinaryProtocol) WriteBool(value bool) error
@@ -491,7 +493,7 @@ func (p *BinaryProtocol) WriteBool(value bool) error
 WriteBool
 
 <a name="BinaryProtocol.WriteBytes"></a>
-### func \(\*BinaryProtocol\) [WriteBytes](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L331>)
+### func (*BinaryProtocol) [WriteBytes](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L331>)
 
 ```go
 func (p *BinaryProtocol) WriteBytes(value []byte) error
@@ -500,7 +502,7 @@ func (p *BinaryProtocol) WriteBytes(value []byte) error
 WriteBytes
 
 <a name="BinaryProtocol.WriteDouble"></a>
-### func \(\*BinaryProtocol\) [WriteDouble](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L312>)
+### func (*BinaryProtocol) [WriteDouble](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L312>)
 
 ```go
 func (p *BinaryProtocol) WriteDouble(value float64) error
@@ -509,7 +511,7 @@ func (p *BinaryProtocol) WriteDouble(value float64) error
 WriteDouble
 
 <a name="BinaryProtocol.WriteEnum"></a>
-### func \(\*BinaryProtocol\) [WriteEnum](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L337>)
+### func (*BinaryProtocol) [WriteEnum](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L337>)
 
 ```go
 func (p *BinaryProtocol) WriteEnum(value proto.EnumNumber) error
@@ -518,7 +520,7 @@ func (p *BinaryProtocol) WriteEnum(value proto.EnumNumber) error
 WriteEnum
 
 <a name="BinaryProtocol.WriteFixed32"></a>
-### func \(\*BinaryProtocol\) [WriteFixed32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L244>)
+### func (*BinaryProtocol) [WriteFixed32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L244>)
 
 ```go
 func (p *BinaryProtocol) WriteFixed32(value int32) error
@@ -527,7 +529,7 @@ func (p *BinaryProtocol) WriteFixed32(value int32) error
 Writefixed32
 
 <a name="BinaryProtocol.WriteFixed64"></a>
-### func \(\*BinaryProtocol\) [WriteFixed64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L282>)
+### func (*BinaryProtocol) [WriteFixed64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L282>)
 
 ```go
 func (p *BinaryProtocol) WriteFixed64(value uint64) error
@@ -536,7 +538,7 @@ func (p *BinaryProtocol) WriteFixed64(value uint64) error
 Writefixed64
 
 <a name="BinaryProtocol.WriteFloat"></a>
-### func \(\*BinaryProtocol\) [WriteFloat](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L302>)
+### func (*BinaryProtocol) [WriteFloat](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L302>)
 
 ```go
 func (p *BinaryProtocol) WriteFloat(value float32) error
@@ -545,7 +547,7 @@ func (p *BinaryProtocol) WriteFloat(value float32) error
 WriteFloat
 
 <a name="BinaryProtocol.WriteInt32"></a>
-### func \(\*BinaryProtocol\) [WriteInt32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L226>)
+### func (*BinaryProtocol) [WriteInt32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L226>)
 
 ```go
 func (p *BinaryProtocol) WriteInt32(value int32) error
@@ -554,7 +556,7 @@ func (p *BinaryProtocol) WriteInt32(value int32) error
 WriteInt32
 
 <a name="BinaryProtocol.WriteInt64"></a>
-### func \(\*BinaryProtocol\) [WriteInt64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L264>)
+### func (*BinaryProtocol) [WriteInt64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L264>)
 
 ```go
 func (p *BinaryProtocol) WriteInt64(value int64) error
@@ -563,45 +565,45 @@ func (p *BinaryProtocol) WriteInt64(value int64) error
 WriteInt64
 
 <a name="BinaryProtocol.WriteList"></a>
-### func \(\*BinaryProtocol\) [WriteList](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L348>)
+### func (*BinaryProtocol) [WriteList](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L348>)
 
 ```go
-func (p *BinaryProtocol) WriteList(desc *proto.FieldDescriptor, val interface{}) error
+func (p *BinaryProtocol) WriteList(desc *proto.FieldDescriptor, val interface{}, cast bool, disallowUnknown bool, useFieldName bool) error
 ```
 
-\* WriteList
+* WriteList
 
-- packed format：\[tag\]\[length\]\[value value value value....\]
-- unpacked format：\[tag\]\[\(length\)\]\[value\]\[tag\]\[\(length\)\]\[value\]\[tag\]\[\(length\)\]\[value\]....
-- accpet val type: \[\]interface\{\}
+- packed format：[tag][length][value value value value....]
+- unpacked format：[tag][(length)][value][tag][(length)][value][tag][(length)][value]....
+- accpet val type: []interface{}
 
 <a name="BinaryProtocol.WriteMap"></a>
-### func \(\*BinaryProtocol\) [WriteMap](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L389>)
+### func (*BinaryProtocol) [WriteMap](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L389>)
 
 ```go
-func (p *BinaryProtocol) WriteMap(desc *proto.FieldDescriptor, val interface{}) error
+func (p *BinaryProtocol) WriteMap(desc *proto.FieldDescriptor, val interface{}, cast bool, disallowUnknown bool, useFieldName bool) error
 ```
 
-\* WriteMap
+* WriteMap
 
-- Map bytes format: \[Pairtag\]\[Pairlength\]\[keyTag\(L\)V\]\[valueTag\(L\)V\] \[Pairtag\]\[Pairlength\]\[T\(L\)V\]\[T\(L\)V\]...
-- Pairtag = MapFieldnumber \<\< 3 | wiretype, wiertype = proto.BytesType
-- accpet val type: map\[string\]interface\{\} or map\[int\]interface\{\} or map\[interface\{\}\]interface\{\}
+- Map bytes format: [Pairtag][Pairlength][keyTag(L)V][valueTag(L)V] [Pairtag][Pairlength][T(L)V][T(L)V]...
+- Pairtag = MapFieldnumber << 3 | wiretype, wiertype = proto.BytesType
+- accpet val type: map[string]interface{} or map[int]interface{} or map[interface{}]interface{}
 
 <a name="BinaryProtocol.WriteMessageFields"></a>
-### func \(\*BinaryProtocol\) [WriteMessageFields](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L452>)
+### func (*BinaryProtocol) [WriteMessageFields](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L452>)
 
 ```go
 func (p *BinaryProtocol) WriteMessageFields(desc *proto.FieldDescriptor, val interface{}, cast bool, disallowUnknown bool, useFieldName bool) error
 ```
 
-\* Write Message
+* Write Message
 
-- accpet val type: map\[string\]interface\{\} or map\[proto.FieldNumber\]interface\{\}
-- message fields format: \[fieldTag\(L\)V\]\[fieldTag\(L\)V\]...
+- accpet val type: map[string]interface{} or map[proto.FieldNumber]interface{}
+- message fields format: [fieldTag(L)V][fieldTag(L)V]...
 
 <a name="BinaryProtocol.WriteSfixed32"></a>
-### func \(\*BinaryProtocol\) [WriteSfixed32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L254>)
+### func (*BinaryProtocol) [WriteSfixed32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L254>)
 
 ```go
 func (p *BinaryProtocol) WriteSfixed32(value int32) error
@@ -610,7 +612,7 @@ func (p *BinaryProtocol) WriteSfixed32(value int32) error
 WriteSfixed32
 
 <a name="BinaryProtocol.WriteSfixed64"></a>
-### func \(\*BinaryProtocol\) [WriteSfixed64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L292>)
+### func (*BinaryProtocol) [WriteSfixed64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L292>)
 
 ```go
 func (p *BinaryProtocol) WriteSfixed64(value int64) error
@@ -619,7 +621,7 @@ func (p *BinaryProtocol) WriteSfixed64(value int64) error
 WriteSfixed64
 
 <a name="BinaryProtocol.WriteSint32"></a>
-### func \(\*BinaryProtocol\) [WriteSint32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L232>)
+### func (*BinaryProtocol) [WriteSint32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L232>)
 
 ```go
 func (p *BinaryProtocol) WriteSint32(value int32) error
@@ -628,7 +630,7 @@ func (p *BinaryProtocol) WriteSint32(value int32) error
 WriteSint32
 
 <a name="BinaryProtocol.WriteSint64"></a>
-### func \(\*BinaryProtocol\) [WriteSint64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L270>)
+### func (*BinaryProtocol) [WriteSint64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L270>)
 
 ```go
 func (p *BinaryProtocol) WriteSint64(value int64) error
@@ -637,7 +639,7 @@ func (p *BinaryProtocol) WriteSint64(value int64) error
 WriteSint64
 
 <a name="BinaryProtocol.WriteString"></a>
-### func \(\*BinaryProtocol\) [WriteString](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L322>)
+### func (*BinaryProtocol) [WriteString](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L322>)
 
 ```go
 func (p *BinaryProtocol) WriteString(value string) error
@@ -646,7 +648,7 @@ func (p *BinaryProtocol) WriteString(value string) error
 WriteString
 
 <a name="BinaryProtocol.WriteUint32"></a>
-### func \(\*BinaryProtocol\) [WriteUint32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L238>)
+### func (*BinaryProtocol) [WriteUint32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L238>)
 
 ```go
 func (p *BinaryProtocol) WriteUint32(value uint32) error
@@ -655,7 +657,7 @@ func (p *BinaryProtocol) WriteUint32(value uint32) error
 WriteUint32
 
 <a name="BinaryProtocol.WriteUint64"></a>
-### func \(\*BinaryProtocol\) [WriteUint64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L276>)
+### func (*BinaryProtocol) [WriteUint64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L276>)
 
 ```go
 func (p *BinaryProtocol) WriteUint64(value uint64) error

@@ -345,7 +345,7 @@ func (p *BinaryProtocol) WriteEnum(value proto.EnumNumber) error {
  * unpacked format：[tag][(length)][value][tag][(length)][value][tag][(length)][value]....
  * accpet val type: []interface{}
  */
-func (p *BinaryProtocol) WriteList(desc *proto.FieldDescriptor, val interface{}) error {
+func (p *BinaryProtocol) WriteList(desc *proto.FieldDescriptor, val interface{}, cast bool, disallowUnknown bool, useFieldName bool) error {
 	vs, ok := val.([]interface{})
 	if !ok {
 		return errDismatchPrimitive
@@ -357,7 +357,7 @@ func (p *BinaryProtocol) WriteList(desc *proto.FieldDescriptor, val interface{})
 		var pos int
 		p.Buf, pos = AppendSpeculativeLength(p.Buf)
 		for _, v := range vs {
-			if err := p.WriteBaseTypeWithDesc(desc, v, true, false, true); err != nil {
+			if err := p.WriteBaseTypeWithDesc(desc, v, cast, disallowUnknown, useFieldName); err != nil {
 				return err
 			}
 		}
@@ -373,7 +373,7 @@ func (p *BinaryProtocol) WriteList(desc *proto.FieldDescriptor, val interface{})
 			return err
 		}
 
-		if err := p.WriteBaseTypeWithDesc(desc, v, true, false, false); err != nil {
+		if err := p.WriteBaseTypeWithDesc(desc, v, cast, disallowUnknown, useFieldName); err != nil {
 			return err
 		}
 	}
@@ -386,7 +386,7 @@ func (p *BinaryProtocol) WriteList(desc *proto.FieldDescriptor, val interface{})
  * Pairtag = MapFieldnumber << 3 | wiretype, wiertype = proto.BytesType
  * accpet val type: map[string]interface{} or map[int]interface{} or map[interface{}]interface{}
  */
-func (p *BinaryProtocol) WriteMap(desc *proto.FieldDescriptor, val interface{}) error {
+func (p *BinaryProtocol) WriteMap(desc *proto.FieldDescriptor, val interface{}, cast bool, disallowUnknown bool, useFieldName bool) error {
 	fd := *desc
 	MapKey := fd.MapKey()
 	MapValue := fd.MapValue()
@@ -413,7 +413,7 @@ func (p *BinaryProtocol) WriteMap(desc *proto.FieldDescriptor, val interface{}) 
 			p.AppendTag(MapKey.Number(), proto.Kind2Wire[MapKey.Kind()])
 			p.WriteString(k)
 			p.AppendTag(MapValue.Number(), proto.Kind2Wire[MapValue.Kind()])
-			p.WriteBaseTypeWithDesc(&MapValue, v, true, false, false)
+			p.WriteBaseTypeWithDesc(&MapValue, v, cast, disallowUnknown, useFieldName)
 			p.Buf = FinishSpeculativeLength(p.Buf, pos)
 		}
 	} else if vs2 != nil {
@@ -425,9 +425,9 @@ func (p *BinaryProtocol) WriteMap(desc *proto.FieldDescriptor, val interface{}) 
 			// notice: may have problem, when k is sfixed64/fixed64 or sfixed32/fixed32 there is no need to use varint
 			// we had better add more code to judge the type of k if write fast
 			// p.WriteInt64(int64(k)) 
-			p.WriteBaseTypeWithDesc(&MapKey, k, true, false, false) // the gerneral way
+			p.WriteBaseTypeWithDesc(&MapKey, k, cast, disallowUnknown, useFieldName) // the gerneral way
 			p.AppendTag(MapValue.Number(), proto.Kind2Wire[MapValue.Kind()])
-			p.WriteBaseTypeWithDesc(&MapValue, v, true, false, false)
+			p.WriteBaseTypeWithDesc(&MapValue, v, cast, disallowUnknown, useFieldName)
 			p.Buf = FinishSpeculativeLength(p.Buf, pos)
 		}
 	} else {
@@ -435,8 +435,8 @@ func (p *BinaryProtocol) WriteMap(desc *proto.FieldDescriptor, val interface{}) 
 			p.AppendTag(fd.Number(), proto.BytesType)
 			var pos int
 			p.Buf, pos = AppendSpeculativeLength(p.Buf)
-			p.WriteAnyWithDesc(&MapKey, k, true, false, true)
-			p.WriteAnyWithDesc(&MapValue, v, true, false, true)
+			p.WriteAnyWithDesc(&MapKey, k, cast, disallowUnknown, useFieldName)
+			p.WriteAnyWithDesc(&MapValue, v, cast, disallowUnknown, useFieldName)
 			p.Buf = FinishSpeculativeLength(p.Buf, pos)
 		}
 	}
@@ -732,9 +732,9 @@ func (p *BinaryProtocol) WriteAnyWithDesc(desc *proto.FieldDescriptor, val inter
 	fd := *desc
 	switch {
 	case fd.IsList():
-		return p.WriteList(desc, val)
+		return p.WriteList(desc, val, cast, disallowUnknown, useFieldName)
 	case fd.IsMap():
-		return p.WriteMap(desc, val)
+		return p.WriteMap(desc, val, cast, disallowUnknown, useFieldName)
 	default:
 		// write field tag
 		if e := p.AppendTag(proto.Number(fd.Number()), proto.Kind2Wire[fd.Kind()]); e != nil {
@@ -1164,7 +1164,7 @@ func (p *BinaryProtocol) ReadBaseTypeWithDesc(desc *proto.FieldDescriptor, copyS
 		v, e := p.ReadDouble()
 		return v, e
 	case protoreflect.StringKind:
-		v, e := p.ReadString(false)
+		v, e := p.ReadString(copyString)
 		return v, e
 	case protoreflect.BytesKind:
 		v, e := p.ReadBytes()
