@@ -241,39 +241,7 @@ func TestMarshalTo(t *testing.T) {
 	}
 
 	t.Run("ById", func(t *testing.T) {
-		t.Run("WriteDefault", func(t *testing.T) {
-			opts := &Options{WriteDefault: true}
-			buf, err := v.MarshalTo(partial, opts)
-			require.Nil(t, err)
-			ep := example2.ExampleReqPartial{}
-
-			bufLen := len(buf)
-			l := 0
-			for l < bufLen {
-				id, wtyp, tagLen := goprotowire.ConsumeTag(buf)
-				if tagLen < 0 {
-					t.Fatal("test failed")
-				}
-				l += tagLen
-				buf = buf[tagLen:]
-				offset, err := ep.FastRead(buf, int8(wtyp), int32(id))
-				require.Nil(t, err)
-				buf = buf[offset:]
-				l += offset
-			}
-			if len(buf) != 0 {
-				t.Fatal("test failed")
-			}
-
-			act := toInterface(ep)
-			exp := toInterface(exp)
-			require.False(t, DeepEqual(act, exp))
-			handlePartialMapStringString2(act.(map[int]interface{})[3].(map[int]interface{}))
-			require.True(t, DeepEqual(act, exp))
-			// TODO
-			// require.NotNil(t, ep.InnerBase2.MapStringString2)
-		})
-		t.Run("NotWriteDefault", func(t *testing.T) {
+		t.Run("TestMapStringString", func(t *testing.T) {
 			opts := &Options{}
 			buf, err := v.MarshalTo(partial, opts)
 			require.Nil(t, err)

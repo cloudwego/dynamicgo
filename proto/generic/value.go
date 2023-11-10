@@ -90,7 +90,7 @@ func (self Value) Fork() Value {
 	return ret
 }
 
-// TODO: need change
+
 func (self Value) sliceWithDesc(s int, e int, desc *proto.FieldDescriptor) Value {
 	t := proto.FromProtoKindToType((*desc).Kind(), (*desc).IsList(), (*desc).IsMap())
 	ret := Value{
@@ -112,6 +112,8 @@ func (self Value) sliceWithDesc(s int, e int, desc *proto.FieldDescriptor) Value
 	return ret
 }
 
+// searchFieldId in MESSAGE Node
+// if id is found, return the field tag position, otherwise return the end of p.Buf
 func searchFieldId(p *binary.BinaryProtocol, id proto.FieldNumber, messageLen int) (int, error) {
 	start := p.Read
 	for p.Read < start+messageLen {
@@ -132,6 +134,9 @@ func searchFieldId(p *binary.BinaryProtocol, id proto.FieldNumber, messageLen in
 	return p.Read, errNotFound
 }
 
+// searchIndex in LIST Node
+// packed: if idx is found, return the element[V] value start position, otherwise return the end of p.Buf
+// unpacked: if idx is found, return the element[TLV] tag position, otherwise return the end of p.Buf
 func searchIndex(p *binary.BinaryProtocol, idx int, elementWireType proto.WireType, isPacked bool, fieldNumber proto.Number) (int, error) {
 	// packed list
 	cnt := 0
@@ -184,10 +189,11 @@ func searchIndex(p *binary.BinaryProtocol, idx int, elementWireType proto.WireTy
 	return result, nil
 }
 
+// searchIntKey in MAP Node
+// if key is found, return the value tag position, otherwise return the end of p.Buf
 func searchIntKey(p *binary.BinaryProtocol, key int, keyType proto.Type, mapFieldNumber proto.FieldNumber) (int, error) {
 	exist := false
 	start := p.Read
-	// normal Type : [tag][(length)][value][tag][(length)][value][tag][(length)][value]....
 	for p.Read < len(p.Buf) {
 		if _, err := p.ReadLength(); err != nil {
 			return 0, wrapError(meta.ErrRead, "searchIntKey: read pair length failed", nil)
@@ -204,7 +210,7 @@ func searchIntKey(p *binary.BinaryProtocol, key int, keyType proto.Type, mapFiel
 
 		if k == key {
 			exist = true
-			start = p.Read // then p.Read will point to value tag
+			start = p.Read // p.Read will point to value tag
 			break
 		}
 
@@ -238,10 +244,12 @@ func searchIntKey(p *binary.BinaryProtocol, key int, keyType proto.Type, mapFiel
 	return start, nil
 }
 
+// searchStrKey in MAP Node
+// if key is found, return the value tag position, otherwise return the end of p.Buf
 func searchStrKey(p *binary.BinaryProtocol, key string, keyType proto.Type, mapFieldNumber proto.FieldNumber) (int, error) {
 	exist := false
 	start := p.Read
-	// normal Type : [tag][(length)][value][tag][(length)][value][tag][(length)][value]....
+
 	for p.Read < len(p.Buf) {
 		if _, err := p.ReadLength(); err != nil {
 			return 0, wrapError(meta.ErrRead, "searchStrKey: read pair length failed", nil)
@@ -258,7 +266,7 @@ func searchStrKey(p *binary.BinaryProtocol, key string, keyType proto.Type, mapF
 
 		if k == key {
 			exist = true
-			start = p.Read // then p.Read will point to value tag
+			start = p.Read // p.Read will point to value tag
 			break
 		}
 
@@ -415,7 +423,7 @@ func (self Value) getByPath(pathes ...Path) (Value, []int) {
 		default:
 			return errValue(meta.ErrUnsupportedType, fmt.Sprintf("invalid %dth path: %#v", i, p), nil), address
 		}
-
+		// after search function, p.Read will always point to the tag position except when packed list element
 		address[i] = start
 
 		if err != nil {
@@ -426,7 +434,7 @@ func (self Value) getByPath(pathes ...Path) (Value, []int) {
 			en := err.(Node)
 			return errValue(en.ErrCode().Behavior(), "invalid value node.", err), address
 		}
-
+		// if not the last one, it must be a complex node, so need to skip tag
 		if i != len(pathes)-1 {
 			if _, _, _, err := p.ConsumeTag(); err != nil {
 				return errValue(meta.ErrRead, "invalid field tag failed.", err), address
@@ -435,6 +443,7 @@ func (self Value) getByPath(pathes ...Path) (Value, []int) {
 
 	}
 
+	// check the result node type to get the right slice bytes
 	switch tt {
 	case proto.MAP:
 		kt = proto.FromProtoKindToType((*desc).MapKey().Kind(), false, false)
@@ -497,6 +506,7 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 			return false, v
 		}
 
+		// find target node descriptor
 		targetPath := path[l-1]
 		desc, err := GetDescByPath(self.RootDesc, path[:l-1]...)
 		var fd *proto.FieldDescriptor
@@ -507,6 +517,7 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 			fd = &f
 		}
 
+		// exchange PathFieldName to create PathFieldId
 		if targetPath.t == PathFieldName {
 			if d, ok := (*desc).(proto.MessageDescriptor); ok {
 				f := d.Fields().ByName(proto.FieldName(targetPath.str()))
@@ -518,7 +529,8 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 				fd = &f
 			}
 		}
-
+		
+		// set sub node bytes by path and descriptor to check whether the node need to append tag
 		if err := v.setNotFound(targetPath, &sub.Node, fd); err != nil {
 			return false, err
 		}
@@ -526,19 +538,21 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 		exist = true
 	}
 
-	originLen := len(self.raw())
-	err = self.replace(v.Node, sub.Node)
-	isPacked := path[l-1].t == PathIndex && sub.Node.t.IsInt()
+	originLen := len(self.raw()) // root buf length
+	err = self.replace(v.Node, sub.Node) // replace ErrorNode bytes by sub Node bytes
+	isPacked := path[l-1].t == PathIndex && sub.Node.t.NeedVarint()
 	self.UpdateByteLen(originLen, address, isPacked, path...)
 	return
 }
 
+// update parent node bytes length
 func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, path ...Path) {
 	afterLen := self.l
 	diffLen := afterLen - originLen
 	previousType := proto.UNKNOWN
 
 	for i := len(address) - 1; i >= 0; i-- {
+		// notice: when i == len(address) - 1, it do not change bytes length because it has been changed in replace function, just change previousType
 		pathType := path[i].t
 		addressPtr := address[i]
 		if previousType == proto.MESSAGE || (previousType == proto.LIST && isPacked) {
@@ -600,6 +614,60 @@ func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, pa
 	}
 }
 
+// UnsetByPath searches longitudinally and unsets a sub value at the given path from the value.
+func (self *Value) UnsetByPath(path ...Path) error {
+	l := len(path)
+	if l == 0 {
+		*self = Value{}
+		return nil
+	}
+	if err := self.Check(); err != nil {
+		return err
+	}
+
+	// search target node by path
+	var parentValue, address = self.getByPath(path[:l-1]...)
+	if parentValue.IsError() {
+		if parentValue.IsErrNotFound() {
+			print(address)
+			return nil
+		}
+		return parentValue
+	}
+
+	isPacked := false
+	p := path[l-1]
+	var desc *proto.Descriptor
+	var err error
+	desc, err = GetDescByPath(self.RootDesc, path...)
+	if err != nil {
+		return err
+	}
+
+	if p.t == PathFieldName {
+		if d, ok := (*desc).(proto.FieldDescriptor); ok {
+			p = NewPathFieldId(d.Number())
+		}
+	} else if p.t == PathIndex {
+		if d, ok := (*desc).(proto.FieldDescriptor); ok {
+			isPacked = d.IsPacked()
+		}
+	}
+
+	ret, position := parentValue.findDeleteChild(p)
+	if ret.IsError() {
+		return ret
+	}
+
+	originLen := len(self.raw())
+	if err := self.replace(ret, Node{t: ret.t}); err != nil {
+		return errValue(meta.ErrWrite, "replace node by empty node failed", err)
+	}
+	address = append(address, position) // must add one address align with path length
+	self.UpdateByteLen(originLen, address, isPacked, path...)
+	return nil
+}
+
 func (self *Value) findDeleteChild(path Path) (Node, int) {
 	tt := self.t // in fact, no need to judge which type
 	valueLen := self.l
@@ -637,6 +705,7 @@ func (self *Value) findDeleteChild(path Path) (Node, int) {
 				return errNode(meta.ErrRead, "", err), -1
 			}
 			fieldEnd := it.p.Read
+			// get all items of the same fieldNumber, find the min start and max end, because the fieldNumber may be repeated
 			if id == fieldNumber {
 				exist = true
 				if fieldStart < start {
@@ -668,7 +737,7 @@ func (self *Value) findDeleteChild(path Path) (Node, int) {
 		if size > 0 && idx >= size {
 			return errNotFound, -1
 		}
-		// packed : [tag][l][(l)v][(l)v][(l)v][(l)v].....
+		// packed : [ListTag][ListLen][(l)v][(l)v][(l)v][(l)v].....
 		if (*self.Desc).IsPacked() {
 			if _, _, _, err := it.p.ConsumeTag(); err != nil {
 				return errNode(meta.ErrRead, "", err), -1
@@ -784,60 +853,6 @@ func (self *Value) findDeleteChild(path Path) (Node, int) {
 	}, start
 }
 
-// UnsetByPath searches longitudinally and unsets a sub value at the given path from the value.
-func (self *Value) UnsetByPath(path ...Path) error {
-	l := len(path)
-	if l == 0 {
-		*self = Value{}
-		return nil
-	}
-	if err := self.Check(); err != nil {
-		return err
-	}
-
-	// search target node by path
-	var parentValue, address = self.getByPath(path[:l-1]...)
-	if parentValue.IsError() {
-		if parentValue.IsErrNotFound() {
-			print(address)
-			return nil
-		}
-		return parentValue
-	}
-
-	isPacked := false
-	p := path[l-1]
-	var desc *proto.Descriptor
-	var err error
-	desc, err = GetDescByPath(self.RootDesc, path...)
-	if err != nil {
-		return err
-	}
-
-	if p.t == PathFieldName {
-		if d, ok := (*desc).(proto.FieldDescriptor); ok {
-			p = NewPathFieldId(d.Number())
-		}
-	} else if p.t == PathIndex {
-		if d, ok := (*desc).(proto.FieldDescriptor); ok {
-			isPacked = d.IsPacked()
-		}
-	}
-
-	ret, position := parentValue.findDeleteChild(p)
-	if ret.IsError() {
-		return ret
-	}
-
-	originLen := len(self.raw())
-	if err := self.replace(ret, Node{t: ret.t}); err != nil {
-		return errValue(meta.ErrWrite, "replace node by empty node failed", err)
-	}
-	address = append(address, position) // must add one address align with path length
-	self.UpdateByteLen(originLen, address, isPacked, path...)
-	return nil
-}
-
 // MarshalTo marshals self value into a sub value descripted by the to descriptor, alse called as "Cutting".
 // Usually, the to descriptor is a subset of self descriptor.
 func (self Value) MarshalTo(to *proto.MessageDescriptor, opts *Options) ([]byte, error) {
@@ -862,7 +877,7 @@ func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *
 		fromField := (*from).Fields().ByNumber(fieldNumber)
 
 		if fromField == nil {
-			if opts.DisallowUnknow {
+			if opts.DisallowUnknown {
 				return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", fieldNumber), nil)
 			} else {
 				// if not set, skip to the next field
@@ -889,6 +904,7 @@ func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *
 			return wrapError(meta.ErrDismatchType, "to descriptor dismatches from descriptor", nil)
 		}
 
+		// when FieldDescriptor.Kind() == MessageKind, it contained 3 conditions: message list, message map value, message;
 		if fromType == proto.MessageKind {
 			fromDesc := fromField.Message()
 			toDesc := toField.Message()
@@ -916,6 +932,7 @@ func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *
 	return nil
 }
 
+// GetByInt returns a sub node at the given key from a MAP value.
 func (self Value) GetByStr(key string) (v Value) {
 	n := self.Node.GetByStr(key)
 	vd := (*self.Desc).MapValue()
@@ -925,6 +942,7 @@ func (self Value) GetByStr(key string) (v Value) {
 	return wrapValue(n, &vd)
 }
 
+// GetByInt returns a sub node at the given key from a MAP value.
 func (self Value) GetByInt(key int) (v Value) {
 	n := self.Node.GetByInt(key)
 	vd := (*self.Desc).MapValue()
@@ -944,7 +962,7 @@ func (self Value) Index(i int) (v Value) {
 	return
 }
 
-// FieldByName returns a sub node at the given field name from a STRUCT value.
+// FieldByName returns a sub node at the given field name from a MESSAGE value.
 func (self Value) FieldByName(name string) (v Value) {
 	if err := self.should("FieldByName", proto.MESSAGE); err != "" {
 		return errValue(meta.ErrUnsupportedType, err, nil)
@@ -1005,7 +1023,7 @@ ret:
 	return
 }
 
-// Field returns a sub node at the given field id from a STRUCT value.
+// Field returns a sub node at the given field id from a MESSAGE value.
 func (self Value) Field(id proto.FieldNumber) (v Value) {
 	if err := self.should("Field", proto.MESSAGE); err != "" {
 		return errValue(meta.ErrUnsupportedType, err, nil)
@@ -1273,6 +1291,11 @@ func (self Value) Gets(keys []PathNode, opts *Options) error {
 	return nil
 }
 
+// SetMany: set a list of sub nodes at the given pathes from the value.
+// root *Value: the root Node
+// self *Value: the current Node (maybe root Node)
+// address []int: the address from target Nodes to the root Node
+// path ...Path: the path from root Node to target Nodes
 func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, address []int, path ...Path) (err error) {
 	if len(pathes) == 0 {
 		return nil
@@ -1319,7 +1342,7 @@ func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, addres
 		isPacked = (*self.Desc).IsPacked()
 	}
 
-	// update current Node length
+	// if current is not root node, update current Node length
 	if self.RootDesc == nil {
 		err = self.replaceMany(ps)
 		if self.t == proto.LIST && isPacked {

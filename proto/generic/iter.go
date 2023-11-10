@@ -32,7 +32,7 @@ func (self Node) iterElems() (fi listIterator) {
 		fi.et = proto.Type(self.et)
 		kind := fi.et.TypeToKind()
 		fi.ewt = proto.Kind2Wire[kind]
-		fi.isPacked = self.et.IsInt()
+		fi.isPacked = self.et.NeedVarint()
 	}
 	return
 }
@@ -95,12 +95,12 @@ func (it *structIterator) Next(useNative bool) (id proto.FieldNumber, typ proto.
 
 type listIterator struct {
 	Err  error
-	size int
-	k    int
-	isPacked bool
-	et   proto.Type
-	ewt  proto.WireType
 	p    binary.BinaryProtocol
+	size int // elements count, when lazyload mode, the size is also 0, so we use k to count
+	k    int // count of elements that has been read
+	isPacked bool // list mode
+	et   proto.Type // element type
+	ewt  proto.WireType // element wire type
 }
 
 func (it listIterator) HasNext() bool {
@@ -123,7 +123,7 @@ func (it listIterator) WireType() proto.WireType {
 	return it.ewt
 }
 
-
+// compatible for packed/unpacked list, get element value: (L)V or V without tag
 func (it *listIterator) Next(useNative bool) (start int, end int) {
 	if !it.isPacked {
 		if _, _, _, err := it.p.ConsumeTag(); err != nil {
@@ -145,13 +145,13 @@ func (it *listIterator) Next(useNative bool) (start int, end int) {
 
 type mapIterator struct {
 	Err  error
-	size int
-	i    int
-	kt   proto.Type
-	kwt  proto.WireType
-	vt   proto.Type
-	vwt  proto.WireType
 	p    binary.BinaryProtocol
+	size int // elements count
+	i    int // count of elements that has been read
+	kt   proto.Type // key type
+	kwt  proto.WireType // key wire type
+	vt   proto.Type // value type
+	vwt  proto.WireType // value wire type
 }
 
 
@@ -218,7 +218,7 @@ func (it *mapIterator) NextStr(useNative bool) (keyStart int, keyString string, 
 
 	start = it.p.Read
 	
-	if err = it.p.Skip(it.vwt,useNative); err != nil {
+	if err = it.p.Skip(it.vwt, useNative); err != nil {
 		it.Err = wrapError(meta.ErrRead, "", err)
 		return
 	}
@@ -242,7 +242,7 @@ func (it *mapIterator) NextInt(useNative bool) (keyStart int, keyInt int, start 
 	keyStart = it.p.Read
 	var err error
 	if it.kt.IsInt() {
-		// need read tag?
+		// read key tag
 		_,kwType,_,err := it.p.ConsumeTag()
 		if err != nil {
 			it.Err = wrapError(meta.ErrRead, "", err)
@@ -278,9 +278,8 @@ func (it *mapIterator) NextInt(useNative bool) (keyStart int, keyInt int, start 
 	}
 
 	start = it.p.Read
-	err = it.p.Skip(it.vwt,
-		 useNative)
-	if err != nil {
+	
+	if err = it.p.Skip(it.vwt, useNative); err != nil {
 		it.Err = wrapError(meta.ErrRead, "", err)
 		return
 	}
@@ -288,5 +287,3 @@ func (it *mapIterator) NextInt(useNative bool) (keyStart int, keyInt int, start 
 	it.i++
 	return
 }
-
-// TODO: test forearch and foreachKV

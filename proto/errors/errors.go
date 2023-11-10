@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+// not used this package
 var (
 	prefix = "proto: "
 	Error  = errors.New("protobuf error")

@@ -6,7 +6,6 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/proto/binary"
@@ -17,14 +16,14 @@ import (
 type PathType uint8
 
 const (
-	// PathFieldId represents a field id of STRUCT type
+	// PathFieldId represents a field id of MESSAGE type
 	PathFieldId PathType = 1 + iota
 
-	// PathFieldName represents a field name of STRUCT type
+	// PathFieldName represents a field name of MESSAGE type
 	// NOTICE: it is only supported by Value
 	PathFieldName
 
-	// PathIndex represents a index of LIST\SET type
+	// PathIndex represents a index of LIST type
 	PathIndex
 
 	// Path represents a string key of MAP type
@@ -35,14 +34,14 @@ const (
 
 	// Path represents a raw-bytes key of MAP type
 	// It is usually used for neither-string-nor-integer type key
-	PathBinKey
+	PathBinKey // not supported in protobuf MapKeyDescriptor
 )
 
 // Path represents the relative position of a sub node in a complex parent node
 type Path struct {
 	t PathType // path type
-	v unsafe.Pointer // value ptr
-	l int // field number
+	v unsafe.Pointer
+	l int
 }
 
 // Str returns the string value of a PathFieldName\PathStrKey path
@@ -87,20 +86,6 @@ func (self Path) id() proto.FieldNumber {
 	return proto.FieldNumber(self.l)
 }
 
-// Bin returns the raw bytes value of a PathBinKey path
-func (self Path) Bin() []byte {
-	switch self.t {
-	case PathBinKey:
-		return self.bin()
-	default:
-		return nil
-	}
-}
-
-func (self Path) bin() []byte {
-	return rt.BytesFrom(self.v, self.l, self.l)
-}
-
 // Type returns the type of a Path
 func (self Path) Type() PathType {
 	return self.t
@@ -115,19 +100,17 @@ func (self Path) Value() interface{} {
 		return self.str()
 	case PathIndex, PathIntKey:
 		return self.int()
-	case PathBinKey:
-		return self.bin()
 	default:
 		return nil
 	}
 }
 
-// ToRaw converts underlying value to thrift-encoded bytes
+// ToRaw converts underlying value to protobuf-encoded bytes
 func (self Path) ToRaw(t proto.Type) []byte {
 	switch self.t {
 	case PathFieldId:
 		// tag
-		ret := make([]byte, 0, 8)
+		ret := make([]byte, 0, DefaultTagSliceCap)
 		if t != proto.LIST && t != proto.MAP {
 			kind := t.TypeToKind()
 			tag := uint64(self.l) << 3 | uint64(proto.Kind2Wire[kind])
@@ -136,7 +119,7 @@ func (self Path) ToRaw(t proto.Type) []byte {
 		return ret
 	case PathStrKey:
 		// tag + string key
-		ret := make([]byte, 0, 8)
+		ret := make([]byte, 0, DefaultTagSliceCap)
 		tag := uint64(1) << 3 | uint64(proto.STRING)
 		ret = protowire.BinaryEncoder{}.EncodeUint64(ret, tag)
 		ret = protowire.BinaryEncoder{}.EncodeString(ret, self.str())
@@ -144,7 +127,7 @@ func (self Path) ToRaw(t proto.Type) []byte {
 	case PathIntKey:
 		// tag + int key
 		kind := t.TypeToKind()
-		ret := make([]byte, 0, 8)
+		ret := make([]byte, 0, DefaultTagSliceCap)
 		tag := uint64(1) << 3 | uint64(proto.Kind2Wire[kind])
 		ret = protowire.BinaryEncoder{}.EncodeUint64(ret, tag)
 		switch t {
@@ -211,16 +194,6 @@ func NewPathIntKey(key int) Path {
 		l: key,
 	}
 }
-
-// NewPathBinKey creates a PathBinKey path
-func NewPathBinKey(key []byte) Path {
-	return Path{
-		t: PathBinKey,
-		v: *(*unsafe.Pointer)(unsafe.Pointer(&key)),
-		l: len(key),
-	}
-}
-
 
 // PathNode is a three node of DOM tree
 type PathNode struct {
@@ -303,41 +276,31 @@ func DescriptorToPathNode(desc *proto.FieldDescriptor, root *PathNode, opts *Opt
 }
 
 
-
-
+// scanChildren scans all children of self and store them in self.Next
+// messageLen is only used when self.Node.t == proto.MESSAGE
 func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts *Options, desc *proto.Descriptor, messageLen int) (err error) {
 	next := self.Next[:0] // []PathNode len=0
 	l := len(next)
 	c := cap(next)
-	maxId := StoreChildrenByIdShreshold
+
 	var v *PathNode
 	switch self.Node.t {
 	case proto.MESSAGE:
 		messageDesc := (*desc).(proto.MessageDescriptor)
 		fields := messageDesc.Fields()
 		start := p.Read
+		// range all fields formats: [FieldTag(L)V][FieldTag(L)V][FieldTag(L)V]...
 		for p.Read < start + messageLen{
 			fieldNumber, wireType, tagLen, tagErr := p.ConsumeTag()
 			if tagErr != nil {
 				return wrapError(meta.ErrRead, "PathNode.scanChildren: invalid field tag.", tagErr)
 			}
-			
-			// OPT: store children by id here, thus we can use id as index to access children.
-			if opts.StoreChildrenById {
-				// if id is larger than the threshold, we store children after the threshold.
-				if int(fieldNumber) < StoreChildrenByIdShreshold {
-					l = int(fieldNumber)
-				} else {
-					l = maxId
-					maxId += 1
-				}
-			}
-			
+
 			field := fields.ByNumber(fieldNumber)
 			if field != nil {
-				v, err = self.handleChild(&next, &l, &c, p, recurse, opts, &field, tagLen)
+				v, err = self.handleChild(&next, &l, &c, p, recurse,&field, tagLen, opts)
 			} else {
-				// store unknown field without recurse subnodes
+				// store unknown field without recurse subnodes, containing the whole [TLV] of unknown field
 				v, err = self.handleUnknownChild(&next, &l, &c, p, recurse, opts, fieldNumber,wireType, tagLen)
 			}
 			
@@ -347,13 +310,14 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 			v.Path = NewPathFieldId(fieldNumber)
 		}
 	case proto.LIST:
+		// range all elements
 		FieldDesc := (*desc).(proto.FieldDescriptor)
 		fieldNumber := FieldDesc.Number()
 		start := p.Read
 		// must set list element type first, so that handleChild will can handle the element correctly
 		self.et = proto.FromProtoKindToType(FieldDesc.Kind(),false,false)
 		listIndex := 0
-		// packed
+		// packed formats: [ListFieldTag][ListByteLen][VVVVV]...
 		if FieldDesc.IsPacked() {
 			if _, _, _, tagErr := p.ConsumeTag(); tagErr != nil {
 				return wrapError(meta.ErrRead, "PathNode.scanChildren: invalid list tag", tagErr)
@@ -366,8 +330,8 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 
 			start = p.Read
 			for p.Read < start + listLen {
-				// listLen is not used
-				v, err = self.handleChild(&next, &l, &c, p, recurse, opts, &FieldDesc, listLen)
+				// listLen is not used when node is LIST
+				v, err = self.handleChild(&next, &l, &c, p, recurse, &FieldDesc, listLen, opts)
 				if err != nil {
 					return err
 				}
@@ -375,6 +339,7 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 				listIndex++
 			}
 		} else {
+			// unpacked formats: [FieldTag(L)V][FieldTag(L)V]...
 			for p.Read < len(p.Buf) {
 				itemNumber, _, tagLen, tagErr := p.ConsumeTagWithoutMove()
 				if tagErr != nil {
@@ -385,8 +350,8 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 					break
 				}
 				p.Read += tagLen
-				// tagLen is not used
-				v, err = self.handleChild(&next, &l, &c, p, recurse, opts, &FieldDesc, tagLen)
+				// tagLen is not used when node is MAP
+				v, err = self.handleChild(&next, &l, &c, p, recurse, &FieldDesc, tagLen, opts)
 				if err != nil {
 					return err
 				}
@@ -396,11 +361,12 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 		}
 		self.size = listIndex
 	case proto.MAP:
+		// range all map entries: [PairTag][PairLen][MapKeyT(L)V][MapValueT(L)V], [PairTag][PairLen][MapKeyT(L)V][MapValueT(L)V]...
 		mapDesc := (*desc).(proto.FieldDescriptor)
 		keyDesc := mapDesc.MapKey()
 		valueDesc := mapDesc.MapValue()
 		// set map key type and value type
-		self.kt = proto.FromProtoKindToType(keyDesc.Kind(),keyDesc.IsList(),keyDesc.IsMap())
+		self.kt = proto.FromProtoKindToType(keyDesc.Kind(), false, false) // map key type only support int/string
 		self.et = proto.FromProtoKindToType(valueDesc.Kind(),valueDesc.IsList(),valueDesc.IsMap())
 		for p.Read < len(p.Buf) {
 			pairNumber, _, pairTagLen, pairTagErr := p.ConsumeTagWithoutMove()
@@ -421,13 +387,14 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 				return wrapError(meta.ErrRead, "PathNode.scanChildren: Consume map key tag failed", nil)
 			}
 		
-			var key interface{}
+			var keyString string
+			var keyInt int
 			var keyErr error
 		
 			if self.kt == proto.STRING {
-				key, keyErr = p.ReadString(false)
+				keyString, keyErr = p.ReadString(false)
 			} else if self.kt.IsInt() {
-				key, keyErr = p.ReadInt(self.kt)
+				keyInt, keyErr = p.ReadInt(self.kt)
 			} else {
 				return wrapError(meta.ErrUnsupportedType, "PathNode.scanChildren: Unsupported map key type", nil)
 			}
@@ -442,15 +409,15 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 				return wrapError(meta.ErrRead, "PathNode.scanChildren: Consume map value tag failed", nil)
 			}
 		
-			v, err = self.handleChild(&next, &l, &c, p, recurse, opts, &valueDesc, valueLen)
+			v, err = self.handleChild(&next, &l, &c, p, recurse, &valueDesc, valueLen, opts)
 			if err != nil {
 				return err
 			}
 		
 			if self.kt == proto.STRING {
-				v.Path = NewPathStrKey(key.(string))
+				v.Path = NewPathStrKey(keyString)
 			} else if self.kt.IsInt() {
-				v.Path = NewPathIntKey(key.(int))
+				v.Path = NewPathIntKey(keyInt)
 			} else {
 				return wrapError(meta.ErrUnsupportedType, "PathNode.scanChildren: Unsupported map key type", nil)
 			}
@@ -464,7 +431,7 @@ func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts 
 	return nil
 }
 
-func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *binary.BinaryProtocol, recurse bool, opts *Options, desc *proto.FieldDescriptor, tagL int) (*PathNode, error) {
+func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *binary.BinaryProtocol, recurse bool, desc *proto.FieldDescriptor, tagL int, opts *Options) (*PathNode, error) {
 	var con = *in
 	var l = *lp
 	guardPathNodeSlice(&con, l) // extend cap of con
@@ -485,51 +452,44 @@ func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *binary.Bi
 		tt = self.et
 	}
 
-	if recurse && (tt.IsComplex() && opts.NotScanParentNode) {
-		v.Node = Node{
-			t: tt,
-			l: 0,
-			v: unsafe.Pointer(uintptr(self.Node.v) + uintptr(start)),
-		}
-	} else {
-		skipType := proto.Kind2Wire[kind]
+	skipType := proto.Kind2Wire[kind]
 
-		if tt == proto.LIST || tt == proto.MAP {
-			// when list/map the parent node need to contain the tag
-			start = start - tagL
-			if start < 0 {
-				return nil, wrapError(meta.ErrRead, "invalid start", nil)
-			}
-
-			skipType = proto.BytesType
+	if tt == proto.LIST || tt == proto.MAP {
+		// when list/map the parent node will contain the tag, so the start need to move back tagL
+		start = start - tagL
+		if start < 0 {
+			return nil, wrapError(meta.ErrRead, "invalid start", nil)
 		}
 
-		// notice: when packed LIST, the size is not calculated in order to fast read all elements
-		if e := p.Skip(skipType, opts.UseNativeSkip); e != nil {
-			return nil, wrapError(meta.ErrRead, "skip field failed", e)
-		}
-		
-
-		// unpacked LIST & MAP
-		if (tt == proto.LIST && IsPacked == false) || tt == proto.MAP {
-			fieldNumber := (*desc).Number()
-			// skip remain elements with the same field number
-			for p.Read < len(p.Buf) {
-				number, wt, tagLen, err := p.ConsumeTagWithoutMove()
-				if err != nil {
-					return nil, err
-				}
-				if number != fieldNumber {
-					break
-				}
-				p.Read += tagLen
-				if e := p.Skip(wt, opts.UseNativeSkip); e != nil {
-					return nil, wrapError(meta.ErrRead, "skip field failed", e)
-				}
-			}
-		}
-		v.Node = self.slice(start, p.Read, tt)
+		skipType = proto.BytesType
 	}
+
+	// notice: when parent node is packed LIST, the size is not calculated in order to fast read all elements
+	if e := p.Skip(skipType, opts.UseNativeSkip); e != nil {
+		return nil, wrapError(meta.ErrRead, "skip field failed", e)
+	}
+	
+
+	// unpacked LIST or MAP
+	if (tt == proto.LIST && IsPacked == false) || tt == proto.MAP {
+		fieldNumber := (*desc).Number()
+		// skip remain elements with the same field number
+		for p.Read < len(p.Buf) {
+			number, wt, tagLen, err := p.ConsumeTagWithoutMove()
+			if err != nil {
+				return nil, err
+			}
+			if number != fieldNumber {
+				break
+			}
+			p.Read += tagLen
+			if e := p.Skip(wt, opts.UseNativeSkip); e != nil {
+				return nil, wrapError(meta.ErrRead, "skip field failed", e)
+			}
+		}
+	}
+	v.Node = self.slice(start, p.Read, tt)
+	
 
 	if tt.IsComplex() {
 		if recurse {
@@ -540,19 +500,19 @@ func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *binary.Bi
 			if tt == proto.MESSAGE {
 				parentDesc = (*desc).Message().(proto.Descriptor)
 				var err error
-				messageLen, err = p.ReadLength()
+				messageLen, err = p.ReadLength() // the sub message has message byteLen need to read before next recurse for scanChildren
 				if messageLen<= 0 || err != nil {
 					return nil, wrapError(meta.ErrRead, "read message length failed", err)
 				}
 			}
 
-			if err := v.scanChildren(p, recurse, opts, &parentDesc,messageLen); err != nil {
+			if err := v.scanChildren(p, recurse, opts, &parentDesc, messageLen); err != nil {
 				return nil, err
 			}
 			p.Buf = buf
 			p.Read = start + p.Read
 		} else {
-			// complex when lazy load
+			// set complex Node type when lazy load
 			if tt == proto.LIST {
 				v.et = proto.FromProtoKindToType((*desc).Kind(),false,false)
 			} else if tt == proto.MAP {
@@ -569,6 +529,7 @@ func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *binary.Bi
 	return v, nil
 }
 
+// handleUnknownChild handles unknown field and store the [TLV] of unknown field to the proto.UNKNOWN Node
 func (self *PathNode) handleUnknownChild(in *[]PathNode, lp *int, cp *int, p *binary.BinaryProtocol, recurse bool, opts *Options, fieldNumber proto.FieldNumber,wireType proto.WireType, tagL int) (*PathNode, error) {
 	var con = *in
 	var l = *lp
@@ -710,6 +671,7 @@ func (self PathNode) marshal(p *binary.BinaryProtocol, rootLayer bool, opts *Opt
 		return self.Node
 	}
 
+	// if node is basic type, Next[] is empty, directly append to buf
 	if len(self.Next) == 0 {
 		p.Buf = append(p.Buf, self.Node.raw()...)
 		return nil
@@ -747,12 +709,11 @@ func (self PathNode) marshal(p *binary.BinaryProtocol, rootLayer bool, opts *Opt
 	case proto.LIST:
 		et := self.et
 		filedNumber := self.Path.Id()
-		IsUnPacked := et == proto.STRING || et.IsComplex()
+		IsPacked := et.NeedVarint()
 		pos := -1
-		// packed just need first list tag and write prefix length
-		if !IsUnPacked {
-			err = p.AppendTag(filedNumber, proto.BytesType)
-			if err != nil {
+		// packed need first list tag and write prefix length
+		if IsPacked {
+			if err = p.AppendTag(filedNumber, proto.BytesType); err != nil {
 				return wrapError(meta.ErrWrite, "PathNode.marshal: append tag failed", err)
 			}
 			p.Buf, pos = binary.AppendSpeculativeLength(p.Buf)
@@ -763,9 +724,8 @@ func (self PathNode) marshal(p *binary.BinaryProtocol, rootLayer bool, opts *Opt
 
 		for _, v := range self.Next {
 			// unpacked need append tag first
-			if IsUnPacked {
-				err = p.AppendTag(filedNumber, proto.Kind2Wire[v.Node.t.TypeToKind()])
-				if err != nil {
+			if !IsPacked {
+				if err = p.AppendTag(filedNumber, proto.Kind2Wire[v.Node.t.TypeToKind()]); err != nil {
 					return wrapError(meta.ErrWrite, "PathNode.marshal: append tag failed", err)
 				}
 			}
@@ -775,8 +735,8 @@ func (self PathNode) marshal(p *binary.BinaryProtocol, rootLayer bool, opts *Opt
 			}
 		}
 
-		// packed mode need update prefix length
-		if !IsUnPacked {
+		// packed mode need update prefix list length
+		if IsPacked {
 			p.Buf = binary.FinishSpeculativeLength(p.Buf, pos)
 		}
 	
@@ -788,8 +748,7 @@ func (self PathNode) marshal(p *binary.BinaryProtocol, rootLayer bool, opts *Opt
 
 		for _, v := range self.Next {
 			// append pair tag and write prefix length
-			err = p.AppendTag(filedNumber, proto.BytesType)
-			if err != nil {
+			if err = p.AppendTag(filedNumber, proto.BytesType); err != nil {
 				return wrapError(meta.ErrWrite, "PathNode.marshal: append tag failed", err)
 			}
 			p.Buf, pos = binary.AppendSpeculativeLength(p.Buf)
@@ -799,22 +758,23 @@ func (self PathNode) marshal(p *binary.BinaryProtocol, rootLayer bool, opts *Opt
 			
 			// write key tag + value
 			if kt == proto.STRING {
-				err = p.AppendTag(1, proto.BytesType)
-				if err != nil {
+				// Mapkey field number is 1
+				if err = p.AppendTag(1, proto.BytesType); err != nil {
 					return wrapError(meta.ErrWrite, "PathNode.marshal: append tag failed", err)
 				}
-				err = p.WriteString(v.Path.Str())
-				if err != nil {
+
+				if err = p.WriteString(v.Path.Str()); err != nil {
 					return wrapError(meta.ErrWrite, "PathNode.marshal: append string failed", err)
 				}
 			} else if kt.IsInt() {
 				wt := proto.Kind2Wire[kt.TypeToKind()]
-				err = p.AppendTag(1, wt)
-				if err != nil {
+				// Mapkey field number is 1
+				if err = p.AppendTag(1, wt); err != nil {
 					return wrapError(meta.ErrWrite, "PathNode.marshal: append tag failed", err)
 				}
+				
 				if wt == proto.VarintType {
-					err = p.WriteI64(int64(v.Path.int()))
+					err = p.WriteInt64(int64(v.Path.int()))
 				} else if wt == proto.Fixed32Type {
 					err = p.WriteSfixed32(int32(v.Path.int()))
 				} else if wt == proto.Fixed64Type {
@@ -829,8 +789,8 @@ func (self PathNode) marshal(p *binary.BinaryProtocol, rootLayer bool, opts *Opt
 
 			// if value is basic type, need append tag first
 			if v.Node.t != proto.LIST && v.Node.t != proto.MAP {
-				err = p.AppendTag(2, proto.Kind2Wire[et.TypeToKind()])
-				if err != nil {
+				// MapValue field number is 2
+				if err = p.AppendTag(2, proto.Kind2Wire[et.TypeToKind()]); err != nil {
 					return wrapError(meta.ErrWrite, "PathNode.marshal: append tag failed", err)
 				}
 			}

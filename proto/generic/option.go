@@ -19,59 +19,47 @@ package generic
 import "unsafe"
 
 const (
-	sizePathNode = unsafe.Sizeof(PathNode{})
+	sizePathNode = unsafe.Sizeof(PathNode{}) // not used
 )
 
 var (
-	// UseNativeSkipForGet indicates to use native.Skip (instead of go.Skip) method to skip thrift value
+	// UseNativeSkipForGet indicates to use native.Skip (instead of go.Skip) method to skip proto value
 	// This only works for single-value searching API like GetByInt()/GetByRaw()/GetByStr()/Field()/Index()/GetByPath() methods.
-	// WARN: this will promote performance when thrift value to be skipped is large, but may decrease preformance when thrift value is small.
 	UseNativeSkipForGet = false
 
 	// DefaultNodeSliceCap is the default capacity of a Node or NodePath slice
 	// Usually, a Node or NodePath slice is used to store intermediate or consequential elements of a generic API like Children()|Interface()|SetMany()
 	DefaultNodeSliceCap = 16
+	DefaultTagSliceCap  = 8
 )
 
 // Opions for generic.Node
 type Options struct {
-	// DisallowUnknow indicates to report error when read unknown fields.
-	DisallowUnknow bool
-
-	// WriteDefault indicates to write value if a DEFAULT requireness field is not set.
-	WriteDefault bool
-
-	// NoCheckRequireNess indicates not to check requiredness when writing.
-	NotCheckRequireNess bool
-
-	// UseNativeSkip indicates to use native.Skip (instead of go.Skip) method to skip thrift value
-	//  WARNING: this will promote performance when thrift value to be skipped is large, but may decrease preformance when thrift value is small.
-	UseNativeSkip bool
+	// DisallowUnknown indicates to report error when read unknown fields.
+	DisallowUnknown bool
 
 	// MapStructById indicates to use FieldId instead of int as map key instead of when call Node.Interface() on STRUCT type.
 	MapStructById bool
-
-	// CastStringAsBinary indicates to cast STRING type to []byte when call Node.Interface()/Map().
-	CastStringAsBinary bool
-
-	// NotScanParentNode indicates to only assign children node when PathNode.Load()/Node.Children.
-	// Thies will promote performance but may be misued when handle PathNode.
-	NotScanParentNode bool
 
 	// ClearDirtyValues indicates one multi-query (includeing
 	// Fields()/GetMany()/Gets()/Indexies()) to clear out all nodes
 	// in passed []PathNode first
 	ClearDirtyValues bool
 
-	// StoreChildrenById indicates to store children node by id when call Node.Children() or PathNode.Load().
-	// When field id exceeds StoreChildrenByIdShreshold, children node will be stored sequentially after the threshold.
-	StoreChildrenById bool
+	// CastStringAsBinary indicates to cast STRING type to []byte when call Node.Interface()/Map().
+	CastStringAsBinary bool
 
-	// StoreChildrenByHash indicates to store children node by str hash (mod parent's size) when call Node.Children() or PathNode.Load().
-	StoreChildrenByHash bool
+	WriteDefault bool // not implemented
 
-	// IterateStructByName indicates `Value.Foreach()` API to pass PathFieldName instead of PathFieldId to handler.
-	IterateStructByName bool
+	UseNativeSkip bool // not implemented
+
+	NotScanParentNode bool // not implemented
+
+	StoreChildrenById bool // not implemented
+
+	StoreChildrenByHash bool // not implemented
+
+	IterateStructByName bool // not implemented
 }
 
 var (

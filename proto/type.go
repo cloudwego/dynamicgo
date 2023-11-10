@@ -36,7 +36,7 @@ func (p WireType) String() string {
 	}
 }
 
-// proto message kind
+// define ProtoKind = protoreflect.Kind (int8)
 type ProtoKind = protoreflect.Kind
 
 const (
@@ -82,7 +82,7 @@ var Kind2Wire = map[ProtoKind]WireType{
 	GroupKind:    StartGroupType,
 }
 
-// Node type byte=uint8 reflect protokind
+// Node type (uint8) mapping ProtoKind the same value, except for UNKNOWN, LIST, MAP, ERROR
 type Type uint8
 
 const (
@@ -127,7 +127,7 @@ func (p Type) TypeToKind() ProtoKind {
 	case MAP:
 		return MessageKind
 	case LIST:
-		panic("LIST type has no kind")
+		panic("LIST type has no kind, only list element type has kind")
 	}
 	return ProtoKind(p)
 }
@@ -141,6 +141,11 @@ func FromProtoKindToType(kind ProtoKind, isList bool, isMap bool) Type {
 		t = MAP
 	}
 	return t
+}
+
+// check if the type need Varint encoding, also used in check list isPacked 
+func (p Type) NeedVarint() bool {
+	return p == BOOL || p == ENUM || p == INT32 || p == SINT32 || p == UINT32 || p == INT64 || p == SINT64 || p == UINT64
 }
 
 // IsInt containing isUint
@@ -157,6 +162,55 @@ func (p Type) IsComplex() bool {
 	return p == MESSAGE || p == MAP || p == LIST
 }
 
+// String for format and print
+func (p Type) String() string {
+	switch p {
+	case UNKNOWN:
+		return "UNKNOWN"
+	case BOOL:
+		return "BOOL"
+	case ENUM:
+		return "ENUM"
+	case BYTE:
+		return "BYTE"
+	case INT32:
+		return "INT32"
+	case SINT32:
+		return "SINT32"
+	case UINT32:
+		return "UINT32"
+	case SFIX32:
+		return "SFIX32"
+	case FIX32:
+		return "FIX32"
+	case INT64:
+		return "INT64"
+	case SINT64:
+		return "SINT64"
+	case UINT64:
+		return "UINT64"
+	case SFIX64:
+		return "SFIX64"
+	case FIX64:
+		return "FIX64"
+	case FLOAT:
+		return "FLOAT"
+	case DOUBLE:
+		return "DOUBLE"
+	case STRING:
+		return "STRING"
+	case MESSAGE:
+		return "MESSAGE"
+	case LIST:
+		return "LIST"
+	case MAP:
+		return "MAP"
+	default:
+		return "ERROR"
+	}
+}
+
+// define Number = protowire.Number (int32)
 type Number = protowire.Number
 
 type FieldNumber = Number
@@ -171,4 +225,5 @@ const (
 	DefaultRecursionLimit        = 10000
 )
 
+// define FieldName = protoreflect.Name (string) used in Descriptor.Name()
 type FieldName = protoreflect.Name

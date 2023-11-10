@@ -36,16 +36,16 @@ func (self Node) len() (int, error) {
 	}
 }
 
-func (self Node) raw() []byte {
-	return rt.BytesFrom(self.v, self.l, self.l)
-}
-
 // Return its underlying raw data
 func (self Node) Raw() []byte {
 	if self.Error() != "" {
 		return nil
 	}
 	return self.raw()
+}
+
+func (self Node) raw() []byte {
+	return rt.BytesFrom(self.v, self.l, self.l)
 }
 
 // Bool returns the bool value contained by a BOOL node
@@ -172,7 +172,7 @@ func (self Node) Binary() ([]byte, error) {
 	return self.binary()
 }
 
-// BYTE?
+
 func (self Node) binary() ([]byte, error) {
 	switch self.t {
 	case proto.BYTE:
@@ -183,7 +183,7 @@ func (self Node) binary() ([]byte, error) {
 	}
 }
 
-// List returns interface elements contained by a LIST/SET node
+// List returns interface elements contained by a LIST node
 func (self Value) List(opts *Options) ([]interface{}, error) {
 	if self.IsError() {
 		return nil, self
@@ -230,34 +230,7 @@ func (self Value) List(opts *Options) ([]interface{}, error) {
 	return ret, nil
 }
 
-func castInterfaceToInt(key interface{}) (int, bool) {
-	switch key.(type) {
-	case int:
-		return key.(int), true
-	case int8:
-		return int(key.(int8)), true
-	case int16:
-		return int(key.(int16)), true
-	case int32:
-		return int(key.(int32)), true
-	case int64:
-		return int(key.(int64)), true
-	case uint:
-		return int(key.(uint)), true
-	case uint8:
-		return int(key.(uint8)), true
-	case uint16:
-		return int(key.(uint16)), true
-	case uint32:
-		return int(key.(uint32)), true
-	case uint64:
-		return int(key.(uint64)), true
-	default:
-		return 0, false
-	}
-}
-
-// StrMap returns the string keys and interface elements contained by a MAP<STRING,XX> node
+// StrMap returns the integer keys and interface elements contained by a MAP<Int/Uint,XX> node
 func (self Value) IntMap(opts *Options) (map[int]interface{}, error) {
 	if self.IsError() {
 		return nil, self
@@ -289,7 +262,7 @@ func (self Value) IntMap(opts *Options) (map[int]interface{}, error) {
 	return ret, it.Err
 }
 
-// StrMap returns the integer keys and interface elements contained by a MAP<I8|I16|I32|I64,XX> node
+// StrMap returns the string keys and interface elements contained by a MAP<STRING,XX> node
 func (self Value) StrMap(opts *Options) (map[string]interface{}, error) {
 	if self.IsError() {
 		return nil, self
@@ -322,7 +295,7 @@ func (self Value) StrMap(opts *Options) (map[string]interface{}, error) {
 }
 
 // Interface returns the go interface value contained by a node.
-// If the node is a STRUCT, it will return map[interface{}]interface{}
+// If the node is a MESSAGE, it will return map[proto.FieldNumber]interface{} or map[int]interface{}.
 // If it is a map, it will return map[int|string]interface{}, which depends on the key type
 func (self Value) Interface(opts *Options) (interface{}, error) {
 	switch self.t {

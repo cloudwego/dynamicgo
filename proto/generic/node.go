@@ -29,12 +29,12 @@ func (self Node) Fork() Node {
 	return ret
 }
 
-// Type returns the thrift type of the node
+// Type returns the proto type of the node
 func (self Node) Type() proto.Type {
 	return self.t
 }
 
-// ElemType returns the thrift type of a LIST/SET/MAP node's element
+// ElemType returns the thrift type of a LIST/MAP node's element
 func (self Node) ElemType() proto.Type {
 	return self.et
 }
@@ -82,6 +82,108 @@ func (self *Node) SetElemType(et proto.Type) {
 
 func (self *Node) SetKeyType(kt proto.Type) {
 	self.kt = kt
+}
+
+func (self *Node) replace(o Node, n Node) error {
+	// mush ensure target value is same type as source value
+	if o.t != n.t {
+		return wrapError(meta.ErrDismatchType, fmt.Sprintf("type mismatch: %s != %s", o.t, n.t), nil)
+	}
+	// export target node to bytes
+	pat := n.raw()
+
+	// divide self's buffer into three slices:
+	// 1. self's slice before the target node
+	// 2. target node's slice
+	// 3. self's slice after the target node
+	s1 := rt.AddPtr(o.v, uintptr(o.l))
+	l0 := int(uintptr(o.v) - uintptr(self.v))
+	l1 := len(pat)
+	l2 := int(uintptr(self.v) + uintptr(self.l) - uintptr(s1))
+
+	// copy three slices into new buffer
+	buf := make([]byte, l0+l1+l2)
+	copy(buf[:l0], rt.BytesFrom(self.v, l0, l0))
+	copy(buf[l0:l0+l1], pat)
+	copy(buf[l0+l1:l0+l1+l2], rt.BytesFrom(s1, l2, l2))
+
+	// replace self's entire buffer
+	self.v = rt.GetBytePtr(buf)
+	self.l = int(len(buf))
+	return nil
+}
+
+// have problem in deal with byteLength
+func (o *Node) setNotFound(path Path, n *Node, desc *proto.FieldDescriptor) error {
+	switch o.kt {
+	case proto.MESSAGE:
+		tag := path.ToRaw(n.t)
+		src := n.raw()
+		buf := make([]byte, 0, len(tag)+len(src))
+		buf = append(buf, tag...)
+		buf = append(buf, src...)
+		n.l = len(buf)
+		n.v = rt.GetBytePtr(buf)
+	case proto.LIST:
+		// unpacked need write tag, packed needn't
+		if (*desc).IsPacked() == false {
+			fdNum := (*desc).Number()
+			tag := protowire.AppendVarint(nil, uint64(fdNum)<<3|uint64(proto.BytesType))
+			src := n.raw()
+			buf := make([]byte, 0, len(tag)+len(src))
+			buf = append(buf, tag...)
+			buf = append(buf, src...)
+			n.l = len(buf)
+			n.v = rt.GetBytePtr(buf)
+		}
+	case proto.MAP:
+		// pair tag
+		fdNum := (*desc).Number()
+		pairTag := protowire.AppendVarint(nil, uint64(fdNum)<<3|uint64(proto.BytesType))
+		buf := path.ToRaw(n.t) // keytag + key
+		valueKind := (*desc).MapValue().Kind()
+		valueTag := uint64(1)<<3 | uint64(proto.Kind2Wire[valueKind])
+		buf = protowire.BinaryEncoder{}.EncodeUint64(buf, valueTag)                  // + value tag
+		src := n.raw()                                                               // + value
+		buf = append(buf, src...)                                                    // key + value
+		pairbuf := protowire.BinaryEncoder{}.EncodeUint64(pairTag, uint64(len(buf))) // + pairlen
+		pairbuf = append(pairbuf, buf...)                                            // pair tag + pairlen + key + value
+		n.l = len(pairbuf)
+		n.v = rt.GetBytePtr(pairbuf)
+	default:
+		return wrapError(meta.ErrDismatchType, "simple type node shouldn't have child", nil)
+	}
+	o.t = n.t
+	o.l = 0
+	return nil
+}
+
+
+func (self *Node) replaceMany(ps *pnSlice) error {
+	var buf []byte
+	// Sort pathes by original value address
+	ps.Sort()
+
+	// sequentially set new values into buffer according to sorted pathes
+	buf = make([]byte, 0, self.l)
+	last := self.v
+	for i := 0; i < len(ps.a); i++ {
+		lastLen := rt.PtrOffset(ps.a[i].Node.v, last)
+		// copy last slice from original buffer
+		buf = append(buf, rt.BytesFrom(last, lastLen, lastLen)...)
+		// copy new value's buffer into buffer
+		buf = append(buf, ps.b[i].Node.raw()...)
+		// update last index
+		last = ps.a[i].offset()
+	}
+	if tail := self.offset(); uintptr(last) < uintptr(tail) {
+		// copy last slice from original buffer
+		buf = append(buf, rt.BytesFrom(last, rt.PtrOffset(tail, last), rt.PtrOffset(tail, last))...)
+	}
+
+	self.v = rt.GetBytePtr(buf)
+	self.l = int(len(buf))
+	return nil
 }
 
 // NewNode method: creates a new node from a byte slice
@@ -196,7 +298,7 @@ func NewNodeBytes(val []byte) Node {
 	return NewNode(proto.BYTE, buf)
 }
 
-// NewComplexNode can deal with all the types
+// NewComplexNode can deal with all the types, only if the src is a valid byte slice
 func NewComplexNode(t proto.Type, et proto.Type, kt proto.Type, src []byte) (ret Node) {
 	if !t.Valid() {
 		panic("invalid node type")
@@ -227,6 +329,7 @@ func NewComplexNode(t proto.Type, et proto.Type, kt proto.Type, src []byte) (ret
 	return
 }
 
+// returns all the children of a node, when recurse is false, it switch to lazyload mode, only direct children are returned
 func (self Node) Children(out *[]PathNode, recurse bool, opts *Options, desc *proto.MessageDescriptor) (err error) {
 	if self.Error() != "" {
 		return self
@@ -252,109 +355,7 @@ func (self Node) Children(out *[]PathNode, recurse bool, opts *Options, desc *pr
 	return err
 }
 
-// may have error in deal with byteLength
-func (self *Node) replace(o Node, n Node) error {
-	// mush ensure target value is same type as source value
-	if o.t != n.t {
-		return wrapError(meta.ErrDismatchType, fmt.Sprintf("type mismatch: %s != %s", o.t, n.t), nil)
-	}
-	// export target node to bytes
-	pat := n.raw()
-
-	// divide self's buffer into three slices:
-	// 1. self's slice before the target node
-	// 2. target node's slice
-	// 3. self's slice after the target node
-	s1 := rt.AddPtr(o.v, uintptr(o.l))
-	l0 := int(uintptr(o.v) - uintptr(self.v))
-	l1 := len(pat)
-	l2 := int(uintptr(self.v) + uintptr(self.l) - uintptr(s1))
-
-	// copy three slices into new buffer
-	buf := make([]byte, l0+l1+l2)
-	copy(buf[:l0], rt.BytesFrom(self.v, l0, l0))
-	copy(buf[l0:l0+l1], pat)
-	copy(buf[l0+l1:l0+l1+l2], rt.BytesFrom(s1, l2, l2))
-
-	// replace self's entire buffer
-	self.v = rt.GetBytePtr(buf)
-	self.l = int(len(buf))
-	return nil
-}
-
-// have problem in deal with byteLength
-func (o *Node) setNotFound(path Path, n *Node, desc *proto.FieldDescriptor) error {
-	switch o.kt {
-	case proto.MESSAGE:
-		tag := path.ToRaw(n.t)
-		src := n.raw()
-		buf := make([]byte, 0, len(tag)+len(src))
-		buf = append(buf, tag...)
-		buf = append(buf, src...)
-		n.l = len(buf)
-		n.v = rt.GetBytePtr(buf)
-	case proto.LIST:
-		// unpacked need write tag, packed needn't
-		if (*desc).IsPacked() == false {
-			fdNum := (*desc).Number()
-			tag := protowire.AppendVarint(nil, uint64(fdNum)<<3|uint64(proto.BytesType))
-			src := n.raw()
-			buf := make([]byte, 0, len(tag)+len(src))
-			buf = append(buf, tag...)
-			buf = append(buf, src...)
-			n.l = len(buf)
-			n.v = rt.GetBytePtr(buf)
-		}
-	case proto.MAP:
-		// pair tag
-		fdNum := (*desc).Number()
-		pairTag := protowire.AppendVarint(nil, uint64(fdNum)<<3|uint64(proto.BytesType))
-		buf := path.ToRaw(n.t) // keytag + key
-		valueKind := (*desc).MapValue().Kind()
-		valueTag := uint64(1)<<3 | uint64(proto.Kind2Wire[valueKind])
-		buf = protowire.BinaryEncoder{}.EncodeUint64(buf, valueTag)                  // + value tag
-		src := n.raw()                                                               // + value
-		buf = append(buf, src...)                                                    // key + value
-		pairbuf := protowire.BinaryEncoder{}.EncodeUint64(pairTag, uint64(len(buf))) // + pairlen
-		pairbuf = append(pairbuf, buf...)                                            // pair tag + pairlen + key + value
-		n.l = len(pairbuf)
-		n.v = rt.GetBytePtr(pairbuf)
-	default:
-		return wrapError(meta.ErrDismatchType, "simple type node shouldn't have child", nil)
-	}
-	o.t = n.t
-	o.l = 0
-	return nil
-}
-
-
-func (self *Node) replaceMany(ps *pnSlice) error {
-	var buf []byte
-	// Sort pathes by original value address
-	ps.Sort()
-
-	// sequentially set new values into buffer according to sorted pathes
-	buf = make([]byte, 0, self.l)
-	last := self.v
-	for i := 0; i < len(ps.a); i++ {
-		lastLen := rt.PtrOffset(ps.a[i].Node.v, last)
-		// copy last slice from original buffer
-		buf = append(buf, rt.BytesFrom(last, lastLen, lastLen)...)
-		// copy new value's buffer into buffer
-		buf = append(buf, ps.b[i].Node.raw()...)
-		// update last index
-		last = ps.a[i].offset()
-	}
-	if tail := self.offset(); uintptr(last) < uintptr(tail) {
-		// copy last slice from original buffer
-		buf = append(buf, rt.BytesFrom(last, rt.PtrOffset(tail, last), rt.PtrOffset(tail, last))...)
-	}
-
-	self.v = rt.GetBytePtr(buf)
-	self.l = int(len(buf))
-	return nil
-}
-
+// Get idx element of a LIST node
 func (self Node) Index(idx int) (v Node) {
 	if err := self.should("Index", proto.LIST); err != "" {
 		return errNode(meta.ErrUnsupportedType, err, nil)
@@ -367,7 +368,7 @@ func (self Node) Index(idx int) (v Node) {
 	}
 	isPacked := it.IsPacked()
 
-	// size = 0 maybe list node is in lazyload mode, need to check idx
+	// size = 0 maybe list node is in lazyload mode, need to check idx with it.k
 	if it.size > 0 && idx >= it.size {
 		return errNode(meta.ErrInvalidParam, fmt.Sprintf("index %d exceeds list/set bound", idx), nil)
 	}
@@ -400,6 +401,7 @@ func (self Node) Index(idx int) (v Node) {
 	return v
 }
 
+// Get string key of a MAP node
 func (self Node) GetByStr(key string) (v Node) {
 	if err := self.should("Get", proto.MAP); err != "" {
 		return errNode(meta.ErrUnsupportedType, err, nil)
@@ -431,7 +433,7 @@ ret:
 	return
 }
 
-
+// Get int key of a MAP node
 func (self Node) GetByInt(key int) (v Node) {
 	if err := self.should("Get", proto.MAP); err != "" {
 		return errNode(meta.ErrUnsupportedType, err, nil)
