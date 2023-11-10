@@ -634,6 +634,9 @@ func BenchmarkDynamicpbSetOne(b *testing.B) {
 		}
 		message := dynamicpb.NewMessage(*desc)
 		targetDesc := (*desc).Fields().ByNumber(6)
+		if err := goproto.Unmarshal(data, message); err != nil {
+			b.Fatal("build dynamicpb failed")
+		}
 		fieldValue := protoreflect.ValueOfBytes(obj.BinaryField)
 		message.Set(targetDesc, fieldValue)
 		if !message.Has(targetDesc) {
@@ -645,6 +648,8 @@ func BenchmarkDynamicpbSetOne(b *testing.B) {
 		b.Run("go", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				message = dynamicpb.NewMessage(*desc)
+				_ = goproto.Unmarshal(data, message)
+				fieldValue := protoreflect.ValueOfBytes(obj.BinaryField)
 				message.Set(targetDesc, fieldValue)
 			}
 		})
@@ -1636,9 +1641,9 @@ func BenchmarkProtoRationSet(b *testing.B) {
 			require.Nil(b, err)
 			field := (*desc).Fields().ByNumber(proto.Number(id))
 			if field.IsMap() {
-				err = p.WriteMap(&field, m)
+				err = p.WriteMap(&field, m, true, false, false)
 			} else if field.IsList() {
-				err = p.WriteList(&field, m)
+				err = p.WriteList(&field, m, true, false, false)
 			} else {
 				// bacause basic type node buf no tag, just LV
 				err = p.WriteBaseTypeWithDesc(&field, m, true, false, false)
@@ -1728,9 +1733,9 @@ func BenchmarkProtoRationSetByInterface(b *testing.B) {
 			require.Nil(b, err)
 			field := (*desc).Fields().ByNumber(proto.Number(id))
 			if field.IsMap() {
-				err = p.WriteMap(&field, m)
+				err = p.WriteMap(&field, m, true, false, false)
 			} else if field.IsList() {
-				err = p.WriteList(&field, m)
+				err = p.WriteList(&field, m, true, false, false)
 			} else {
 				// bacause basic type node buf no tag, just LV
 				err = p.WriteBaseTypeWithDesc(&field, m, true, false, false)
@@ -1776,9 +1781,9 @@ func BenchmarkProtoRationSetByInterface(b *testing.B) {
 					m, _ := x.Interface(opt)
 					field := (*desc).Fields().ByNumber(proto.Number(id))
 					if field.IsMap() {
-						_ = p.WriteMap(&field, m)
+						_ = p.WriteMap(&field, m, true, false, false)
 					} else if field.IsList() {
-						_ = p.WriteList(&field, m)
+						_ = p.WriteList(&field, m, true, false, false)
 					} else {
 						// bacause basic type node buf no tag, just LV
 						_ = p.WriteBaseTypeWithDesc(&field, m, true, false, false)
