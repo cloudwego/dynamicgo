@@ -1,18 +1,10 @@
 package binary
 
 import (
-	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
 )
 
-const MaxSkipDepth = 1023
-
-var (
-	errWireType  = meta.NewError(meta.ErrDismatchType, "invalid wireType to skip", nil)
-	errSkipField = meta.NewError(meta.ErrRead, "skip field failed", nil)
-)
-
-// normalType、Message skip, p point to LV
+// skip (L)V once by wireType, useNative is not implemented
 func (p *BinaryProtocol) Skip(wireType proto.WireType, useNative bool) (err error) {
 	switch wireType {
 	case proto.VarintType:
@@ -54,7 +46,9 @@ func (p *BinaryProtocol) SkipAllElements(fieldNumber proto.FieldNumber, ispacked
 			if elementFieldNumber != fieldNumber {
 				break
 			}
-			p.Read += n
+			if _, moveTagErr := p.next(n); moveTagErr != nil {
+				return -1, moveTagErr
+			}
 			if err = p.Skip(ewt, false); err != nil {
 				return -1, err
 			}

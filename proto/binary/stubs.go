@@ -29,11 +29,6 @@ var (
 
 const (
 	byteTypeSize   = unsafe.Sizeof(byte(0))
-	ptrTypeSize    = unsafe.Sizeof(uintptr(0))
-	uint64TypeSize = unsafe.Sizeof(uint64(0))
+	ptrTypeSize    = unsafe.Sizeof(uintptr(0)) // not used 
+	uint64TypeSize = unsafe.Sizeof(uint64(0)) // not used
 )
-
-//go:noescape
-//go:linkname memmove runtime.memmove
-//goland:noinspection GoUnusedParameter
-func memmove(to unsafe.Pointer, from unsafe.Pointer, n uintptr)

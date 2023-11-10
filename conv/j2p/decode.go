@@ -236,7 +236,7 @@ func (self *VisitorUserNode) OnInt64(v int64, n json.Number) error {
 	case proto.Int32Kind, proto.Sint32Kind, proto.Sfixed32Kind, proto.Fixed32Kind:
 		convertData := *(*int32)(unsafe.Pointer(&v))
 
-		if err = self.p.WriteI32(convertData); err != nil {
+		if err = self.p.WriteInt32(convertData); err != nil {
 			return err
 		}
 	case proto.Uint32Kind:
@@ -250,7 +250,7 @@ func (self *VisitorUserNode) OnInt64(v int64, n json.Number) error {
 			return err
 		}
 	case proto.Int64Kind:
-		if err = self.p.WriteI64(v); err != nil {
+		if err = self.p.WriteInt64(v); err != nil {
 			return err
 		}
 	default:
@@ -333,7 +333,7 @@ func (self *VisitorUserNode) DecodeMapKey(key string, mapKeyDesc *proto.FieldDes
 	switch (*mapKeyDesc).Kind() {
 	case proto.Int32Kind, proto.Sint32Kind, proto.Sfixed32Kind, proto.Fixed32Kind:
 		t, _ := strconv.ParseInt(key, 10, 32)
-		if err := self.p.WriteI32(int32(t)); err != nil {
+		if err := self.p.WriteInt32(int32(t)); err != nil {
 			return err
 		}
 	case proto.Uint32Kind:
@@ -348,7 +348,7 @@ func (self *VisitorUserNode) DecodeMapKey(key string, mapKeyDesc *proto.FieldDes
 		}
 	case proto.Int64Kind:
 		t, _ := strconv.ParseInt(key, 10, 64)
-		if err := self.p.WriteI64(int64(t)); err != nil {
+		if err := self.p.WriteInt64(int64(t)); err != nil {
 			return err
 		}
 	case proto.BoolKind:

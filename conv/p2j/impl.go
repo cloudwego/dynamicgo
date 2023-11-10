@@ -132,7 +132,7 @@ func (self *ProtoConv) unmarshalSingular(ctx context.Context, resp http.Response
 		}
 		*out = json.EncodeInt64(*out, int64(v))
 	case protoreflect.Int32Kind:
-		v, e := p.ReadI32()
+		v, e := p.ReadInt32()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Int32kind error", e)
 		}
@@ -162,7 +162,7 @@ func (self *ProtoConv) unmarshalSingular(ctx context.Context, resp http.Response
 		}
 		*out = json.EncodeInt64(*out, int64(v))
 	case protoreflect.Int64Kind:
-		v, e := p.ReadI64()
+		v, e := p.ReadInt64()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Int64kind error", e)
 		}
@@ -174,7 +174,7 @@ func (self *ProtoConv) unmarshalSingular(ctx context.Context, resp http.Response
 			*out = json.EncodeInt64(*out, int64(v))
 		}
 	case protoreflect.Sint64Kind:
-		v, e := p.ReadI64()
+		v, e := p.ReadInt64()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Sint64kind error", e)
 		}
