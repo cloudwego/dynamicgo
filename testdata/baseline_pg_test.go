@@ -260,10 +260,10 @@ func BenchmarkProtoGetMany(b *testing.B) {
 		err := v.GetMany(ps, &opts)
 		require.Nil(b, err)
 
+		opts.UseNativeSkip = false
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
 		b.Run("go", func(b *testing.B) {
-			opts.UseNativeSkip = false
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_ = v.GetMany(ps, &opts)
 			}
@@ -292,10 +292,10 @@ func BenchmarkProtoGetMany(b *testing.B) {
 		err := v.GetMany(ps, &opts)
 		require.Nil(b, err)
 
+		opts.UseNativeSkip = false
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
 		b.Run("go", func(b *testing.B) {
-			opts.UseNativeSkip = false
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_ = v.GetMany(ps, &opts)
 			}
@@ -774,7 +774,7 @@ func BenchmarkProtoUnmarshalPartial_ProtoBufGo(b *testing.B) {
 	})
 }
 
-func BenchmarkProtoMarshallAll_KitexFast(b *testing.B) {
+func BenchmarkProtoMarshalAll_KitexFast(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		obj := getPbSimpleValue()
 		data := make([]byte, obj.Size())
@@ -806,7 +806,7 @@ func BenchmarkProtoMarshallAll_KitexFast(b *testing.B) {
 	})
 }
 
-func BenchmarkProtoMarshallPartial_KitexFast(b *testing.B) {
+func BenchmarkProtoMarshalPartial_KitexFast(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		obj := getPbPartialSimpleValue()
 		data := make([]byte, obj.Size())
@@ -988,7 +988,7 @@ func BenchmarkProtoMarshalTo_KitexFast(b *testing.B) {
 	})
 }
 
-func BenchmarkProtoMarshallAll_DynamicGo(b *testing.B) {
+func BenchmarkProtoMarshalAll_DynamicGo(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		desc := getPbSimpleDesc()
 		obj := getPbSimpleValue()
@@ -1041,7 +1041,7 @@ func BenchmarkProtoMarshallAll_DynamicGo(b *testing.B) {
 	})
 }
 
-func BenchmarkProtoMarshallPartial_DynamicGo(b *testing.B) {
+func BenchmarkProtoMarshalPartial_DynamicGo(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		desc := getPbPartialSimpleDesc()
 		obj := getPbPartialSimpleValue()
@@ -1094,7 +1094,7 @@ func BenchmarkProtoMarshallPartial_DynamicGo(b *testing.B) {
 	})
 }
 
-func BenchmarkProtoGetAll_New(b *testing.B) {
+func BenchmarkProtoUnmarshalAllDynamicGoGet_New(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		desc := getPbSimpleDesc()
 		obj := getPbSimpleValue()
@@ -1116,7 +1116,7 @@ func BenchmarkProtoGetAll_New(b *testing.B) {
 			b.SetBytes(int64(len(data)))
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				out = out[:0]
+				out := []generic.PathNode{}
 				_ = v.Children(&out, true, opts, desc)
 			}
 		})
@@ -1136,7 +1136,7 @@ func BenchmarkProtoGetAll_New(b *testing.B) {
 		require.Nil(b, v.Children(&out, false, &generic.Options{UseNativeSkip: false}, desc))
 
 		b.Run("go", func(b *testing.B) {
-			opts := &generic.Options{
+		opts := &generic.Options{
 				UseNativeSkip: false,
 			}
 			b.SetBytes(int64(len(data)))
@@ -1149,7 +1149,7 @@ func BenchmarkProtoGetAll_New(b *testing.B) {
 	})
 }
 
-func BenchmarkProtoGetPartial_New(b *testing.B) {
+func BenchmarkProtoUnmarshalPartialDynamicGoGet_New(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		desc := getPbPartialSimpleDesc()
 		obj := getPbPartialSimpleValue()
@@ -1171,7 +1171,7 @@ func BenchmarkProtoGetPartial_New(b *testing.B) {
 			b.SetBytes(int64(len(data)))
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				out = out[:0]
+				out := []generic.PathNode{}
 				_ = v.Children(&out, true, opts, desc)
 			}
 		})
@@ -1205,7 +1205,7 @@ func BenchmarkProtoGetPartial_New(b *testing.B) {
 
 }
 
-func BenchmarkProtoGetAll_ReuseMemory(b *testing.B) {
+func BenchmarkProtoUnmarshalAllDynamicGoGet_ReuseMemory(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		desc := getPbSimpleDesc()
 		obj := getPbSimpleValue()
@@ -1270,7 +1270,7 @@ func BenchmarkProtoGetAll_ReuseMemory(b *testing.B) {
 	})
 }
 
-func BenchmarkProtoGetPartial_ReuseMemory(b *testing.B) {
+func BenchmarkProtoUnmarshalPartialDynamicGoGet_ReuseMemory(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		desc := getPbPartialSimpleDesc()
 		obj := getPbPartialSimpleValue()
