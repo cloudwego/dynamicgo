@@ -948,19 +948,50 @@ func BenchmarkProtoMarshalTo_KitexFast(b *testing.B) {
 		if ret != len(data) {
 			b.Fatal(ret)
 		}
-		pobj := getPbPartialSimpleValue()
-		plen := pobj.FastWrite(data)
-		pdata := make([]byte, pobj.Size())
-		ret = pobj.FastWrite(pdata)
-		if ret != len(pdata) {
-			b.Fatal(ret)
+
+		// fast read check
+		exp := baseline.PartialSimple{}
+		dataLen := len(data)
+		l := 0
+		for l < dataLen {
+			id, wtyp, tagLen := goprotowire.ConsumeTag(data)
+			if tagLen < 0 {
+				b.Fatal("test failed")
+			}
+			l += tagLen
+			data = data[tagLen:]
+			offset, err := exp.FastRead(data, int8(wtyp), int32(id))
+			require.Nil(b, err)
+			data = data[offset:]
+			l += offset
 		}
-		require.Equal(b, plen, pobj.Size())
+
+		data2 := make([]byte, exp.Size())
+		ret2 := exp.FastWrite(data2)
+		if ret2 != len(data2) {
+			b.Fatal(ret2)
+		}
+			
 		b.SetBytes(int64(len(data)))
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_ = obj.FastWrite(data)
-			_ = pobj.FastWrite(pdata)
+			exp := baseline.PartialSimple{}
+			dataLen := len(data)
+			l := 0
+			for l < dataLen {
+				id, wtyp, tagLen := goprotowire.ConsumeTag(data)
+				if tagLen < 0 {
+					b.Fatal("test failed")
+				}
+				l += tagLen
+				data = data[tagLen:]
+				offset, _ := exp.FastRead(data, int8(wtyp), int32(id))
+				data = data[offset:]
+				l += offset
+			}
+			data2 := make([]byte, exp.Size())
+			_ = exp.FastWrite(data2)
+			
 		}
 	})
 
@@ -969,21 +1000,51 @@ func BenchmarkProtoMarshalTo_KitexFast(b *testing.B) {
 		data := make([]byte, obj.Size())
 		ret := obj.FastWrite(data)
 		if ret != len(data) {
-			b.Fatal(ret)
+			panic(ret)
 		}
-		pobj := getPbPartialNestingValue()
-		plen := pobj.FastWrite(data)
-		pdata := make([]byte, pobj.Size())
-		ret = pobj.FastWrite(pdata)
-		if ret != len(pdata) {
-			b.Fatal(ret)
+
+		// fast read check
+		exp := baseline.PartialNesting{}
+		dataLen := len(data)
+		l := 0
+		for l < dataLen {
+			id, wtyp, tagLen := goprotowire.ConsumeTag(data)
+			if tagLen < 0 {
+				b.Fatal("test failed")
+			}
+			l += tagLen
+			data = data[tagLen:]
+			offset, err := exp.FastRead(data, int8(wtyp), int32(id))
+			require.Nil(b, err)
+			data = data[offset:]
+			l += offset
 		}
-		require.Equal(b, plen, pobj.Size())
+
+		data2 := make([]byte, exp.Size())
+		ret2 := exp.FastWrite(data2)
+		if ret2 != len(data2) {
+			b.Fatal(ret2)
+		}
+			
 		b.SetBytes(int64(len(data)))
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_ = obj.FastWrite(data)
-			_ = pobj.FastWrite(pdata)
+			exp := baseline.PartialNesting{}
+			dataLen := len(data)
+			l := 0
+			for l < dataLen {
+				id, wtyp, tagLen := goprotowire.ConsumeTag(data)
+				if tagLen < 0 {
+					b.Fatal("test failed")
+				}
+				l += tagLen
+				data = data[tagLen:]
+				offset, _ := exp.FastRead(data, int8(wtyp), int32(id))
+				data = data[offset:]
+				l += offset
+			}
+			data2 := make([]byte, exp.Size())
+			_ = exp.FastWrite(data2)
 		}
 	})
 }
