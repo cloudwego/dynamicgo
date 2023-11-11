@@ -774,6 +774,82 @@ func BenchmarkProtoUnmarshalPartial_ProtoBufGo(b *testing.B) {
 	})
 }
 
+func BenchmarkProtoMarshalTo_ProtoBufGo(b *testing.B) {
+	b.Run("small", func(b *testing.B) {
+		obj := getPbSimpleValue()
+		data, err := goproto.Marshal(obj)
+		if err != nil {
+			b.Fatal(err)
+		}
+		part := &baseline.PartialSimple{}
+		opts := goproto.UnmarshalOptions{DiscardUnknown: true}
+		err = opts.Unmarshal(data, part)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		out, err2 := goproto.Marshal(part)
+		if err2 != nil {
+			b.Fatal(err2)
+		}
+		
+		desc := getPbSimpleDesc()
+		partdesc := getPbPartialSimpleDesc()
+		v := generic.NewRootValue(desc, data)
+		out2, err3 := v.MarshalTo(partdesc, &generic.Options{})
+		if err3 != nil {
+			b.Fatal(err3)
+		}
+
+		require.Equal(b, len(out), len(out2))
+
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			part := &baseline.PartialSimple{}
+			_ = opts.Unmarshal(data, part)
+			_, _ = goproto.Marshal(part)
+		}
+	})
+
+	b.Run("medium", func(b *testing.B) {
+		obj := getPbNestingValue()
+		data, err := goproto.Marshal(obj)
+		if err != nil {
+			b.Fatal(err)
+		}
+		part := &baseline.PartialNesting{}
+		opts := goproto.UnmarshalOptions{DiscardUnknown: true}
+		err = opts.Unmarshal(data, part)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		out, err2 := goproto.Marshal(part)
+		if err2 != nil {
+			b.Fatal(err2)
+		}
+
+		desc := getPbNestingDesc()
+		partdesc := getPbPartialNestingDesc()
+		v := generic.NewRootValue(desc, data)
+		out2, err3 := v.MarshalTo(partdesc, &generic.Options{})
+		if err3 != nil {
+			b.Fatal(err3)
+		}
+
+		require.Equal(b, len(out), len(out2))
+
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			part := &baseline.PartialNesting{}
+			_ = opts.Unmarshal(data, part)
+			_, _ = goproto.Marshal(part)
+		}
+	})
+}
+
 func BenchmarkProtoMarshalAll_KitexFast(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		obj := getPbSimpleValue()
