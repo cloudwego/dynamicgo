@@ -6,9 +6,13 @@
 import "github.com/cloudwego/dynamicgo/proto"
 ```
 
+## Introduction
+**DynamicGo For Protobuf Protocol：**[INTRODUCTION.md](./INTRODUCTION.md)
+
 ## Index
 
 - [proto](#proto)
+  - [Introduction](#introduction)
   - [Index](#index)
   - [Variables](#variables)
   - [type Descriptor](#type-descriptor)
