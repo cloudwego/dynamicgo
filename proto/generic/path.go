@@ -677,7 +677,7 @@ func GetDescByPath(rootDesc *proto.MessageDescriptor, pathes ...Path) (ret *prot
 
 func (self PathNode) Marshal(opt *Options) (out []byte, err error) {
 	p := binary.NewBinaryProtocolBuffer()
-	rootLayer := true
+	rootLayer := true // TODO: make rootLayer to be a parameter will be better
 	err = self.marshal(p, rootLayer, opt)
 	if err == nil {
 		out = make([]byte, len(p.Buf))
@@ -713,7 +713,7 @@ func (self PathNode) marshal(p *binary.BinaryProtocol, rootLayer bool, opts *Opt
 		
 		for _, v := range self.Next {
 			// when node type is not LIST/MAP write tag
-			if v.Node.t != proto.LIST && v.Node.t != proto.MAP {
+			if v.Node.t != proto.LIST && v.Node.t != proto.MAP && v.Node.t != proto.UNKNOWN {
 				err = p.AppendTag(v.Path.Id(), proto.Kind2Wire[v.Node.t.TypeToKind()])
 			}
 			if err != nil {

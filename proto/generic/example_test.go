@@ -31,8 +31,21 @@ func TestExampleValue_GetByPath(t *testing.T) {
 	fmt.Println(str) // "aaa"
 }
 
-func ExampleValye_GetMany() {
-	
+func ExampleValue_GetMany() {
+	desc := getExample2Desc()
+	data := getExample2Data()
+	v := NewRootValue(desc, data)
+
+	ps := []PathNode{
+		{Path: NewPathFieldId(1)},
+		{Path: NewPathFieldId(3)},
+		{Path: NewPathFieldId(32767)},
+	}
+
+	err := v.GetMany(ps, opts)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func ExampleValue_SetByPath() {
@@ -40,12 +53,13 @@ func ExampleValue_SetByPath() {
 	data := getExample2Data()
 	v := NewRootValue(desc, data)
 
-	d := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("Base").Message().Fields().ByName("Extra")
+	// d := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("Base").Message().Fields().ByName("Extra")
 	p := binary.NewBinaryProtol([]byte{})
 	exp := "中文"
 	p.WriteString(exp)
 	buf := p.RawBuf()
-	vv := NewValue(&d, buf)
+	// vv := NewValue(&d, buf)
+	vv := NewNode(proto.STRING, buf)
 
 	ps := []Path{NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("b")}
 	exist, err2 := v.SetByPath(vv, ps...)

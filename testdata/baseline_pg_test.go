@@ -580,7 +580,7 @@ func BenchmarkProtoSetOne(b *testing.B) {
 		p.WriteBytes(obj.BinaryField)
 		fd6 := (*desc).Fields().ByNumber(6)
 		n := generic.NewValue(&fd6, p.Buf)
-		_, err := v.SetByPath(n, generic.NewPathFieldId(6))
+		_, err := v.SetByPath(n.Node, generic.NewPathFieldId(6))
 		require.Nil(b, err)
 		nn := v.GetByPath(generic.NewPathFieldId(6))
 		require.Equal(b, n.Raw(), nn.Raw())
@@ -589,7 +589,7 @@ func BenchmarkProtoSetOne(b *testing.B) {
 		b.ResetTimer()
 		b.Run("go", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_, _ = v.SetByPath(n, generic.NewPathFieldId(6))
+				_, _ = v.SetByPath(n.Node, generic.NewPathFieldId(6))
 			}
 		})
 	})
@@ -608,7 +608,7 @@ func BenchmarkProtoSetOne(b *testing.B) {
 		p.WriteBytes(obj.MapStringSimple["0"].BinaryField)
 		fd15 := (*desc).Fields().ByNumber(15).MapValue().Message().Fields().ByNumber(6)
 		n := generic.NewValue(&fd15, p.Buf)
-		_, err := v.SetByPath(n, generic.NewPathFieldId(15), generic.NewPathStrKey("0"), generic.NewPathFieldId(6))
+		_, err := v.SetByPath(n.Node, generic.NewPathFieldId(15), generic.NewPathStrKey("0"), generic.NewPathFieldId(6))
 		require.Nil(b, err)
 		nn := v.GetByPath(generic.NewPathFieldId(15), generic.NewPathStrKey("0"), generic.NewPathFieldId(6))
 		require.Equal(b, n.Raw(), nn.Raw())
@@ -617,7 +617,7 @@ func BenchmarkProtoSetOne(b *testing.B) {
 		b.ResetTimer()
 		b.Run("go", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				_, _ = v.SetByPath(n, generic.NewPathFieldId(15), generic.NewPathStrKey("0"), generic.NewPathFieldId(6))
+				_, _ = v.SetByPath(n.Node, generic.NewPathFieldId(15), generic.NewPathStrKey("0"), generic.NewPathFieldId(6))
 			}
 		})
 	})
@@ -1690,7 +1690,7 @@ func BenchmarkProtoRationSetBefore(b *testing.B) {
 			}
 			field := (*desc).Fields().ByNumber(proto.Number(id))
 			n := generic.NewValue(&field, p.Buf)
-			_, err := v.SetByPath(n, generic.NewPathFieldId(proto.Number(id)))
+			_, err := v.SetByPath(n.Node, generic.NewPathFieldId(proto.Number(id)))
 			require.Nil(b, err)
 			nn := v.GetByPath(generic.NewPathFieldId(proto.Number(id)))
 			nndata := nn.Raw()
@@ -1730,7 +1730,7 @@ func BenchmarkProtoRationSetBefore(b *testing.B) {
 					_ = buildBinaryProtocolByFieldId(id, p, value, &fieldDesc)
 					field := (*desc).Fields().ByNumber(proto.Number(id))
 					n := generic.NewValue(&field, p.Buf)
-					_, _ = v.SetByPath(n, generic.NewPathFieldId(proto.Number(id)))
+					_, _ = v.SetByPath(n.Node, generic.NewPathFieldId(proto.Number(id)))
 					pnode := generic.PathNode{
 						Path: generic.NewPathFieldId(proto.FieldNumber(id)),
 						Node: n.Node,
@@ -1793,7 +1793,7 @@ func BenchmarkProtoRationSet(b *testing.B) {
 			}
 			// fmt.Println(id)
 			require.Equal(b, len(newValue.Raw()), len(x.Raw()))
-			_, err = newRoot.SetByPath(newValue, generic.NewPathFieldId(proto.Number(id)))
+			_, err = newRoot.SetByPath(newValue.Node, generic.NewPathFieldId(proto.Number(id)))
 			require.Nil(b, err)
 			vv := newRoot.GetByPath(generic.NewPathFieldId(proto.Number(id)))
 			require.Equal(b, len(newValue.Raw()), len(vv.Raw()))
@@ -1824,7 +1824,7 @@ func BenchmarkProtoRationSet(b *testing.B) {
 				for id := 1; id <= testNums; id++ {
 					x := objRoot.GetByPath(generic.NewPathFieldId(proto.Number(id)))
 					newValue := x.Fork()
-					_, err = newRoot.SetByPath(newValue, generic.NewPathFieldId(proto.Number(id)))
+					_, err = newRoot.SetByPath(newValue.Node, generic.NewPathFieldId(proto.Number(id)))
 					p.Recycle()
 					ps = append(ps, generic.PathNode{Path: generic.NewPathFieldId(proto.FieldNumber(id))})
 				}
@@ -1885,7 +1885,7 @@ func BenchmarkProtoRationSetByInterface(b *testing.B) {
 			}
 			// fmt.Println(id)
 			require.Equal(b, len(newValue.Raw()), len(x.Raw()))
-			_, err = newRoot.SetByPath(newValue, generic.NewPathFieldId(proto.Number(id)))
+			_, err = newRoot.SetByPath(newValue.Node, generic.NewPathFieldId(proto.Number(id)))
 			require.Nil(b, err)
 			vv := newRoot.GetByPath(generic.NewPathFieldId(proto.Number(id)))
 			require.Equal(b, len(newValue.Raw()), len(vv.Raw()))
@@ -1936,7 +1936,7 @@ func BenchmarkProtoRationSetByInterface(b *testing.B) {
 					// 	et := proto.FromProtoKindToType(field.MapValue().Kind(), false, false)
 					// 	newValue.SetElemType(et)
 					// }
-					_, err = newRoot.SetByPath(newValue, generic.NewPathFieldId(proto.Number(id)))
+					_, err = newRoot.SetByPath(newValue.Node, generic.NewPathFieldId(proto.Number(id)))
 					p.Recycle()
 					ps = append(ps, generic.PathNode{Path: generic.NewPathFieldId(proto.FieldNumber(id))})
 				}

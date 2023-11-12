@@ -484,10 +484,13 @@ func (self Value) getByPath(pathes ...Path) (Value, []int) {
 
 // SetByPath searches longitudinally and sets a sub value at the given path from the value.
 // exist tells whether the node is already exists.
-func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
+func (self *Value) SetByPath(sub Node, path ...Path) (exist bool, err error) {
 	l := len(path)
 	if l == 0 {
-		*self = sub // it means replace the root value ?
+		if self.t != sub.t {
+			return false, errValue(meta.ErrDismatchType, "self node type is not equal to sub node type.", nil)
+		}
+		self.Node = sub // it means replace the root value ?
 		return true, nil
 	}
 
@@ -531,7 +534,7 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 		}
 		
 		// set sub node bytes by path and descriptor to check whether the node need to append tag
-		if err := v.setNotFound(targetPath, &sub.Node, fd); err != nil {
+		if err := v.setNotFound(targetPath, &sub, fd); err != nil {
 			return false, err
 		}
 	} else {
@@ -539,8 +542,8 @@ func (self *Value) SetByPath(sub Value, path ...Path) (exist bool, err error) {
 	}
 
 	originLen := len(self.raw()) // root buf length
-	err = self.replace(v.Node, sub.Node) // replace ErrorNode bytes by sub Node bytes
-	isPacked := path[l-1].t == PathIndex && sub.Node.t.NeedVarint()
+	err = self.replace(v.Node, sub) // replace ErrorNode bytes by sub Node bytes
+	isPacked := path[l-1].t == PathIndex && sub.t.NeedVarint()
 	self.UpdateByteLen(originLen, address, isPacked, path...)
 	return
 }

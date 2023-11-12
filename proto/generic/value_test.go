@@ -194,18 +194,36 @@ func TestCreateValue(t *testing.T) {
 }
 
 func TestCount(t *testing.T) {
-	desc := getExample2Desc()
-	data := getExample2Data()
-	fmt.Printf("data len: %d\n", len(data))
-	v := NewRootValue(desc, data)
-	children := make([]PathNode, 0, 4)
-	opts := Options{}
-	if err := v.Children(&children, true, &opts, desc); err != nil {
-		t.Fatal(err)
-	}
-	count := 1
-	countHelper(&count, children)
-	fmt.Printf("nodes count: %d", count)
+	t.Run("Normal", func(t *testing.T) {
+		desc := getExample2Desc()
+		data := getExample2Data()
+		fmt.Printf("data len: %d\n", len(data))
+		v := NewRootValue(desc, data)
+		children := make([]PathNode, 0, 4)
+		opts := Options{}
+		if err := v.Children(&children, true, &opts, desc); err != nil {
+			t.Fatal(err)
+		}
+		count := 1
+		countHelper(&count, children)
+		fmt.Printf("nodes count: %d", count)
+	})
+
+	// stored unknown node
+	t.Run("Partial", func(t *testing.T) {
+		desc := getExamplePartialDesc()
+		data := getExample2Data()
+		fmt.Printf("data len: %d\n", len(data))
+		v := NewRootValue(desc, data)
+		children := make([]PathNode, 0, 4)
+		opts := Options{}
+		if err := v.Children(&children, true, &opts, desc); err != nil {
+			t.Fatal(err)
+		}
+		count := 1
+		countHelper(&count, children)
+		fmt.Printf("nodes count: %d", count)
+	})
 }
 
 func countHelper(count *int, ps []PathNode) {
@@ -274,8 +292,50 @@ func TestMarshalTo(t *testing.T) {
 		})
 	})
 
-	// TODO: test unknown
+	t.Run("unknown", func(t *testing.T) {
+		data := getExample2Data()
+		v := NewRootValue(desc, data)
+		exist, err := v.SetByPath(NewNodeString("Insert"), NewPathFieldId(1024))
+		require.False(t, exist)
+		require.Nil(t, err)
+		data = v.raw()
+		v.Node = NewNode(proto.MESSAGE, data)
+		t.Run("allow unknown", func(t *testing.T) {
+			opts := &Options{DisallowUnknown: false}
+			buf, err := v.MarshalTo(partial, opts)
+			require.NoError(t, err)
+			ep := example2.ExampleReqPartial{}
+			bufLen := len(buf)
 
+			l := 0
+			for l < bufLen {
+				id, wtyp, tagLen := goprotowire.ConsumeTag(buf)
+				if tagLen < 0 {
+					t.Fatal("test failed")
+				}
+				l += tagLen
+				buf = buf[tagLen:]
+				offset, err := ep.FastRead(buf, int8(wtyp), int32(id))
+				require.Nil(t, err)
+				buf = buf[offset:]
+				l += offset
+			}
+			if len(buf) != 0 {
+				t.Fatal("test failed")
+			}
+
+			act := toInterface(ep)
+			exp := toInterface(exp)
+			require.False(t, DeepEqual(act, exp))
+			handlePartialMapStringString2(act.(map[int]interface{})[3].(map[int]interface{}))
+			require.True(t, DeepEqual(act, exp))
+		})
+		t.Run("disallow unknown", func(t *testing.T) {
+			opts := &Options{DisallowUnknown: true}
+			_, err := v.MarshalTo(partial, opts)
+			require.Error(t, err)
+		})
+	})
 }
 
 func handlePartialMapStringString2(p map[int]interface{}) {
@@ -513,11 +573,12 @@ func TestSetByPath(t *testing.T) {
 	desc := getExample2Desc()
 	data := getExample2Data()
 	v := NewRootValue(desc, data)
-	ds := (*desc).Fields().ByName("Subfix")
+	v2 := NewNode(proto.MESSAGE, data)
+	// ds := (*desc).Fields().ByName("Subfix")
 	d2 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("Base").Message().Fields().ByName("Extra").MapValue()
-	d3 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListInt32")
-	d4 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListString")
-	e, err := v.SetByPath(v)
+	// d3 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListInt32")
+	// d4 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListString")
+	e, err := v.SetByPath(v2)
 	require.True(t, e)
 	require.Nil(t, err)
 
@@ -527,7 +588,7 @@ func TestSetByPath(t *testing.T) {
 		f, _ := s.Float64()
 		require.Equal(t, math.MaxFloat64, f)
 		exp := float64(-0.1)
-		e, err := v.SetByPath(Value{NewNodeDouble(exp), nil, &ds}, NewPathFieldName("Subfix"))
+		e, err := v.SetByPath(NewNodeDouble(exp), NewPathFieldName("Subfix"))
 		require.True(t, e)
 		require.Nil(t, err)
 		s = v.GetByPath(NewPathFieldName("Subfix"))
@@ -538,14 +599,15 @@ func TestSetByPath(t *testing.T) {
 		exp2 := "中文"
 		p := binary.NewBinaryProtocolBuffer()
 		p.WriteString(exp2)
-		e, err2 := v.SetByPath(NewValue(&d2, p.Buf), NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("1b"))
+		vx := NewValue(&d2, p.Buf)
+		e, err2 := v.SetByPath(vx.Node, NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("1b"))
 		require.True(t, e)
 		require.Nil(t, err2)
 		s2 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("1b"))
 		require.Empty(t, s2.Error())
 		f2, _ := s2.String()
 		require.Equal(t, exp2, f2)
-		e, err2 = v.SetByPath(NewValue(&d2, p.Buf), NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("2b"))
+		e, err2 = v.SetByPath(NewNode(proto.STRING, p.Buf), NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("2b"))
 		require.True(t, e)
 		require.Nil(t, err2)
 		s2 = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("2b"))
@@ -554,7 +616,8 @@ func TestSetByPath(t *testing.T) {
 		require.Equal(t, exp2, f2)
 
 		exp3 := int32(math.MinInt32) + 1
-		v3 := Value{NewNodeInt32(exp3), nil, &d3}
+		// v3 := Value{NewNodeInt32(exp3), nil, &d3}
+		v3 := NewNodeInt32(exp3)
 		ps := []Path{NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(2)}
 		parent := v.GetByPath(ps[:len(ps)-1]...)
 		l3, err := parent.Len()
@@ -575,7 +638,8 @@ func TestSetByPath(t *testing.T) {
 		s := v.GetByPath(NewPathFieldName("A"))
 		require.True(t, s.IsErrNotFound())
 		exp := int32(-1024)
-		v1 := Value{NewNodeInt32(exp), nil, &d3}
+		// v1 := Value{NewNodeInt32(exp), nil, &d3}
+		v1 := NewNodeInt32(exp)
 		e, err := v.SetByPath(v1, NewPathFieldName("A"))
 		require.False(t, e)
 		require.Nil(t, err)
@@ -587,7 +651,8 @@ func TestSetByPath(t *testing.T) {
 		s2 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("x"))
 		require.True(t, s2.IsErrNotFound())
 		exp2 := "中文xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\bb"
-		v2 := Value{NewNodeString(exp2), nil, &d3}
+		// v2 := Value{NewNodeString(exp2), nil, &d3}
+		v2 := NewNodeString(exp2)
 		e, err2 := v.SetByPath(v2, NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("x"))
 		require.False(t, e)
 		require.Nil(t, err2)
@@ -602,7 +667,8 @@ func TestSetByPath(t *testing.T) {
 		s3 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1024))
 		require.True(t, s3.IsErrNotFound())
 		exp3 := rand.Int31()
-		v3 := Value{NewNodeInt32(exp3), nil, &d3}
+		// v3 := Value{NewNodeInt32(exp3), nil, &d3}
+		v3 := NewNodeInt32(exp3)
 		e, err = v.SetByPath(v3, NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1024))
 		require.False(t, e)
 		require.NoError(t, err)
@@ -614,7 +680,8 @@ func TestSetByPath(t *testing.T) {
 		require.Nil(t, err)
 		require.Equal(t, l3+1, l3a)
 		exp3 = rand.Int31()
-		v3 = Value{NewNodeInt32(exp3), nil, &d3}
+		// v3 = Value{NewNodeInt32(exp3), nil, &d3}
+		v3 = NewNodeInt32(exp3)
 		e, err = v.SetByPath(v3, NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(1024))
 		require.False(t, e)
 		require.NoError(t, err)
@@ -628,7 +695,8 @@ func TestSetByPath(t *testing.T) {
 		exp4 := "hello world!"
 		p := binary.NewBinaryProtocolBuffer()
 		p.WriteString(exp4)
-		v4 := Value{NewNode(proto.STRING, p.Buf), nil, &d4}
+		// v4 := Value{NewNode(proto.STRING, p.Buf), nil, &d4}
+		v4 := NewNode(proto.STRING, p.Buf)
 		e, err = v.SetByPath(v4, NewPathFieldName("InnerBase2"), NewPathFieldName("ListString"), NewPathIndex(1024))
 		require.False(t, e)
 		require.NoError(t, err)
@@ -645,7 +713,7 @@ func TestUnsetByPath(t *testing.T) {
 	req := getExample2Req()
 
 	// ds := (*desc).Fields().ByName("Subfix")
-	d1 := (*desc).Fields().ByName("Msg")
+	// d1 := (*desc).Fields().ByName("Msg")
 	// d2 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("Base").Message().Fields().ByName("Extra").MapValue()
 	// d3 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListInt32")
 
@@ -665,7 +733,8 @@ func TestUnsetByPath(t *testing.T) {
 		require.True(t, n.IsErrNotFound())
 		p := binary.NewBinaryProtocolBuffer()
 		p.WriteString(exp)
-		Msg := Value{NewNode(proto.STRING, p.Buf), nil, &d1}
+		// Msg := Value{NewNode(proto.STRING, p.Buf), nil, &d1}
+		Msg := NewNode(proto.STRING, p.Buf)
 		exist, _ := v.SetByPath(Msg, NewPathFieldName("Msg"))
 		require.False(t, exist)
 		n = v.GetByPath(NewPathFieldName("Msg"))
