@@ -72,6 +72,24 @@ func (self Node) sliceComplex(s int, e int, t proto.Type, kt proto.Type, et prot
 	return ret
 }
 
+func (self Node) sliceNodeWithDesc(s int, e int, desc *proto.FieldDescriptor) Node {
+	t := proto.FromProtoKindToType((*desc).Kind(), (*desc).IsList(), (*desc).IsMap())
+	ret := Node{
+		t: t,
+		l: (e - s),
+		v: rt.AddPtr(self.v, uintptr(s)),
+	}
+	if t == proto.LIST {
+		ret.et = proto.FromProtoKindToType((*desc).Kind(), false, false)
+	} else if t == proto.MAP {
+		mapkey := (*desc).MapKey()
+		mapvalue := (*desc).MapValue()
+		ret.kt = proto.FromProtoKindToType(mapkey.Kind(), mapkey.IsList(), mapkey.IsMap())
+		ret.et = proto.FromProtoKindToType(mapvalue.Kind(), mapvalue.IsList(), mapvalue.IsMap())
+	}
+	return ret
+}
+
 func (self Node) offset() unsafe.Pointer {
 	return rt.AddPtr(self.v, uintptr(self.l))
 }
@@ -462,4 +480,249 @@ func (self Node) GetByInt(key int) (v Node) {
 	v = errNode(meta.ErrNotFound, fmt.Sprintf("key '%d' is not found in this value", key), nil)
 ret:
 	return
+}
+
+func (self Node) Field(id proto.FieldNumber, rootLayer bool, msgDesc *proto.MessageDescriptor) (v Node, f *proto.FieldDescriptor) {
+	if err := self.should("Field", proto.MESSAGE); err != "" {
+		return errNode(meta.ErrUnsupportedType, err, nil), nil
+	}
+
+	fd := (*msgDesc).Fields().ByNumber(id)
+
+	if fd == nil {
+		return errNode(meta.ErrUnknownField, fmt.Sprintf("field '%d' is not defined in IDL", id), nil), nil
+	}
+
+	it := self.iterFields()
+
+	if it.Err != nil {
+		return errNode(meta.ErrRead, "", it.Err), nil
+	}
+
+	if !rootLayer {
+		if _, err := it.p.ReadLength(); err != nil {
+			return errNode(meta.ErrRead, "", err), nil
+		}
+
+		if it.Err != nil {
+			return errNode(meta.ErrRead, "", it.Err), nil
+		}
+	}
+
+	for it.HasNext() {
+		i, wt, s, e, tagPos := it.Next(UseNativeSkipForGet)
+		if i == fd.Number() {
+			if fd.IsMap() || fd.IsList() {
+				it.p.Read = tagPos
+				if _, err := it.p.SkipAllElements(i, fd.IsPacked()); err != nil {
+					return errNode(meta.ErrRead, "SkipAllElements in LIST/MAP failed", err), nil
+				}
+				s = tagPos
+				e = it.p.Read
+
+				v = self.sliceNodeWithDesc(s, e, &fd)
+				goto ret
+			}
+
+			t := proto.Kind2Wire[fd.Kind()]
+			if wt != t {
+				v = errNode(meta.ErrDismatchType, fmt.Sprintf("field '%s' expects type %s, buf got type %s", fd.Name(), t, wt), nil)
+				goto ret
+			}
+			v = self.sliceNodeWithDesc(s, e, &fd)
+			goto ret
+		} else if it.Err != nil {
+			v = errNode(meta.ErrRead, "", it.Err)
+			goto ret
+		}
+	}
+
+	v = errNode(meta.ErrNotFound, fmt.Sprintf("field '%d' is not found in this value", id), errNotFound)
+ret:
+	return v, &fd
+}
+
+
+func (self Node) Fields(ids []PathNode, rootLayer bool, msgDesc *proto.MessageDescriptor, opts *Options) error {
+	if err := self.should("Fields", proto.MESSAGE); err != "" {
+		return errNode(meta.ErrUnsupportedType, err, nil)
+	}
+
+	if len(ids) == 0 {
+		return nil
+	}
+
+	if opts.ClearDirtyValues {
+		for i := range ids {
+			ids[i].Node = Node{}
+		}
+	}
+
+	it := self.iterFields()
+	if it.Err != nil {
+		return errNode(meta.ErrRead, "", it.Err)
+	}
+
+	Fields := (*msgDesc).Fields()
+
+	if !rootLayer {
+		if _, err := it.p.ReadLength(); err != nil {
+			return errNode(meta.ErrRead, "", err)
+		}
+
+		if it.Err != nil {
+			return errNode(meta.ErrRead, "", it.Err)
+		}
+	}
+
+
+	need := len(ids)
+	for count := 0; it.HasNext() && count < need; {
+		var p *PathNode
+		i, _, s, e, tagPos := it.Next(UseNativeSkipForGet)
+		if it.Err != nil {
+			return errNode(meta.ErrRead, "", it.Err)
+		}
+		f := Fields.ByNumber(i)
+		if f.IsMap() || f.IsList() {
+			it.p.Read = tagPos
+			if _, err := it.p.SkipAllElements(i, f.IsPacked()); err != nil {
+				return errNode(meta.ErrRead, "SkipAllElements in LIST/MAP failed", err)
+			}
+			s = tagPos
+			e = it.p.Read
+		}
+
+		v := self.sliceNodeWithDesc(s, e, &f)
+
+		//TODO: use bitmap to avoid repeatedly scan
+		for j, id := range ids {
+			if id.Path.t == PathFieldId && id.Path.id() == i {
+				p = &ids[j]
+				count += 1
+				break
+			}
+		}
+
+		if p != nil {
+			p.Node = v
+		}
+	}
+
+	return nil
+}
+
+func (self Node) Indexes(ins []PathNode, opts *Options) error {
+	if err := self.should("Indexes", proto.LIST); err != "" {
+		return errNode(meta.ErrUnsupportedType, err, nil)
+	}
+
+	if len(ins) == 0 {
+		return nil
+	}
+
+	if opts.ClearDirtyValues {
+		for i := range ins {
+			ins[i].Node = Node{}
+		}
+	}
+
+	it := self.iterElems()
+	if it.Err != nil {
+		return errNode(meta.ErrRead, "", it.Err)
+	}
+
+	need := len(ins)
+	IsPacked := it.IsPacked()
+
+	// read packed list tag and bytelen
+	if IsPacked {
+		if _, _, _, err := it.p.ConsumeTag(); err != nil {
+			return errNode(meta.ErrRead, "", err)
+		}
+		if _, err := it.p.ReadLength(); err != nil {
+			return errNode(meta.ErrRead, "", err)
+		}
+	}
+
+	for count, i := 0, 0; it.HasNext() && count < need; i++ {
+		s, e := it.Next(UseNativeSkipForGet)
+		if it.Err != nil {
+			return errNode(meta.ErrRead, "", it.Err)
+		}
+
+		// check if the index is in the pathes
+		var p *PathNode
+		for j, id := range ins {
+			if id.Path.t != PathIndex {
+				continue
+			}
+			k := id.Path.int()
+			if k >= it.size {
+				continue
+			}
+			if k == i {
+				p = &ins[j]
+				count += 1
+				break
+			}
+		}
+		// PathNode is found
+		if p != nil {
+			p.Node = self.slice(s, e, self.et)
+		}
+	}
+	return nil
+}
+
+func (self Node) Gets(keys []PathNode, opts *Options) error {
+	if err := self.should("Gets", proto.MAP); err != "" {
+		return errNode(meta.ErrUnsupportedType, err, nil)
+	}
+
+	if len(keys) == 0 {
+		return nil
+	}
+
+	if opts.ClearDirtyValues {
+		for i := range keys {
+			keys[i].Node = Node{}
+		}
+	}
+
+	et := self.et
+	it := self.iterPairs()
+	if it.Err != nil {
+		return errNode(meta.ErrRead, "", it.Err)
+	}
+
+	need := len(keys)
+	for count := 0; it.HasNext() && count < need; {
+		for j, id := range keys {
+			if id.Path.Type() == PathStrKey {
+				exp := id.Path.str()
+				_, key, s, e := it.NextStr(UseNativeSkipForGet)
+				if it.Err != nil {
+					return errNode(meta.ErrRead, "", it.Err)
+				}
+				if key == exp {
+					keys[j].Node = self.slice(s, e, et)
+					count += 1
+					break
+				}
+			} else if id.Path.Type() == PathIntKey {
+				exp := id.Path.int()
+				_, key, s, e := it.NextInt(UseNativeSkipForGet)
+				if it.Err != nil {
+					return errNode(meta.ErrRead, "", it.Err)
+				}
+				if key == exp {
+					keys[j].Node = self.slice(s, e, et)
+					count += 1
+					break
+				}
+			}
+		}
+	}
+	return nil
 }

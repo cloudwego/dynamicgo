@@ -92,24 +92,8 @@ func (self Value) Fork() Value {
 
 
 func (self Value) sliceWithDesc(s int, e int, desc *proto.FieldDescriptor) Value {
-	t := proto.FromProtoKindToType((*desc).Kind(), (*desc).IsList(), (*desc).IsMap())
-	ret := Value{
-		Node: Node{
-			t: t,
-			l: (e - s),
-			v: rt.AddPtr(self.v, uintptr(s)),
-		},
-		Desc: desc,
-	}
-	if t == proto.LIST {
-		ret.et = proto.FromProtoKindToType((*desc).Kind(), false, false) // hard code, may have error?
-	} else if t == proto.MAP {
-		mapkey := (*desc).MapKey()
-		mapvalue := (*desc).MapValue()
-		ret.kt = proto.FromProtoKindToType(mapkey.Kind(), mapkey.IsList(), mapkey.IsMap())
-		ret.et = proto.FromProtoKindToType(mapvalue.Kind(), mapvalue.IsList(), mapvalue.IsMap())
-	}
-	return ret
+	node := self.sliceNodeWithDesc(s, e, desc)
+	return Value{Node: node, Desc: desc}
 }
 
 // searchFieldId in MESSAGE Node
@@ -1028,62 +1012,20 @@ ret:
 
 // Field returns a sub node at the given field id from a MESSAGE value.
 func (self Value) Field(id proto.FieldNumber) (v Value) {
-	if err := self.should("Field", proto.MESSAGE); err != "" {
-		return errValue(meta.ErrUnsupportedType, err, nil)
+	rootLayer := true
+	msgDesc := self.RootDesc
+	if self.Desc != nil {
+		rootLayer = false
+		msgfd := (*self.Desc).Message()
+		msgDesc = &msgfd
 	}
+	 
+	n, d := self.Node.Field(id, rootLayer, msgDesc)
 
-	it := self.iterFields()
-
-	var f proto.FieldDescriptor
-	if self.RootDesc != nil {
-		f = (*self.RootDesc).Fields().ByNumber(id)
-	} else {
-		f = (*self.Desc).Message().Fields().ByNumber(id)
-		if _, err := it.p.ReadLength(); err != nil {
-			return errValue(meta.ErrRead, "", err)
-		}
+	if n.IsError() {
+		return wrapValue(n, nil)
 	}
-
-	if f == nil {
-		return errValue(meta.ErrUnknownField, fmt.Sprintf("field '%d' is not defined in IDL", id), nil)
-	}
-	// not found, try to scan the whole bytes
-
-	if it.Err != nil {
-		return errValue(meta.ErrRead, "", it.Err)
-	}
-
-	for it.HasNext() {
-		i, wt, s, e, tagPos := it.Next(UseNativeSkipForGet)
-		if i == f.Number() {
-			if f.IsMap() || f.IsList() {
-				it.p.Read = tagPos
-				if _, err := it.p.SkipAllElements(i, f.IsPacked()); err != nil {
-					return errValue(meta.ErrRead, "SkipAllElements in LIST/MAP failed", err)
-				}
-				s = tagPos
-				e = it.p.Read
-
-				v = self.sliceWithDesc(s, e, &f)
-				goto ret
-			}
-
-			t := proto.Kind2Wire[f.Kind()]
-			if wt != t {
-				v = errValue(meta.ErrDismatchType, fmt.Sprintf("field '%s' expects type %s, buf got type %s", f.Name(), t, wt), nil)
-				goto ret
-			}
-			v = self.sliceWithDesc(s, e, &f)
-			goto ret
-		} else if it.Err != nil {
-			v = errValue(meta.ErrRead, "", it.Err)
-			goto ret
-		}
-	}
-
-	v = errValue(meta.ErrNotFound, fmt.Sprintf("field '%d' is not found in this value", id), errNotFound)
-ret:
-	return
+	return wrapValue(n, d)
 }
 
 // GetMany searches transversely and returns all the sub nodes along with the given pathes.
@@ -1114,184 +1056,16 @@ func (self Value) getMany(pathes []PathNode, clearDirty bool, opts *Options) err
 }
 
 func (self Value) Fields(ids []PathNode, opts *Options) error {
-	if err := self.should("Fields", proto.MESSAGE); err != "" {
-		return errValue(meta.ErrUnsupportedType, err, nil)
+	rootLayer := true
+	msgDesc := self.RootDesc
+	if self.Desc != nil {
+		rootLayer = false
+		msgfd := (*self.Desc).Message()
+		msgDesc = &msgfd
 	}
 
-	if len(ids) == 0 {
-		return nil
-	}
-
-	if opts.ClearDirtyValues {
-		for i := range ids {
-			ids[i].Node = Node{}
-		}
-	}
-
-	it := self.iterFields()
-	if it.Err != nil {
-		return errValue(meta.ErrRead, "", it.Err)
-	}
-
-	var Fields proto.FieldDescriptors
-	if self.RootDesc != nil {
-		Fields = (*self.RootDesc).Fields()
-	} else {
-		Fields = (*self.Desc).Message().Fields()
-		if _, err := it.p.ReadLength(); err != nil {
-			return errValue(meta.ErrRead, "", err)
-		}
-	}
-
-	need := len(ids)
-	for count := 0; it.HasNext() && count < need; {
-		var p *PathNode
-		i, _, s, e, tagPos := it.Next(UseNativeSkipForGet)
-		if it.Err != nil {
-			return errValue(meta.ErrRead, "", it.Err)
-		}
-		f := Fields.ByNumber(i)
-		if f.IsMap() || f.IsList() {
-			it.p.Read = tagPos
-			if _, err := it.p.SkipAllElements(i, f.IsPacked()); err != nil {
-				return errValue(meta.ErrRead, "SkipAllElements in LIST/MAP failed", err)
-			}
-			s = tagPos
-			e = it.p.Read
-		}
-
-		v := self.sliceWithDesc(s, e, &f)
-
-		//TODO: use bitmap to avoid repeatedly scan
-		for j, id := range ids {
-			if id.Path.t == PathFieldId && id.Path.id() == i {
-				p = &ids[j]
-				count += 1
-				break
-			}
-		}
-
-		if p != nil {
-			p.Node = v.Node
-		}
-	}
-
-	return nil
-}
-
-func (self Value) Indexes(ins []PathNode, opts *Options) error {
-	if err := self.should("Indexes", proto.LIST); err != "" {
-		return errValue(meta.ErrUnsupportedType, err, nil)
-	}
-
-	if len(ins) == 0 {
-		return nil
-	}
-
-	if opts.ClearDirtyValues {
-		for i := range ins {
-			ins[i].Node = Node{}
-		}
-	}
-
-	it := self.iterElems()
-	if it.Err != nil {
-		return errValue(meta.ErrRead, "", it.Err)
-	}
-
-	need := len(ins)
-	IsPacked := it.IsPacked()
-
-	// read packed list tag and bytelen
-	if IsPacked {
-		if _, _, _, err := it.p.ConsumeTag(); err != nil {
-			return errValue(meta.ErrRead, "", err)
-		}
-		if _, err := it.p.ReadLength(); err != nil {
-			return errValue(meta.ErrRead, "", err)
-		}
-	}
-
-	for count, i := 0, 0; it.HasNext() && count < need; i++ {
-		s, e := it.Next(UseNativeSkipForGet)
-		if it.Err != nil {
-			return errValue(meta.ErrRead, "", it.Err)
-		}
-
-		// check if the index is in the pathes
-		var p *PathNode
-		for j, id := range ins {
-			if id.Path.t != PathIndex {
-				continue
-			}
-			k := id.Path.int()
-			if k >= it.size {
-				continue
-			}
-			if k == i {
-				p = &ins[j]
-				count += 1
-				break
-			}
-		}
-		// PathNode is found
-		if p != nil {
-			p.Node = self.Node.slice(s, e, self.et)
-		}
-	}
-	return nil
-}
-
-func (self Value) Gets(keys []PathNode, opts *Options) error {
-	if err := self.should("Gets", proto.MAP); err != "" {
-		return errValue(meta.ErrUnsupportedType, err, nil)
-	}
-
-	if len(keys) == 0 {
-		return nil
-	}
-
-	if opts.ClearDirtyValues {
-		for i := range keys {
-			keys[i].Node = Node{}
-		}
-	}
-
-	et := self.et
-	it := self.iterPairs()
-	if it.Err != nil {
-		return errValue(meta.ErrRead, "", it.Err)
-	}
-
-	need := len(keys)
-	for count := 0; it.HasNext() && count < need; {
-		for j, id := range keys {
-			if id.Path.Type() == PathStrKey {
-				exp := id.Path.str()
-				_, key, s, e := it.NextStr(UseNativeSkipForGet)
-				if it.Err != nil {
-					return errValue(meta.ErrRead, "", it.Err)
-				}
-				if key == exp {
-					keys[j].Node = self.Node.slice(s, e, et)
-					count += 1
-					break
-				}
-			} else if id.Path.Type() == PathIntKey {
-				exp := id.Path.int()
-				_, key, s, e := it.NextInt(UseNativeSkipForGet)
-				if it.Err != nil {
-					return errValue(meta.ErrRead, "", it.Err)
-				}
-				if key == exp {
-					keys[j].Node = self.Node.slice(s, e, et)
-					count += 1
-					break
-				}
-			}
-		}
-	}
-	return nil
+	err := self.Node.Fields(ids, rootLayer, msgDesc, opts)
+	return err
 }
 
 // SetMany: set a list of sub nodes at the given pathes from the value.
