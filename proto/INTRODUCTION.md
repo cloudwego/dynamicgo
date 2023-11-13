@@ -202,7 +202,7 @@ Map：[PairTag][PairLength][KeyTag][KeyLength][KeyValue][ValueTag][ValueLength][
 Map 类型所有 PairTag 共享相同 fieldId（字段ID）。因此预解析 PairTag 得到 pairNumber，并以 (pairNumber==fieldId)=true 作为循环条件直到结束。
 
 ### JSON——>ProtoBuf
-协议转换过程中通过 sonic 框架实现 in-place 遍历 JSON，并实现了接口 Onxxx（OnBool、OnString、OnInt64....）方法达到编码 ProtoBuf 的目标，编码过程也做到了 in-place。
+协议转换过程中通过 [sonic](https://github.com/bytedance/sonic) 框架实现 in-place 遍历 JSON，并实现了接口 Onxxx（OnBool、OnString、OnInt64....）方法达到编码 ProtoBuf 的目标，编码过程也做到了 in-place。
 
 #### VisitorUserNode 结构
 因为在编码 Protobuf 格式的 Mesage/UnpackedList/Map 类型时需要对字段总长度回写，并且在解析复杂类型（Message/Map/List）的子元素时需要依赖复杂类型 Descriptor 来获取子元素 Descriptor，所以需要 VisitorUserNode 结构来保存解析 json 时的中间数据。
@@ -246,20 +246,20 @@ type visitorUserNodeState struct {
 #### 协议转换过程
 JSON——>ProtoBuf 的转换过程如下：
 1. 从输入字节流中读取一个 json 值，并判断其具体类型（object/array/string/float/int/bool/null）；
-2. 如果是 object 类型，可能对应 ProtoBuf MapType/MessageType，sonic 会按照 OnObjectBegin()——>OnObjectKey()——>decodeValue()... 顺序处理输入字节流。
+2. 如果是 object 类型，可能对应 ProtoBuf MapType/MessageType，sonic 会按照 `OnObjectBegin()——>OnObjectKey()——>decodeValue()...` 顺序处理输入字节流。
       - OnObjectBegin()阶段解析具体的动态类型描述 FieldDescriptor 并压栈；
       - OnObjectKey() 阶段解析 jsonKey 并以 ProtoBuf 格式编码 Tag、Length 到输出字节流；
       - decodeValue()阶段递归解析子元素并以 ProtoBuf 格式编码 Value 部分到输出字节流，若子类型为复杂类型（Message/Map），会递归执行第 2 步；若子类型为复杂类型（List），会递归执行第 3 步。
-3. 如果是 array 类型，对应 ProtoBuf PackedList/UnpackedList，sonic 会按照 OnObjectBegin()——>OnObjectKey()——>OnArrayBegin()——>decodeValue()——>OnArrayEnd()... 顺序处理输入字节流。
-     - OnObjectBegin()阶段处理解析 List 字段对应动态类型描述 FieldDescriptor 并压栈；
-     - OnObjectKey()阶段解析 List 下子元素的动态类型描述 FieldDescriptor 并压栈；
-     - OnArrayBegin()阶段将 PackedList 类型的 Tag、Length 编码到输出字节流；
-     - decodeValue()阶段循环处理子元素，按照子元素类型编码到输出流，若子元素为复杂类型（Message），会跳转到第 2 步递归执行。
-4. 在结束处理某字段数据后执行 onValueEnd()、OnArrayEnd()、OnObjectEnd()，获取栈顶 lenPos 数据，对字段长度部分回写并退栈。
+3. 如果是 array 类型，对应 ProtoBuf PackedList/UnpackedList，sonic 会按照 `OnObjectBegin()——>OnObjectKey()——>OnArrayBegin()——>decodeValue()——>OnArrayEnd()...` 顺序处理输入字节流。
+     - `OnObjectBegin()`阶段处理解析 List 字段对应动态类型描述 FieldDescriptor 并压栈；
+     - `OnObjectKey()`阶段解析 List 下子元素的动态类型描述 FieldDescriptor 并压栈；
+     - `OnArrayBegin()`阶段将 PackedList 类型的 Tag、Length 编码到输出字节流；
+     - `decodeValue()`阶段循环处理子元素，按照子元素类型编码到输出流，若子元素为复杂类型（Message），会跳转到第 2 步递归执行。
+4. 在结束处理某字段数据后执行 `onValueEnd()、OnArrayEnd()、OnObjectEnd()`，获取栈顶 lenPos 数据，对字段长度部分回写并退栈。
 5. 更新输入和输出字节流位置，跳回第 1 步循环处理，直到处理完输入流数据。
 
 ## 性能测试
-构造与thrift性能测试基本相同的baseline.proto文件，定义了对应的简单（Small)、复杂（Medium)、简单缺失（SmallPartial）、复杂缺失（MediumPartial） 两个对应子集。
+构造与thrift性能测试基本相同的[baseline.proto](../testdata/idl/baseline.proto)文件，定义了对应的简单（[Small](../testdata/idl/baseline.proto#L7)）、复杂（[Medium](../testdata/idl/baseline.proto#L23)）、简单缺失（[SmallPartial](../testdata/idl/baseline.proto#L17)）、复杂缺失（[MediumPartial](../testdata/idl/baseline.proto#L41)） 两个对应子集，并用kitex命令生成了对应的[baseline.pb.go](../testdata/kitex_gen/pb/baseline/baseline.pb.go)。
 主要与Protobuf-Go官方源码进行比较，部分测试与kitex-fast也进行了比较，测试环境如下：
 - OS：Windows 11 Pro Version 23H2
 - GOARCH: amd64
@@ -267,19 +267,23 @@ JSON——>ProtoBuf 的转换过程如下：
 - Go VERSION：1.20.5
 
 ### 反射
+- 代码：[dynamicgo/testdata/baseline_pg_test.go](../testdata/baseline_pg_test.go)
 - set/get方法性能比较请查看protobuf字段定量测试结果。
 - MarshalTo方法：相比protobufGo提升随着数据规模的增大趋势越明显，ns/op开销约为源码方法的0.55~0.69。
   
 ![](../image/intro-17.png)
 
 ### 字段Get/Set定量测试
+- 代码：[dynamicgo/testdata/baseline_pg_test.go#BenchmarkProtoRationGet](../testdata/baseline_pg_test.go#L1529)
+- [factor](../testdata/baseline_pg_test.go#L1476)用于修改从上到下扫描proto文件字段获取比率。
 - 定量测试比较方法是protobufGo的dynamicpb模块和DynamicGo的Get/SetByPath，SetMany。
 - Set/Get字段定量测试结果均优于ProtobufGo，且在获取字段越稀疏的情况下性能加速越明显，因为protobuf源码不论获取多少比率的字段，都需要完整序列化全体对象，而dynamicgo则是直接解析buf完成copy。
 - setmany性能加速更明显，在100%字段下ns/op开销约为0.22。
 
-![](../image/intro-19.png)
+![](../image/intro-18.png)
 
 ### 序列化/反序列化
+- 代码：[dynamicgo/testdata/baseline_pg_test.go#BenchmarkProtoMarshalAll_DynamicGo](../testdata/baseline_pg_test.go#L1128)
 - 序列化在medium规模的数据上性能优势更明显，small规模略高于protobufGo，ns/op开销约为源码的0.43~1.65。
 - 反序列化在reuse模式下性能优于ProtobufGo，ns/op开销约为源码的0.64~0.82，随数据规模增大性能优势增加。
 ![](../image/intro-19.png)
@@ -287,7 +291,9 @@ JSON——>ProtoBuf 的转换过程如下：
 
 ### 协议转换
 - Json2Protobuf优于ProtobufGo，ns/op性能开销约为源码的0.39~0.58，随着数据量规模增大优势增加。
+- 代码：[dynamicgo/testdata/baseline_j2p_test.go](../testdata/baseline_j2p_test.go)
 - Protobuf2Json优于ProtobufGo和Sonic+Kitex，ns/op开销约为源码的0.22 ~ 0.26， 开销约为Sonic+Kitex的0.61~0.79，随着数据量规模增大优势增加。
+- 代码：[dynamicgo/testdata/baseline_p2j_test.go](../testdata/baseline_p2j_test.go)
   
 ![](../image/intro-21.png)
 
