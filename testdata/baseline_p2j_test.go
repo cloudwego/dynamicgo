@@ -88,8 +88,11 @@ func TestProtobuf2JSON(t *testing.T) {
 		cv := p2j.NewBinaryConv(conv.Options{})
 		in := make([]byte, data.Size())
 		data.FastWrite(in)
-
-		ret, err := cv.Do(ctx, desc, in)
+		d, ok := (*desc).(proto.Descriptor)
+		if !ok {
+			t.Fatal("cast error")
+		}
+		ret, err := cv.Do(ctx, &d, in)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -111,8 +114,11 @@ func TestProtobuf2JSON(t *testing.T) {
 		cv := p2j.NewBinaryConv(conv.Options{})
 		in := make([]byte, data.Size())
 		data.FastWrite(in)
-
-		ret, err := cv.Do(ctx, desc, in)
+		d, ok := (*desc).(proto.Descriptor)
+		if !ok {
+			t.Fatal("cast error")
+		}
+		ret, err := cv.Do(ctx, &d, in)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -136,15 +142,18 @@ func BenchmarkProtobuf2JSON_DynamicGo_Raw(b *testing.B) {
 		cv := p2j.NewBinaryConv(conv.Options{})
 		in := make([]byte, data.Size())
 		data.FastWrite(in)
-
-		_, err := cv.Do(ctx, desc, in)
+		d, ok := (*desc).(proto.Descriptor)
+		if !ok {
+			b.Fatal("cast error")
+		}
+		_, err := cv.Do(ctx, &d, in)
 		if err != nil {
 			b.Fatal(err)
 		}
 		b.SetBytes(int64(len(in)))
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_, _ = cv.Do(ctx, desc, in)
+			_, _ = cv.Do(ctx, &d, in)
 		}
 	})
 
@@ -156,15 +165,18 @@ func BenchmarkProtobuf2JSON_DynamicGo_Raw(b *testing.B) {
 		cv := p2j.NewBinaryConv(conv.Options{})
 		in := make([]byte, data.Size())
 		data.FastWrite(in)
-
-		_, err := cv.Do(ctx, desc, in)
+		d, ok := (*desc).(proto.Descriptor)
+		if !ok {
+			b.Fatal("cast error")
+		}
+		_, err := cv.Do(ctx, &d, in)
 		if err != nil {
 			b.Fatal(err)
 		}
 		b.SetBytes(int64(len(in)))
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_, _ = cv.Do(ctx, desc, in)
+			_, _ = cv.Do(ctx, &d, in)
 		}
 	})
 }
