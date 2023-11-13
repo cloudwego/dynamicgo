@@ -2,7 +2,6 @@ package p2j
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/cloudwego/dynamicgo/http"
@@ -17,12 +16,6 @@ import (
 
 const (
 	_GUARD_SLICE_FACTOR = 2
-
-	MapEntry_Key_field_name   protoreflect.Name = "key"
-	MapEntry_Value_field_name protoreflect.Name = "value"
-
-	MapEntry_Key_field_number   protoreflect.FieldNumber = 1
-	MapEntry_Value_field_number protoreflect.FieldNumber = 2
 )
 
 func wrapError(code meta.ErrCode, msg string, err error) error {
@@ -38,19 +31,33 @@ func unwrapError(msg string, err error) error {
 	}
 }
 
-func (self *ProtoConv) do(ctx context.Context, src []byte, desc *proto.MessageDescriptor, out *[]byte, resp http.ResponseSetter) (err error) {
+func (self *ProtoConv) do(ctx context.Context, src []byte, desc *proto.Descriptor, out *[]byte, resp http.ResponseSetter) (err error) {
+	//NOTICE: output buffer must be larger than src buffer
 	rt.GuardSlice(out, len(src)*_GUARD_SLICE_FACTOR)
+
 	var p = binary.BinaryProtocol{
 		Buf: src,
 	}
 
-	fields := (*desc).Fields()
+	// when desc is Singular/Map/List
+	fieldDesc, ok := (*desc).(proto.FieldDescriptor)
+	if ok {
+		wtyp := proto.Kind2Wire[protoreflect.Kind(fieldDesc.Kind())]
+		return self.doRecurse(ctx, &fieldDesc, out, resp, &p, wtyp)
+	}
+
+	// when desc is Message
+	messageDesc, ok := (*desc).(protoreflect.MessageDescriptor)
+	if !ok {
+		return wrapError(meta.ErrConvert, "invalid descriptor", nil)
+	}
+	fields := messageDesc.Fields()
 	comma := false
-	existExceptionField := false
 
 	*out = json.EncodeObjectBegin(*out)
 
 	for p.Read < len(src) {
+		// Parse Tag to preprocess Descriptor does not have the field
 		fieldId, typeId, _, e := p.ConsumeTag()
 		if e != nil {
 			return wrapError(meta.ErrRead, "", e)
@@ -73,38 +80,21 @@ func (self *ProtoConv) do(ctx context.Context, src []byte, desc *proto.MessageDe
 			comma = true
 		}
 
-		// serizalize jsonname
+		// NOTICE: always use jsonName here, because jsonName always equals to name by default
 		*out = json.EncodeString(*out, fd.JSONName())
 		*out = json.EncodeObjectColon(*out)
-
-		if self.opts.EnableValueMapping {
-
-		} else {
-			err := self.doRecurse(ctx, &fd, out, resp, &p, typeId)
-			if err != nil {
-				return unwrapError(fmt.Sprintf("converting field %s of MESSAGE %s failed", fd.Name(), fd.Kind()), err)
-			}
-		}
-
-		if existExceptionField {
-			break
+		// Parse ProtoData and encode into json format
+		err := self.doRecurse(ctx, &fd, out, resp, &p, typeId)
+		if err != nil {
+			return unwrapError(fmt.Sprintf("converting field %s of MESSAGE %s failed", fd.Name(), fd.Kind()), err)
 		}
 	}
 
-	// if err = self.handleUnsets(r, desc.Struct(), out, comma, ctx, resp); err != nil {
-	// 	return err
-	// }
-
-	// thrift.FreeRequiresBitmap(r)
-	if existExceptionField && err == nil {
-		err = errors.New(string(*out))
-	} else {
-		*out = json.EncodeObjectEnd(*out)
-	}
+	*out = json.EncodeObjectEnd(*out)
 	return err
 }
 
-// parse MessageField recursive
+// Parse ProtoData into JSONData by DescriptorType
 func (self *ProtoConv) doRecurse(ctx context.Context, fd *proto.FieldDescriptor, out *[]byte, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType) error {
 	switch {
 	case (*fd).IsList():
@@ -116,7 +106,9 @@ func (self *ProtoConv) doRecurse(ctx context.Context, fd *proto.FieldDescriptor,
 	}
 }
 
-// parse Singular MessageType
+// parse Singular/MessageType
+// Singular format: [Tag][Length][Value]
+// Message format: [Tag][Length][[Tag][Length][Value] [Tag][Length][Value]....]
 func (self *ProtoConv) unmarshalSingular(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, out *[]byte, fd *proto.FieldDescriptor) (err error) {
 	switch (*fd).Kind() {
 	case protoreflect.BoolKind:
@@ -216,14 +208,12 @@ func (self *ProtoConv) unmarshalSingular(ctx context.Context, resp http.Response
 		}
 		*out = json.EncodeBaniry(*out, v)
 	case protoreflect.MessageKind:
-		// get the message data length
 		l, e := p.ReadLength()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Byteskind error", e)
 		}
 		fields := (*fd).Message().Fields()
 		comma := false
-		existExceptionField := false
 		start := p.Read
 
 		*out = json.EncodeObjectBegin(*out)
@@ -236,7 +226,13 @@ func (self *ProtoConv) unmarshalSingular(ctx context.Context, resp http.Response
 
 			fd := fields.ByNumber(protowire.Number(fieldId))
 			if fd == nil {
-				return wrapError(meta.ErrRead, "invalid field", nil)
+				if self.opts.DisallowUnknownField {
+					return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", fieldId), nil)
+				}
+				if e := p.Skip(typeId, self.opts.UseNativeSkip); e != nil {
+					return wrapError(meta.ErrRead, "", e)
+				}
+				continue
 			}
 
 			if comma {
@@ -245,21 +241,13 @@ func (self *ProtoConv) unmarshalSingular(ctx context.Context, resp http.Response
 				comma = true
 			}
 
-			// serizalize jsonname
 			*out = json.EncodeString(*out, fd.JSONName())
 			*out = json.EncodeObjectColon(*out)
 
-			if self.opts.EnableValueMapping {
-
-			} else {
-				err := self.doRecurse(ctx, &fd, out, resp, p, typeId)
-				if err != nil {
-					return unwrapError(fmt.Sprintf("converting field %s of MESSAGE %s failed", fd.Name(), fd.Kind()), err)
-				}
-			}
-
-			if existExceptionField {
-				break
+			// parse MessageFieldValue recursive
+			err := self.doRecurse(ctx, &fd, out, resp, p, typeId)
+			if err != nil {
+				return unwrapError(fmt.Sprintf("converting field %s of MESSAGE %s failed", fd.Name(), fd.Kind()), err)
 			}
 		}
 		*out = json.EncodeObjectEnd(*out)
@@ -270,17 +258,20 @@ func (self *ProtoConv) unmarshalSingular(ctx context.Context, resp http.Response
 }
 
 // parse ListType
+// Packed List format: [Tag][Length][Value Value Value Value Value]....
+// Unpacked List format: [Tag][Length][Value] [Tag][Length][Value]....
 func (self *ProtoConv) unmarshalList(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType, out *[]byte, fd *proto.FieldDescriptor) (err error) {
 	*out = json.EncodeArrayBegin(*out)
 
 	fileldNumber := (*fd).Number()
-	// packed ：[Tag] [Length] [v v v v v]
+	// packedList(format)：[Tag] [Length] [Value Value Value Value Value]
 	if typeId == proto.BytesType && (*fd).IsPacked() {
 		len, err := p.ReadLength()
 		if err != nil {
 			return wrapError(meta.ErrRead, "unmarshal List Length error", err)
 		}
 		start := p.Read
+		// parse Value repeated
 		for p.Read < start+len {
 			self.unmarshalSingular(ctx, resp, p, out, fd)
 			if p.Read != start && p.Read != start+len {
@@ -288,7 +279,7 @@ func (self *ProtoConv) unmarshalList(ctx context.Context, resp http.ResponseSett
 			}
 		}
 	} else {
-		// unpacked ：[tag][length][value][tag][length]....
+		// unpackedList(format)：[Tag][Length][Value] [Tag][Length][Value]....
 		self.unmarshalSingular(ctx, resp, p, out, fd)
 		for p.Read < len(p.Buf) {
 			elementFieldNumber, _, tagLen, err := p.ConsumeTagWithoutMove()
@@ -299,7 +290,6 @@ func (self *ProtoConv) unmarshalList(ctx context.Context, resp http.ResponseSett
 			if elementFieldNumber != fileldNumber {
 				break
 			}
-			// continue parse List
 			*out = json.EncodeArrayComma(*out)
 			p.Read += tagLen
 			self.unmarshalSingular(ctx, resp, p, out, fd)
@@ -322,7 +312,7 @@ func (self *ProtoConv) unmarshalMap(ctx context.Context, resp http.ResponseSette
 
 	*out = json.EncodeObjectBegin(*out)
 
-	// parse first [KeyTag][KeyLength][KeyValue][ValueTag][ValueLength][ValueValue]
+	// parse first k-v pair, [KeyTag][KeyLength][KeyValue][ValueTag][ValueLength][ValueValue]
 	_, _, _, keyErr := p.ConsumeTag()
 	if keyErr != nil {
 		return wrapError(meta.ErrRead, "parse MapKey Tag error", err)
@@ -348,7 +338,7 @@ func (self *ProtoConv) unmarshalMap(ctx context.Context, resp http.ResponseSette
 		return wrapError(meta.ErrRead, "parse MapValue Value error", err)
 	}
 
-	// parse last k-v pair
+	// parse the remaining k-v pairs
 	for p.Read < len(p.Buf) {
 		pairNumber, _, tagLen, err := p.ConsumeTagWithoutMove()
 		if err != nil {

@@ -23,15 +23,12 @@ func (self *ProtoConv) SetOptions(opts conv.Options) {
 	self.opts = opts
 }
 
-// Do converts protobuf binary (tbytes) to json bytes (jbytes)
-//
-// desc is the thrift type descriptor of the protobuf binary, usually it is a response STRUCT type
-// ctx is the context, which can be used to pass arguments as below:
-//   - conv.CtxKeyHTTPResponse: http.ResponseSetter as http request
-//   - conv.CtxKeyThriftRespBase: thrift.Base as base metadata of thrift response
-func (self *ProtoConv) Do(ctx context.Context, desc *proto.MessageDescriptor, tbytes []byte) (json []byte, err error) {
+// Do converts protobuf binary (pbytes) to json bytes (jbytes)
+// desc is the protobuf type descriptor of the protobuf binary, usually it is a response Message type
+func (self *ProtoConv) Do(ctx context.Context, desc *proto.Descriptor, pbytes []byte) (json []byte, err error) {
 	buf := conv.NewBytes()
 
+	// resp alloc but not use
 	var resp http.ResponseSetter
 	if self.opts.EnableHttpMapping {
 		respi := ctx.Value(conv.CtxKeyHTTPResponse)
@@ -46,7 +43,7 @@ func (self *ProtoConv) Do(ctx context.Context, desc *proto.MessageDescriptor, tb
 		}
 	}
 
-	err = self.do(ctx, tbytes, desc, buf, resp)
+	err = self.do(ctx, pbytes, desc, buf, resp)
 	if err == nil && len(*buf) > 0 {
 		json = make([]byte, len(*buf))
 		copy(json, *buf)
@@ -57,7 +54,8 @@ func (self *ProtoConv) Do(ctx context.Context, desc *proto.MessageDescriptor, tb
 }
 
 // DoInto behaves like Do, but it writes the result to buffer directly instead of returning a new buffer
-func (self *ProtoConv) DoInto(ctx context.Context, desc *proto.MessageDescriptor, tbytes []byte, buf *[]byte) (err error) {
+func (self *ProtoConv) DoInto(ctx context.Context, desc *proto.Descriptor, pbytes []byte, buf *[]byte) (err error) {
+	// resp alloc but not use
 	var resp http.ResponseSetter
 	if self.opts.EnableHttpMapping {
 		respi := ctx.Value(conv.CtxKeyHTTPResponse)
@@ -72,5 +70,5 @@ func (self *ProtoConv) DoInto(ctx context.Context, desc *proto.MessageDescriptor
 		}
 	}
 
-	return self.do(ctx, tbytes, desc, buf, resp)
+	return self.do(ctx, pbytes, desc, buf, resp)
 }
