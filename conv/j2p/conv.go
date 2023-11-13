@@ -21,20 +21,12 @@ func NewBinaryConv(opts conv.Options) BinaryConv {
 	}
 }
 
-// SetOptions sets options
-func (self *BinaryConv) SetOptions(opts conv.Options) {
-	self.opts = opts
-}
-
 // Do converts json bytes (jbytes) to protobuf binary (tbytes)
-//
-// desc is the protobuf type descriptor of the protobuf binary, usually it the request STRUCT type
-// ctx is the context, which can be used to pass arguments as below:
-//   - conv.CtxKeyHTTPRequest: http.RequestGetter as http request
-//   - conv.CtxKeyThriftRespBase: protobuf.Base as base metadata of protobuf response
-func (self *BinaryConv) Do(ctx context.Context, desc *proto.MessageDescriptor, jbytes []byte) (tbytes []byte, err error) {
+// desc is the protobuf type descriptor of the protobuf binary, usually it the request Message type
+func (self *BinaryConv) Do(ctx context.Context, desc *proto.Descriptor, jbytes []byte) (tbytes []byte, err error) {
 	buf := conv.NewBytes()
 
+	// req alloc but not use
 	var req http.RequestGetter
 	if self.opts.EnableHttpMapping {
 		reqi := ctx.Value(conv.CtxKeyHTTPRequest)
@@ -59,7 +51,9 @@ func (self *BinaryConv) Do(ctx context.Context, desc *proto.MessageDescriptor, j
 	return
 }
 
-func (self *BinaryConv) DoInto(ctx context.Context, desc *proto.MessageDescriptor, jbytes []byte, buf *[]byte) error {
+// DoInto behaves like Do, but it writes the result to buffer directly instead of returning a new buffer
+func (self *BinaryConv) DoInto(ctx context.Context, desc *proto.Descriptor, jbytes []byte, buf *[]byte) error {
+	// req alloc but not use
 	var req http.RequestGetter
 	if self.opts.EnableHttpMapping {
 		reqi := ctx.Value(conv.CtxKeyHTTPRequest)

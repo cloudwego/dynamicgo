@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/conv"
+	"github.com/cloudwego/dynamicgo/internal/util_test"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/base"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
@@ -17,27 +20,31 @@ import (
 )
 
 const (
-	exampleIDLPath   = "../../testdata/idl/example2.proto"
-	exampleJSON      = "../../testdata/data/example2req.json"
-	exampleProtoPath = "../../testdata/data/example2_pb.bin"
+	exampleIDLPath   = "testdata/idl/example2.proto"
+	exampleJSON      = "testdata/data/example2req.json"
+	exampleProtoPath = "testdata/data/example2_pb.bin"
 )
 
-func TestBuildData(t *testing.T) {
-	if err := buildExampleJSONData(); err != nil {
-		panic("build ExampleJSONData error")
-	}
-}
+// func TestBuildData(t *testing.T) {
+// 	if err := buildExampleJSONData(); err != nil {
+// 		panic("build ExampleJSONData error")
+// 	}
+// }
 
 func TestConvJSON2Protobf(t *testing.T) {
 	// buildExampleJSONData()
-	desc := getExampleDesc()
+	messageDesc := getExampleDesc()
 	data := getExampleData()
-	pdata, _ := ioutil.ReadFile(exampleProtoPath)
+	pdata, _ := ioutil.ReadFile(util_test.MustGitPath(exampleProtoPath))
 	fmt.Println(pdata)
 	cv := NewBinaryConv(conv.Options{})
 	ctx := context.Background()
 	// get protobuf-encode bytes
-	out, err := cv.Do(ctx, desc, data)
+	desc, ok := (*messageDesc).(proto.Descriptor)
+	if !ok {
+		t.Fatal("convert messageDescriptor to descriptor failed")
+	}
+	out, err := cv.Do(ctx, &desc, data)
 	require.Nil(t, err)
 	exp := &example2.ExampleReq{}
 	// unmarshal target struct
@@ -67,7 +74,7 @@ func TestConvJSON2Protobf(t *testing.T) {
 
 func getExampleDesc() *proto.MessageDescriptor {
 	opts := proto.Options{}
-	svc, err := opts.NewDescriptorFromPath(context.Background(), exampleIDLPath)
+	svc, err := opts.NewDescriptorFromPath(context.Background(), util_test.MustGitPath(exampleIDLPath))
 	if err != nil {
 		panic(err)
 	}
@@ -80,7 +87,7 @@ func getExampleDesc() *proto.MessageDescriptor {
 }
 
 func getExampleData() []byte {
-	out, err := ioutil.ReadFile(exampleJSON)
+	out, err := ioutil.ReadFile(util_test.MustGitPath(exampleJSON))
 	if err != nil {
 		panic(err)
 	}
@@ -212,4 +219,74 @@ func buildExampleJSONData() error {
 		panic("write protoJSONData failed")
 	}
 	return nil
+}
+
+func getExampleInt2Float() *proto.Descriptor {
+	svc, err := proto.NewDescritorFromPath(context.Background(), util_test.MustGitPath(exampleIDLPath))
+	if err != nil {
+		panic(err)
+	}
+	fieldDesc := (*svc).Methods().ByName("Int2FloatMethod").Output()
+	desc, ok := fieldDesc.(proto.Descriptor)
+	if ok {
+		return &desc
+	}
+	return nil
+}
+
+func TestFloat2Int(t *testing.T) {
+	t.Run("double2Int", func(t *testing.T) {
+		desc := getExampleInt2Float()
+		data := []byte(`{"Int32":2.229e+2}`)
+		cv := NewBinaryConv(conv.Options{})
+		ctx := context.Background()
+		out, err := cv.Do(ctx, desc, data)
+		require.NoError(t, err)
+		exp := example2.ExampleInt2Float{}
+		l := 0
+		// fmt.Print(out)
+		dataLen := len(out)
+		// fastRead to get target struct
+		for l < dataLen {
+			id, wtyp, tagLen := goprotowire.ConsumeTag(out)
+			if tagLen < 0 {
+				t.Fatal("test failed")
+			}
+			l += tagLen
+			out = out[tagLen:]
+			offset, err := exp.FastRead(out, int8(wtyp), int32(id))
+			require.Nil(t, err)
+			out = out[offset:]
+			l += offset
+		}
+		require.Nil(t, err)
+		require.Equal(t, exp.Int32, int32(222))
+	})
+	t.Run("int2double", func(t *testing.T) {
+		desc := getExampleInt2Float()
+		data := []byte(`{"Float64":` + strconv.Itoa(math.MaxInt64) + `}`)
+		cv := NewBinaryConv(conv.Options{})
+		ctx := context.Background()
+		out, err := cv.Do(ctx, desc, data)
+		require.NoError(t, err)
+		exp := example2.ExampleInt2Float{}
+		l := 0
+		// fmt.Print(out)
+		dataLen := len(out)
+		// fastRead to get target struct
+		for l < dataLen {
+			id, wtyp, tagLen := goprotowire.ConsumeTag(out)
+			if tagLen < 0 {
+				t.Fatal("test failed")
+			}
+			l += tagLen
+			out = out[tagLen:]
+			offset, err := exp.FastRead(out, int8(wtyp), int32(id))
+			require.Nil(t, err)
+			out = out[offset:]
+			l += offset
+		}
+		require.Nil(t, err)
+		require.Equal(t, exp.Float64, float64(math.MaxInt64))
+	})
 }

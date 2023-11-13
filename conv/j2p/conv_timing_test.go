@@ -6,18 +6,23 @@ import (
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/conv"
+	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
 	"github.com/stretchr/testify/require"
 	goprotowire "google.golang.org/protobuf/encoding/protowire"
 )
 
 func BenchmarkConvJSON2Protobuf_DynamicGo(b *testing.B) {
-	desc := getExampleDesc()
+	messageDesc := getExampleDesc()
 	data := getExampleData()
 	cv := NewBinaryConv(conv.Options{})
 	ctx := context.Background()
 	// dynamicgo exec json2pb
-	out, err := cv.Do(ctx, desc, data)
+	desc, ok := (*messageDesc).(proto.Descriptor)
+	if !ok {
+		b.Fatal("convert messageDescriptor to descriptor failed")
+	}
+	out, err := cv.Do(ctx, &desc, data)
 	require.Nil(b, err)
 
 	// unmarshal json to get pbObj
@@ -44,17 +49,21 @@ func BenchmarkConvJSON2Protobuf_DynamicGo(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		out = out[:0]
-		_ = cv.DoInto(ctx, desc, data, &out)
+		_ = cv.DoInto(ctx, &desc, data, &out)
 	}
 }
 
 func BenchmarkConvJSON2Protobuf_Parallel_DynamicGo(b *testing.B) {
-	desc := getExampleDesc()
+	messageDesc := getExampleDesc()
 	data := getExampleData()
 	cv := NewBinaryConv(conv.Options{})
 	ctx := context.Background()
 	// dynamicgo exec json2pb
-	out, err := cv.Do(ctx, desc, data)
+	desc, ok := (*messageDesc).(proto.Descriptor)
+	if !ok {
+		b.Fatal("convert messageDescriptor to descriptor failed")
+	}
+	out, err := cv.Do(ctx, &desc, data)
 	require.Nil(b, err)
 
 	// unmarshal json to get pbObj
@@ -83,7 +92,7 @@ func BenchmarkConvJSON2Protobuf_Parallel_DynamicGo(b *testing.B) {
 		buf := make([]byte, 0, dataLen)
 		for b.Next() {
 			buf := buf[:0]
-			_ = cv.DoInto(ctx, desc, data, &buf)
+			_ = cv.DoInto(ctx, &desc, data, &buf)
 		}
 	})
 }
