@@ -22,11 +22,20 @@ func GetFnDescFromFile(filePath, fnName string, opts Options) *MethodDescriptor 
 	return &fn
 }
 
-// FnRequest get the normal request type
+// FnRequest get the normal requestDescriptor
 func FnRequest(fn *MethodDescriptor) *MessageDescriptor {
 	request := (*fn).Input()
 	if request == nil {
 		return nil
 	}
 	return &request
+}
+
+// FnResponse get hte normal responseDescriptor
+func FnResponse(fn *MethodDescriptor) *MessageDescriptor {
+	response := (*fn).Output()
+	if response == nil {
+		return nil
+	}
+	return &response
 }

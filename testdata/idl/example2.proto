@@ -99,6 +99,11 @@ message ExampleResp {
     BaseResp BaseResp = 255;
 }
 
+message ExampleRespPartial {
+    string required_field = 2;
+    BaseResp BaseResp = 255;
+}
+
 message Exception {
     int32 code = 1;
     string msg = 255;
@@ -124,11 +129,23 @@ message VoidResponse {
     
 }
 
+message ExampleInt2Float {
+    int32 Int32 = 1;
+    double Float64 = 2;
+    string String = 3;
+    int64 Int64 = 4;
+    double Subfix = 32767;
+}
+
+
+
 // Test that RPC services work.
 service TestService2 {
   rpc ExampleMethod(ExampleReq) returns (ExampleResp);
   rpc ExamplePartialMethod(ExampleReqPartial) returns (A);
+  rpc ExamplePartialMethod2(ExampleReqPartial) returns (ExampleRespPartial);
   rpc ExampleSuperMethod(ExampleSuper) returns (A);
+  rpc Int2FloatMethod(ExampleInt2Float) returns (ExampleInt2Float);
   rpc Foo(A) returns (A);
   rpc Ping(A) returns (PingResponse);
   rpc Oneway(OnewayRequest) returns (VoidResponse);

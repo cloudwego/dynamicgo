@@ -950,6 +950,46 @@ func (x *ExampleResp) fastReadField255(buf []byte, _type int8) (offset int, err 
 	return offset, nil
 }
 
+func (x *ExampleRespPartial) FastRead(buf []byte, _type int8, number int32) (offset int, err error) {
+	switch number {
+	case 2:
+		offset, err = x.fastReadField2(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 255:
+		offset, err = x.fastReadField255(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	default:
+		offset, err = fastpb.Skip(buf, _type, number)
+		if err != nil {
+			goto SkipFieldError
+		}
+	}
+	return offset, nil
+SkipFieldError:
+	return offset, fmt.Errorf("%T cannot parse invalid wire-format data, error: %s", x, err)
+ReadFieldError:
+	return offset, fmt.Errorf("%T read field %d '%s' error: %s", x, number, fieldIDToName_ExampleRespPartial[number], err)
+}
+
+func (x *ExampleRespPartial) fastReadField2(buf []byte, _type int8) (offset int, err error) {
+	x.RequiredField, offset, err = fastpb.ReadString(buf, _type)
+	return offset, err
+}
+
+func (x *ExampleRespPartial) fastReadField255(buf []byte, _type int8) (offset int, err error) {
+	var v base.BaseResp
+	offset, err = fastpb.ReadMessage(buf, _type, &v)
+	if err != nil {
+		return offset, err
+	}
+	x.BaseResp = &v
+	return offset, nil
+}
+
 func (x *Exception) FastRead(buf []byte, _type int8, number int32) (offset int, err error) {
 	switch number {
 	case 1:
@@ -1101,6 +1141,71 @@ func (x *VoidResponse) FastRead(buf []byte, _type int8, number int32) (offset in
 	return offset, nil
 SkipFieldError:
 	return offset, fmt.Errorf("%T cannot parse invalid wire-format data, error: %s", x, err)
+}
+
+func (x *ExampleInt2Float) FastRead(buf []byte, _type int8, number int32) (offset int, err error) {
+	switch number {
+	case 1:
+		offset, err = x.fastReadField1(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 2:
+		offset, err = x.fastReadField2(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 3:
+		offset, err = x.fastReadField3(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 4:
+		offset, err = x.fastReadField4(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 32767:
+		offset, err = x.fastReadField32767(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	default:
+		offset, err = fastpb.Skip(buf, _type, number)
+		if err != nil {
+			goto SkipFieldError
+		}
+	}
+	return offset, nil
+SkipFieldError:
+	return offset, fmt.Errorf("%T cannot parse invalid wire-format data, error: %s", x, err)
+ReadFieldError:
+	return offset, fmt.Errorf("%T read field %d '%s' error: %s", x, number, fieldIDToName_ExampleInt2Float[number], err)
+}
+
+func (x *ExampleInt2Float) fastReadField1(buf []byte, _type int8) (offset int, err error) {
+	x.Int32, offset, err = fastpb.ReadInt32(buf, _type)
+	return offset, err
+}
+
+func (x *ExampleInt2Float) fastReadField2(buf []byte, _type int8) (offset int, err error) {
+	x.Float64, offset, err = fastpb.ReadDouble(buf, _type)
+	return offset, err
+}
+
+func (x *ExampleInt2Float) fastReadField3(buf []byte, _type int8) (offset int, err error) {
+	x.String_, offset, err = fastpb.ReadString(buf, _type)
+	return offset, err
+}
+
+func (x *ExampleInt2Float) fastReadField4(buf []byte, _type int8) (offset int, err error) {
+	x.Int64, offset, err = fastpb.ReadInt64(buf, _type)
+	return offset, err
+}
+
+func (x *ExampleInt2Float) fastReadField32767(buf []byte, _type int8) (offset int, err error) {
+	x.Subfix, offset, err = fastpb.ReadDouble(buf, _type)
+	return offset, err
 }
 
 func (x *InnerBase2) FastWrite(buf []byte) (offset int) {
@@ -1732,6 +1837,31 @@ func (x *ExampleResp) fastWriteField255(buf []byte) (offset int) {
 	return offset
 }
 
+func (x *ExampleRespPartial) FastWrite(buf []byte) (offset int) {
+	if x == nil {
+		return offset
+	}
+	offset += x.fastWriteField2(buf[offset:])
+	offset += x.fastWriteField255(buf[offset:])
+	return offset
+}
+
+func (x *ExampleRespPartial) fastWriteField2(buf []byte) (offset int) {
+	if x.RequiredField == "" {
+		return offset
+	}
+	offset += fastpb.WriteString(buf[offset:], 2, x.GetRequiredField())
+	return offset
+}
+
+func (x *ExampleRespPartial) fastWriteField255(buf []byte) (offset int) {
+	if x.BaseResp == nil {
+		return offset
+	}
+	offset += fastpb.WriteMessage(buf[offset:], 255, x.GetBaseResp())
+	return offset
+}
+
 func (x *Exception) FastWrite(buf []byte) (offset int) {
 	if x == nil {
 		return offset
@@ -1825,6 +1955,58 @@ func (x *VoidResponse) FastWrite(buf []byte) (offset int) {
 	if x == nil {
 		return offset
 	}
+	return offset
+}
+
+func (x *ExampleInt2Float) FastWrite(buf []byte) (offset int) {
+	if x == nil {
+		return offset
+	}
+	offset += x.fastWriteField1(buf[offset:])
+	offset += x.fastWriteField2(buf[offset:])
+	offset += x.fastWriteField3(buf[offset:])
+	offset += x.fastWriteField4(buf[offset:])
+	offset += x.fastWriteField32767(buf[offset:])
+	return offset
+}
+
+func (x *ExampleInt2Float) fastWriteField1(buf []byte) (offset int) {
+	if x.Int32 == 0 {
+		return offset
+	}
+	offset += fastpb.WriteInt32(buf[offset:], 1, x.GetInt32())
+	return offset
+}
+
+func (x *ExampleInt2Float) fastWriteField2(buf []byte) (offset int) {
+	if x.Float64 == 0 {
+		return offset
+	}
+	offset += fastpb.WriteDouble(buf[offset:], 2, x.GetFloat64())
+	return offset
+}
+
+func (x *ExampleInt2Float) fastWriteField3(buf []byte) (offset int) {
+	if x.String_ == "" {
+		return offset
+	}
+	offset += fastpb.WriteString(buf[offset:], 3, x.GetString_())
+	return offset
+}
+
+func (x *ExampleInt2Float) fastWriteField4(buf []byte) (offset int) {
+	if x.Int64 == 0 {
+		return offset
+	}
+	offset += fastpb.WriteInt64(buf[offset:], 4, x.GetInt64())
+	return offset
+}
+
+func (x *ExampleInt2Float) fastWriteField32767(buf []byte) (offset int) {
+	if x.Subfix == 0 {
+		return offset
+	}
+	offset += fastpb.WriteDouble(buf[offset:], 32767, x.GetSubfix())
 	return offset
 }
 
@@ -2457,6 +2639,31 @@ func (x *ExampleResp) sizeField255() (n int) {
 	return n
 }
 
+func (x *ExampleRespPartial) Size() (n int) {
+	if x == nil {
+		return n
+	}
+	n += x.sizeField2()
+	n += x.sizeField255()
+	return n
+}
+
+func (x *ExampleRespPartial) sizeField2() (n int) {
+	if x.RequiredField == "" {
+		return n
+	}
+	n += fastpb.SizeString(2, x.GetRequiredField())
+	return n
+}
+
+func (x *ExampleRespPartial) sizeField255() (n int) {
+	if x.BaseResp == nil {
+		return n
+	}
+	n += fastpb.SizeMessage(255, x.GetBaseResp())
+	return n
+}
+
 func (x *Exception) Size() (n int) {
 	if x == nil {
 		return n
@@ -2553,6 +2760,58 @@ func (x *VoidResponse) Size() (n int) {
 	return n
 }
 
+func (x *ExampleInt2Float) Size() (n int) {
+	if x == nil {
+		return n
+	}
+	n += x.sizeField1()
+	n += x.sizeField2()
+	n += x.sizeField3()
+	n += x.sizeField4()
+	n += x.sizeField32767()
+	return n
+}
+
+func (x *ExampleInt2Float) sizeField1() (n int) {
+	if x.Int32 == 0 {
+		return n
+	}
+	n += fastpb.SizeInt32(1, x.GetInt32())
+	return n
+}
+
+func (x *ExampleInt2Float) sizeField2() (n int) {
+	if x.Float64 == 0 {
+		return n
+	}
+	n += fastpb.SizeDouble(2, x.GetFloat64())
+	return n
+}
+
+func (x *ExampleInt2Float) sizeField3() (n int) {
+	if x.String_ == "" {
+		return n
+	}
+	n += fastpb.SizeString(3, x.GetString_())
+	return n
+}
+
+func (x *ExampleInt2Float) sizeField4() (n int) {
+	if x.Int64 == 0 {
+		return n
+	}
+	n += fastpb.SizeInt64(4, x.GetInt64())
+	return n
+}
+
+func (x *ExampleInt2Float) sizeField32767() (n int) {
+	if x.Subfix == 0 {
+		return n
+	}
+	n += fastpb.SizeDouble(32767, x.GetSubfix())
+	return n
+}
+
 var fieldIDToName_InnerBase2 = map[int32]string{
 	1:   "Bool",
 	2:   "Uint32",
@@ -2629,6 +2888,11 @@ var fieldIDToName_ExampleResp = map[int32]string{
 	255: "BaseResp",
 }
 
+var fieldIDToName_ExampleRespPartial = map[int32]string{
+	2:   "RequiredField",
+	255: "BaseResp",
+}
+
 var fieldIDToName_Exception = map[int32]string{
 	1:   "Code",
 	255: "Msg",
@@ -2651,5 +2915,13 @@ var fieldIDToName_VoidRequest = map[int32]string{
 }
 
 var fieldIDToName_VoidResponse = map[int32]string{}
+
+var fieldIDToName_ExampleInt2Float = map[int32]string{
+	1:     "Int32",
+	2:     "Float64",
+	3:     "String_",
+	4:     "Int64",
+	32767: "Subfix",
+}
 
 var _ = base.File_base_proto

@@ -11,6 +11,7 @@ import (
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/internal/util_test"
+	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/base"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
@@ -27,20 +28,24 @@ const (
 )
 
 func TestBuildData(t *testing.T) {
-	if err := generateExample3Data(); err != nil {
+	if err := saveExampleReqProtoBufData(); err != nil {
 		panic("build example3ProtoData failed")
 	}
-	if err := generateExmaple3JSON(); err != nil {
+	if err := saveExampleReqJSONData(); err != nil {
 		panic("build example3JSONData failed")
 	}
 }
 
 func TestConvProto3JSON(t *testing.T) {
-	desc := proto.FnRequest(proto.GetFnDescFromFile(exampleIDLPath, "ExampleMethod", proto.Options{}))
+	messageDesc := proto.FnRequest(proto.GetFnDescFromFile(exampleIDLPath, "ExampleMethod", proto.Options{}))
+	desc, ok := (*messageDesc).(proto.Descriptor)
+	if !ok {
+		t.Fatal("invalid descrptor")
+	}
 	//js := getExample2JSON()
 	cv := NewBinaryConv(conv.Options{})
-	in := getExample3Data()
-	out, err := cv.Do(context.Background(), desc, in)
+	in := readExampleReqProtoBufData()
+	out, err := cv.Do(context.Background(), &desc, in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +75,8 @@ func TestConvProto3JSON(t *testing.T) {
 	assert.Equal(t, exp, act)
 }
 
-func getExample2Req() *example2.ExampleReq {
+// construct ExampleReq Object
+func constructExampleReqObject() *example2.ExampleReq {
 	req := example2.ExampleReq{}
 	req.Msg = "hello"
 	req.Subfix = math.MaxFloat64
@@ -165,8 +171,9 @@ func getExample2Req() *example2.ExampleReq {
 	return &req
 }
 
-func generateExample3Data() error {
-	req := getExample2Req()
+// marshal ExampleReq Object to ProtoBinary, and write binaryData into exampleProtoPath
+func saveExampleReqProtoBufData() error {
+	req := constructExampleReqObject()
 	data, err := goproto.Marshal(req.ProtoReflect().Interface())
 	if err != nil {
 		panic("goproto marshal data failed")
@@ -199,7 +206,8 @@ func generateExample3Data() error {
 	return nil
 }
 
-func getExample3Data() []byte {
+// read ProtoBuf's data in binary format from exampleProtoPath
+func readExampleReqProtoBufData() []byte {
 	out, err := ioutil.ReadFile(util_test.MustGitPath(exampleProtoPath))
 	if err != nil {
 		panic(err)
@@ -207,8 +215,9 @@ func getExample3Data() []byte {
 	return out
 }
 
-func generateExmaple3JSON() error {
-	req := getExample2Req()
+// marshal ExampleReq Object to JsonBinary, and write binaryData into exampleJSONPath
+func saveExampleReqJSONData() error {
+	req := constructExampleReqObject()
 	data, err := json.Marshal(req)
 	if err != nil {
 		panic(fmt.Sprintf("buildExampleJSONData failed, err: %v", err.Error()))
@@ -241,10 +250,134 @@ func generateExmaple3JSON() error {
 	return nil
 }
 
-func getExample3JSON() string {
+// read JSON's data in binary format from exampleJSONPath
+func readExampleReqJSONData() string {
 	out, err := ioutil.ReadFile(util_test.MustGitPath(exampleJSONPath))
 	if err != nil {
 		panic(err)
 	}
 	return string(out)
+}
+
+func getExampleInt2Float() *proto.Descriptor {
+	svc, err := proto.NewDescritorFromPath(context.Background(), util_test.MustGitPath(exampleIDLPath))
+	if err != nil {
+		panic(err)
+	}
+	fieldDesc := (*svc).Methods().ByName("Int2FloatMethod").Output()
+	desc, ok := fieldDesc.(proto.Descriptor)
+	if ok {
+		return &desc
+	}
+	return nil
+}
+
+func TestInt2String(t *testing.T) {
+	cv := NewBinaryConv(conv.Options{})
+	desc := getExampleInt2Float()
+	exp := example2.ExampleInt2Float{}
+	exp.Int32 = 1
+	exp.Int64 = 2
+	exp.Float64 = 3.14
+	exp.String_ = "hello"
+	exp.Subfix = 0.92653
+	ctx := context.Background()
+	in := make([]byte, exp.Size())
+	exp.FastWrite(in)
+
+	out, err := cv.Do(ctx, desc, in)
+	require.NoError(t, err)
+	require.Equal(t, `{"Int32":1,"Float64":3.14,"String":"hello","Int64":2,"Subfix":0.92653}`, string(out))
+
+	cv.opts.EnableValueMapping = false
+	out, err = cv.Do(ctx, desc, in)
+	require.NoError(t, err)
+	require.Equal(t, (`{"Int32":1,"Float64":3.14,"String":"hello","Int64":2,"Subfix":0.92653}`), string(out))
+
+	cv.opts.String2Int64 = true
+	out, err = cv.Do(ctx, desc, in)
+	require.NoError(t, err)
+	require.Equal(t, (`{"Int32":1,"Float64":3.14,"String":"hello","Int64":"2","Subfix":0.92653}`), string(out))
+}
+
+func getExampleReqPartialDesc() *proto.Descriptor {
+	messageDesc := proto.FnRequest(proto.GetFnDescFromFile(exampleIDLPath, "ExamplePartialMethod", proto.Options{}))
+	desc, ok := (*messageDesc).(proto.Descriptor)
+	if !ok {
+		return nil
+	}
+	return &desc
+}
+
+func getExampleRespPartialDesc() *proto.Descriptor {
+	messageDesc := proto.FnResponse(proto.GetFnDescFromFile(exampleIDLPath, "ExamplePartialMethod2", proto.Options{}))
+	desc, ok := (*messageDesc).(proto.Descriptor)
+	if !ok {
+		return nil
+	}
+	return &desc
+}
+
+// construct ExampleResp Object
+func getExampleResp() *example2.ExampleResp {
+	resp := example2.ExampleResp{}
+	resp.Msg = "messagefist"
+	resp.RequiredField = "hello"
+	resp.BaseResp = &base.BaseResp{}
+	resp.BaseResp.StatusMessage = "status1"
+	resp.BaseResp.StatusCode = 32
+	resp.BaseResp.Extra = map[string]string{"1b": "aaa", "2b": "bbb", "3b": "ccc", "4b": "ddd"}
+	return &resp
+}
+
+func TestUnknowFields(t *testing.T) {
+	t.Run("top", func(t *testing.T) {
+		cv := NewBinaryConv(conv.Options{
+			DisallowUnknownField: true,
+		})
+		resp := getExampleResp()
+		data, err := goproto.Marshal(resp.ProtoReflect().Interface())
+		if err != nil {
+			t.Fatal("marshal protobuf data failed")
+		}
+		partialRespDesc := getExampleRespPartialDesc()
+		_, err = cv.Do(context.Background(), partialRespDesc, data)
+		require.Error(t, err)
+		require.Equal(t, meta.ErrUnknownField, err.(meta.Error).Code.Behavior())
+	})
+
+	t.Run("nested", func(t *testing.T) {
+		cv := NewBinaryConv(conv.Options{
+			DisallowUnknownField: true,
+		})
+		partialReqDesc := getExampleReqPartialDesc()
+		in := readExampleReqProtoBufData()
+		_, err := cv.Do(context.Background(), partialReqDesc, in)
+		require.Error(t, err)
+		require.Equal(t, meta.ErrUnknownField, err.(meta.Error).Code.Behavior())
+	})
+
+	t.Run("skip top", func(t *testing.T) {
+		cv := NewBinaryConv(conv.Options{
+			DisallowUnknownField: false,
+		})
+		resp := getExampleResp()
+		data, err := goproto.Marshal(resp.ProtoReflect().Interface())
+		if err != nil {
+			t.Fatal("marshal protobuf data failed")
+		}
+		partialRespDesc := getExampleRespPartialDesc()
+		_, err = cv.Do(context.Background(), partialRespDesc, data)
+		require.NoError(t, err)
+	})
+
+	t.Run("skip nested", func(t *testing.T) {
+		cv := NewBinaryConv(conv.Options{
+			DisallowUnknownField: false,
+		})
+		partialReqDesc := getExampleReqPartialDesc()
+		in := readExampleReqProtoBufData()
+		_, err := cv.Do(context.Background(), partialReqDesc, in)
+		require.NoError(t, err)
+	})
 }
