@@ -17,9 +17,6 @@ import (
 
 // memory resize factor
 const (
-	// new = old + old >> growSliceFactor
-	growStkFactory = 1
-
 	defaultStkDepth       = 256
 	nilStkType      uint8 = 0
 	objStkType      uint8 = 1
@@ -74,10 +71,11 @@ func (self *VisitorUserNode) Reset() {
 	}
 }
 
-/** p use to encode pbEncode
- *  desc represent fieldDescriptor
- *  pos is used when encode message\mapValue\unpackedList
- */
+// VisitorUserNode is used to store some conditional variables about Protobuf when parsing json
+// Stk: Record MessageDescriptor and PrefixLen when parsing MessageType; Record FieldDescriptor and PairPrefixLen and MapKeyDescriptor when parsing MapType; Record FieldDescriptor and PrefixListLen when parsing List
+// Sp: using to Record the level of current stack(stk)
+// P: Output of Protobuf BinaryData
+// GlobalFieldDesc：After parsing the FieldKey, save the FieldDescriptor
 type VisitorUserNode struct {
 	stk             []VisitorUserNodeStack
 	sp              uint8
@@ -85,8 +83,7 @@ type VisitorUserNode struct {
 	globalFieldDesc *proto.FieldDescriptor
 }
 
-// keep hierarchy of Array and Object, arr represent current is List, obj represent current is Map/Object
-// objStkType —— Message、arrStkType —— List、mapStkType —— Map
+// keep hierarchy when parsing, objStkType represents Message and arrStkType represents List and mapStkType represents Map
 type VisitorUserNodeStack struct {
 	typ   uint8
 	state visitorUserNodeState
@@ -99,6 +96,7 @@ func (stk *VisitorUserNodeStack) Reset() {
 	stk.state.fieldDesc = nil
 }
 
+// Push FieldDescriptor、position of prefixLen into stack
 func (self *VisitorUserNode) Push(isMap bool, isObj bool, isList bool, desc *proto.FieldDescriptor, pos int) error {
 	err := self.incrSP()
 	t := nilStkType
@@ -118,12 +116,13 @@ func (self *VisitorUserNode) Push(isMap bool, isObj bool, isList bool, desc *pro
 	return err
 }
 
+// After parsing MessageType/MapType/ListType, pop stack
 func (self *VisitorUserNode) Pop() {
 	self.stk[self.sp].Reset()
 	self.sp--
 }
 
-// record descriptor、preWrite lenPos
+// combine of Descriptor and position of prefixLength
 type visitorUserNodeState struct {
 	msgDesc   *proto.MessageDescriptor
 	fieldDesc *proto.FieldDescriptor
@@ -131,7 +130,7 @@ type visitorUserNodeState struct {
 }
 
 func (self *VisitorUserNode) Decode(bytes []byte, desc *proto.Descriptor) ([]byte, error) {
-	// init initial visitorUserNodeState
+	// init initial visitorUserNodeState, may be MessageDescriptor or FieldDescriptor
 	switch (*desc).(type) {
 	case proto.MessageDescriptor:
 		convDesc := (*desc).(proto.MessageDescriptor)
@@ -185,6 +184,7 @@ func (self *VisitorUserNode) OnBool(v bool) error {
 	return self.onValueEnd()
 }
 
+// Parse stringType/bytesType
 func (self *VisitorUserNode) OnString(v string) error {
 	var err error
 	top := self.stk[self.sp].state.fieldDesc
@@ -199,6 +199,7 @@ func (self *VisitorUserNode) OnString(v string) error {
 	// convert string、bytesType
 	switch (*fieldDesc).Kind() {
 	case proto.BytesKind:
+		// JSON format string data needs to be decoded via Base64x
 		bytesData, err := base64x.StdEncoding.DecodeString(v)
 		if err = self.p.WriteBytes(bytesData); err != nil {
 			return err
@@ -220,7 +221,7 @@ func (self *VisitorUserNode) OnInt64(v int64, n json.Number) error {
 	var err error
 	top := self.stk[self.sp]
 	fieldDesc := self.globalFieldDesc
-	// case List<int>
+	// case PackedList(List<int32/int64/...), get fieldDescriptor from Stack
 	if self.globalFieldDesc == nil && top.typ == arrStkType {
 		fieldDesc = top.state.fieldDesc
 	}
@@ -253,6 +254,15 @@ func (self *VisitorUserNode) OnInt64(v int64, n json.Number) error {
 		if err = self.p.WriteInt64(v); err != nil {
 			return err
 		}
+	case proto.FloatKind:
+		if err = self.p.WriteFloat(float32(v)); err != nil {
+			return err
+		}
+	case proto.DoubleKind:
+		if err = self.p.WriteDouble(float64(v)); err != nil {
+			return err
+		}
+
 	default:
 		return newError(meta.ErrDismatchType, "param isn't intType", nil)
 	}
@@ -263,12 +273,11 @@ func (self *VisitorUserNode) OnInt64(v int64, n json.Number) error {
 	return err
 }
 
-// todo when list
 func (self *VisitorUserNode) OnFloat64(v float64, n json.Number) error {
 	var err error
 	top := self.stk[self.sp]
 	fieldDesc := self.globalFieldDesc
-	// case List<float>
+
 	if self.globalFieldDesc == nil && top.typ == arrStkType {
 		fieldDesc = top.state.fieldDesc
 	}
@@ -289,6 +298,22 @@ func (self *VisitorUserNode) OnFloat64(v float64, n json.Number) error {
 		if err = self.p.WriteDouble(convertData); err != nil {
 			return err
 		}
+	case proto.Int32Kind:
+		convertData := int32(v)
+		if err = self.p.AppendTagByDesc(fieldDesc); err != nil {
+			return err
+		}
+		if err = self.p.WriteInt32(convertData); err != nil {
+			return err
+		}
+	case proto.Int64Kind:
+		convertData := int64(v)
+		if err = self.p.AppendTagByDesc(fieldDesc); err != nil {
+			return err
+		}
+		if err = self.p.WriteInt64(convertData); err != nil {
+			return err
+		}
 	default:
 		return newError(meta.ErrDismatchType, "param isn't floatType", nil)
 	}
@@ -298,13 +323,18 @@ func (self *VisitorUserNode) OnFloat64(v float64, n json.Number) error {
 	return err
 }
 
+// Start Parsing JSONObject, which may correspond to Protobuf Map or Protobuf Message
+//  1. Get fieldDescriptor from globalFieldDesc first, corresponding to Message/Map embedded in a Message
+//  2. Then get fieldDesc from the top of stack, corresponding to Message embedded in List
+//  3. When Field is Message type, encode Tag and PrefixLen, and push FieldDescriptor and PrefixLen to the stack.
+//     When Field is Map type, only perform pressing stack operation.
 func (self *VisitorUserNode) OnObjectBegin(capacity int) error {
 	var err error
 	fieldDesc := self.globalFieldDesc
 	top := self.stk[self.sp]
 	curNodeLenPos := -1
 
-	// case List<Message>
+	// case List<Message>, get fieldDescriptor
 	if self.globalFieldDesc == nil && top.typ == arrStkType {
 		fieldDesc = top.state.fieldDesc
 	}
@@ -316,7 +346,7 @@ func (self *VisitorUserNode) OnObjectBegin(capacity int) error {
 				return err
 			}
 		} else {
-			// case Message, encode Tag、Len
+			// case Message, encode Tag、PrefixLen, push MessageDesc、PrefixLen
 			if err = self.p.AppendTag(proto.Number((*fieldDesc).Number()), proto.BytesType); err != nil {
 				return meta.NewError(meta.ErrWrite, "append prefix tag failed", nil)
 			}
@@ -329,6 +359,7 @@ func (self *VisitorUserNode) OnObjectBegin(capacity int) error {
 	return err
 }
 
+// MapKey maybe int32/sint32/uint32/uint64 etc....
 func (self *VisitorUserNode) DecodeMapKey(key string, mapKeyDesc *proto.FieldDescriptor) error {
 	switch (*mapKeyDesc).Kind() {
 	case proto.Int32Kind, proto.Sint32Kind, proto.Sfixed32Kind, proto.Fixed32Kind:
@@ -367,6 +398,12 @@ func (self *VisitorUserNode) DecodeMapKey(key string, mapKeyDesc *proto.FieldDes
 	return nil
 }
 
+// Start Parsing JSONField, which may correspond to Protobuf MessageField or Protobuf MapKey
+//  1. The initial layer obtains the MessageFieldDescriptor, saves it to globalFieldDesc and exits;
+//  2. The inner layer performs different operations depending on the top-of-stack descriptor type
+//     2.1 The top of the stack is MessageType, which exits after saving globalFieldDesc;
+//     2.2 The top of the stack is MapType, write PairTag, PairLen, MapKey, MapKeyLen, and MapKeyData; save MapDesc、PairPrefixLen into stack; save MapValueDescriptor into globalFieldDesc;
+//     2.3 The top of the stack is ListType, which exits after saving globalFieldDesc;
 func (self *VisitorUserNode) OnObjectKey(key string) error {
 	var err error
 	var top *VisitorUserNodeStack
@@ -405,9 +442,10 @@ func (self *VisitorUserNode) OnObjectKey(key string) error {
 			if err = self.Push(true, false, false, top.state.fieldDesc, curNodeLenPos); err != nil {
 				return err
 			}
+			// save MapValueDesc into globalFieldDesc
 			curDesc = (*fieldDesc).MapValue()
 		} else if top.typ == arrStkType {
-			// case List
+			// case List<Message>
 			curDesc = *top.state.fieldDesc
 		}
 	}
@@ -415,6 +453,7 @@ func (self *VisitorUserNode) OnObjectKey(key string) error {
 	return err
 }
 
+// After parsing JSONObject, write back prefixLen of Message
 func (self *VisitorUserNode) OnObjectEnd() error {
 	top := &self.stk[self.sp]
 	// root layer no need to write tag and len
@@ -424,6 +463,9 @@ func (self *VisitorUserNode) OnObjectEnd() error {
 	return self.onValueEnd()
 }
 
+// Start Parsing JSONArray, which may correspond to ProtoBuf PackedList、UnPackedList
+// 1. If PackedList, Encode ListTag、PrefixLen
+// 2. Push ListDescriptor、PrefixLen(UnPackedList is -1) into stack
 func (self *VisitorUserNode) OnArrayBegin(capacity int) error {
 	var err error
 	curNodeLenPos := -1
@@ -442,6 +484,7 @@ func (self *VisitorUserNode) OnArrayBegin(capacity int) error {
 	return err
 }
 
+// After Parsing JSONArray, writing back PrefixLen If PackedList
 func (self *VisitorUserNode) OnArrayEnd() error {
 	var top *VisitorUserNodeStack
 	top = &self.stk[self.sp]
@@ -452,6 +495,10 @@ func (self *VisitorUserNode) OnArrayEnd() error {
 	return self.onValueEnd()
 }
 
+// After parsing one JSON field, maybe basicType(string/int/float/bool/bytes) or complexType(message/map/list)
+// 1. When type is basicType, note that the format of Map<basicType, basicType>, needs to write back PariPrefixLen of the current pair;
+// 2. When type is MessageType, current Message may belong to Map<any, Message> or Message{Message}, note that Map<int, Message>, needs to write back PairPrefixLen of current pair;
+// 3. When type is MapType/ListType, only execute pop operation;
 func (self *VisitorUserNode) onValueEnd() error {
 	if self.sp == 0 {
 		return nil
