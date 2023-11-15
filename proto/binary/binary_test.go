@@ -85,7 +85,7 @@ var testGroup = map[string]testCase{
 	},
 }
 
-func BinaryDataBuild(mode TestMode) []byte {
+func binaryDataBuild(mode TestMode) []byte {
 	var req protoreflect.ProtoMessage
 	switch mode {
 	case PartialTest:
@@ -264,7 +264,7 @@ func TestBinaryProtocol_ReadAnyWithDesc(t *testing.T) {
 				fieldDescriptor = (*p1).Methods().ByName(protoreflect.Name(test.service)).Output().Fields().ByNumber(protowire.Number(test.fieldNumber))
 			}
 			// protoc build pbData
-			pbData := BinaryDataBuild(test.mode)
+			pbData := binaryDataBuild(test.mode)
 			p := NewBinaryProtol(pbData)
 			// ReadAnyWithDesc return data and error
 			v1, err := p.ReadAnyWithDesc(&fieldDescriptor, false, false, true)
@@ -289,23 +289,22 @@ func TestBinaryProtocol_ReadAnyWithDesc(t *testing.T) {
 	}
 }
 
-
-func TestTag(t *testing.T){
+func TestTag(t *testing.T) {
 	src := make([]byte, 0, 1024)
 	p := NewBinaryProtol(src)
 	// using a for loop to check each case of appendtag and consumeTag
 	// the case is in the TestTag2
 
-	testCase := []struct{
+	testCase := []struct {
 		number proto.FieldNumber
-		wtyp proto.WireType
-		err error
+		wtyp   proto.WireType
+		err    error
 	}{
-		{0, proto.Fixed32Type,errInvalidTag},
-		{1, proto.Fixed32Type,nil},
-		{proto.FirstReservedNumber, proto.BytesType,nil},
-		{proto.LastReservedNumber, proto.StartGroupType,nil},
-		{proto.MaxValidNumber, proto.VarintType,nil},
+		{0, proto.Fixed32Type, errInvalidTag},
+		{1, proto.Fixed32Type, nil},
+		{proto.FirstReservedNumber, proto.BytesType, nil},
+		{proto.LastReservedNumber, proto.StartGroupType, nil},
+		{proto.MaxValidNumber, proto.VarintType, nil},
 	}
 
 	for _, c := range testCase {
@@ -319,7 +318,7 @@ func TestTag(t *testing.T){
 		}
 	}
 
-	_,_,_, err := p.ConsumeTag()
+	_, _, _, err := p.ConsumeTag()
 	if err != errInvalidTag {
 		t.Fatal("test failed")
 	}
