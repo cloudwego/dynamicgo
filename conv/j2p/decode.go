@@ -69,6 +69,7 @@ func (self *VisitorUserNode) Reset() {
 	for i := 0; i < len(self.stk); i++ {
 		self.stk[i].Reset()
 	}
+	self.globalFieldDesc = nil
 }
 
 // VisitorUserNode is used to store some conditional variables about Protobuf when parsing json
@@ -500,7 +501,7 @@ func (self *VisitorUserNode) OnArrayEnd() error {
 // 2. When type is MessageType, current Message may belong to Map<any, Message> or Message{Message}, note that Map<int, Message>, needs to write back PairPrefixLen of current pair;
 // 3. When type is MapType/ListType, only execute pop operation;
 func (self *VisitorUserNode) onValueEnd() error {
-	if self.sp == 0 {
+	if self.sp == 0 && self.globalFieldDesc == nil{
 		return nil
 	}
 	top := self.stk[self.sp]

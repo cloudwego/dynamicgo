@@ -26,13 +26,9 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.Descript
 func (self *BinaryConv) Unmarshal(src []byte, out *[]byte, desc *proto.Descriptor) error {
 	// use sonic to decode json bytes, get visitorUserNode
 	vu := NewVisitorUserNodeBuffer()
-	rootDesc, ok := (*desc).(proto.Descriptor)
-	if !ok {
-		return newError(meta.ErrDismatchType, "descriptor match failed", nil)
-	}
 	// use Visitor onxxx() to decode json2pb
-	data, err := vu.Decode(src, &rootDesc)
-	vu.Recycle()
+	data, err := vu.Decode(src, desc)
+	FreeVisitorUserNodePool(vu)
 	if err != nil {
 		return newError(meta.ErrConvert, "sonic decode json bytes failed", err)
 	}
