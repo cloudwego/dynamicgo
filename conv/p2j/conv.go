@@ -9,23 +9,23 @@ import (
 	"github.com/cloudwego/dynamicgo/proto"
 )
 
-type ProtoConv struct {
+type BinaryConv struct {
 	opts conv.Options
 }
 
 // NewBinaryConv returns a new BinaryConv
-func NewBinaryConv(opts conv.Options) ProtoConv {
-	return ProtoConv{opts: opts}
+func NewBinaryConv(opts conv.Options) BinaryConv {
+	return BinaryConv{opts: opts}
 }
 
 // SetOptions sets options
-func (self *ProtoConv) SetOptions(opts conv.Options) {
+func (self *BinaryConv) SetOptions(opts conv.Options) {
 	self.opts = opts
 }
 
 // Do converts protobuf binary (pbytes) to json bytes (jbytes)
 // desc is the protobuf type descriptor of the protobuf binary, usually it is a response Message type
-func (self *ProtoConv) Do(ctx context.Context, desc *proto.Descriptor, pbytes []byte) (json []byte, err error) {
+func (self *BinaryConv) Do(ctx context.Context, desc *proto.Descriptor, pbytes []byte) (json []byte, err error) {
 	buf := conv.NewBytes()
 
 	// resp alloc but not use
@@ -54,7 +54,7 @@ func (self *ProtoConv) Do(ctx context.Context, desc *proto.Descriptor, pbytes []
 }
 
 // DoInto behaves like Do, but it writes the result to buffer directly instead of returning a new buffer
-func (self *ProtoConv) DoInto(ctx context.Context, desc *proto.Descriptor, pbytes []byte, buf *[]byte) (err error) {
+func (self *BinaryConv) DoInto(ctx context.Context, desc *proto.Descriptor, pbytes []byte, buf *[]byte) (err error) {
 	// resp alloc but not use
 	var resp http.ResponseSetter
 	if self.opts.EnableHttpMapping {

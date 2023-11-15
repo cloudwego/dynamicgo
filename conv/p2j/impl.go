@@ -31,7 +31,7 @@ func unwrapError(msg string, err error) error {
 	}
 }
 
-func (self *ProtoConv) do(ctx context.Context, src []byte, desc *proto.Descriptor, out *[]byte, resp http.ResponseSetter) (err error) {
+func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.Descriptor, out *[]byte, resp http.ResponseSetter) (err error) {
 	//NOTICE: output buffer must be larger than src buffer
 	rt.GuardSlice(out, len(src)*_GUARD_SLICE_FACTOR)
 
@@ -95,7 +95,7 @@ func (self *ProtoConv) do(ctx context.Context, src []byte, desc *proto.Descripto
 }
 
 // Parse ProtoData into JSONData by DescriptorType
-func (self *ProtoConv) doRecurse(ctx context.Context, fd *proto.FieldDescriptor, out *[]byte, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType) error {
+func (self *BinaryConv) doRecurse(ctx context.Context, fd *proto.FieldDescriptor, out *[]byte, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType) error {
 	switch {
 	case (*fd).IsList():
 		return self.unmarshalList(ctx, resp, p, typeId, out, fd)
@@ -107,9 +107,10 @@ func (self *ProtoConv) doRecurse(ctx context.Context, fd *proto.FieldDescriptor,
 }
 
 // parse Singular/MessageType
-// Singular format: [Tag][Length][Value]
-// Message format: [Tag][Length][[Tag][Length][Value] [Tag][Length][Value]....]
-func (self *ProtoConv) unmarshalSingular(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, out *[]byte, fd *proto.FieldDescriptor) (err error) {
+// field tag is processed outside before doRecurse
+// Singular format:	[(L)V]
+// Message format: [Length][[Tag][(L)V] [Tag][(L)V]....]
+func (self *BinaryConv) unmarshalSingular(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, out *[]byte, fd *proto.FieldDescriptor) (err error) {
 	switch (*fd).Kind() {
 	case protoreflect.BoolKind:
 		v, e := p.ReadBool()
@@ -260,7 +261,7 @@ func (self *ProtoConv) unmarshalSingular(ctx context.Context, resp http.Response
 // parse ListType
 // Packed List format: [Tag][Length][Value Value Value Value Value]....
 // Unpacked List format: [Tag][Length][Value] [Tag][Length][Value]....
-func (self *ProtoConv) unmarshalList(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType, out *[]byte, fd *proto.FieldDescriptor) (err error) {
+func (self *BinaryConv) unmarshalList(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType, out *[]byte, fd *proto.FieldDescriptor) (err error) {
 	*out = json.EncodeArrayBegin(*out)
 
 	fileldNumber := (*fd).Number()
@@ -303,7 +304,7 @@ func (self *ProtoConv) unmarshalList(ctx context.Context, resp http.ResponseSett
 // parse MapType
 // Map bytes format: [Pairtag][Pairlength][keyTag(L)V][valueTag(L)V] [Pairtag][Pairlength][T(L)V][T(L)V]...
 // Pairtag = MapFieldnumber << 3 | wiretype:BytesType
-func (self *ProtoConv) unmarshalMap(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType, out *[]byte, fd *proto.FieldDescriptor) (err error) {
+func (self *BinaryConv) unmarshalMap(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType, out *[]byte, fd *proto.FieldDescriptor) (err error) {
 	fileldNumber := (*fd).Number()
 	_, lengthErr := p.ReadLength()
 	if lengthErr != nil {
