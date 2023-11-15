@@ -36,10 +36,8 @@ func init() {
 		panic(err)
 	}
 	simplePbJSON = string(sout)
-	println("small data size: ", len(simplePbJSON))
 	var out bytes.Buffer
 	ejson.Indent(&out, sout, "", "")
-	println(out.String())
 
 	// build nestingJSON data
 	nobj := getPbNestingValue()
@@ -48,22 +46,19 @@ func init() {
 		panic(err)
 	}
 	nestingPbJSON = string(nout)
-	println("medium data size: ", len(nestingPbJSON))
 	out.Reset()
 
 	psobj := getPartialSimpleValue()
-	psout, err := ejson.Marshal(psobj)
+	_, err = ejson.Marshal(psobj)
 	if err != nil {
 		panic(err)
 	}
-	println("partial small data size: ", len(psout))
 
 	pnobj := getPartialNestingValue()
-	pnout, err := ejson.Marshal(pnobj)
+	_, err = ejson.Marshal(pnobj)
 	if err != nil {
 		panic(err)
 	}
-	println("partial medium data size: ", len(pnout))
 }
 
 func getPbSimpleValue() *baseline.Simple {

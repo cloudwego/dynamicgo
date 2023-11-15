@@ -71,7 +71,6 @@ func TestConvProto3JSON(t *testing.T) {
 	// check json data validity, convert it into act struct
 	var act example2.ExampleReq
 	require.Nil(t, json.Unmarshal([]byte(out), &act))
-	println(string(out))
 	assert.Equal(t, exp, act)
 }
 
