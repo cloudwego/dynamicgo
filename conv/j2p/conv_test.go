@@ -25,12 +25,6 @@ const (
 	exampleProtoPath = "testdata/data/example2_pb.bin"
 )
 
-// func TestBuildData(t *testing.T) {
-// 	if err := buildExampleJSONData(); err != nil {
-// 		panic("build ExampleJSONData error")
-// 	}
-// }
-
 func TestConvJSON2Protobf(t *testing.T) {
 	// buildExampleJSONData()
 	messageDesc := getExampleDesc()

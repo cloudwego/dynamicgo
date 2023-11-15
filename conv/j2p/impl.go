@@ -17,18 +17,18 @@ const (
 func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.Descriptor, buf *[]byte, req http.RequestGetter) error {
 	//NOTICE: output buffer must be larger than src buffer
 	rt.GuardSlice(buf, len(src)*_GUARD_SLICE_FACTOR)
-	if err := self.Unmarshal(src, buf, desc); err != nil {
+	if err := self.unmarshal(src, buf, desc); err != nil {
 		return meta.NewError(meta.ErrConvert, fmt.Sprintf("json convert to protobuf failed, MessageDescriptor: %v", (*desc).Name()), err)
 	}
 	return nil
 }
 
-func (self *BinaryConv) Unmarshal(src []byte, out *[]byte, desc *proto.Descriptor) error {
+func (self *BinaryConv) unmarshal(src []byte, out *[]byte, desc *proto.Descriptor) error {
 	// use sonic to decode json bytes, get visitorUserNode
-	vu := NewVisitorUserNodeBuffer()
+	vu := newVisitorUserNodeBuffer()
 	// use Visitor onxxx() to decode json2pb
-	data, err := vu.Decode(src, desc)
-	FreeVisitorUserNodePool(vu)
+	data, err := vu.decode(src, desc)
+	freeVisitorUserNodePool(vu)
 	if err != nil {
 		return newError(meta.ErrConvert, "sonic decode json bytes failed", err)
 	}

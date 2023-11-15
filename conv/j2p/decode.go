@@ -27,78 +27,78 @@ const (
 var (
 	vuPool = sync.Pool{
 		New: func() interface{} {
-			return &VisitorUserNode{
+			return &visitorUserNode{
 				sp:  0,
 				p:   binary.NewBinaryProtocolBuffer(),
-				stk: make([]VisitorUserNodeStack, defaultStkDepth),
+				stk: make([]visitorUserNodeStack, defaultStkDepth),
 			}
 		},
 	}
 )
 
-// NewVisitorUserNode get a new VisitorUserNode from sync.Pool
-func NewVisitorUserNode(buf []byte) *VisitorUserNode {
-	vu := vuPool.Get().(*VisitorUserNode)
+// NewvisitorUserNode get a new visitorUserNode from sync.Pool
+func newVisitorUserNode(buf []byte) *visitorUserNode {
+	vu := vuPool.Get().(*visitorUserNode)
 	vu.p.Buf = buf
 	return vu
 }
 
-// NewVisitorUserNode gets a new VisitorUserNode from sync.Pool
+// NewvisitorUserNode gets a new visitorUserNode from sync.Pool
 // and reuse the buffer in pool
-func NewVisitorUserNodeBuffer() *VisitorUserNode {
-	vu := vuPool.Get().(*VisitorUserNode)
+func newVisitorUserNodeBuffer() *visitorUserNode {
+	vu := vuPool.Get().(*visitorUserNode)
 	return vu
 }
 
-// FreeVisitorUserNode resets the buffer and puts the VisitorUserNode back to sync.Pool
-func FreeVisitorUserNodePool(vu *VisitorUserNode) {
-	vu.Reset()
+// FreevisitorUserNode resets the buffer and puts the visitorUserNode back to sync.Pool
+func freeVisitorUserNodePool(vu *visitorUserNode) {
+	vu.reset()
 	vuPool.Put(vu)
 }
 
-// Recycle put the VisitorUserNode back to sync.Pool
-func (self *VisitorUserNode) Recycle() {
-	self.Reset()
+// recycle put the visitorUserNode back to sync.Pool
+func (self *visitorUserNode) recycle() {
+	self.reset()
 	vuPool.Put(self)
 }
 
-// Reset resets the buffer and read position
-func (self *VisitorUserNode) Reset() {
+// reset resets the buffer and read position
+func (self *visitorUserNode) reset() {
 	self.sp = 0
 	self.p.Reset()
 	for i := 0; i < len(self.stk); i++ {
-		self.stk[i].Reset()
+		self.stk[i].reset()
 	}
 	self.globalFieldDesc = nil
 }
 
-// VisitorUserNode is used to store some conditional variables about Protobuf when parsing json
+// visitorUserNode is used to store some conditional variables about Protobuf when parsing json
 // Stk: Record MessageDescriptor and PrefixLen when parsing MessageType; Record FieldDescriptor and PairPrefixLen and MapKeyDescriptor when parsing MapType; Record FieldDescriptor and PrefixListLen when parsing List
 // Sp: using to Record the level of current stack(stk)
 // P: Output of Protobuf BinaryData
 // GlobalFieldDesc：After parsing the FieldKey, save the FieldDescriptor
-type VisitorUserNode struct {
-	stk             []VisitorUserNodeStack
+type visitorUserNode struct {
+	stk             []visitorUserNodeStack
 	sp              uint8
 	p               *binary.BinaryProtocol
 	globalFieldDesc *proto.FieldDescriptor
 }
 
 // keep hierarchy when parsing, objStkType represents Message and arrStkType represents List and mapStkType represents Map
-type VisitorUserNodeStack struct {
+type visitorUserNodeStack struct {
 	typ   uint8
 	state visitorUserNodeState
 }
 
-func (stk *VisitorUserNodeStack) Reset() {
+func (stk *visitorUserNodeStack) reset() {
 	stk.typ = nilStkType
 	stk.state.lenPos = -1
 	stk.state.msgDesc = nil
 	stk.state.fieldDesc = nil
 }
 
-// Push FieldDescriptor、position of prefixLen into stack
-func (self *VisitorUserNode) Push(isMap bool, isObj bool, isList bool, desc *proto.FieldDescriptor, pos int) error {
+// push FieldDescriptor、position of prefixLen into stack
+func (self *visitorUserNode) push(isMap bool, isObj bool, isList bool, desc *proto.FieldDescriptor, pos int) error {
 	err := self.incrSP()
 	t := nilStkType
 	if isMap {
@@ -109,7 +109,7 @@ func (self *VisitorUserNode) Push(isMap bool, isObj bool, isList bool, desc *pro
 		t = arrStkType
 	}
 
-	self.stk[self.sp] = VisitorUserNodeStack{typ: t, state: visitorUserNodeState{
+	self.stk[self.sp] = visitorUserNodeStack{typ: t, state: visitorUserNodeState{
 		msgDesc:   nil,
 		fieldDesc: desc,
 		lenPos:    pos,
@@ -118,8 +118,8 @@ func (self *VisitorUserNode) Push(isMap bool, isObj bool, isList bool, desc *pro
 }
 
 // After parsing MessageType/MapType/ListType, pop stack
-func (self *VisitorUserNode) Pop() {
-	self.stk[self.sp].Reset()
+func (self *visitorUserNode) pop() {
+	self.stk[self.sp].reset()
 	self.sp--
 }
 
@@ -130,7 +130,7 @@ type visitorUserNodeState struct {
 	lenPos    int
 }
 
-func (self *VisitorUserNode) Decode(bytes []byte, desc *proto.Descriptor) ([]byte, error) {
+func (self *visitorUserNode) decode(bytes []byte, desc *proto.Descriptor) ([]byte, error) {
 	// init initial visitorUserNodeState, may be MessageDescriptor or FieldDescriptor
 	switch (*desc).(type) {
 	case proto.MessageDescriptor:
@@ -147,14 +147,14 @@ func (self *VisitorUserNode) Decode(bytes []byte, desc *proto.Descriptor) ([]byt
 	return self.result()
 }
 
-func (self *VisitorUserNode) result() ([]byte, error) {
+func (self *visitorUserNode) result() ([]byte, error) {
 	if self.sp != 0 {
 		return nil, fmt.Errorf("incorrect sp: %d", self.sp)
 	}
 	return self.p.RawBuf(), nil
 }
 
-func (self *VisitorUserNode) incrSP() error {
+func (self *visitorUserNode) incrSP() error {
 	self.sp++
 	if self.sp == 0 {
 		return fmt.Errorf("reached max depth: %d", len(self.stk))
@@ -162,7 +162,7 @@ func (self *VisitorUserNode) incrSP() error {
 	return nil
 }
 
-func (self *VisitorUserNode) OnNull() error {
+func (self *visitorUserNode) OnNull() error {
 	// self.stk[self.sp].val = &visitorUserNull{}
 	if err := self.incrSP(); err != nil {
 		return err
@@ -170,7 +170,7 @@ func (self *VisitorUserNode) OnNull() error {
 	return self.onValueEnd()
 }
 
-func (self *VisitorUserNode) OnBool(v bool) error {
+func (self *visitorUserNode) OnBool(v bool) error {
 	var err error
 	if self.globalFieldDesc == nil {
 		return newError(meta.ErrConvert, "self.globalFieldDescriptor is nil, type Onbool", nil)
@@ -186,7 +186,7 @@ func (self *VisitorUserNode) OnBool(v bool) error {
 }
 
 // Parse stringType/bytesType
-func (self *VisitorUserNode) OnString(v string) error {
+func (self *visitorUserNode) OnString(v string) error {
 	var err error
 	top := self.stk[self.sp].state.fieldDesc
 	fieldDesc := self.globalFieldDesc
@@ -218,7 +218,7 @@ func (self *VisitorUserNode) OnString(v string) error {
 	return err
 }
 
-func (self *VisitorUserNode) OnInt64(v int64, n json.Number) error {
+func (self *visitorUserNode) OnInt64(v int64, n json.Number) error {
 	var err error
 	top := self.stk[self.sp]
 	fieldDesc := self.globalFieldDesc
@@ -274,7 +274,7 @@ func (self *VisitorUserNode) OnInt64(v int64, n json.Number) error {
 	return err
 }
 
-func (self *VisitorUserNode) OnFloat64(v float64, n json.Number) error {
+func (self *visitorUserNode) OnFloat64(v float64, n json.Number) error {
 	var err error
 	top := self.stk[self.sp]
 	fieldDesc := self.globalFieldDesc
@@ -329,7 +329,7 @@ func (self *VisitorUserNode) OnFloat64(v float64, n json.Number) error {
 //  2. Then get fieldDesc from the top of stack, corresponding to Message embedded in List
 //  3. When Field is Message type, encode Tag and PrefixLen, and push FieldDescriptor and PrefixLen to the stack.
 //     When Field is Map type, only perform pressing stack operation.
-func (self *VisitorUserNode) OnObjectBegin(capacity int) error {
+func (self *visitorUserNode) OnObjectBegin(capacity int) error {
 	var err error
 	fieldDesc := self.globalFieldDesc
 	top := self.stk[self.sp]
@@ -343,7 +343,7 @@ func (self *VisitorUserNode) OnObjectBegin(capacity int) error {
 	if fieldDesc != nil {
 		if (*fieldDesc).IsMap() {
 			// case Map, push MapDesc
-			if err = self.Push(true, false, false, fieldDesc, curNodeLenPos); err != nil {
+			if err = self.push(true, false, false, fieldDesc, curNodeLenPos); err != nil {
 				return err
 			}
 		} else {
@@ -352,7 +352,7 @@ func (self *VisitorUserNode) OnObjectBegin(capacity int) error {
 				return meta.NewError(meta.ErrWrite, "append prefix tag failed", nil)
 			}
 			self.p.Buf, curNodeLenPos = binary.AppendSpeculativeLength(self.p.Buf)
-			if err = self.Push(false, true, false, fieldDesc, curNodeLenPos); err != nil {
+			if err = self.push(false, true, false, fieldDesc, curNodeLenPos); err != nil {
 				return err
 			}
 		}
@@ -361,7 +361,7 @@ func (self *VisitorUserNode) OnObjectBegin(capacity int) error {
 }
 
 // MapKey maybe int32/sint32/uint32/uint64 etc....
-func (self *VisitorUserNode) DecodeMapKey(key string, mapKeyDesc *proto.FieldDescriptor) error {
+func (self *visitorUserNode) decodeMapKey(key string, mapKeyDesc *proto.FieldDescriptor) error {
 	switch (*mapKeyDesc).Kind() {
 	case proto.Int32Kind, proto.Sint32Kind, proto.Sfixed32Kind, proto.Fixed32Kind:
 		t, _ := strconv.ParseInt(key, 10, 32)
@@ -405,9 +405,9 @@ func (self *VisitorUserNode) DecodeMapKey(key string, mapKeyDesc *proto.FieldDes
 //     2.1 The top of the stack is MessageType, which exits after saving globalFieldDesc;
 //     2.2 The top of the stack is MapType, write PairTag, PairLen, MapKey, MapKeyLen, and MapKeyData; save MapDesc、PairPrefixLen into stack; save MapValueDescriptor into globalFieldDesc;
 //     2.3 The top of the stack is ListType, which exits after saving globalFieldDesc;
-func (self *VisitorUserNode) OnObjectKey(key string) error {
+func (self *visitorUserNode) OnObjectKey(key string) error {
 	var err error
-	var top *VisitorUserNodeStack
+	var top *visitorUserNodeStack
 	var curDesc proto.FieldDescriptor
 	curNodeLenPos := -1
 
@@ -435,12 +435,12 @@ func (self *VisitorUserNode) OnObjectKey(key string) error {
 				return newError(meta.ErrUnsupportedType, "unsatfisied mapKeyDescriptor Type", err)
 			}
 
-			if err := self.DecodeMapKey(key, &mapKeyDesc); err != nil {
+			if err := self.decodeMapKey(key, &mapKeyDesc); err != nil {
 				return newError(meta.ErrUnsupportedType, "unsatfisied mapKeyDescriptor Type", err)
 			}
 
 			// push MapDesc into stack
-			if err = self.Push(true, false, false, top.state.fieldDesc, curNodeLenPos); err != nil {
+			if err = self.push(true, false, false, top.state.fieldDesc, curNodeLenPos); err != nil {
 				return err
 			}
 			// save MapValueDesc into globalFieldDesc
@@ -455,7 +455,7 @@ func (self *VisitorUserNode) OnObjectKey(key string) error {
 }
 
 // After parsing JSONObject, write back prefixLen of Message
-func (self *VisitorUserNode) OnObjectEnd() error {
+func (self *visitorUserNode) OnObjectEnd() error {
 	top := &self.stk[self.sp]
 	// root layer no need to write tag and len
 	if top.state.lenPos != -1 {
@@ -466,8 +466,8 @@ func (self *VisitorUserNode) OnObjectEnd() error {
 
 // Start Parsing JSONArray, which may correspond to ProtoBuf PackedList、UnPackedList
 // 1. If PackedList, Encode ListTag、PrefixLen
-// 2. Push ListDescriptor、PrefixLen(UnPackedList is -1) into stack
-func (self *VisitorUserNode) OnArrayBegin(capacity int) error {
+// 2. push ListDescriptor、PrefixLen(UnPackedList is -1) into stack
+func (self *visitorUserNode) OnArrayBegin(capacity int) error {
 	var err error
 	curNodeLenPos := -1
 	if self.globalFieldDesc != nil {
@@ -478,7 +478,7 @@ func (self *VisitorUserNode) OnArrayBegin(capacity int) error {
 			}
 			self.p.Buf, curNodeLenPos = binary.AppendSpeculativeLength(self.p.Buf)
 		}
-		if err = self.Push(false, false, true, self.globalFieldDesc, curNodeLenPos); err != nil {
+		if err = self.push(false, false, true, self.globalFieldDesc, curNodeLenPos); err != nil {
 			return err
 		}
 	}
@@ -486,8 +486,8 @@ func (self *VisitorUserNode) OnArrayBegin(capacity int) error {
 }
 
 // After Parsing JSONArray, writing back PrefixLen If PackedList
-func (self *VisitorUserNode) OnArrayEnd() error {
-	var top *VisitorUserNodeStack
+func (self *visitorUserNode) OnArrayEnd() error {
+	var top *visitorUserNodeStack
 	top = &self.stk[self.sp]
 	// case PackedList
 	if (top.state.lenPos != -1) && (*top.state.fieldDesc).IsPacked() {
@@ -500,7 +500,7 @@ func (self *VisitorUserNode) OnArrayEnd() error {
 // 1. When type is basicType, note that the format of Map<basicType, basicType>, needs to write back PariPrefixLen of the current pair;
 // 2. When type is MessageType, current Message may belong to Map<any, Message> or Message{Message}, note that Map<int, Message>, needs to write back PairPrefixLen of current pair;
 // 3. When type is MapType/ListType, only execute pop operation;
-func (self *VisitorUserNode) onValueEnd() error {
+func (self *visitorUserNode) onValueEnd() error {
 	if self.sp == 0 && self.globalFieldDesc == nil{
 		return nil
 	}
@@ -513,24 +513,24 @@ func (self *VisitorUserNode) onValueEnd() error {
 		// rewrite pairlen in one kv-item of map
 		if top.typ == mapStkType {
 			self.p.Buf = binary.FinishSpeculativeLength(self.p.Buf, top.state.lenPos)
-			self.Pop()
+			self.pop()
 		}
 		return nil
 	}
 
 	// complexType Type
 	if top.typ == objStkType {
-		self.Pop()
+		self.pop()
 		// Message belong to Map<int, Message>、Message{Message}
 		ntop := self.stk[self.sp]
 		if ntop.typ == mapStkType {
 			self.p.Buf = binary.FinishSpeculativeLength(self.p.Buf, ntop.state.lenPos)
-			self.Pop()
+			self.pop()
 		}
 	} else if top.typ == arrStkType {
-		self.Pop()
+		self.pop()
 	} else if top.typ == mapStkType {
-		self.Pop()
+		self.pop()
 	} else {
 		return newError(meta.ErrWrite, "disMatched ValueEnd", nil)
 	}
