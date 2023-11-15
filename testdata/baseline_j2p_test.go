@@ -19,6 +19,7 @@ import (
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
+//go:generate kitex -module=github.com/cloudwego/dynamicgo idl/baseline.proto
 const (
 	protoPath = "testdata/idl/baseline.proto"
 )
@@ -69,7 +70,6 @@ func getPbSimpleValue() *baseline.Simple {
 		I32Field:    math.MaxInt32,
 		StringField: getString(),
 		BinaryField: getBytes(),
-		ListString:  []string{"aaaa", "bbbb", "cccc"},
 	}
 }
 
