@@ -94,11 +94,11 @@ func (self Node) offset() unsafe.Pointer {
 	return rt.AddPtr(self.v, uintptr(self.l))
 }
 
-func (self *Node) SetElemType(et proto.Type) {
+func (self *Node) setElemType(et proto.Type) {
 	self.et = et
 }
 
-func (self *Node) SetKeyType(kt proto.Type) {
+func (self *Node) setKeyType(kt proto.Type) {
 	self.kt = kt
 }
 
@@ -175,7 +175,6 @@ func (o *Node) setNotFound(path Path, n *Node, desc *proto.FieldDescriptor) erro
 	o.l = 0
 	return nil
 }
-
 
 func (self *Node) replaceMany(ps *pnSlice) error {
 	var buf []byte
@@ -542,7 +541,6 @@ ret:
 	return v, &fd
 }
 
-
 func (self Node) Fields(ids []PathNode, rootLayer bool, msgDesc *proto.MessageDescriptor, opts *Options) error {
 	if err := self.should("Fields", proto.MESSAGE); err != "" {
 		return errNode(meta.ErrUnsupportedType, err, nil)
@@ -574,7 +572,6 @@ func (self Node) Fields(ids []PathNode, rootLayer bool, msgDesc *proto.MessageDe
 			return errNode(meta.ErrRead, "", it.Err)
 		}
 	}
-
 
 	need := len(ids)
 	for count := 0; it.HasNext() && count < need; {

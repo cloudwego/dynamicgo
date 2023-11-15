@@ -172,19 +172,25 @@ func (self Node) Binary() ([]byte, error) {
 	return self.binary()
 }
 
-
 func (self Node) binary() ([]byte, error) {
 	switch self.t {
 	case proto.BYTE:
-		v, _,_ := protowire.BinaryDecoder{}.DecodeBytes(rt.BytesFrom(self.v, int(self.l), int(self.l)))
+		v, _, _ := protowire.BinaryDecoder{}.DecodeBytes(rt.BytesFrom(self.v, int(self.l), int(self.l)))
 		return v, nil
 	default:
 		return nil, errNode(meta.ErrUnsupportedType, "Node.binary: the Node type is not BYTE", nil)
 	}
 }
 
-// List returns interface elements contained by a LIST node
 func (self Value) List(opts *Options) ([]interface{}, error) {
+	if self.IsError() {
+		return nil, self
+	}
+	return self.list(opts)
+}
+
+// List returns interface elements contained by a LIST node
+func (self Value) list(opts *Options) ([]interface{}, error) {
 	if self.IsError() {
 		return nil, self
 	}
@@ -208,10 +214,10 @@ func (self Value) List(opts *Options) ([]interface{}, error) {
 		if _, err := it.p.ReadLength(); err != nil {
 			return nil, errValue(meta.ErrRead, "", err)
 		}
-	} 
-	
+	}
+
 	for it.HasNext() {
-		s,e := it.Next(UseNativeSkipForGet)
+		s, e := it.Next(UseNativeSkipForGet)
 		if it.Err != nil {
 			return nil, it.Err
 		}
@@ -230,8 +236,15 @@ func (self Value) List(opts *Options) ([]interface{}, error) {
 	return ret, nil
 }
 
-// StrMap returns the integer keys and interface elements contained by a MAP<Int/Uint,XX> node
 func (self Value) IntMap(opts *Options) (map[int]interface{}, error) {
+	if self.IsError() {
+		return nil, self
+	}
+	return self.intMap(opts)
+}
+
+// StrMap returns the integer keys and interface elements contained by a MAP<Int/Uint,XX> node
+func (self Value) intMap(opts *Options) (map[int]interface{}, error) {
 	if self.IsError() {
 		return nil, self
 	}
@@ -262,8 +275,15 @@ func (self Value) IntMap(opts *Options) (map[int]interface{}, error) {
 	return ret, it.Err
 }
 
-// StrMap returns the string keys and interface elements contained by a MAP<STRING,XX> node
 func (self Value) StrMap(opts *Options) (map[string]interface{}, error) {
+	if self.IsError() {
+		return nil, self
+	}
+	return self.strMap(opts)
+}
+
+// StrMap returns the string keys and interface elements contained by a MAP<STRING,XX> node
+func (self Value) strMap(opts *Options) (map[string]interface{}, error) {
 	if self.IsError() {
 		return nil, self
 	}
@@ -361,7 +381,7 @@ func (self Value) Interface(opts *Options) (interface{}, error) {
 			if id == f.Number() {
 				if f.IsMap() || f.IsList() {
 					it.p.Read = tagPos
-					if _, err := it.p.SkipAllElements(id,f.IsPacked()); err != nil {
+					if _, err := it.p.SkipAllElements(id, f.IsPacked()); err != nil {
 						return nil, errValue(meta.ErrRead, "SkipAllElements in LIST/MAP failed", err)
 					}
 					s = tagPos
