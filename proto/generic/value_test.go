@@ -285,9 +285,9 @@ func TestMarshalTo(t *testing.T) {
 
 			act := toInterface(ep)
 			exp := toInterface(exp)
-			require.False(t, DeepEqual(act, exp))
+			require.False(t, deepEqual(act, exp))
 			handlePartialMapStringString2(act.(map[int]interface{})[3].(map[int]interface{}))
-			require.True(t, DeepEqual(act, exp))
+			require.True(t, deepEqual(act, exp))
 			require.Nil(t, ep.InnerBase2.MapStringString2)
 		})
 	})
@@ -326,9 +326,9 @@ func TestMarshalTo(t *testing.T) {
 
 			act := toInterface(ep)
 			exp := toInterface(exp)
-			require.False(t, DeepEqual(act, exp))
+			require.False(t, deepEqual(act, exp))
 			handlePartialMapStringString2(act.(map[int]interface{})[3].(map[int]interface{}))
-			require.True(t, DeepEqual(act, exp))
+			require.True(t, deepEqual(act, exp))
 		})
 		t.Run("disallow unknown", func(t *testing.T) {
 			opts := &Options{DisallowUnknown: true}
@@ -457,7 +457,7 @@ func TestGet(t *testing.T) {
 		// }
 		// require.Equal(t, exp.InnerBase2.ListInt32, vint32)
 		// checkHelper(t, exp.InnerBase2.ListInt32, list, "List") why error?
-		DeepEqual(exp.InnerBase2.ListInt32, v)
+		deepEqual(exp.InnerBase2.ListInt32, v)
 
 		list1, err := a.Field(8).Index(1).Int()
 		require.Nil(t, err)
@@ -467,7 +467,7 @@ func TestGet(t *testing.T) {
 		require.Nil(t, err)
 		fmt.Println(vmp)
 		// require.Equal(t, exp.InnerBase2.MapStringString, vmp)
-		DeepEqual(exp.InnerBase2.MapStringString, vmp)
+		deepEqual(exp.InnerBase2.MapStringString, vmp)
 		checkHelper(t, exp.InnerBase2.MapStringString, mp, "StrMap")
 		mp1, err := a.Field(9).GetByStr("m1").String()
 		require.Nil(t, err)
@@ -478,7 +478,7 @@ func TestGet(t *testing.T) {
 		fmt.Println(vsp)
 		// require.Equal(t, exp.InnerBase2.SetInt32, vsp)
 		// checkHelper(t, exp.InnerBase2.SetInt32, vsp, "List")
-		DeepEqual(exp.InnerBase2.SetInt32, vsp)
+		deepEqual(exp.InnerBase2.SetInt32, vsp)
 		i, err := a.Field(11).Int()
 		require.NotNil(t, err)
 		require.Equal(t, 0, i)
@@ -564,7 +564,7 @@ func TestGet(t *testing.T) {
 		}
 		act11, err := v11.Interface(&Options{})
 		var exp11 interface{} = req.InnerBase2.ListBase[1]
-		DeepEqual(exp11, act11)
+		deepEqual(exp11, act11)
 	})
 
 }
@@ -702,7 +702,7 @@ func TestSetByPath(t *testing.T) {
 		require.NoError(t, err)
 		s4 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListString"), NewPathIndex(6))
 		act4, _ := s4.String()
-		DeepEqual(exp4, act4)
+		deepEqual(exp4, act4)
 	})
 }
 
@@ -767,7 +767,7 @@ func TestUnsetByPath(t *testing.T) {
 		n := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(12))
 		require.False(t, n.IsError())
 		x, _ := n.IntMap(&Options{})
-		DeepEqual(x, req.InnerBase2.MapInt32String)
+		deepEqual(x, req.InnerBase2.MapInt32String)
 	})
 
 	t.Run("delete_list_index", func(t *testing.T) {
@@ -859,7 +859,7 @@ func TestUnsetByPath(t *testing.T) {
 		require.NoError(t, err)
 		act, _ := n.IntMap(&Options{}) // TODO: can not convert map[interface{}]interface{} to map[int]interface{}
 		fmt.Println(act)
-		DeepEqual(req.InnerBase2.MapInt32String, act)
+		deepEqual(req.InnerBase2.MapInt32String, act)
 
 		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapInt32String"), NewPathIntKey(1))
 		require.NoError(t, err)
@@ -882,7 +882,7 @@ func TestUnsetByPath(t *testing.T) {
 		v, err := mp4.IntMap(&Options{})
 		require.NoError(t, err)
 		fmt.Println(v)
-		DeepEqual(v, req.InnerBase2.MapUint32String)
+		deepEqual(v, req.InnerBase2.MapUint32String)
 	})
 
 	t.Run("delete_field", func(t *testing.T) {

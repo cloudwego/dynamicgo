@@ -495,7 +495,7 @@ func (self *Value) SetByPath(sub Node, path ...Path) (exist bool, err error) {
 
 		// find target node descriptor
 		targetPath := path[l-1]
-		desc, err := GetDescByPath(self.RootDesc, path[:l-1]...)
+		desc, err := getDescByPath(self.RootDesc, path[:l-1]...)
 		var fd *proto.FieldDescriptor
 		if err != nil {
 			return false, err
@@ -528,12 +528,12 @@ func (self *Value) SetByPath(sub Node, path ...Path) (exist bool, err error) {
 	originLen := len(self.raw()) // root buf length
 	err = self.replace(v.Node, sub) // replace ErrorNode bytes by sub Node bytes
 	isPacked := path[l-1].t == PathIndex && sub.t.NeedVarint()
-	self.UpdateByteLen(originLen, address, isPacked, path...)
+	self.updateByteLen(originLen, address, isPacked, path...)
 	return
 }
 
 // update parent node bytes length
-func (self *Value) UpdateByteLen(originLen int, address []int, isPacked bool, path ...Path) {
+func (self *Value) updateByteLen(originLen int, address []int, isPacked bool, path ...Path) {
 	afterLen := self.l
 	diffLen := afterLen - originLen
 	previousType := proto.UNKNOWN
@@ -626,7 +626,7 @@ func (self *Value) UnsetByPath(path ...Path) error {
 	p := path[l-1]
 	var desc *proto.Descriptor
 	var err error
-	desc, err = GetDescByPath(self.RootDesc, path...)
+	desc, err = getDescByPath(self.RootDesc, path...)
 	if err != nil {
 		return err
 	}
@@ -651,7 +651,7 @@ func (self *Value) UnsetByPath(path ...Path) error {
 		return errValue(meta.ErrWrite, "replace node by empty node failed", err)
 	}
 	address = append(address, position) // must add one address align with path length
-	self.UpdateByteLen(originLen, address, isPacked, path...)
+	self.updateByteLen(originLen, address, isPacked, path...)
 	return nil
 }
 
@@ -1125,7 +1125,7 @@ func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, addres
 		if self.t == proto.LIST && isPacked {
 			currentAdd := []int{0, -1}
 			currentPath := []Path{NewPathIndex(-1), NewPathIndex(-1)}
-			self.UpdateByteLen(originLen, currentAdd, isPacked, currentPath...)
+			self.updateByteLen(originLen, currentAdd, isPacked, currentPath...)
 		} else if self.t == proto.MESSAGE {
 			buf := self.raw()
 			_, lenOffset := protowire.ConsumeVarint(buf)
@@ -1144,7 +1144,7 @@ func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, addres
 
 	// update root length
 	err = root.replaceMany(ps)
-	root.UpdateByteLen(rootLen, address, isPacked, path...)
+	root.updateByteLen(rootLen, address, isPacked, path...)
 ret:
 	ps.b = nil
 	pnsPool.Put(ps)

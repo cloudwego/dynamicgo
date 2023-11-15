@@ -94,11 +94,11 @@ func (self Node) offset() unsafe.Pointer {
 	return rt.AddPtr(self.v, uintptr(self.l))
 }
 
-func (self *Node) setElemType(et proto.Type) {
+func (self *Node) SetElemType(et proto.Type) {
 	self.et = et
 }
 
-func (self *Node) setKeyType(kt proto.Type) {
+func (self *Node) SetKeyType(kt proto.Type) {
 	self.kt = kt
 }
 

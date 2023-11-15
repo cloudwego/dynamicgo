@@ -268,7 +268,7 @@ func guardPathNodeSlice(con *[]PathNode, l int) {
 
 // DescriptorToPathNode converts a proto kind descriptor to a DOM, assgining path to root
 // NOTICE: it only recursively converts MESSAGE type
-func DescriptorToPathNode(desc *proto.FieldDescriptor, root *PathNode, opts *Options) error {
+func descriptorToPathNode(desc *proto.FieldDescriptor, root *PathNode, opts *Options) error {
 	if desc == nil || root == nil {
 		panic("nil pointer")
 	}
@@ -289,7 +289,7 @@ func DescriptorToPathNode(desc *proto.FieldDescriptor, root *PathNode, opts *Opt
 			// } else {
 			p.Path = NewPathFieldId(fd.Number())
 			// }
-			if err := DescriptorToPathNode(&fd, &p, opts); err != nil {
+			if err := descriptorToPathNode(&fd, &p, opts); err != nil {
 				return err
 			}
 			ns = append(ns, p)
@@ -611,7 +611,7 @@ func (self *PathNode) Load(recurse bool, opts *Options, desc *proto.MessageDescr
 	return self.scanChildren(&p, recurse, opts, &fd, len(p.Buf))
 }
 
-func GetDescByPath(rootDesc *proto.MessageDescriptor, pathes ...Path) (ret *proto.Descriptor, err error) {
+func getDescByPath(rootDesc *proto.MessageDescriptor, pathes ...Path) (ret *proto.Descriptor, err error) {
 	var desc *proto.FieldDescriptor
 	root := (*rootDesc).(proto.Descriptor)
 	ret = &root

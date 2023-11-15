@@ -128,7 +128,7 @@ func toInterface2(v interface{}, fieldId bool, byte2string int) interface{} {
 	return vt.Interface()
 }
 
-func DeepEqual(exp interface{}, act interface{}) bool {
+func deepEqual(exp interface{}, act interface{}) bool {
 	switch ev := exp.(type) {
 	case map[int]interface{}:
 		av, ok := act.(map[int]interface{})
@@ -140,7 +140,7 @@ func DeepEqual(exp interface{}, act interface{}) bool {
 			if !ok {
 				return false
 			}
-			if !DeepEqual(v, vv) {
+			if !deepEqual(v, vv) {
 				return false
 			}
 		}
@@ -155,7 +155,7 @@ func DeepEqual(exp interface{}, act interface{}) bool {
 			if !ok {
 				return false
 			}
-			if !DeepEqual(v, vv) {
+			if !deepEqual(v, vv) {
 				return false
 			}
 		}
@@ -179,7 +179,7 @@ func DeepEqual(exp interface{}, act interface{}) bool {
 				if !ok {
 					return false
 				}
-				if !DeepEqual(v, vv) {
+				if !deepEqual(v, vv) {
 					return false
 				}
 			}
@@ -187,11 +187,11 @@ func DeepEqual(exp interface{}, act interface{}) bool {
 			for _, ek := range eks {
 				found := false
 				for _, ak := range aks {
-					if DeepEqual(ek.Elem().Elem().Interface(), ak.Elem().Elem().Interface()) {
+					if deepEqual(ek.Elem().Elem().Interface(), ak.Elem().Elem().Interface()) {
 						found = true
 						evv := erv.MapIndex(ek)
 						avv := arv.MapIndex(ak)
-						if !DeepEqual(evv.Interface(), avv.Interface()) {
+						if !deepEqual(evv.Interface(), avv.Interface()) {
 							return false
 						}
 					}
@@ -209,7 +209,7 @@ func DeepEqual(exp interface{}, act interface{}) bool {
 		}
 		for i, v := range ev {
 			vv := av[i]
-			if !DeepEqual(v, vv) {
+			if !deepEqual(v, vv) {
 				return false
 			}
 		}
@@ -291,7 +291,7 @@ func checkHelper(t *testing.T, exp interface{}, act Value, api string) {
 	}
 }
 
-func TestDeepEqual(t *testing.T) {
+func testDeepEqual(t *testing.T) {
 	a := map[interface{}]interface{}{
 		float64(0.1): "A",
 		float64(0.2): "B",
@@ -317,10 +317,10 @@ func TestDeepEqual(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		require.Equal(t, a, b)
 	}
-	require.True(t, DeepEqual(a, b))
+	require.True(t, deepEqual(a, b))
 }
 
-func StructToMapStringInterface(data interface{}) map[string]interface{} {
+func structToMapStringInterface(data interface{}) map[string]interface{} {
     result := make(map[string]interface{})
     valueType := reflect.TypeOf(data)
     value := reflect.ValueOf(data)
@@ -339,7 +339,7 @@ func StructToMapStringInterface(data interface{}) map[string]interface{} {
 }
 
 
-func StructToMapFieldNumberInterface(data interface{}, desc *proto.MessageDescriptor) map[proto.FieldNumber]interface{} {
+func structToMapFieldNumberInterface(data interface{}, desc *proto.MessageDescriptor) map[proto.FieldNumber]interface{} {
 	result := make(map[proto.FieldNumber]interface{})
 	valueType := reflect.TypeOf(data)
 	value := reflect.ValueOf(data)
