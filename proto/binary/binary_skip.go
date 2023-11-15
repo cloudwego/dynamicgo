@@ -2,7 +2,28 @@ package binary
 
 import (
 	"github.com/cloudwego/dynamicgo/proto"
+	"github.com/cloudwego/dynamicgo/proto/protowire"
 )
+
+func (p *BinaryProtocol) SkipFixed32Type() (int, error) {
+	_, err := p.next(4)
+	return 4, err
+}
+
+func (p *BinaryProtocol) SkipFixed64Type() (int, error) {
+	_, err := p.next(8)
+	return 8, err
+}
+
+func (p *BinaryProtocol) SkipBytesType() (int, error) {
+	v, n := protowire.ConsumeVarint((p.Buf)[p.Read:])
+	if n < 0 {
+		return n, errDecodeField
+	}
+	all := int(v) + n
+	_, err := p.next(all)
+	return all, err
+}
 
 // skip (L)V once by wireType, useNative is not implemented
 func (p *BinaryProtocol) Skip(wireType proto.WireType, useNative bool) (err error) {
@@ -10,11 +31,11 @@ func (p *BinaryProtocol) Skip(wireType proto.WireType, useNative bool) (err erro
 	case proto.VarintType:
 		_, err = p.ReadVarint()
 	case proto.Fixed32Type:
-		_, err = p.ReadFixed32()
+		_, err = p.SkipFixed32Type()
 	case proto.Fixed64Type:
-		_, err = p.ReadFixed64()
+		_, err = p.SkipFixed64Type()
 	case proto.BytesType:
-		_, err = p.ReadBytes()
+		_, err = p.SkipBytesType()
 	}
 	return
 }
