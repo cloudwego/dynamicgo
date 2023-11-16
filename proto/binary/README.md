@@ -52,6 +52,9 @@ import "github.com/cloudwego/dynamicgo/proto/binary"
     - [func (\*BinaryProtocol) Reset](#func-binaryprotocol-reset)
     - [func (\*BinaryProtocol) Skip](#func-binaryprotocol-skip)
     - [func (\*BinaryProtocol) SkipAllElements](#func-binaryprotocol-skipallelements)
+    - [func (\*BinaryProtocol) SkipBytesType](#func-binaryprotocol-skipbytestype)
+    - [func (\*BinaryProtocol) SkipFixed32Type](#func-binaryprotocol-skipfixed32type)
+    - [func (\*BinaryProtocol) SkipFixed64Type](#func-binaryprotocol-skipfixed64type)
     - [func (\*BinaryProtocol) WriteAnyWithDesc](#func-binaryprotocol-writeanywithdesc)
     - [func (\*BinaryProtocol) WriteBaseTypeWithDesc](#func-binaryprotocol-writebasetypewithdesc)
     - [func (\*BinaryProtocol) WriteBool](#func-binaryprotocol-writebool)
@@ -444,7 +447,7 @@ func (p *BinaryProtocol) Reset()
 Reset resets the buffer and read position
 
 <a name="BinaryProtocol.Skip"></a>
-### func (*BinaryProtocol) [Skip](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary_skip.go#L8>)
+### func (*BinaryProtocol) [Skip](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary_skip.go#L29>)
 
 ```go
 func (p *BinaryProtocol) Skip(wireType proto.WireType, useNative bool) (err error)
@@ -453,13 +456,40 @@ func (p *BinaryProtocol) Skip(wireType proto.WireType, useNative bool) (err erro
 skip (L)V once by wireType, useNative is not implemented
 
 <a name="BinaryProtocol.SkipAllElements"></a>
-### func (*BinaryProtocol) [SkipAllElements](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary_skip.go#L23>)
+### func (*BinaryProtocol) [SkipAllElements](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary_skip.go#L44>)
 
 ```go
 func (p *BinaryProtocol) SkipAllElements(fieldNumber proto.FieldNumber, ispacked bool) (size int, err error)
 ```
 
 fast skip all elements in LIST/MAP
+
+<a name="BinaryProtocol.SkipBytesType"></a>
+### func (*BinaryProtocol) [SkipBytesType](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary_skip.go#L18>)
+
+```go
+func (p *BinaryProtocol) SkipBytesType() (int, error)
+```
+
+
+
+<a name="BinaryProtocol.SkipFixed32Type"></a>
+### func (*BinaryProtocol) [SkipFixed32Type](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary_skip.go#L8>)
+
+```go
+func (p *BinaryProtocol) SkipFixed32Type() (int, error)
+```
+
+
+
+<a name="BinaryProtocol.SkipFixed64Type"></a>
+### func (*BinaryProtocol) [SkipFixed64Type](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary_skip.go#L13>)
+
+```go
+func (p *BinaryProtocol) SkipFixed64Type() (int, error)
+```
+
+
 
 <a name="BinaryProtocol.WriteAnyWithDesc"></a>
 ### func (*BinaryProtocol) [WriteAnyWithDesc](<https://github.com/khan-yin/dynamicgo/blob/main/proto/binary/binary.go#L731>)
