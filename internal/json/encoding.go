@@ -67,7 +67,6 @@ func EncodeString(buf []byte, val string) []byte {
 	}
 	NoQuote(&buf, val)
 	buf = append(buf, '"')
-	println(val, string(buf))
 	return buf
 }
 
