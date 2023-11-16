@@ -31,11 +31,11 @@ func (p *BinaryProtocol) Skip(wireType proto.WireType, useNative bool) (err erro
 	case proto.VarintType:
 		_, err = p.ReadVarint()
 	case proto.Fixed32Type:
-		_, err = p.SkipFixed32Type()
+		_, err = p.SkipFixed32Type() // the same as p.ReadFixed32Type() but without slice bytes
 	case proto.Fixed64Type:
-		_, err = p.SkipFixed64Type()
+		_, err = p.SkipFixed64Type() // the same as p.ReadFixed64Type() but without slice bytes
 	case proto.BytesType:
-		_, err = p.SkipBytesType()
+		_, err = p.SkipBytesType() // the same as p.ReadBytesType() but without slice bytes
 	}
 	return
 }
