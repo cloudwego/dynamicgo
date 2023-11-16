@@ -259,7 +259,7 @@ JSON——>ProtoBuf 的转换过程如下：
 5. 更新输入和输出字节流位置，跳回第 1 步循环处理，直到处理完输入流数据。
 
 ## 性能测试
-构造与thrift性能测试基本相同的[baseline.proto](../testdata/idl/baseline.proto)文件，定义了对应的简单（[Small](../testdata/idl/baseline.proto#L7)）、复杂（[Medium](../testdata/idl/baseline.proto#L23)）、简单缺失（[SmallPartial](../testdata/idl/baseline.proto#L17)）、复杂缺失（[MediumPartial](../testdata/idl/baseline.proto#L41)） 两个对应子集，并用kitex命令生成了对应的[baseline.pb.go](../testdata/kitex_gen/pb/baseline/baseline.pb.go)。
+构造与thrift性能测试基本相同的[baseline.proto](../testdata/idl/baseline.proto)文件，定义了对应的简单（[Small](../testdata/idl/baseline.proto#L6)）、复杂（[Medium](../testdata/idl/baseline.proto#L22)）、简单缺失（[SmallPartial](../testdata/idl/baseline.proto#L16)）、复杂缺失（[MediumPartial](../testdata/idl/baseline.proto#L40)） 两个对应子集，并用kitex命令生成了对应的[baseline.pb.go](../testdata/kitex_gen/pb/baseline/baseline.pb.go)。
 主要与Protobuf-Go官方源码进行比较，部分测试与kitex-fast也进行了比较，测试环境如下：
 - OS：Windows 11 Pro Version 23H2
 - GOARCH: amd64
@@ -268,31 +268,31 @@ JSON——>ProtoBuf 的转换过程如下：
 
 ### 反射
 - 代码：[dynamicgo/testdata/baseline_pg_test.go](../testdata/baseline_pg_test.go)
-- set/get方法性能比较请查看protobuf字段定量测试结果。
-- MarshalTo方法：相比protobufGo提升随着数据规模的增大趋势越明显，ns/op开销约为源码方法的0.55~0.69。
+- 图中列举了DOM常用操作的性能，测试细节与thrift相同。
+- MarshalTo方法：相比protobufGo提升随着数据规模的增大趋势越明显，ns/op开销约为源码方法的0.37 ~ 0.47。
   
 ![](../image/intro-17.png)
 
 ### 字段Get/Set定量测试
-- 代码：[dynamicgo/testdata/baseline_pg_test.go#BenchmarkProtoRationGet](../testdata/baseline_pg_test.go#L1529)
-- [factor](../testdata/baseline_pg_test.go#L1476)用于修改从上到下扫描proto文件字段获取比率。
-- 定量测试比较方法是protobufGo的dynamicpb模块和DynamicGo的Get/SetByPath，SetMany。
+- 代码：[dynamicgo/testdata/baseline_pg_test.go#BenchmarkRationGet_DynamicGo](../testdata/baseline_pg_test.go#L1516)
+- [factor](../testdata/baseline_pg_test.go#L1472)用于修改从上到下扫描proto文件字段获取比率。
+- 定量测试比较方法是protobufGo的dynamicpb模块和DynamicGo的Get/SetByPath，SetMany，测试对象是medium data的情况。
 - Set/Get字段定量测试结果均优于ProtobufGo，且在获取字段越稀疏的情况下性能加速越明显，因为protobuf源码不论获取多少比率的字段，都需要完整序列化全体对象，而dynamicgo则是直接解析buf完成copy。
-- setmany性能加速更明显，在100%字段下ns/op开销约为0.22。
+- setmany性能加速更明显，在100%字段下ns/op开销约为0.19。
 
 ![](../image/intro-18.png)
 
 ### 序列化/反序列化
-- 代码：[dynamicgo/testdata/baseline_pg_test.go#BenchmarkProtoMarshalAll_DynamicGo](../testdata/baseline_pg_test.go#L1128)
-- 序列化在medium规模的数据上性能优势更明显，small规模略高于protobufGo，ns/op开销约为源码的0.43~1.65。
-- 反序列化在reuse模式下性能优于ProtobufGo，ns/op开销约为源码的0.64~0.82，随数据规模增大性能优势增加。
+- 代码：[dynamicgo/testdata/baseline_pg_test.go#BenchmarkProtoMarshalAll_DynamicGo](../testdata/baseline_pg_test.go#L1121)
+- 序列化在medium规模的数据上性能优势更明显，small规模略高于protobufGo，ns/op开销约为源码的0.50~1.52。
+- 反序列化在reuse模式下，small模式与protobufGo基本性能相同，在medium规模数据上性能优势更明显，ns/op开销约为源码的0.61 ~ 0.64，随数据规模增大性能优势增加。
 ![](../image/intro-19.png)
 ![](../image/intro-20.png)
 
 ### 协议转换
-- Json2Protobuf优于ProtobufGo，ns/op性能开销约为源码的0.39~0.58，随着数据量规模增大优势增加。
+- Json2Protobuf优于ProtobufGo，ns/op性能开销约为源码的0.18 ~ 0.20，随着数据量规模增大优势增加。
 - 代码：[dynamicgo/testdata/baseline_j2p_test.go](../testdata/baseline_j2p_test.go)
-- Protobuf2Json优于ProtobufGo和Sonic+Kitex，ns/op开销约为源码的0.22 ~ 0.26， 开销约为Sonic+Kitex的0.61~0.79，随着数据量规模增大优势增加。
+- Protobuf2Json优于ProtobufGo和Sonic+Kitex，ns/op开销约为源码的0.19 ~ 0.21， 开销约为Sonic+Kitex的0.74 ~ 0.77，随着数据量规模增大优势增加。
 - 代码：[dynamicgo/testdata/baseline_p2j_test.go](../testdata/baseline_p2j_test.go)
   
 ![](../image/intro-21.png)
