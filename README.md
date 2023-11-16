@@ -2,7 +2,9 @@
 Dynamically operating data for Go. Aiming at reducing serialization/deserializtion process thus it can be fast as much as possible.
 
 ## Introduction
-See [introduction.md](introduction.md).
+Dynamic-Go for Thrift protocol: [introduction.md](introduction.md).
+
+Dynamic-Go for Protobuf protocol: [introduction.md](./proto/INTRODUCTION.md)
 
 ## Usage
 ### thrift
