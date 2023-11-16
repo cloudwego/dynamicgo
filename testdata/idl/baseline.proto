@@ -11,7 +11,6 @@ message Simple {
     int32 I32Field = 4;
     string StringField = 5;
     bytes BinaryField = 6;
-    repeated string ListString = 7;
 }
 
 message PartialSimple {

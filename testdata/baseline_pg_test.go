@@ -1470,7 +1470,6 @@ func BenchmarkProtoUnmarshalPartialDynamicGoGet_ReuseMemory(b *testing.B) {
  */
 const (
 	factor         = 1.0 // change set/get field ratio
-	defaultBufSize = 512
 )
 
 func sizeNestingField(value reflect.Value, id int) int {
