@@ -3,6 +3,7 @@ package testdata
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -1018,6 +1019,98 @@ func BenchmarkProtoMarshalPartial_KitexFast(b *testing.B) {
 	})
 }
 
+func readAllSimple(data []byte, exp *baseline.Simple) error {
+	dataLen := len(data)
+	l := 0
+	for l < dataLen {
+		id, wtyp, tagLen := goprotowire.ConsumeTag(data)
+		if tagLen < 0 {
+			return errors.New("test failed")
+		}
+		l += tagLen
+		data = data[tagLen:]
+		offset, err := exp.FastRead(data, int8(wtyp), int32(id))
+		if err != nil {
+			return err
+		}
+		data = data[offset:]
+		l += offset
+	}
+	if len(data) != 0 {
+		return errors.New("test failed")
+	}
+	return nil
+}
+
+func readPartialSimple(data []byte, exp *baseline.PartialSimple) error {
+	dataLen := len(data)
+	l := 0
+	for l < dataLen {
+		id, wtyp, tagLen := goprotowire.ConsumeTag(data)
+		if tagLen < 0 {
+			return errors.New("test failed")
+		}
+		l += tagLen
+		data = data[tagLen:]
+		offset, err := exp.FastRead(data, int8(wtyp), int32(id))
+		if err != nil {
+			return err
+		}
+		data = data[offset:]
+		l += offset
+	}
+	if len(data) != 0 {
+		return errors.New("test failed")
+	}
+	return nil
+}
+
+func readAllNesting(data []byte, exp *baseline.Nesting) error {
+	dataLen := len(data)
+	l := 0
+	for l < dataLen {
+		id, wtyp, tagLen := goprotowire.ConsumeTag(data)
+		if tagLen < 0 {
+			return errors.New("test failed")
+		}
+		l += tagLen
+		data = data[tagLen:]
+		offset, err := exp.FastRead(data, int8(wtyp), int32(id))
+		if err != nil {
+			return err
+		}
+		data = data[offset:]
+		l += offset
+	}
+	if len(data) != 0 {
+		return errors.New("test failed")
+	}
+	return nil
+}
+
+func readPartialNesting(data []byte, exp *baseline.PartialNesting) error {
+	dataLen := len(data)
+	l := 0
+	for l < dataLen {
+		id, wtyp, tagLen := goprotowire.ConsumeTag(data)
+		if tagLen < 0 {
+			return errors.New("test failed")
+		}
+		l += tagLen
+		data = data[tagLen:]
+		offset, err := exp.FastRead(data, int8(wtyp), int32(id))
+		if err != nil {
+			return err
+		}
+		data = data[offset:]
+		l += offset
+	}
+	if len(data) != 0 {
+		return errors.New("test failed")
+	}
+	return nil
+}
+
 func BenchmarkProtoUnmarshalAll_KitexFast(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		obj := getPbSimpleValue()
@@ -1026,20 +1119,18 @@ func BenchmarkProtoUnmarshalAll_KitexFast(b *testing.B) {
 		if ret != len(data) {
 			b.Fatal(ret)
 		}
+
+		exp := baseline.Simple{}
+		err := readAllSimple(data, &exp)
+		if err != nil {
+			b.Fatal("read error")
+		}
+		require.Equal(b, *obj, exp)
+
 		b.SetBytes(int64(len(data)))
-		exp := &baseline.Simple{}
-		dataLen := len(data)
-		l := 0
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			for l < dataLen {
-				id, wtyp, tagLen := goprotowire.ConsumeTag(data)
-				data = data[tagLen:]
-				l += tagLen
-				offset, _ := exp.FastRead(data, int8(wtyp), int32(id))
-				data = data[offset:]
-				l += offset
-			}
+			_ = readAllSimple(data, &baseline.Simple{})
 		}
 	})
 
@@ -1050,20 +1141,18 @@ func BenchmarkProtoUnmarshalAll_KitexFast(b *testing.B) {
 		if ret != len(data) {
 			b.Fatal(ret)
 		}
+
+		exp := baseline.Nesting{}
+		err := readAllNesting(data, &exp)
+		if err != nil {
+			b.Fatal("read error")
+		}
+		require.Equal(b, *obj, exp)
+
 		b.SetBytes(int64(len(data)))
-		exp := &baseline.Nesting{}
-		dataLen := len(data)
-		l := 0
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			for l < dataLen {
-				id, wtyp, tagLen := goprotowire.ConsumeTag(data)
-				data = data[tagLen:]
-				l += tagLen
-				offset, _ := exp.FastRead(data, int8(wtyp), int32(id))
-				data = data[offset:]
-				l += offset
-			}
+			_ = readAllNesting(data, &baseline.Nesting{})
 		}
 	})
 }
@@ -1076,20 +1165,18 @@ func BenchmarkProtoUnmarshalPartial_KitexFast(b *testing.B) {
 		if ret != len(data) {
 			b.Fatal(ret)
 		}
+
+		exp := baseline.PartialSimple{}
+		err := readPartialSimple(data, &exp)
+		if err != nil {
+			b.Fatal("read error")
+		}
+		require.Equal(b, *obj, exp)
+
 		b.SetBytes(int64(len(data)))
-		exp := &baseline.PartialSimple{}
-		dataLen := len(data)
-		l := 0
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			for l < dataLen {
-				id, wtyp, tagLen := goprotowire.ConsumeTag(data)
-				data = data[tagLen:]
-				l += tagLen
-				offset, _ := exp.FastRead(data, int8(wtyp), int32(id))
-				data = data[offset:]
-				l += offset
-			}
+			_ = readPartialSimple(data, &baseline.PartialSimple{})
 		}
 	})
 
@@ -1100,20 +1187,18 @@ func BenchmarkProtoUnmarshalPartial_KitexFast(b *testing.B) {
 		if ret != len(data) {
 			b.Fatal(ret)
 		}
+		
+		exp := baseline.PartialNesting{}
+		err := readPartialNesting(data, &exp)
+		if err != nil {
+			b.Fatal("read error")
+		}
+		require.Equal(b, *obj, exp)
+
 		b.SetBytes(int64(len(data)))
-		exp := &baseline.PartialNesting{}
-		dataLen := len(data)
-		l := 0
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			for l < dataLen {
-				id, wtyp, tagLen := goprotowire.ConsumeTag(data)
-				data = data[tagLen:]
-				l += tagLen
-				offset, _ := exp.FastRead(data, int8(wtyp), int32(id))
-				data = data[offset:]
-				l += offset
-			}
+			_ = readPartialNesting(data, &baseline.PartialNesting{})
 		}
 	})
 }

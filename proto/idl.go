@@ -75,6 +75,42 @@ func (opts Options) NewDescriptorFromPath(ctx context.Context, path string, impo
 	return svc, nil
 }
 
+// NewDescritorFromContent behaviors like NewDescritorFromPath, besides it uses DefaultOptions.
+func NewDescritorFromContent(ctx context.Context, path, content string, includes map[string]string, importDirs ...string) (*ServiceDescriptor, error) {
+	return NewDefaultOptions().NewDesccriptorFromContent(ctx, path, content, includes, importDirs...)
+}
+
+func (opts Options) NewDesccriptorFromContent(ctx context.Context, path, content string, includes map[string]string, importDirs ...string) (*ServiceDescriptor, error) {
+	var fd FileDescriptor
+	// add main proto to includes
+	includes[path] = content
+
+	ImportPaths := []string{""} // default import "" when path is absolute path, no need to join with importDirs
+	// append importDirs to ImportPaths
+	ImportPaths = append(ImportPaths, importDirs...)
+	
+	compiler := protocompile.Compiler{
+		Resolver: &protocompile.SourceResolver{
+			ImportPaths: ImportPaths,
+			Accessor: protocompile.SourceAccessorFromMap(includes),
+		},
+	}
+
+	result, err := compiler.Compile(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	
+	fd = result[0]
+	sdsc, err := parse(ctx, &fd, opts.ParseServiceMode, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return sdsc, nil
+}
+
+
 // Parse descriptor from fileDescriptor
 func parse(ctx context.Context, fileDesc *FileDescriptor, mode meta.ParseServiceMode, opts Options, methods ...string) (*ServiceDescriptor, error) {
 	var sDsc *ServiceDescriptor
@@ -94,28 +130,4 @@ func parse(ctx context.Context, fileDesc *FileDescriptor, mode meta.ParseService
 	}
 
 	return sDsc, nil
-}
-
-func (opts Options) NewDesccriptorFromContent(ctx context.Context, filename string, includes map[string]string) (*ServiceDescriptor, error) {
-	var fd FileDescriptor
-	// change includes path to absolute path
-
-	compiler := protocompile.Compiler{
-		Resolver: &protocompile.SourceResolver{
-			Accessor: protocompile.SourceAccessorFromMap(includes),
-		},
-	}
-
-	result, err := compiler.Compile(ctx, filename)
-	if err != nil {
-		return nil, err
-	}
-	
-	fd = result[0]
-	sdsc, err := parse(ctx, &fd, opts.ParseServiceMode, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	return sdsc, nil
 }
