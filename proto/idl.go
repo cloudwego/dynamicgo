@@ -13,7 +13,6 @@ const (
 	Response
 	Exception
 )
-var com = protocompile.Compiler{}
 
 // ParseTarget indicates the target to parse
 type ParseTarget uint8

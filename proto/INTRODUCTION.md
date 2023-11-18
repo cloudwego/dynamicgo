@@ -274,8 +274,8 @@ JSON——>ProtoBuf 的转换过程如下：
 ![](../image/intro-17.png)
 
 ### 字段Get/Set定量测试
-- 代码：[dynamicgo/testdata/baseline_pg_test.go#BenchmarkRationGet_DynamicGo](../testdata/baseline_pg_test.go#L1516)
-- [factor](../testdata/baseline_pg_test.go#L1472)用于修改从上到下扫描proto文件字段获取比率。
+- 代码：[dynamicgo/testdata/baseline_pg_test.go#BenchmarkRationGet_DynamicGo](../testdata/baseline_pg_test.go#L1600)
+- [factor](../testdata/baseline_pg_test.go#L1557)用于修改从上到下扫描proto文件字段获取比率。
 - 定量测试比较方法是protobufGo的dynamicpb模块和DynamicGo的Get/SetByPath，SetMany，测试对象是medium data的情况。
 - Set/Get字段定量测试结果均优于ProtobufGo，且在获取字段越稀疏的情况下性能加速越明显，因为protobuf源码不论获取多少比率的字段，都需要完整序列化全体对象，而dynamicgo则是直接解析buf完成copy。
 - setmany性能加速更明显，在100%字段下ns/op开销约为0.19。
@@ -283,9 +283,9 @@ JSON——>ProtoBuf 的转换过程如下：
 ![](../image/intro-18.png)
 
 ### 序列化/反序列化
-- 代码：[dynamicgo/testdata/baseline_pg_test.go#BenchmarkProtoMarshalAll_DynamicGo](../testdata/baseline_pg_test.go#L1121)
+- 代码：[dynamicgo/testdata/baseline_pg_test.go#BenchmarkProtoMarshalAll_DynamicGo](../testdata/baseline_pg_test.go#L1206)
 - 序列化在medium规模的数据上性能优势更明显，small规模略高于protobufGo，ns/op开销约为源码的0.50~1.52。
-- 反序列化在reuse模式下，small模式与protobufGo基本性能相同，在medium规模数据上性能优势更明显，ns/op开销约为源码的0.61 ~ 0.64，随数据规模增大性能优势增加。
+- 反序列化在reuse模式下，small模式与protobufGo基本性能相同，在medium规模数据上性能优势更明显，ns/op开销约为源码的0.66 ~ 0.69，随数据规模增大性能优势增加。
 ![](../image/intro-19.png)
 ![](../image/intro-20.png)
 

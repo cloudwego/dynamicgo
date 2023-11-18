@@ -6,13 +6,9 @@
 import "github.com/cloudwego/dynamicgo/proto"
 ```
 
-## Introduction
-**DynamicGo For Protobuf Protocol：**[INTRODUCTION.md](./INTRODUCTION.md)
-
 ## Index
 
 - [proto](#proto)
-  - [Introduction](#introduction)
   - [Index](#index)
   - [Variables](#variables)
   - [type Descriptor](#type-descriptor)
@@ -28,16 +24,19 @@ import "github.com/cloudwego/dynamicgo/proto"
   - [type FileDescriptor](#type-filedescriptor)
   - [type MessageDescriptor](#type-messagedescriptor)
     - [func FnRequest](#func-fnrequest)
+    - [func FnResponse](#func-fnresponse)
   - [type MethodDescriptor](#type-methoddescriptor)
     - [func GetFnDescFromFile](#func-getfndescfromfile)
   - [type Number](#type-number)
   - [type OneofDescriptor](#type-oneofdescriptor)
   - [type Options](#type-options)
     - [func NewDefaultOptions](#func-newdefaultoptions)
+    - [func (Options) NewDesccriptorFromContent](#func-options-newdesccriptorfromcontent)
     - [func (Options) NewDescriptorFromPath](#func-options-newdescriptorfrompath)
   - [type ParseTarget](#type-parsetarget)
   - [type ProtoKind](#type-protokind)
   - [type ServiceDescriptor](#type-servicedescriptor)
+    - [func NewDescritorFromContent](#func-newdescritorfromcontent)
     - [func NewDescritorFromPath](#func-newdescritorfrompath)
   - [type Type](#type-type)
     - [func FromProtoKindToType](#func-fromprotokindtotype)
@@ -175,7 +174,7 @@ type FieldNumber = Number
 
 
 ```go
-type FileDescriptor = protoreflect.FieldDescriptor
+type FileDescriptor = protoreflect.FileDescriptor
 ```
 
 <a name="MessageDescriptor"></a>
@@ -194,7 +193,16 @@ type MessageDescriptor = protoreflect.MessageDescriptor
 func FnRequest(fn *MethodDescriptor) *MessageDescriptor
 ```
 
-FnRequest get the normal request type
+FnRequest get the normal requestDescriptor
+
+<a name="FnResponse"></a>
+### func [FnResponse](<https://github.com/khan-yin/dynamicgo/blob/main/proto/test_util.go#L35>)
+
+```go
+func FnResponse(fn *MethodDescriptor) *MessageDescriptor
+```
+
+FnResponse get hte normal responseDescriptor
 
 <a name="MethodDescriptor"></a>
 ## type [MethodDescriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L13>)
@@ -209,7 +217,7 @@ type MethodDescriptor = protoreflect.MethodDescriptor
 ### func [GetFnDescFromFile](<https://github.com/khan-yin/dynamicgo/blob/main/proto/test_util.go#L13>)
 
 ```go
-func GetFnDescFromFile(filePath, fnName string, opts Options) *MethodDescriptor
+func GetFnDescFromFile(filePath, fnName string, opts Options, includeDirs ...string) *MethodDescriptor
 ```
 
 GetFnDescFromFile get a fucntion descriptor from idl path (relative to your git root) and the function name
@@ -245,7 +253,7 @@ type OneofDescriptor = protoreflect.OneofDescriptor
 ```
 
 <a name="Options"></a>
-## type [Options](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L23-L40>)
+## type [Options](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L21-L38>)
 
 Options is options for parsing thrift IDL.
 
@@ -271,7 +279,7 @@ type Options struct {
 ```
 
 <a name="NewDefaultOptions"></a>
-### func [NewDefaultOptions](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L43>)
+### func [NewDefaultOptions](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L41>)
 
 ```go
 func NewDefaultOptions() Options
@@ -279,8 +287,17 @@ func NewDefaultOptions() Options
 
 NewDefaultOptions creates a default Options.
 
+<a name="Options.NewDesccriptorFromContent"></a>
+### func (Options) [NewDesccriptorFromContent](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L82>)
+
+```go
+func (opts Options) NewDesccriptorFromContent(ctx context.Context, path, content string, includes map[string]string, importDirs ...string) (*ServiceDescriptor, error)
+```
+
+
+
 <a name="Options.NewDescriptorFromPath"></a>
-### func (Options) [NewDescriptorFromPath](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L54>)
+### func (Options) [NewDescriptorFromPath](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L52>)
 
 ```go
 func (opts Options) NewDescriptorFromPath(ctx context.Context, path string, importDirs ...string) (*ServiceDescriptor, error)
@@ -289,7 +306,7 @@ func (opts Options) NewDescriptorFromPath(ctx context.Context, path string, impo
 NewDescritorFromContent creates a ServiceDescriptor from a proto path and its imports, which uses the given options. The importDirs is used to find the include files.
 
 <a name="ParseTarget"></a>
-## type [ParseTarget](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L20>)
+## type [ParseTarget](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L18>)
 
 ParseTarget indicates the target to parse
 
@@ -350,8 +367,17 @@ const (
 type ServiceDescriptor = protoreflect.ServiceDescriptor
 ```
 
+<a name="NewDescritorFromContent"></a>
+### func [NewDescritorFromContent](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L78>)
+
+```go
+func NewDescritorFromContent(ctx context.Context, path, content string, includes map[string]string, importDirs ...string) (*ServiceDescriptor, error)
+```
+
+NewDescritorFromContent behaviors like NewDescritorFromPath, besides it uses DefaultOptions.
+
 <a name="NewDescritorFromPath"></a>
-### func [NewDescritorFromPath](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L48>)
+### func [NewDescritorFromPath](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L46>)
 
 ```go
 func NewDescritorFromPath(ctx context.Context, path string, importDirs ...string) (*ServiceDescriptor, error)
