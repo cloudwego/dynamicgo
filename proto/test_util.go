@@ -10,8 +10,8 @@ import (
 
 // GetFnDescFromFile get a fucntion descriptor from idl path (relative to your git root) and
 // the function name
-func GetFnDescFromFile(filePath, fnName string, opts Options) *MethodDescriptor {
-	svc, err := opts.NewDescriptorFromPath(context.Background(), util_test.MustGitPath(filePath))
+func GetFnDescFromFile(filePath, fnName string, opts Options, includeDirs ...string) *MethodDescriptor {
+	svc, err := opts.NewDescriptorFromPath(context.Background(), util_test.MustGitPath(filePath), includeDirs...)
 	if err != nil {
 		panic(fmt.Errorf("%s:%s", util_test.MustGitPath(filePath), err))
 	}

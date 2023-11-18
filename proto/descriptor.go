@@ -6,7 +6,7 @@ import (
 
 type Descriptor = protoreflect.Descriptor
 
-type FileDescriptor = protoreflect.FieldDescriptor
+type FileDescriptor = protoreflect.FileDescriptor
 
 type ServiceDescriptor = protoreflect.ServiceDescriptor
 

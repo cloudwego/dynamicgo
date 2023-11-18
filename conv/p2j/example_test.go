@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/cloudwego/dynamicgo/conv"
+	"github.com/cloudwego/dynamicgo/internal/util_test"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
 	goprotowire "google.golang.org/protobuf/encoding/protowire"
@@ -15,7 +16,8 @@ var opts = conv.Options{}
 
 func ExampleBinaryConv_Do() {
 	// get descriptor and data
-	messageDesc := proto.FnRequest(proto.GetFnDescFromFile(exampleIDLPath, "ExampleMethod", proto.Options{}))
+	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
+	messageDesc := proto.FnRequest(proto.GetFnDescFromFile(exampleIDLPath, "ExampleMethod", proto.Options{},includeDirs))
 	desc, ok := (*messageDesc).(proto.Descriptor)
 	if !ok {
 		panic("invalid descrptor")

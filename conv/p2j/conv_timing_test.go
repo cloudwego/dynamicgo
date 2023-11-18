@@ -5,11 +5,13 @@ import (
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/conv"
+	"github.com/cloudwego/dynamicgo/internal/util_test"
 	"github.com/cloudwego/dynamicgo/proto"
 )
 
 func BenchmarkProtobuf2JSON_DynamicGo(t *testing.B) {
-	messageDesc := proto.FnRequest(proto.GetFnDescFromFile("testdata/idl/example2.proto", "ExampleMethod", proto.Options{}))
+	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
+	messageDesc := proto.FnRequest(proto.GetFnDescFromFile("testdata/idl/example2.proto", "ExampleMethod", proto.Options{}, includeDirs))
 	desc, ok := (*messageDesc).(proto.Descriptor)
 	if !ok {
 		t.Fatal("invalid descriptor")
@@ -31,7 +33,8 @@ func BenchmarkProtobuf2JSON_DynamicGo(t *testing.B) {
 }
 
 func BenchmarkProtobuf2JSON_Parallel_DynamicGo(t *testing.B) {
-	messageDesc := proto.FnRequest(proto.GetFnDescFromFile("testdata/idl/example2.proto", "ExampleMethod", proto.Options{}))
+	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
+	messageDesc := proto.FnRequest(proto.GetFnDescFromFile("testdata/idl/example2.proto", "ExampleMethod", proto.Options{}, includeDirs))
 	desc, ok := (*messageDesc).(proto.Descriptor)
 	if !ok {
 		t.Fatal("invalid descriptor")

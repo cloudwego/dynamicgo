@@ -9,6 +9,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/cloudwego/dynamicgo/internal/util_test"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/proto/binary"
@@ -22,12 +23,12 @@ import (
 const (
 	exampleIDLPath   = "../../testdata/idl/example2.proto"
 	exampleProtoPath = "../../testdata/data/example2_pb.bin"
-	// exampleSuperProtoPath = "../../testdata/data/example2super.bin"
 )
 
 // parse protofile to get MessageDescriptor
 func getExample2Desc() *proto.MessageDescriptor {
-	svc, err := proto.NewDescritorFromPath(context.Background(), exampleIDLPath)
+	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
+	svc, err := proto.NewDescritorFromPath(context.Background(), exampleIDLPath, includeDirs)
 	if err != nil {
 		panic(err)
 	}
@@ -40,7 +41,8 @@ func getExample2Desc() *proto.MessageDescriptor {
 }
 
 func getExamplePartialDesc() *proto.MessageDescriptor {
-	svc, err := proto.NewDescritorFromPath(context.Background(), exampleIDLPath)
+	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
+	svc, err := proto.NewDescritorFromPath(context.Background(), exampleIDLPath, includeDirs)
 	if err != nil {
 		panic(err)
 	}

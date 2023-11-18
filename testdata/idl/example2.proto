@@ -7,7 +7,7 @@ syntax = "proto3";
 
 package pb3;
 
-import "../../testdata/idl/base.proto";
+import "base.proto";
 
 option go_package = "pb/example2";
 

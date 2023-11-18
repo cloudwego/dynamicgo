@@ -68,7 +68,8 @@ func TestConvJSON2Protobf(t *testing.T) {
 
 func getExampleDesc() *proto.MessageDescriptor {
 	opts := proto.Options{}
-	svc, err := opts.NewDescriptorFromPath(context.Background(), util_test.MustGitPath(exampleIDLPath))
+	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
+	svc, err := opts.NewDescriptorFromPath(context.Background(), util_test.MustGitPath(exampleIDLPath), includeDirs)
 	if err != nil {
 		panic(err)
 	}
@@ -216,7 +217,8 @@ func buildExampleJSONData() error {
 }
 
 func getExampleInt2Float() *proto.Descriptor {
-	svc, err := proto.NewDescritorFromPath(context.Background(), util_test.MustGitPath(exampleIDLPath))
+	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
+	svc, err := proto.NewDescritorFromPath(context.Background(), util_test.MustGitPath(exampleIDLPath), includeDirs)
 	if err != nil {
 		panic(err)
 	}

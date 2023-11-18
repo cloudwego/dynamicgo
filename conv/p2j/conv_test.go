@@ -37,7 +37,8 @@ func TestBuildData(t *testing.T) {
 }
 
 func TestConvProto3JSON(t *testing.T) {
-	messageDesc := proto.FnRequest(proto.GetFnDescFromFile(exampleIDLPath, "ExampleMethod", proto.Options{}))
+	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
+	messageDesc := proto.FnRequest(proto.GetFnDescFromFile(exampleIDLPath, "ExampleMethod", proto.Options{}, includeDirs))
 	desc, ok := (*messageDesc).(proto.Descriptor)
 	if !ok {
 		t.Fatal("invalid descrptor")
@@ -259,7 +260,8 @@ func readExampleReqJSONData() string {
 }
 
 func getExampleInt2Float() *proto.Descriptor {
-	svc, err := proto.NewDescritorFromPath(context.Background(), util_test.MustGitPath(exampleIDLPath))
+	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
+	svc, err := proto.NewDescritorFromPath(context.Background(), util_test.MustGitPath(exampleIDLPath), includeDirs)
 	if err != nil {
 		panic(err)
 	}
@@ -300,7 +302,8 @@ func TestInt2String(t *testing.T) {
 }
 
 func getExampleReqPartialDesc() *proto.Descriptor {
-	messageDesc := proto.FnRequest(proto.GetFnDescFromFile(exampleIDLPath, "ExamplePartialMethod", proto.Options{}))
+	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
+	messageDesc := proto.FnRequest(proto.GetFnDescFromFile(exampleIDLPath, "ExamplePartialMethod", proto.Options{}, includeDirs))
 	desc, ok := (*messageDesc).(proto.Descriptor)
 	if !ok {
 		return nil
@@ -309,7 +312,8 @@ func getExampleReqPartialDesc() *proto.Descriptor {
 }
 
 func getExampleRespPartialDesc() *proto.Descriptor {
-	messageDesc := proto.FnResponse(proto.GetFnDescFromFile(exampleIDLPath, "ExamplePartialMethod2", proto.Options{}))
+	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
+	messageDesc := proto.FnResponse(proto.GetFnDescFromFile(exampleIDLPath, "ExamplePartialMethod2", proto.Options{}, includeDirs))
 	desc, ok := (*messageDesc).(proto.Descriptor)
 	if !ok {
 		return nil
