@@ -21,6 +21,22 @@ The meta data about message transportation, including caller, address, log-id, e
 #### thrift/annotation 
 Built-in implementation of thrid-party annotations, see [thrift_idl_annotation_standards](https://www.cloudwego.io/docs/kitex/tutorials/advanced-feature/generic-call/thrift_idl_annotation_standards/). They are mainly used for `conv` (protocol convertion) modules. 
 
+### proto
+Protobuf IDL parser and message operators. It can parse protobuf IDL in runtime and handle protobuf data in generic way.
+[DOC](proto/README.md)
+
+#### proto/generic
+Reflection APIs to search, modify, deserialize, serialize protobuf value **with or without** runtime descriptor.
+[DOC](proto/generic/README.md)
+
+#### proto/protowire
+Protobuf data encode and decode APIs. It parses and formats the low-level raw wire encoding. It is modified from Protobuf official code [`encoding/protowire`](https://pkg.go.dev/google.golang.org/protobuf/encoding/protowire).
+[DOC](proto/protowire/README.md)
+
+#### proto/binary
+BinaryProtocol tool for Protobuf Protocol. It can read, wirte and skip fields directly on binary data of protobuf message.
+[DOC](proto/binary/README.md)
+
 ### http
 Http request/response wrapper interfaces. They are mainly used to pass http values on `http<>thrift` conversion. 
 [DOC](http/README.md)
@@ -36,6 +52,13 @@ Convert JSON value or JSON-body HTTP request into thrift message.
 Convert thrift message to JSON value or JSON-body HTTP response.
 [DOC](conv/t2j/README.md)
 
+#### conv/j2p
+Convert JSON value into protobuf message.
+[DOC](conv/j2p/README.md)
+
+#### conv/p2j
+Convert protobuf message into JSON value.
+[DOC](conv/p2j/README.md)
 
 ## Requirements
 - Go 1.16~1.20
