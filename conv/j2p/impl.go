@@ -8,6 +8,7 @@ import (
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
+	"github.com/cloudwego/dynamicgo/proto/binary"
 )
 
 const (
@@ -26,6 +27,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.Descript
 func (self *BinaryConv) unmarshal(src []byte, out *[]byte, desc *proto.Descriptor) error {
 	// use sonic to decode json bytes, get visitorUserNode
 	vu := newVisitorUserNodeBuffer()
+	vu.p = binary.NewBinaryProtocolBuffer()
 	// use Visitor onxxx() to decode json2pb
 	data, err := vu.decode(src, desc)
 	freeVisitorUserNodePool(vu)

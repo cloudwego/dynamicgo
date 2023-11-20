@@ -29,19 +29,11 @@ var (
 		New: func() interface{} {
 			return &visitorUserNode{
 				sp:  0,
-				p:   binary.NewBinaryProtocolBuffer(),
 				stk: make([]visitorUserNodeStack, defaultStkDepth),
 			}
 		},
 	}
 )
-
-// NewvisitorUserNode get a new visitorUserNode from sync.Pool
-func newVisitorUserNode(buf []byte) *visitorUserNode {
-	vu := vuPool.Get().(*visitorUserNode)
-	vu.p.Buf = buf
-	return vu
-}
 
 // NewvisitorUserNode gets a new visitorUserNode from sync.Pool
 // and reuse the buffer in pool
@@ -68,7 +60,7 @@ func (self *visitorUserNode) recycle() {
 // reset resets the buffer and read position
 func (self *visitorUserNode) reset() {
 	self.sp = 0
-	self.p.Reset()
+	self.p = nil
 	for i := 0; i < len(self.stk); i++ {
 		self.stk[i].reset()
 	}
@@ -139,9 +131,19 @@ func (self *visitorUserNode) decode(bytes []byte, desc *proto.Descriptor) ([]byt
 	case proto.MessageDescriptor:
 		convDesc := (*desc).(proto.MessageDescriptor)
 		self.stk[self.sp].state = visitorUserNodeState{msgDesc: &convDesc, fieldDesc: nil, lenPos: -1}
+		self.stk[self.sp].typ = objStkType
 	case proto.FieldDescriptor:
 		convDesc := (*desc).(proto.FieldDescriptor)
 		self.stk[self.sp].state = visitorUserNodeState{msgDesc: nil, fieldDesc: &convDesc, lenPos: -1}
+		var typ uint8
+		if convDesc.IsMap() {
+			typ = mapStkType
+		} else if convDesc.IsList() {
+			typ = arrStkType
+		} else if convDesc.Kind() == proto.MessageKind {
+			typ = objStkType
+		}
+		self.stk[self.sp].typ = typ
 	}
 	str := rt.Mem2Str(bytes)
 	if err := ast.Preorder(str, self, nil); err != nil {
