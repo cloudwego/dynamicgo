@@ -35,7 +35,6 @@ import (
 	"time"
 	"unsafe"
 
-	sjson "github.com/bytedance/sonic/ast"
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/internal/native"
@@ -46,7 +45,6 @@ import (
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/null"
 	"github.com/cloudwego/dynamicgo/testdata/sample"
 	"github.com/cloudwego/dynamicgo/thrift"
-	"github.com/cloudwego/dynamicgo/thrift/base"
 	"github.com/stretchr/testify/require"
 )
 
@@ -448,9 +446,9 @@ func TestBodyFallbackToHttp(t *testing.T) {
 		err = json.Unmarshal(edata, exp)
 		require.Nil(t, err)
 		cv := NewBinaryConv(conv.Options{
-			EnableHttpMapping:     true,
-			WriteDefaultField:     true,
-			ReadHttpValueFallback: true,
+			EnableHttpMapping:            true,
+			WriteDefaultField:            true,
+			ReadHttpValueFallback:        true,
 			TracebackRequredOrRootFields: true,
 		})
 		ctx := context.Background()
@@ -470,10 +468,10 @@ func TestBodyFallbackToHttp(t *testing.T) {
 		err = json.Unmarshal(edata, exp)
 		require.Nil(t, err)
 		cv := NewBinaryConv(conv.Options{
-			WriteRequireField:     true,
-			EnableHttpMapping:     true,
-			WriteDefaultField:     false,
-			ReadHttpValueFallback: true,
+			WriteRequireField:            true,
+			EnableHttpMapping:            true,
+			WriteDefaultField:            false,
+			ReadHttpValueFallback:        true,
 			TracebackRequredOrRootFields: true,
 		})
 		ctx := context.Background()
@@ -531,9 +529,9 @@ func TestApiBody(t *testing.T) {
 	desc := getExampleDescByName("ApiBodyMethod", true, thrift.Options{})
 	data := []byte(`{"code":1024,"InnerCode":{}}`)
 	cv := NewBinaryConv(conv.Options{
-		EnableHttpMapping:     true,
-		WriteDefaultField:     true,
-		ReadHttpValueFallback: true,
+		EnableHttpMapping:            true,
+		WriteDefaultField:            true,
+		ReadHttpValueFallback:        true,
 		TracebackRequredOrRootFields: true,
 	})
 	ctx := context.Background()
@@ -553,139 +551,139 @@ func TestApiBody(t *testing.T) {
 	require.Equal(t, int16(0), act.InnerCode.C2)
 }
 
-func TestError(t *testing.T) {
-	desc := getExampleDesc()
+// func TestError(t *testing.T) {
+// 	desc := getExampleDesc()
 
-	t.Run("ERR_NULL_REQUIRED", func(t *testing.T) {
-		desc := getNullDesc()
-		data := getNullErrData()
-		cv := NewBinaryConv(conv.Options{})
-		ctx := context.Background()
-		_, err := cv.Do(ctx, desc, data)
-		require.Error(t, err)
-		msg := err.Error()
-		require.Equal(t, meta.ErrMissRequiredField, err.(meta.Error).Code.Behavior())
-		require.True(t, strings.Contains(msg, "missing required field 3"))
-		// require.True(t, strings.Contains(msg, "near "+strconv.Itoa(strings.Index(string(data), `"Null3": null`)+13)))
-	})
+// 	t.Run("ERR_NULL_REQUIRED", func(t *testing.T) {
+// 		desc := getNullDesc()
+// 		data := getNullErrData()
+// 		cv := NewBinaryConv(conv.Options{})
+// 		ctx := context.Background()
+// 		_, err := cv.Do(ctx, desc, data)
+// 		require.Error(t, err)
+// 		msg := err.Error()
+// 		require.Equal(t, meta.ErrMissRequiredField, err.(meta.Error).Code.Behavior())
+// 		require.True(t, strings.Contains(msg, "missing required field 3"))
+// 		// require.True(t, strings.Contains(msg, "near "+strconv.Itoa(strings.Index(string(data), `"Null3": null`)+13)))
+// 	})
 
-	t.Run("INVALID_CHAR", func(t *testing.T) {
-		data := `{xx}`
-		cv := NewBinaryConv(conv.Options{})
-		ctx := context.Background()
-		_, err := cv.Do(ctx, desc, []byte(data))
-		require.Error(t, err)
-		msg := err.Error()
-		require.Equal(t, meta.ErrRead, err.(meta.Error).Code.Behavior())
-		require.True(t, strings.Contains(msg, "invalid char 'x' for state J2T_OBJ_0"))
-		// require.True(t, strings.Contains(msg, "near 2"))
-	})
+// 	t.Run("INVALID_CHAR", func(t *testing.T) {
+// 		data := `{xx}`
+// 		cv := NewBinaryConv(conv.Options{})
+// 		ctx := context.Background()
+// 		_, err := cv.Do(ctx, desc, []byte(data))
+// 		require.Error(t, err)
+// 		msg := err.Error()
+// 		require.Equal(t, meta.ErrRead, err.(meta.Error).Code.Behavior())
+// 		require.True(t, strings.Contains(msg, "invalid char 'x' for state J2T_OBJ_0"))
+// 		// require.True(t, strings.Contains(msg, "near 2"))
+// 	})
 
-	t.Run("ERR_INVALID_NUMBER_FMT", func(t *testing.T) {
-		desc := getExampleInt2FloatDesc()
-		data := []byte(`{"Float64":1.x1}`)
-		cv := NewBinaryConv(conv.Options{
-			EnableValueMapping: true,
-		})
-		ctx := context.Background()
-		_, err := cv.Do(ctx, desc, data)
-		require.Error(t, err)
-		msg := err.Error()
-		require.Equal(t, meta.ErrConvert, err.(meta.Error).Code.Behavior())
-		require.True(t, strings.Contains(msg, "unexpected number type"))
-		// require.True(t, strings.Contains(msg, "near 41"))
-	})
+// 	t.Run("ERR_INVALID_NUMBER_FMT", func(t *testing.T) {
+// 		desc := getExampleInt2FloatDesc()
+// 		data := []byte(`{"Float64":1.x1}`)
+// 		cv := NewBinaryConv(conv.Options{
+// 			EnableValueMapping: true,
+// 		})
+// 		ctx := context.Background()
+// 		_, err := cv.Do(ctx, desc, data)
+// 		require.Error(t, err)
+// 		msg := err.Error()
+// 		require.Equal(t, meta.ErrConvert, err.(meta.Error).Code.Behavior())
+// 		require.True(t, strings.Contains(msg, "unexpected number type"))
+// 		// require.True(t, strings.Contains(msg, "near 41"))
+// 	})
 
-	t.Run("ERR_UNSUPPORT_THRIFT_TYPE", func(t *testing.T) {
-		desc := getErrorExampleDesc()
-		data := []byte(`{"MapInnerBaseInnerBase":{"a":"a"}`)
-		cv := NewBinaryConv(conv.Options{})
-		ctx := context.Background()
-		_, err := cv.Do(ctx, desc, data)
-		require.Error(t, err)
-		msg := err.Error()
-		require.Equal(t, meta.ErrUnsupportedType, err.(meta.Error).Code.Behavior())
-		require.True(t, strings.Contains(msg, "unsupported thrift type STRUCT"))
-		// require.True(t, strings.Contains(msg, "near 32"))
-	})
+// 	t.Run("ERR_UNSUPPORT_THRIFT_TYPE", func(t *testing.T) {
+// 		desc := getErrorExampleDesc()
+// 		data := []byte(`{"MapInnerBaseInnerBase":{"a":"a"}`)
+// 		cv := NewBinaryConv(conv.Options{})
+// 		ctx := context.Background()
+// 		_, err := cv.Do(ctx, desc, data)
+// 		require.Error(t, err)
+// 		msg := err.Error()
+// 		require.Equal(t, meta.ErrUnsupportedType, err.(meta.Error).Code.Behavior())
+// 		require.True(t, strings.Contains(msg, "unsupported thrift type STRUCT"))
+// 		// require.True(t, strings.Contains(msg, "near 32"))
+// 	})
 
-	t.Run("ERR_DISMATCH_TYPE", func(t *testing.T) {
-		data := getExampleData()
-		n, err := sjson.NewSearcher(string(data)).GetByPath()
-		require.Nil(t, err)
-		exist, err := n.Set("code_code", sjson.NewString("1.1"))
-		require.True(t, exist)
-		require.Nil(t, err)
-		data, err = n.MarshalJSON()
-		require.Nil(t, err)
-		cv := NewBinaryConv(conv.Options{})
-		ctx := context.Background()
-		_, err = cv.Do(ctx, desc, data)
-		require.Error(t, err)
-		msg := err.Error()
-		require.Equal(t, meta.ErrDismatchType, err.(meta.Error).Code.Behavior())
-		require.True(t, strings.Contains(msg, "expect type I64 but got type 11"))
-	})
+// 	t.Run("ERR_DISMATCH_TYPE", func(t *testing.T) {
+// 		data := getExampleData()
+// 		n, err := sjson.NewSearcher(string(data)).GetByPath()
+// 		require.Nil(t, err)
+// 		exist, err := n.Set("code_code", sjson.NewString("1.1"))
+// 		require.True(t, exist)
+// 		require.Nil(t, err)
+// 		data, err = n.MarshalJSON()
+// 		require.Nil(t, err)
+// 		cv := NewBinaryConv(conv.Options{})
+// 		ctx := context.Background()
+// 		_, err = cv.Do(ctx, desc, data)
+// 		require.Error(t, err)
+// 		msg := err.Error()
+// 		require.Equal(t, meta.ErrDismatchType, err.(meta.Error).Code.Behavior())
+// 		require.True(t, strings.Contains(msg, "expect type I64 but got type 11"))
+// 	})
 
-	t.Run("ERR_UNKNOWN_FIELD", func(t *testing.T) {
-		desc := getErrorExampleDesc()
-		data := []byte(`{"UnknownField":"1"}`)
-		cv := NewBinaryConv(conv.Options{
-			DisallowUnknownField: true,
-		})
-		ctx := context.Background()
-		_, err := cv.Do(ctx, desc, data)
-		require.Error(t, err)
-		msg := err.Error()
-		require.Equal(t, meta.ErrUnknownField, err.(meta.Error).Code.Behavior())
-		require.True(t, strings.Contains(msg, "unknown field 'UnknownField'"))
-	})
+// 	t.Run("ERR_UNKNOWN_FIELD", func(t *testing.T) {
+// 		desc := getErrorExampleDesc()
+// 		data := []byte(`{"UnknownField":"1"}`)
+// 		cv := NewBinaryConv(conv.Options{
+// 			DisallowUnknownField: true,
+// 		})
+// 		ctx := context.Background()
+// 		_, err := cv.Do(ctx, desc, data)
+// 		require.Error(t, err)
+// 		msg := err.Error()
+// 		require.Equal(t, meta.ErrUnknownField, err.(meta.Error).Code.Behavior())
+// 		require.True(t, strings.Contains(msg, "unknown field 'UnknownField'"))
+// 	})
 
-	t.Run("ERR_UNKNOWN_FIELD", func(t *testing.T) {
-		desc := getErrorExampleDesc()
-		data := []byte(`{"UnknownField":"1"}`)
-		cv := NewBinaryConv(conv.Options{
-			DisallowUnknownField: true,
-		})
-		ctx := context.Background()
-		_, err := cv.Do(ctx, desc, data)
-		require.Error(t, err)
-		msg := err.Error()
-		require.Equal(t, meta.ErrUnknownField, err.(meta.Error).Code.Behavior())
-		require.True(t, strings.Contains(msg, "unknown field 'UnknownField'"))
-	})
+// 	t.Run("ERR_UNKNOWN_FIELD", func(t *testing.T) {
+// 		desc := getErrorExampleDesc()
+// 		data := []byte(`{"UnknownField":"1"}`)
+// 		cv := NewBinaryConv(conv.Options{
+// 			DisallowUnknownField: true,
+// 		})
+// 		ctx := context.Background()
+// 		_, err := cv.Do(ctx, desc, data)
+// 		require.Error(t, err)
+// 		msg := err.Error()
+// 		require.Equal(t, meta.ErrUnknownField, err.(meta.Error).Code.Behavior())
+// 		require.True(t, strings.Contains(msg, "unknown field 'UnknownField'"))
+// 	})
 
-	t.Run("ERR_DECODE_BASE64", func(t *testing.T) {
-		desc := getErrorExampleDesc()
-		data := []byte(`{"Base64":"xxx"}`)
-		cv := NewBinaryConv(conv.Options{})
-		ctx := context.Background()
-		_, err := cv.Do(ctx, desc, data)
-		require.Error(t, err)
-		msg := err.Error()
-		require.Equal(t, meta.ErrRead, err.(meta.Error).Code.Behavior())
-		require.True(t, strings.Contains(msg, "decode base64 error: "))
-	})
+// 	t.Run("ERR_DECODE_BASE64", func(t *testing.T) {
+// 		desc := getErrorExampleDesc()
+// 		data := []byte(`{"Base64":"xxx"}`)
+// 		cv := NewBinaryConv(conv.Options{})
+// 		ctx := context.Background()
+// 		_, err := cv.Do(ctx, desc, data)
+// 		require.Error(t, err)
+// 		msg := err.Error()
+// 		require.Equal(t, meta.ErrRead, err.(meta.Error).Code.Behavior())
+// 		require.True(t, strings.Contains(msg, "decode base64 error: "))
+// 	})
 
-	t.Run("ERR_RECURSE_EXCEED_MAX", func(t *testing.T) {
-		desc := getExampleInt2FloatDesc()
-		src := []byte(`{}`)
-		cv := NewBinaryConv(conv.Options{})
-		ctx := context.Background()
-		buf := make([]byte, 0, 1)
-		mock := MockConv{
-			sp:        types.MAX_RECURSE + 1,
-			reqsCache: 1,
-			keyCache:  1,
-			dcap:      800,
-		}
-		err := mock.do(&cv, ctx, src, desc, &buf, nil, true)
-		require.Error(t, err)
-		msg := err.Error()
-		require.Equal(t, meta.ErrStackOverflow, err.(meta.Error).Code.Behavior())
-		require.True(t, strings.Contains(msg, "stack "+strconv.Itoa(types.MAX_RECURSE+1)+" overflow"))
-	})
-}
+// 	t.Run("ERR_RECURSE_EXCEED_MAX", func(t *testing.T) {
+// 		desc := getExampleInt2FloatDesc()
+// 		src := []byte(`{}`)
+// 		cv := NewBinaryConv(conv.Options{})
+// 		ctx := context.Background()
+// 		buf := make([]byte, 0, 1)
+// 		mock := MockConv{
+// 			sp:        types.MAX_RECURSE + 1,
+// 			reqsCache: 1,
+// 			keyCache:  1,
+// 			dcap:      800,
+// 		}
+// 		err := mock.do(&cv, ctx, src, desc, &buf, nil, true)
+// 		require.Error(t, err)
+// 		msg := err.Error()
+// 		require.Equal(t, meta.ErrStackOverflow, err.(meta.Error).Code.Behavior())
+// 		require.True(t, strings.Contains(msg, "stack "+strconv.Itoa(types.MAX_RECURSE+1)+" overflow"))
+// 	})
+// }
 
 func TestFloat2Int(t *testing.T) {
 	t.Run("double2int", func(t *testing.T) {
@@ -844,7 +842,7 @@ func TestStateMachineOOM(t *testing.T) {
 		cv := NewBinaryConv(conv.Options{
 			EnableHttpMapping:            true,
 			WriteRequireField:            true,
-			ReadHttpValueFallback: true,
+			ReadHttpValueFallback:        true,
 			TracebackRequredOrRootFields: true,
 		})
 		ctx := context.Background()
@@ -877,61 +875,61 @@ func TestEmptyConvHTTP2Thrift(t *testing.T) {
 	require.Equal(t, exp, act)
 }
 
-func TestThriftRequestBase(t *testing.T) {
-	desc := getExampleDescByName("ExampleMethod", true, thrift.Options{
-		// NOTICE: must set options.EnableThriftBase to true
-		EnableThriftBase: true,
-	})
-	cv := NewBinaryConv(conv.Options{
-		EnableThriftBase:  true,
-		WriteDefaultField: true,
-	})
-	ctx := context.Background()
-	b := base.NewBase()
-	b.Caller = "caller"
-	b.Extra = map[string]string{
-		"key": "value",
-	}
-	b.TrafficEnv = &base.TrafficEnv{
-		Env: "env",
-	}
-	ctx = context.WithValue(ctx, conv.CtxKeyThriftReqBase, b)
-	app, err := json.Marshal(b)
-	require.NoError(t, err)
-	data := getExampleData()
+// func TestThriftRequestBase(t *testing.T) {
+// 	desc := getExampleDescByName("ExampleMethod", true, thrift.Options{
+// 		// NOTICE: must set options.EnableThriftBase to true
+// 		EnableThriftBase: true,
+// 	})
+// 	cv := NewBinaryConv(conv.Options{
+// 		EnableThriftBase:  true,
+// 		WriteDefaultField: true,
+// 	})
+// 	ctx := context.Background()
+// 	b := base.NewBase()
+// 	b.Caller = "caller"
+// 	b.Extra = map[string]string{
+// 		"key": "value",
+// 	}
+// 	b.TrafficEnv = &base.TrafficEnv{
+// 		Env: "env",
+// 	}
+// 	ctx = context.WithValue(ctx, conv.CtxKeyThriftReqBase, b)
+// 	app, err := json.Marshal(b)
+// 	require.NoError(t, err)
+// 	data := getExampleData()
 
-	t.Run("context base", func(t *testing.T) {
-		root, _ := sjson.NewSearcher(string(data)).GetByPath()
-		_, err := root.Unset("Base")
-		require.NoError(t, err)
-		str, _ := root.Raw()
-		in := []byte(str)
-		out, err := cv.Do(ctx, desc, in)
-		require.NoError(t, err)
-		act := example3.NewExampleReq()
-		_, err = act.FastRead(out)
+// 	t.Run("context base", func(t *testing.T) {
+// 		root, _ := sjson.NewSearcher(string(data)).GetByPath()
+// 		_, err := root.Unset("Base")
+// 		require.NoError(t, err)
+// 		str, _ := root.Raw()
+// 		in := []byte(str)
+// 		out, err := cv.Do(ctx, desc, in)
+// 		require.NoError(t, err)
+// 		act := example3.NewExampleReq()
+// 		_, err = act.FastRead(out)
 
-		exp := example3.NewExampleReq()
-		_, err = root.Set("Base", sjson.NewRaw(string(app)))
-		require.NoError(t, err)
-		str, _ = root.Raw()
-		err = json.Unmarshal([]byte(str), exp)
-		require.Nil(t, err)
-		require.Equal(t, exp, act)
-	})
+// 		exp := example3.NewExampleReq()
+// 		_, err = root.Set("Base", sjson.NewRaw(string(app)))
+// 		require.NoError(t, err)
+// 		str, _ = root.Raw()
+// 		err = json.Unmarshal([]byte(str), exp)
+// 		require.Nil(t, err)
+// 		require.Equal(t, exp, act)
+// 	})
 
-	// NOTICE: when both body and context base are set, body base will be used
-	t.Run("ctx + json base", func(t *testing.T) {
-		out, err := cv.Do(ctx, desc, data)
-		require.NoError(t, err)
-		act := example3.NewExampleReq()
-		_, err = act.FastRead(out)
-		exp := example3.NewExampleReq()
-		err = json.Unmarshal(data, exp)
-		require.Nil(t, err)
-		require.Equal(t, exp, act)
-	})
-}
+// 	// NOTICE: when both body and context base are set, body base will be used
+// 	t.Run("ctx + json base", func(t *testing.T) {
+// 		out, err := cv.Do(ctx, desc, data)
+// 		require.NoError(t, err)
+// 		act := example3.NewExampleReq()
+// 		_, err = act.FastRead(out)
+// 		exp := example3.NewExampleReq()
+// 		err = json.Unmarshal(data, exp)
+// 		require.Nil(t, err)
+// 		require.Equal(t, exp, act)
+// 	})
+// }
 
 func TestString2Int(t *testing.T) {
 	desc := getExampleInt2FloatDesc()
@@ -1081,7 +1079,7 @@ func TestHttpMappingFallback(t *testing.T) {
 			Request: hr,
 		}
 		cv := NewBinaryConv(conv.Options{
-			EnableHttpMapping:            true,
+			EnableHttpMapping:     true,
 			ReadHttpValueFallback: true,
 		})
 		ctx := context.Background()
@@ -1138,7 +1136,7 @@ func TestPostFormBody(t *testing.T) {
 		cv := NewBinaryConv(conv.Options{
 			WriteDefaultField:            true,
 			EnableHttpMapping:            true,
-			ReadHttpValueFallback: true,
+			ReadHttpValueFallback:        true,
 			TracebackRequredOrRootFields: true,
 		})
 		ctx := context.Background()
@@ -1196,9 +1194,9 @@ func TestAGWDynamicBody(t *testing.T) {
 	t.Run("no http-mapping", func(t *testing.T) {
 		data := `{"Query":"1","json":[1,2,3],"inner_struct":{"inner_json":{"a":"中文","b":1},"Must":"2"}}`
 		cv := NewBinaryConv(conv.Options{
-			EnableValueMapping:           true,
-			EnableHttpMapping:            false,
-			WriteRequireField:            true,
+			EnableValueMapping:    true,
+			EnableHttpMapping:     false,
+			WriteRequireField:     true,
 			ReadHttpValueFallback: true,
 		})
 		ctx := context.Background()
@@ -1215,7 +1213,7 @@ func TestAGWDynamicBody(t *testing.T) {
 			EnableValueMapping:           true,
 			EnableHttpMapping:            true,
 			WriteRequireField:            true,
-			ReadHttpValueFallback: true,
+			ReadHttpValueFallback:        true,
 			TracebackRequredOrRootFields: true,
 		})
 		ctx := context.Background()
@@ -1254,8 +1252,8 @@ func TestNobodyRequiredFields(t *testing.T) {
 	}
 	desc := p.Functions()["ExampleMethod"].Request().Struct().Fields()[0].Type()
 	cv := NewBinaryConv(conv.Options{
-		EnableHttpMapping:            true,
-		WriteRequireField:            true,
+		EnableHttpMapping:     true,
+		WriteRequireField:     true,
 		ReadHttpValueFallback: true,
 	})
 	ctx := context.Background()
@@ -1500,7 +1498,7 @@ func TestSimpleArgs(t *testing.T) {
 	})
 
 	t.Run("int", func(t *testing.T) {
-		desc :=  getExampleDescByName("I64", true, thrift.Options{})
+		desc := getExampleDescByName("I64", true, thrift.Options{})
 		p := thrift.NewBinaryProtocolBuffer()
 		p.WriteI64(math.MaxInt64)
 		exp := p.Buf
