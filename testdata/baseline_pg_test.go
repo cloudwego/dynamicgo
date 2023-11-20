@@ -260,12 +260,12 @@ func BenchmarkProtoSetOne_DynamicGo(b *testing.B) {
 
 		v := generic.NewRootValue(desc, data)
 		p := binary.NewBinaryProtocolBuffer()
-		p.WriteBytes(obj.MapStringSimple["0"].BinaryField)
+		p.WriteBytes(obj.MapStringSimple["15"].BinaryField)
 		fd15 := (*desc).Fields().ByNumber(15).MapValue().Message().Fields().ByNumber(6)
 		n := generic.NewValue(&fd15, p.Buf)
-		_, err := v.SetByPath(n.Node, generic.NewPathFieldId(15), generic.NewPathStrKey("0"), generic.NewPathFieldId(6))
+		_, err := v.SetByPath(n.Node, generic.NewPathFieldId(15), generic.NewPathStrKey("15"), generic.NewPathFieldId(6))
 		require.Nil(b, err)
-		nn := v.GetByPath(generic.NewPathFieldId(15), generic.NewPathStrKey("0"), generic.NewPathFieldId(6))
+		nn := v.GetByPath(generic.NewPathFieldId(15), generic.NewPathStrKey("15"), generic.NewPathFieldId(6))
 		require.Equal(b, n.Raw(), nn.Raw())
 
 		b.SetBytes(int64(len(data)))
