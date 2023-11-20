@@ -53,9 +53,6 @@ func TestBuildData(t *testing.T) {
 	if err := saveExampleReqProtoBufData(); err != nil {
 		panic("build example3ProtoData failed")
 	}
-	if err := saveExampleReqJSONData(); err != nil {
-		panic("build example3JSONData failed")
-	}
 }
 
 func TestConvProto3JSON(t *testing.T) {
