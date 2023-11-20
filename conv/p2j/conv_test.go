@@ -7,7 +7,10 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"runtime"
+	"runtime/debug"
 	"testing"
+	"time"
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/internal/util_test"
@@ -20,6 +23,25 @@ import (
 	goprotowire "google.golang.org/protobuf/encoding/protowire"
 	goproto "google.golang.org/protobuf/proto"
 )
+
+var (
+	debugAsyncGC = os.Getenv("SONIC_NO_ASYNC_GC") == ""
+)
+
+func TestMain(m *testing.M) {
+	go func() {
+		if !debugAsyncGC {
+			return
+		}
+		println("Begin GC looping...")
+		for {
+			runtime.GC()
+			debug.FreeOSMemory()
+		}
+	}()
+	time.Sleep(time.Millisecond)
+	m.Run()
+}
 
 const (
 	exampleIDLPath   = "testdata/idl/example2.proto"

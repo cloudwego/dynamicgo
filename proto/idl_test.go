@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-func TestProtoFromContentOnWindows(t *testing.T) {
-	// change / to \\ on windows in path for right mapkey in includes 
+func TestProtoFromContent(t *testing.T) {
+	// change / to \\ on windows in path for right mapkey in includes
 	// because `filepath.Join(importPath, path)` in SourceResolver.FindFileByPath will change \\ to /
-	path := "a\\b\\main.proto"
+	path := "a/b/main.proto"
 	content := `
 	syntax = "proto3";
 	package pb3;
@@ -28,7 +28,7 @@ func TestProtoFromContentOnWindows(t *testing.T) {
 	`
 
 	includes := map[string]string{
-		"a\\b\\x.proto": `
+		"a/b/x.proto": `
 		syntax = "proto3";
 		package pb3;
 		option go_package = "pb/a";
@@ -36,7 +36,7 @@ func TestProtoFromContentOnWindows(t *testing.T) {
 			string name = 1;
 		}
 		`,
-		"a\\y.proto": `
+		"a/y.proto": `
 		syntax = "proto3";
 		package pb3;
 		option go_package = "pb/b";
@@ -46,7 +46,7 @@ func TestProtoFromContentOnWindows(t *testing.T) {
 		`,
 	}
 
-	importDirs := []string{"a\\b\\"}
+	importDirs := []string{"a/b/"}
 	opts := Options{}
 	svc, err := opts.NewDesccriptorFromContent(context.Background(), path, content, includes, importDirs...)
 	if err != nil {
