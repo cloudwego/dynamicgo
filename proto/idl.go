@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/bufbuild/protocompile"
 	"github.com/cloudwego/dynamicgo/meta"
+	"github.com/jhump/protoreflect/desc/protoparse"
 )
 
 const (
@@ -50,23 +50,16 @@ func NewDescritorFromPath(ctx context.Context, path string, importDirs ...string
 // NewDescritorFromContent creates a ServiceDescriptor from a proto path and its imports, which uses the given options.
 // The importDirs is used to find the include files.
 func (opts Options) NewDescriptorFromPath(ctx context.Context, path string, importDirs ...string) (*ServiceDescriptor, error) {
-	var fd FileDescriptor
-
+	var pbParser protoparse.Parser
 	ImportPaths := []string{""} // default import "" when path is absolute path, no need to join with importDirs
 	// append importDirs to ImportPaths
 	ImportPaths = append(ImportPaths, importDirs...)
-	compiler := protocompile.Compiler{
-		Resolver: &protocompile.SourceResolver{
-			ImportPaths: ImportPaths,
-		},
-		SourceInfoMode: protocompile.SourceInfoStandard,
-	}
-
-	results, err := compiler.Compile(ctx, path)
+	pbParser.ImportPaths = ImportPaths
+	fds, err := pbParser.ParseFiles(path)
 	if err != nil {
 		return nil, err
 	}
-	fd = results[0]
+	fd := fds[0].UnwrapFile()
 	svc, err := parse(ctx, &fd, opts.ParseServiceMode, opts)
 	if err != nil {
 		return nil, err
@@ -80,27 +73,22 @@ func NewDescritorFromContent(ctx context.Context, path, content string, includes
 }
 
 func (opts Options) NewDesccriptorFromContent(ctx context.Context, path, content string, includes map[string]string, importDirs ...string) (*ServiceDescriptor, error) {
-	var fd FileDescriptor
+
+	var pbParser protoparse.Parser
 	// add main proto to includes
 	includes[path] = content
 
 	ImportPaths := []string{""} // default import "" when path is absolute path, no need to join with importDirs
 	// append importDirs to ImportPaths
 	ImportPaths = append(ImportPaths, importDirs...)
-	
-	compiler := protocompile.Compiler{
-		Resolver: &protocompile.SourceResolver{
-			ImportPaths: ImportPaths,
-			Accessor: protocompile.SourceAccessorFromMap(includes),
-		},
-	}
 
-	result, err := compiler.Compile(ctx, path)
+	pbParser.ImportPaths = ImportPaths
+	pbParser.Accessor = protoparse.FileContentsFromMap(includes)
+	fds, err := pbParser.ParseFiles(path)
 	if err != nil {
 		return nil, err
 	}
-	
-	fd = result[0]
+	fd := fds[0].UnwrapFile()
 	sdsc, err := parse(ctx, &fd, opts.ParseServiceMode, opts)
 	if err != nil {
 		return nil, err

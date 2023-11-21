@@ -4,7 +4,6 @@ go 1.16
 
 require (
 	github.com/apache/thrift v0.13.0
-	github.com/bufbuild/protocompile v0.6.0
 	github.com/bytedance/sonic v1.10.2
 	github.com/chenzhuoyu/base64x v0.0.0-20230717121745-296ad89f973d
 	github.com/cloudwego/fastpb v0.0.4
@@ -13,7 +12,8 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/fatih/structtag v1.2.0
 	github.com/iancoleman/strcase v0.2.0
+	github.com/jhump/protoreflect v1.15.0
 	github.com/klauspost/cpuid/v2 v2.2.4
-	github.com/stretchr/testify v1.8.4
-	google.golang.org/protobuf v1.31.0
+	github.com/stretchr/testify v1.8.2
+	google.golang.org/protobuf v1.28.2-0.20220831092852-f930b1dc76e8
 )
