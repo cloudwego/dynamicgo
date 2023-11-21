@@ -35,9 +35,9 @@ import (
 	"time"
 	"unsafe"
 
+	sjson "github.com/bytedance/sonic/ast"
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
-	sjson "github.com/bytedance/sonic/ast"
 	"github.com/cloudwego/dynamicgo/internal/native"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
@@ -76,6 +76,83 @@ const (
 	nullJSON       = "../../testdata/data/null_pass.json"
 	nullerrJSON    = "../../testdata/data/null_err.json"
 )
+
+
+func TestCases(t *testing.T) {
+	var tests = []struct{
+		name string
+		idl string
+		includes map[string]string
+		js string
+		opt conv.Options
+		want interface{}
+		err error
+	}{
+		{
+			name: "int2double_vm",
+			idl: 
+`struct Req {
+	1: optional double body (api.js_conv=""), 
+}
+
+service SVR {
+	void Method(1: Req req)
+}	
+`,
+			includes: nil,
+			js: `{"body":"-1"}`,
+			opt: conv.Options{},
+			want: map[string]interface{}{
+				"body": float64(-1),
+			},
+		},
+		{
+			name: "int2double",
+			idl: 
+`struct Req {
+	1: optional double body, 
+}
+
+service SVR {
+	void Method(1: Req req)
+}	
+`,
+			includes: nil,
+			js: `{"body":-2}`,
+			opt: conv.Options{EnableValueMapping: true},
+			want: map[string]interface{}{
+				"body": float64(-2),
+			},
+		},
+	}
+	for _, c := range tests {
+		t.Run(c.name, func(t *testing.T) {
+			ctx := context.Background()
+			svc, err := thrift.NewDefaultOptions().NewDescritorFromContent(ctx, "a.thrift", c.idl, c.includes, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			desc := svc.Functions()["Method"].Request().Struct().FieldById(1).Type()
+			cv := NewBinaryConv(conv.Options{
+				EnableValueMapping: true,
+			})
+			out, err := cv.Do(ctx, desc, []byte(c.js))
+			if err != nil {
+				if c.err == nil || c.err.Error() == err.Error() {
+					t.Fatal(err)
+				}
+			}
+			v, err := thrift.NewBinaryProtocol(out).ReadAnyWithDesc(desc, false, false, false, true)
+			if err != nil {
+				if c.err == nil || c.err.Error() == err.Error() {
+					t.Fatal(err)
+				}
+			}
+			require.Equal(t, c.want, v)
+		})
+	}
+}
+
 
 func TestConvJSON2Thrift(t *testing.T) {
 	desc := getExampleDesc()

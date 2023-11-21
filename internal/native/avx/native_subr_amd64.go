@@ -9,34 +9,34 @@ import (
 
 const (
     _entry__f64toa = 480
-    _entry__format_significand = 48960
+    _entry__format_significand = 48784
     _entry__format_integer = 3328
     _entry__hm_get = 27776
     _entry__i64toa = 3760
     _entry__u64toa = 3872
-    _entry__j2t_fsm_exec = 39584
+    _entry__j2t_fsm_exec = 39408
     _entry__advance_ns = 12672
     _entry__fsm_exec = 19376
     _entry__validate_string = 21568
     _entry__utf8_validate = 22912
     _entry__advance_string = 14880
     _entry__skip_number = 18160
-    _entry__j2t_number = 34384
+    _entry__j2t_number = 34352
     _entry__vnumber = 15872
     _entry__atof_eisel_lemire64 = 10448
     _entry__atof_native = 12000
     _entry__decimal_to_f64 = 10816
-    _entry__right_shift = 49920
-    _entry__left_shift = 49424
-    _entry__j2t_string = 35040
+    _entry__right_shift = 49744
+    _entry__left_shift = 49248
+    _entry__j2t_string = 34944
     _entry__unquote = 6864
     _entry__b64decode = 24208
-    _entry__j2t_field_vm = 37840
+    _entry__j2t_field_vm = 37712
     _entry__tb_write_default_or_empty = 31200
     _entry__j2t_write_unset_fields = 33488
-    _entry__j2t_find_field_key = 36784
+    _entry__j2t_find_field_key = 36688
     _entry__quote = 5152
-    _entry__tb_skip = 47920
+    _entry__tb_skip = 47744
     _entry__tb_write_i64 = 29328
     _entry__trie_get = 28592
 )
@@ -89,7 +89,7 @@ const (
     _size__utf8_validate = 416
     _size__advance_string = 944
     _size__skip_number = 924
-    _size__j2t_number = 616
+    _size__j2t_number = 548
     _size__vnumber = 1536
     _size__atof_eisel_lemire64 = 368
     _size__atof_native = 608
@@ -99,7 +99,7 @@ const (
     _size__j2t_string = 848
     _size__unquote = 2272
     _size__b64decode = 2832
-    _size__j2t_field_vm = 1684
+    _size__j2t_field_vm = 1632
     _size__tb_write_default_or_empty = 1092
     _size__j2t_write_unset_fields = 864
     _size__j2t_find_field_key = 752
@@ -293,14 +293,14 @@ var (
         {10, 32},
         {12, 40},
         {13, 48},
-        {598, 56},
-        {602, 48},
-        {603, 40},
-        {605, 32},
-        {607, 24},
-        {609, 16},
-        {611, 8},
-        {616, 0},
+        {531, 56},
+        {535, 48},
+        {536, 40},
+        {538, 32},
+        {540, 24},
+        {542, 16},
+        {544, 8},
+        {548, 0},
     }
     _pcsp__vnumber = [][2]uint32{
         {1, 0},
@@ -449,15 +449,15 @@ var (
         {354, 16},
         {356, 8},
         {357, 0},
-        {654, 72},
-        {658, 48},
-        {659, 40},
-        {661, 32},
-        {663, 24},
-        {665, 16},
-        {667, 8},
-        {671, 0},
-        {1684, 72},
+        {669, 72},
+        {673, 48},
+        {674, 40},
+        {676, 32},
+        {678, 24},
+        {680, 16},
+        {682, 8},
+        {686, 0},
+        {1632, 72},
     }
     _pcsp__tb_write_default_or_empty = [][2]uint32{
         {1, 0},
