@@ -361,14 +361,8 @@ uint64_t j2t_number(GoSlice *buf, const tTypeDesc *desc, const GoString *src, lo
             return tb_write_i64(buf, (int64_t)ret->dv);
         }
     case TTYPE_DOUBLE:
-        if (ret->vt == V_DOUBLE)
-        {
-            return tb_write_double(buf, (double)ret->dv);
-        }
-        else
-        {
-            return tb_write_double(buf, (double)((uint64_t)ret->iv));
-        }
+        // NOTICE: vnumber() has set dv when V_INTEGER
+        return tb_write_double(buf, (double)(ret->dv));
     }
     WRAP_ERR2(ERR_DISMATCH_TYPE, desc->type, V_INTEGER);
 }
@@ -621,16 +615,7 @@ uint64_t j2t_field_vm(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
             }
             case TTYPE_DOUBLE:
             {
-                double v = 0;
-                if (self->jt.vt == V_INTEGER)
-                {
-                    v = (double)((uint64_t)self->jt.iv);
-                }
-                else
-                {
-                    v = (double)self->jt.dv;
-                }
-                J2T_ZERO(tb_write_double(buf, v));
+                J2T_ZERO(tb_write_double(buf, (double)self->jt.dv));
                 break;
             }
             default:
