@@ -12,8 +12,8 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/fatih/structtag v1.2.0
 	github.com/iancoleman/strcase v0.2.0
-	github.com/jhump/protoreflect v1.15.0
+	github.com/jhump/protoreflect v1.8.2
 	github.com/klauspost/cpuid/v2 v2.2.4
 	github.com/stretchr/testify v1.8.2
-	google.golang.org/protobuf v1.28.2-0.20220831092852-f930b1dc76e8
+	google.golang.org/protobuf v1.28.1
 )
