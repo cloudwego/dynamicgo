@@ -131,6 +131,10 @@ func (m *MessageDescriptor) ByNumber(id FieldNumber) *FieldDescriptor {
 	return m.ids[id]
 }
 
+func (m *MessageDescriptor) FieldsCount() int {
+	return len(m.ids)
+}
+
 type MethodDescriptor struct {
 	name string
 	input *TypeDescriptor
