@@ -14,7 +14,6 @@ import (
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/proto/protowire"
-	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // memory resize factor
@@ -402,9 +401,8 @@ func (p *BinaryProtocol) WriteMap(desc *proto.FieldDescriptor, val interface{}, 
 				return errDismatchPrimitive
 			}
 		}
-	} 
+	}
 
-	
 	if vs != nil {
 		for k, v := range vs {
 			p.AppendTag(fd.Number(), proto.BytesType)
@@ -424,7 +422,7 @@ func (p *BinaryProtocol) WriteMap(desc *proto.FieldDescriptor, val interface{}, 
 			p.AppendTag(MapKey.Number(), proto.Kind2Wire[MapKey.Kind()])
 			// notice: may have problem, when k is sfixed64/fixed64 or sfixed32/fixed32 there is no need to use varint
 			// we had better add more code to judge the type of k if write fast
-			// p.WriteInt64(int64(k)) 
+			// p.WriteInt64(int64(k))
 			p.WriteBaseTypeWithDesc(&MapKey, k, cast, disallowUnknown, useFieldName) // the gerneral way
 			p.AppendTag(MapValue.Number(), proto.Kind2Wire[MapValue.Kind()])
 			p.WriteBaseTypeWithDesc(&MapValue, v, cast, disallowUnknown, useFieldName)
@@ -977,7 +975,7 @@ func (p *BinaryProtocol) ReadEnum() (proto.EnumNumber, error) {
 }
 
 // ReadList
-func (p *BinaryProtocol) ReadList(desc *proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) ([]interface{}, error) {
+func (p *BinaryProtocol) ReadList(desc *proto.TypeDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) ([]interface{}, error) {
 	// Read ListTag
 	fieldNumber, _, _, listTagErr := p.ConsumeTag()
 	if listTagErr != nil {
@@ -1032,7 +1030,7 @@ func (p *BinaryProtocol) ReadList(desc *proto.FieldDescriptor, copyString bool, 
 	return list, nil
 }
 
-func (p *BinaryProtocol) ReadPair(keyDesc *proto.FieldDescriptor, valueDesc *proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) (interface{}, interface{}, error) {
+func (p *BinaryProtocol) ReadPair(keyDesc *proto.TypeDescriptor, valueDesc *proto.TypeDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) (interface{}, interface{}, error) {
 	key, err := p.ReadAnyWithDesc(keyDesc, copyString, disallowUnknown, useFieldName)
 	if err != nil {
 		return nil, nil, err
@@ -1046,7 +1044,7 @@ func (p *BinaryProtocol) ReadPair(keyDesc *proto.FieldDescriptor, valueDesc *pro
 }
 
 // ReadMap
-func (p *BinaryProtocol) ReadMap(desc *proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) (map[interface{}]interface{}, error) {
+func (p *BinaryProtocol) ReadMap(desc *proto.TypeDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) (map[interface{}]interface{}, error) {
 	// read first kv pair tag
 	fieldNumber, mapWireType, _, mapTagErr := p.ConsumeTag()
 	if mapTagErr != nil {
@@ -1058,15 +1056,15 @@ func (p *BinaryProtocol) ReadMap(desc *proto.FieldDescriptor, copyString bool, d
 	}
 
 	map_kv := make(map[interface{}]interface{})
-	keyDesc := (*desc).MapKey()
-	valueDesc := (*desc).MapValue()
+	keyDesc := (*desc).Key()
+	valueDesc := (*desc).Elem()
 
 	// read first pair length
 	if _, lengthErr := p.ReadLength(); lengthErr != nil {
 		return nil, lengthErr
 	}
 	// read first Pair
-	key, value, pairReadErr := p.ReadPair(&keyDesc, &valueDesc, copyString, disallowUnknown, useFieldName)
+	key, value, pairReadErr := p.ReadPair(keyDesc, valueDesc, copyString, disallowUnknown, useFieldName)
 	if pairReadErr != nil {
 		return nil, pairReadErr
 	}
@@ -1090,7 +1088,7 @@ func (p *BinaryProtocol) ReadMap(desc *proto.FieldDescriptor, copyString bool, d
 		if _, pairLenErr := p.ReadLength(); pairLenErr != nil {
 			return nil, pairLenErr
 		}
-		key, value, pairReadErr := p.ReadPair(&keyDesc, &valueDesc, copyString, disallowUnknown, useFieldName)
+		key, value, pairReadErr := p.ReadPair(keyDesc, valueDesc, copyString, disallowUnknown, useFieldName)
 		if pairReadErr != nil {
 			return nil, pairReadErr
 		}
@@ -1104,7 +1102,7 @@ func (p *BinaryProtocol) ReadMap(desc *proto.FieldDescriptor, copyString bool, d
 //   - LIST/SET will be converted to []interface{}
 //   - MAP will be converted to map[string]interface{} or map[int]interface{} or map[interface{}]interface{}
 //   - MESSAGE will be converted to map[proto.FieldNumber]interface{} or map[string]interface{}
-func (p *BinaryProtocol) ReadAnyWithDesc(desc *proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) (interface{}, error) {
+func (p *BinaryProtocol) ReadAnyWithDesc(desc *proto.TypeDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) (interface{}, error) {
 	switch {
 	case (*desc).IsList():
 		return p.ReadList(desc, copyString, disallowUnknown, useFieldName)
@@ -1119,57 +1117,57 @@ func (p *BinaryProtocol) ReadAnyWithDesc(desc *proto.FieldDescriptor, copyString
 }
 
 // ReadBaseType with desc, not thread safe
-func (p *BinaryProtocol) ReadBaseTypeWithDesc(desc *proto.FieldDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) (interface{}, error) {
-	switch (*desc).Kind() {
-	case protoreflect.BoolKind:
+func (p *BinaryProtocol) ReadBaseTypeWithDesc(desc *proto.TypeDescriptor, copyString bool, disallowUnknown bool, useFieldName bool) (interface{}, error) {
+	switch (*desc).Type() {
+	case proto.BOOL:
 		v, e := p.ReadBool()
 		return v, e
-	case protoreflect.EnumKind:
+	case proto.ENUM:
 		v, e := p.ReadEnum()
 		return v, e
-	case protoreflect.Int32Kind:
+	case proto.INT32:
 		v, e := p.ReadInt32()
 		return v, e
-	case protoreflect.Sint32Kind:
+	case proto.SINT32:
 		v, e := p.ReadSint32()
 		return v, e
-	case protoreflect.Uint32Kind:
+	case proto.UINT32:
 		v, e := p.ReadUint32()
 		return v, e
-	case protoreflect.Fixed32Kind:
+	case proto.FIX32:
 		v, e := p.ReadFixed32()
 		return v, e
-	case protoreflect.Sfixed32Kind:
+	case proto.SFIX32:
 		v, e := p.ReadSfixed32()
 		return v, e
-	case protoreflect.Int64Kind:
+	case proto.INT64:
 		v, e := p.ReadInt64()
 		return v, e
-	case protoreflect.Sint64Kind:
+	case proto.SINT64:
 		v, e := p.ReadInt64()
 		return v, e
-	case protoreflect.Uint64Kind:
+	case proto.UINT64:
 		v, e := p.ReadUint64()
 		return v, e
-	case protoreflect.Fixed64Kind:
+	case proto.FIX64:
 		v, e := p.ReadFixed64()
 		return v, e
-	case protoreflect.Sfixed64Kind:
+	case proto.SFIX64:
 		v, e := p.ReadSfixed64()
 		return v, e
-	case protoreflect.FloatKind:
+	case proto.FLOAT:
 		v, e := p.ReadFloat()
 		return v, e
-	case protoreflect.DoubleKind:
+	case proto.DOUBLE:
 		v, e := p.ReadDouble()
 		return v, e
-	case protoreflect.StringKind:
+	case proto.STRING:
 		v, e := p.ReadString(copyString)
 		return v, e
-	case protoreflect.BytesKind:
+	case proto.BYTE:
 		v, e := p.ReadBytes()
 		return v, e
-	case protoreflect.MessageKind:
+	case proto.MESSAGE:
 		length, messageLengthErr := p.ReadLength()
 		if messageLengthErr != nil {
 			return nil, messageLengthErr
@@ -1179,13 +1177,13 @@ func (p *BinaryProtocol) ReadBaseTypeWithDesc(desc *proto.FieldDescriptor, copyS
 		}
 
 		fd := *desc
-		fields := fd.Message().Fields()
+		msg := fd.Message()
 		var retFieldID map[proto.FieldNumber]interface{}
 		var retString map[string]interface{}
 		if useFieldName {
-			retString = make(map[string]interface{}, fields.Len())
+			retString = make(map[string]interface{}, msg.Len())
 		} else {
-			retFieldID = make(map[proto.FieldNumber]interface{}, fields.Len())
+			retFieldID = make(map[proto.FieldNumber]interface{}, msg.Len())
 		}
 		// read repeat until sumLength equals MessageLength
 		start := p.Read
@@ -1194,7 +1192,7 @@ func (p *BinaryProtocol) ReadBaseTypeWithDesc(desc *proto.FieldDescriptor, copyS
 			if fieldTagErr != nil {
 				return nil, fieldTagErr
 			}
-			field := fields.ByNumber(fieldNumber)
+			field := msg.ByNumber(fieldNumber)
 			if field == nil {
 				if disallowUnknown {
 					return nil, errUnknonwField
@@ -1206,12 +1204,12 @@ func (p *BinaryProtocol) ReadBaseTypeWithDesc(desc *proto.FieldDescriptor, copyS
 				p.Skip(wireType, false)
 				continue
 			}
-			v, fieldErr := p.ReadAnyWithDesc(&field, copyString, disallowUnknown, useFieldName)
+			v, fieldErr := p.ReadAnyWithDesc(field.Type(), copyString, disallowUnknown, useFieldName)
 			if fieldErr != nil {
 				return nil, fieldErr
 			}
 			if useFieldName {
-				retString[field.TextName()] = v
+				retString[field.JSONName()] = v
 			} else {
 				retFieldID[field.Number()] = v
 			}
