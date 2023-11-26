@@ -48,19 +48,15 @@ const (
 )
 
 func TestConvJSON2Protobf(t *testing.T) {
-	// buildExampleJSONData()
-	messageDesc := getExampleDesc()
+	buildExampleJSONData()
+	desc := getExampleDesc()
 	data := getExampleData()
 	pdata, _ := ioutil.ReadFile(util_test.MustGitPath(exampleProtoPath))
 	fmt.Println(pdata)
 	cv := NewBinaryConv(conv.Options{})
 	ctx := context.Background()
 	// get protobuf-encode bytes
-	desc, ok := (*messageDesc).(proto.Descriptor)
-	if !ok {
-		t.Fatal("convert messageDescriptor to descriptor failed")
-	}
-	out, err := cv.Do(ctx, &desc, data)
+	out, err := cv.Do(ctx, desc, data)
 	require.Nil(t, err)
 	exp := &example2.ExampleReq{}
 	// unmarshal target struct
@@ -88,19 +84,19 @@ func TestConvJSON2Protobf(t *testing.T) {
 	require.Equal(t, exp, act)
 }
 
-func getExampleDesc() *proto.MessageDescriptor {
+func getExampleDesc() *proto.TypeDescriptor {
 	opts := proto.Options{}
 	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
 	svc, err := opts.NewDescriptorFromPath(context.Background(), util_test.MustGitPath(exampleIDLPath), includeDirs)
 	if err != nil {
 		panic(err)
 	}
-	res := (*svc).Methods().ByName("ExampleMethod").Input()
+	res := (*svc).LookupMethodByName("ExampleMethod").Input()
 
 	if res == nil {
 		panic("can't find Target MessageDescriptor")
 	}
-	return &res
+	return res
 }
 
 func getExampleData() []byte {
@@ -130,6 +126,7 @@ func getExample2Req() *example2.ExampleReq {
 	req.InnerBase2.MapUint32String = map[uint32]string{uint32(1): "u32aa", uint32(2): "u32bb", uint32(3): "u32cc", uint32(4): "u32dd"}
 	req.InnerBase2.MapUint64String = map[uint64]string{uint64(1): "u64aa", uint64(2): "u64bb", uint64(3): "u64cc", uint64(4): "u64dd"}
 	req.InnerBase2.MapInt64String = map[int64]string{int64(1): "64aaa", int64(2): "64bbb", int64(3): "64ccc", int64(4): "64ddd"}
+	req.InnerBase2.ListString = []string{"111", "222", "333", "44", "51", "6"}
 	req.InnerBase2.ListBase = []*base.Base{{
 		LogID:  "logId",
 		Caller: "caller",
@@ -222,12 +219,13 @@ func buildExampleJSONData() error {
 		return true
 	}
 	var file *os.File
-	if checkExist(exampleJSON) == true {
-		if err = os.Remove(exampleJSON); err != nil {
+	absoluteExampleJSONPath := util_test.MustGitPath(exampleJSON)
+	if checkExist(absoluteExampleJSONPath) == true {
+		if err = os.Remove(absoluteExampleJSONPath); err != nil {
 			panic("delete protoJSONFile failed")
 		}
 	}
-	file, err = os.Create(exampleJSON)
+	file, err = os.Create(absoluteExampleJSONPath)
 	if err != nil {
 		panic("create protoJSONFile failed")
 	}
@@ -238,18 +236,13 @@ func buildExampleJSONData() error {
 	return nil
 }
 
-func getExampleInt2Float() *proto.Descriptor {
+func getExampleInt2Float() *proto.TypeDescriptor {
 	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
 	svc, err := proto.NewDescritorFromPath(context.Background(), util_test.MustGitPath(exampleIDLPath), includeDirs)
 	if err != nil {
 		panic(err)
 	}
-	fieldDesc := (*svc).Methods().ByName("Int2FloatMethod").Output()
-	desc, ok := fieldDesc.(proto.Descriptor)
-	if ok {
-		return &desc
-	}
-	return nil
+	return (*svc).LookupMethodByName("Int2FloatMethod").Output()
 }
 
 func TestFloat2Int(t *testing.T) {

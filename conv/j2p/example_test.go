@@ -6,7 +6,6 @@ import (
 	"reflect"
 
 	"github.com/cloudwego/dynamicgo/conv"
-	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
 	"google.golang.org/protobuf/encoding/protowire"
 )
@@ -15,15 +14,14 @@ var opts = conv.Options{}
 
 func ExampleBinaryConv_Do() {
 	// get descriptor and data
-	messageDesc := getExampleDesc()
-	desc := (*messageDesc).(proto.Descriptor)
+	desc := getExampleDesc()
 	data := getExampleData()
 
 	// make BinaryConv
 	cv := NewBinaryConv(opts)
 
 	// do conversion
-	out, err := cv.Do(context.Background(), &desc, data)
+	out, err := cv.Do(context.Background(), desc, data)
 	if err != nil {
 		panic(err)
 	}
