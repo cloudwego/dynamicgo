@@ -31,7 +31,7 @@ func unwrapError(msg string, err error) error {
 	}
 }
 
-func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.Descriptor, out *[]byte, resp http.ResponseSetter) (err error) {
+func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.TypeDescriptor, out *[]byte, resp http.ResponseSetter) (err error) {
 	//NOTICE: output buffer must be larger than src buffer
 	rt.GuardSlice(out, len(src)*_GUARD_SLICE_FACTOR)
 
@@ -40,18 +40,13 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.Descript
 	}
 
 	// when desc is Singular/Map/List
-	fieldDesc, ok := (*desc).(proto.FieldDescriptor)
-	if ok {
-		wtyp := proto.Kind2Wire[protoreflect.Kind(fieldDesc.Kind())]
-		return self.doRecurse(ctx, &fieldDesc, out, resp, &p, wtyp)
+	if desc.Type() != proto.MESSAGE {
+		wtyp := proto.Kind2Wire[protoreflect.Kind(desc.Type())]
+		return self.doRecurse(ctx, desc, out, resp, &p, wtyp)
 	}
 
 	// when desc is Message
-	messageDesc, ok := (*desc).(protoreflect.MessageDescriptor)
-	if !ok {
-		return wrapError(meta.ErrConvert, "invalid descriptor", nil)
-	}
-	fields := messageDesc.Fields()
+	messageDesc := desc.Message()
 	comma := false
 
 	*out = json.EncodeObjectBegin(*out)
@@ -63,7 +58,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.Descript
 			return wrapError(meta.ErrRead, "", e)
 		}
 
-		fd := fields.ByNumber(protowire.Number(fieldId))
+		fd := messageDesc.ByNumber(protowire.Number(fieldId))
 		if fd == nil {
 			if self.opts.DisallowUnknownField {
 				return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", fieldId), nil)
@@ -84,7 +79,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.Descript
 		*out = json.EncodeString(*out, fd.JSONName())
 		*out = json.EncodeObjectColon(*out)
 		// Parse ProtoData and encode into json format
-		err := self.doRecurse(ctx, &fd, out, resp, &p, typeId)
+		err := self.doRecurse(ctx, fd.Type(), out, resp, &p, typeId)
 		if err != nil {
 			return unwrapError(fmt.Sprintf("converting field %s of MESSAGE %s failed", fd.Name(), fd.Kind()), err)
 		}
@@ -95,7 +90,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.Descript
 }
 
 // Parse ProtoData into JSONData by DescriptorType
-func (self *BinaryConv) doRecurse(ctx context.Context, fd *proto.FieldDescriptor, out *[]byte, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType) error {
+func (self *BinaryConv) doRecurse(ctx context.Context, fd *proto.TypeDescriptor, out *[]byte, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType) error {
 	switch {
 	case (*fd).IsList():
 		return self.unmarshalList(ctx, resp, p, typeId, out, fd)
@@ -110,51 +105,51 @@ func (self *BinaryConv) doRecurse(ctx context.Context, fd *proto.FieldDescriptor
 // field tag is processed outside before doRecurse
 // Singular format:	[(L)V]
 // Message format: [Length][[Tag][(L)V] [Tag][(L)V]....]
-func (self *BinaryConv) unmarshalSingular(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, out *[]byte, fd *proto.FieldDescriptor) (err error) {
-	switch (*fd).Kind() {
-	case protoreflect.BoolKind:
+func (self *BinaryConv) unmarshalSingular(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, out *[]byte, fd *proto.TypeDescriptor) (err error) {
+	switch fd.Type() {
+	case proto.BOOL:
 		v, e := p.ReadBool()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Boolkind error", e)
 		}
 		*out = json.EncodeBool(*out, v)
-	case protoreflect.EnumKind:
+	case proto.ENUM:
 		v, e := p.ReadEnum()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Enumkind error", e)
 		}
 		*out = json.EncodeInt64(*out, int64(v))
-	case protoreflect.Int32Kind:
+	case proto.INT32:
 		v, e := p.ReadInt32()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Int32kind error", e)
 		}
 		*out = json.EncodeInt64(*out, int64(v))
-	case protoreflect.Sint32Kind:
+	case proto.SINT32:
 		v, e := p.ReadSint32()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Sint32kind error", e)
 		}
 		*out = json.EncodeInt64(*out, int64(v))
-	case protoreflect.Uint32Kind:
+	case proto.UINT32:
 		v, e := p.ReadUint32()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Uint32kind error", e)
 		}
 		*out = json.EncodeInt64(*out, int64(v))
-	case protoreflect.Fixed32Kind:
+	case proto.FIX32:
 		v, e := p.ReadFixed32()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Fixed32kind error", e)
 		}
 		*out = json.EncodeInt64(*out, int64(v))
-	case protoreflect.Sfixed32Kind:
+	case proto.SFIX32:
 		v, e := p.ReadSfixed32()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Sfixed32kind error", e)
 		}
 		*out = json.EncodeInt64(*out, int64(v))
-	case protoreflect.Int64Kind:
+	case proto.INT64:
 		v, e := p.ReadInt64()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Int64kind error", e)
@@ -166,54 +161,54 @@ func (self *BinaryConv) unmarshalSingular(ctx context.Context, resp http.Respons
 		} else {
 			*out = json.EncodeInt64(*out, int64(v))
 		}
-	case protoreflect.Sint64Kind:
+	case proto.SINT64:
 		v, e := p.ReadInt64()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Sint64kind error", e)
 		}
 		*out = json.EncodeInt64(*out, int64(v))
-	case protoreflect.Uint64Kind:
+	case proto.UINT64:
 		v, e := p.ReadUint64()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Uint64kind error", e)
 		}
 		*out = json.EncodeInt64(*out, int64(v))
-	case protoreflect.Sfixed64Kind:
+	case proto.SFIX64:
 		v, e := p.ReadSfixed64()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Sfixed64kind error", e)
 		}
 		*out = json.EncodeInt64(*out, int64(v))
-	case protoreflect.FloatKind:
+	case proto.FLOAT:
 		v, e := p.ReadFloat()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Floatkind error", e)
 		}
 		*out = json.EncodeFloat64(*out, float64(v))
-	case protoreflect.DoubleKind:
+	case proto.DOUBLE:
 		v, e := p.ReadDouble()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Doublekind error", e)
 		}
 		*out = json.EncodeFloat64(*out, float64(v))
-	case protoreflect.StringKind:
+	case proto.STRING:
 		v, e := p.ReadString(false)
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Stringkind error", e)
 		}
 		*out = json.EncodeString(*out, v)
-	case protoreflect.BytesKind:
+	case proto.BYTE:
 		v, e := p.ReadBytes()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Byteskind error", e)
 		}
 		*out = json.EncodeBaniry(*out, v)
-	case protoreflect.MessageKind:
+	case proto.MESSAGE:
 		l, e := p.ReadLength()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Byteskind error", e)
 		}
-		fields := (*fd).Message().Fields()
+		message := (*fd).Message()
 		comma := false
 		start := p.Read
 
@@ -225,7 +220,7 @@ func (self *BinaryConv) unmarshalSingular(ctx context.Context, resp http.Respons
 				return wrapError(meta.ErrRead, "", e)
 			}
 
-			fd := fields.ByNumber(protowire.Number(fieldId))
+			fd := message.ByNumber(protowire.Number(fieldId))
 			if fd == nil {
 				if self.opts.DisallowUnknownField {
 					return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", fieldId), nil)
@@ -246,14 +241,14 @@ func (self *BinaryConv) unmarshalSingular(ctx context.Context, resp http.Respons
 			*out = json.EncodeObjectColon(*out)
 
 			// parse MessageFieldValue recursive
-			err := self.doRecurse(ctx, &fd, out, resp, p, typeId)
+			err := self.doRecurse(ctx, fd.Type(), out, resp, p, typeId)
 			if err != nil {
 				return unwrapError(fmt.Sprintf("converting field %s of MESSAGE %s failed", fd.Name(), fd.Kind()), err)
 			}
 		}
 		*out = json.EncodeObjectEnd(*out)
 	default:
-		return wrapError(meta.ErrUnsupportedType, fmt.Sprintf("unknown descriptor type %s", (*fd).Kind()), nil)
+		return wrapError(meta.ErrUnsupportedType, fmt.Sprintf("unknown descriptor type %s", fd.Type()), nil)
 	}
 	return
 }
@@ -261,10 +256,10 @@ func (self *BinaryConv) unmarshalSingular(ctx context.Context, resp http.Respons
 // parse ListType
 // Packed List format: [Tag][Length][Value Value Value Value Value]....
 // Unpacked List format: [Tag][Length][Value] [Tag][Length][Value]....
-func (self *BinaryConv) unmarshalList(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType, out *[]byte, fd *proto.FieldDescriptor) (err error) {
+func (self *BinaryConv) unmarshalList(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType, out *[]byte, fd *proto.TypeDescriptor) (err error) {
 	*out = json.EncodeArrayBegin(*out)
 
-	fileldNumber := (*fd).Number()
+	fileldNumber := fd.BaseId()
 	// packedList(format)：[Tag] [Length] [Value Value Value Value Value]
 	if typeId == proto.BytesType && (*fd).IsPacked() {
 		len, err := p.ReadLength()
@@ -274,14 +269,14 @@ func (self *BinaryConv) unmarshalList(ctx context.Context, resp http.ResponseSet
 		start := p.Read
 		// parse Value repeated
 		for p.Read < start+len {
-			self.unmarshalSingular(ctx, resp, p, out, fd)
+			self.unmarshalSingular(ctx, resp, p, out, fd.Elem())
 			if p.Read != start && p.Read != start+len {
 				*out = json.EncodeArrayComma(*out)
 			}
 		}
 	} else {
 		// unpackedList(format)：[Tag][Length][Value] [Tag][Length][Value]....
-		self.unmarshalSingular(ctx, resp, p, out, fd)
+		self.unmarshalSingular(ctx, resp, p, out, fd.Elem())
 		for p.Read < len(p.Buf) {
 			elementFieldNumber, _, tagLen, err := p.ConsumeTagWithoutMove()
 			if err != nil {
@@ -293,7 +288,7 @@ func (self *BinaryConv) unmarshalList(ctx context.Context, resp http.ResponseSet
 			}
 			*out = json.EncodeArrayComma(*out)
 			p.Read += tagLen
-			self.unmarshalSingular(ctx, resp, p, out, fd)
+			self.unmarshalSingular(ctx, resp, p, out, fd.Elem())
 		}
 	}
 
@@ -304,8 +299,8 @@ func (self *BinaryConv) unmarshalList(ctx context.Context, resp http.ResponseSet
 // parse MapType
 // Map bytes format: [Pairtag][Pairlength][keyTag(L)V][valueTag(L)V] [Pairtag][Pairlength][T(L)V][T(L)V]...
 // Pairtag = MapFieldnumber << 3 | wiretype:BytesType
-func (self *BinaryConv) unmarshalMap(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType, out *[]byte, fd *proto.FieldDescriptor) (err error) {
-	fileldNumber := (*fd).Number()
+func (self *BinaryConv) unmarshalMap(ctx context.Context, resp http.ResponseSetter, p *binary.BinaryProtocol, typeId proto.WireType, out *[]byte, fd *proto.TypeDescriptor) (err error) {
+	fileldNumber := (*fd).BaseId()
 	_, lengthErr := p.ReadLength()
 	if lengthErr != nil {
 		return wrapError(meta.ErrRead, "parse Tag length error", err)
@@ -318,12 +313,12 @@ func (self *BinaryConv) unmarshalMap(ctx context.Context, resp http.ResponseSett
 	if keyErr != nil {
 		return wrapError(meta.ErrRead, "parse MapKey Tag error", err)
 	}
-	mapKeyDesc := (*fd).MapKey()
-	isIntKey := (mapKeyDesc.Kind() == proto.Int32Kind) || (mapKeyDesc.Kind() == proto.Int64Kind) || (mapKeyDesc.Kind() == proto.Uint32Kind) || (mapKeyDesc.Kind() == proto.Uint64Kind)
+	mapKeyDesc := fd.Key()
+	isIntKey := (mapKeyDesc.Type() == proto.INT32) || (mapKeyDesc.Type() == proto.INT64) || (mapKeyDesc.Type() == proto.UINT32) || (mapKeyDesc.Type() == proto.UINT64)
 	if isIntKey {
 		*out = append(*out, '"')
 	}
-	if self.unmarshalSingular(ctx, resp, p, out, &mapKeyDesc) != nil {
+	if self.unmarshalSingular(ctx, resp, p, out, mapKeyDesc) != nil {
 		return wrapError(meta.ErrRead, "parse MapKey Value error", err)
 	}
 	if isIntKey {
@@ -334,8 +329,8 @@ func (self *BinaryConv) unmarshalMap(ctx context.Context, resp http.ResponseSett
 	if valueErr != nil {
 		return wrapError(meta.ErrRead, "parse MapValue Tag error", err)
 	}
-	mapValueDesc := (*fd).MapValue()
-	if self.unmarshalSingular(ctx, resp, p, out, &mapValueDesc) != nil {
+	mapValueDesc := fd.Elem()
+	if self.unmarshalSingular(ctx, resp, p, out, mapValueDesc) != nil {
 		return wrapError(meta.ErrRead, "parse MapValue Value error", err)
 	}
 
@@ -364,7 +359,7 @@ func (self *BinaryConv) unmarshalMap(ctx context.Context, resp http.ResponseSett
 		if isIntKey {
 			*out = append(*out, '"')
 		}
-		if self.unmarshalSingular(ctx, resp, p, out, &mapKeyDesc) != nil {
+		if self.unmarshalSingular(ctx, resp, p, out, mapKeyDesc) != nil {
 			return wrapError(meta.ErrRead, "parse MapKey Value error", err)
 		}
 		if isIntKey {
@@ -375,7 +370,7 @@ func (self *BinaryConv) unmarshalMap(ctx context.Context, resp http.ResponseSett
 		if valueErr != nil {
 			return wrapError(meta.ErrRead, "parse MapValue Tag error", err)
 		}
-		if self.unmarshalSingular(ctx, resp, p, out, &mapValueDesc) != nil {
+		if self.unmarshalSingular(ctx, resp, p, out, mapValueDesc) != nil {
 			return wrapError(meta.ErrRead, "parse MapValue Value error", err)
 		}
 	}
