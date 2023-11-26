@@ -23,7 +23,7 @@ func NewBinaryConv(opts conv.Options) BinaryConv {
 
 // Do converts json bytes (jbytes) to protobuf binary (tbytes)
 // desc is the protobuf type descriptor of the protobuf binary, usually it the request Message type
-func (self *BinaryConv) Do(ctx context.Context, desc *proto.Descriptor, jbytes []byte) (tbytes []byte, err error) {
+func (self *BinaryConv) Do(ctx context.Context, desc *proto.TypeDescriptor, jbytes []byte) (tbytes []byte, err error) {
 	buf := conv.NewBytes()
 
 	// req alloc but not use
@@ -52,7 +52,7 @@ func (self *BinaryConv) Do(ctx context.Context, desc *proto.Descriptor, jbytes [
 }
 
 // DoInto behaves like Do, but it writes the result to buffer directly instead of returning a new buffer
-func (self *BinaryConv) DoInto(ctx context.Context, desc *proto.Descriptor, jbytes []byte, buf *[]byte) error {
+func (self *BinaryConv) DoInto(ctx context.Context, desc *proto.TypeDescriptor, jbytes []byte, buf *[]byte) error {
 	// req alloc but not use
 	var req http.RequestGetter
 	if self.opts.EnableHttpMapping {

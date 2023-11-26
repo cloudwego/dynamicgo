@@ -24,6 +24,11 @@ const (
 	mapStkType      uint8 = 3
 )
 
+const (
+	mapkeyFieldNumber   = 1
+	mapValueFieldNumber = 2
+)
+
 var (
 	vuPool = sync.Pool{
 		New: func() interface{} {
@@ -125,25 +130,27 @@ type visitorUserNodeState struct {
 	lenPos    int
 }
 
-func (self *visitorUserNode) decode(bytes []byte, desc *proto.Descriptor) ([]byte, error) {
+func (self *visitorUserNode) decode(bytes []byte, desc *proto.TypeDescriptor) ([]byte, error) {
 	// init initial visitorUserNodeState, may be MessageDescriptor or FieldDescriptor
-	switch (*desc).(type) {
-	case proto.MessageDescriptor:
-		convDesc := (*desc).(proto.MessageDescriptor)
-		self.stk[self.sp].state = visitorUserNodeState{msgDesc: &convDesc, fieldDesc: nil, lenPos: -1}
+	switch desc.Type() {
+	case proto.MESSAGE:
+		convDesc := desc.Message()
+		self.stk[self.sp].state = visitorUserNodeState{msgDesc: convDesc, fieldDesc: nil, lenPos: -1}
 		self.stk[self.sp].typ = objStkType
-	case proto.FieldDescriptor:
-		convDesc := (*desc).(proto.FieldDescriptor)
-		self.stk[self.sp].state = visitorUserNodeState{msgDesc: nil, fieldDesc: &convDesc, lenPos: -1}
-		var typ uint8
-		if convDesc.IsMap() {
-			typ = mapStkType
-		} else if convDesc.IsList() {
-			typ = arrStkType
-		} else if convDesc.Kind() == proto.MessageKind {
-			typ = objStkType
-		}
-		self.stk[self.sp].typ = typ
+		// case proto.LIST:
+
+		// case proto.MAP:
+		// default:
+		// 	self.stk[self.sp].state = visitorUserNodeState{msgDesc: nil, fieldDesc: &convDesc, lenPos: -1}
+		// 	var typ uint8
+		// 	if convDesc.IsMap() {
+		// 		typ = mapStkType
+		// 	} else if convDesc.IsList() {
+		// 		typ = arrStkType
+		// 	} else if convDesc.Kind() == proto.MessageKind {
+		// 		typ = objStkType
+		// 	}
+		// 	self.stk[self.sp].typ = typ
 	}
 	str := rt.Mem2Str(bytes)
 	if err := ast.Preorder(str, self, nil); err != nil {
@@ -195,7 +202,7 @@ func (self *visitorUserNode) OnString(v string) error {
 	var err error
 	top := self.stk[self.sp].state.fieldDesc
 	fieldDesc := self.globalFieldDesc
-	if fieldDesc == nil && top != nil && (*top).IsList() {
+	if fieldDesc == nil && top != nil && top.Type().IsList() {
 		fieldDesc = top
 	}
 
@@ -233,7 +240,7 @@ func (self *visitorUserNode) OnInt64(v int64, n json.Number) error {
 	}
 
 	// packed list no need to write tag
-	if !(*fieldDesc).IsList() {
+	if !fieldDesc.Type().IsList() {
 		if err = self.p.AppendTagByDesc(fieldDesc); err != nil {
 			return err
 		}
@@ -346,7 +353,7 @@ func (self *visitorUserNode) OnObjectBegin(capacity int) error {
 	}
 
 	if fieldDesc != nil {
-		if (*fieldDesc).IsMap() {
+		if fieldDesc.Type().IsMap() {
 			// case Map, push MapDesc
 			if err = self.push(true, false, false, fieldDesc, curNodeLenPos); err != nil {
 				return err
@@ -366,34 +373,34 @@ func (self *visitorUserNode) OnObjectBegin(capacity int) error {
 }
 
 // MapKey maybe int32/sint32/uint32/uint64 etc....
-func (self *visitorUserNode) decodeMapKey(key string, mapKeyDesc *proto.FieldDescriptor) error {
-	switch (*mapKeyDesc).Kind() {
-	case proto.Int32Kind, proto.Sint32Kind, proto.Sfixed32Kind, proto.Fixed32Kind:
+func (self *visitorUserNode) decodeMapKey(key string, t proto.Type) error {
+	switch t {
+	case proto.INT32, proto.SINT32, proto.SFIX32, proto.FIX32:
 		t, _ := strconv.ParseInt(key, 10, 32)
 		if err := self.p.WriteInt32(int32(t)); err != nil {
 			return err
 		}
-	case proto.Uint32Kind:
+	case proto.UINT32:
 		t, _ := strconv.ParseInt(key, 10, 32)
 		if err := self.p.WriteUint32(uint32(t)); err != nil {
 			return err
 		}
-	case proto.Uint64Kind:
+	case proto.UINT64:
 		t, _ := strconv.ParseInt(key, 10, 64)
 		if err := self.p.WriteUint64(uint64(t)); err != nil {
 			return err
 		}
-	case proto.Int64Kind:
+	case proto.INT64:
 		t, _ := strconv.ParseInt(key, 10, 64)
 		if err := self.p.WriteInt64(int64(t)); err != nil {
 			return err
 		}
-	case proto.BoolKind:
+	case proto.BOOL:
 		t, _ := strconv.ParseBool(key)
 		if err := self.p.WriteBool(t); err != nil {
 			return err
 		}
-	case proto.StringKind:
+	case proto.STRING:
 		if err := self.p.WriteString(key); err != nil {
 			return err
 		}
@@ -421,12 +428,12 @@ func (self *visitorUserNode) OnObjectKey(key string) error {
 	if top.state.msgDesc != nil {
 		// first hierarchy
 		rootDesc := top.state.msgDesc
-		curDesc = (*rootDesc).Fields().ByJSONName(key)
+		curDesc = *rootDesc.ByJSONName(key)
 	} else {
 		fieldDesc := top.state.fieldDesc
 		// case MessageField
 		if top.typ == objStkType {
-			curDesc = (*fieldDesc).Message().Fields().ByJSONName(key)
+			curDesc = *fieldDesc.Message().ByJSONName(key)
 		} else if top.typ == mapStkType {
 			// case MapKey, write PairTag、PairLen、MapKeyTag、MapKeyLen、MapKeyData, push MapDesc into stack
 
@@ -436,11 +443,11 @@ func (self *visitorUserNode) OnObjectKey(key string) error {
 
 			// encode MapKeyTag、MapKeyLen、MapKeyData
 			mapKeyDesc := (*fieldDesc).MapKey()
-			if err := self.p.AppendTagByDesc(&mapKeyDesc); err != nil {
+			if err := self.p.AppendTag(mapkeyFieldNumber, mapKeyDesc.WireType()); err != nil {
 				return newError(meta.ErrUnsupportedType, "unsatfisied mapKeyDescriptor Type", err)
 			}
 
-			if err := self.decodeMapKey(key, &mapKeyDesc); err != nil {
+			if err := self.decodeMapKey(key, mapKeyDesc.Type()); err != nil {
 				return newError(meta.ErrUnsupportedType, "unsatfisied mapKeyDescriptor Type", err)
 			}
 
@@ -449,7 +456,7 @@ func (self *visitorUserNode) OnObjectKey(key string) error {
 				return err
 			}
 			// save MapValueDesc into globalFieldDesc
-			curDesc = (*fieldDesc).MapValue()
+			curDesc = *fieldDesc.Message().ByNumber(mapValueFieldNumber)
 		} else if top.typ == arrStkType {
 			// case List<Message>
 			curDesc = *top.state.fieldDesc
@@ -477,13 +484,13 @@ func (self *visitorUserNode) OnArrayBegin(capacity int) error {
 	curNodeLenPos := -1
 	if self.globalFieldDesc != nil {
 		// PackedList: encode Tag、Len
-		if (*self.globalFieldDesc).IsPacked() {
+		if (*self.globalFieldDesc).Type().IsPacked() {
 			if err = self.p.AppendTag(proto.Number((*self.globalFieldDesc).Number()), proto.BytesType); err != nil {
 				return meta.NewError(meta.ErrWrite, "append prefix tag failed", nil)
 			}
 			self.p.Buf, curNodeLenPos = binary.AppendSpeculativeLength(self.p.Buf)
 		}
-		if err = self.push(false, false, true, self.globalFieldDesc, curNodeLenPos); err != nil {
+		if err = self.push(false, false, true, self.globalFieldDesc.Type().Field(), curNodeLenPos); err != nil {
 			return err
 		}
 	}
@@ -495,7 +502,7 @@ func (self *visitorUserNode) OnArrayEnd() error {
 	var top *visitorUserNodeStack
 	top = &self.stk[self.sp]
 	// case PackedList
-	if (top.state.lenPos != -1) && (*top.state.fieldDesc).IsPacked() {
+	if (top.state.lenPos != -1) && (*top.state.fieldDesc).Type().IsPacked() {
 		self.p.Buf = binary.FinishSpeculativeLength(self.p.Buf, top.state.lenPos)
 	}
 	return self.onValueEnd()
