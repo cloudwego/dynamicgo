@@ -58,14 +58,10 @@ func TestBuildData(t *testing.T) {
 func TestConvProto3JSON(t *testing.T) {
 	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
 	messageDesc := proto.FnRequest(proto.GetFnDescFromFile(exampleIDLPath, "ExampleMethod", proto.Options{}, includeDirs))
-	desc, ok := (*messageDesc).(proto.Descriptor)
-	if !ok {
-		t.Fatal("invalid descrptor")
-	}
 	//js := getExample2JSON()
 	cv := NewBinaryConv(conv.Options{})
 	in := readExampleReqProtoBufData()
-	out, err := cv.Do(context.Background(), &desc, in)
+	out, err := cv.Do(context.Background(), messageDesc, in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +104,7 @@ func constructExampleReqObject() *example2.ExampleReq {
 	req.InnerBase2.ListInt32 = []int32{12, 13, 14, 15, 16, 17}
 	req.InnerBase2.MapStringString = map[string]string{"m1": "aaa", "m2": "bbb", "m3": "ccc", "m4": "ddd"}
 	req.InnerBase2.SetInt32 = []int32{200, 201, 202, 203, 204, 205}
-	// req.InnerBase2.Foo = example2.FOO_FOO_A
+	req.InnerBase2.Foo = example2.FOO_FOO_A
 	req.InnerBase2.MapInt32String = map[int32]string{1: "aaa", 2: "bbb", 3: "ccc", 4: "ddd"}
 	req.InnerBase2.Binary = []byte{0x1, 0x2, 0x3, 0x4}
 	req.InnerBase2.MapUint32String = map[uint32]string{uint32(1): "u32aa", uint32(2): "u32bb", uint32(3): "u32cc", uint32(4): "u32dd"}
@@ -278,18 +274,13 @@ func readExampleReqJSONData() string {
 	return string(out)
 }
 
-func getExampleInt2Float() *proto.Descriptor {
+func getExampleInt2Float() *proto.TypeDescriptor {
 	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
 	svc, err := proto.NewDescritorFromPath(context.Background(), util_test.MustGitPath(exampleIDLPath), includeDirs)
 	if err != nil {
 		panic(err)
 	}
-	fieldDesc := (*svc).Methods().ByName("Int2FloatMethod").Output()
-	desc, ok := fieldDesc.(proto.Descriptor)
-	if ok {
-		return &desc
-	}
-	return nil
+	return (*svc).LookupMethodByName("Int2FloatMethod").Output()
 }
 
 func TestInt2String(t *testing.T) {
@@ -320,24 +311,14 @@ func TestInt2String(t *testing.T) {
 	require.Equal(t, (`{"Int32":1,"Float64":3.14,"String":"hello","Int64":"2","Subfix":0.92653}`), string(out))
 }
 
-func getExampleReqPartialDesc() *proto.Descriptor {
+func getExampleReqPartialDesc() *proto.TypeDescriptor {
 	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
-	messageDesc := proto.FnRequest(proto.GetFnDescFromFile(exampleIDLPath, "ExamplePartialMethod", proto.Options{}, includeDirs))
-	desc, ok := (*messageDesc).(proto.Descriptor)
-	if !ok {
-		return nil
-	}
-	return &desc
+	return proto.FnRequest(proto.GetFnDescFromFile(exampleIDLPath, "ExamplePartialMethod", proto.Options{}, includeDirs))
 }
 
-func getExampleRespPartialDesc() *proto.Descriptor {
+func getExampleRespPartialDesc() *proto.TypeDescriptor {
 	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
-	messageDesc := proto.FnResponse(proto.GetFnDescFromFile(exampleIDLPath, "ExamplePartialMethod2", proto.Options{}, includeDirs))
-	desc, ok := (*messageDesc).(proto.Descriptor)
-	if !ok {
-		return nil
-	}
-	return &desc
+	return proto.FnResponse(proto.GetFnDescFromFile(exampleIDLPath, "ExamplePartialMethod2", proto.Options{}, includeDirs))
 }
 
 // construct ExampleResp Object

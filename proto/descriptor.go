@@ -14,11 +14,12 @@ package proto
 
 type TypeDescriptor struct {
 	baseId FieldNumber // for LIST/MAP to write field tag
-	typ  Type
-	name string
-	key  *TypeDescriptor
-	elem *TypeDescriptor
-	msg  *MessageDescriptor
+	typ    Type
+	name   string
+	key    *TypeDescriptor
+	elem   *TypeDescriptor
+	msg    *MessageDescriptor
+	field  *FieldDescriptor
 }
 
 func (t *TypeDescriptor) Type() Type {
@@ -37,6 +38,10 @@ func (t *TypeDescriptor) Message() *MessageDescriptor {
 	return t.msg
 }
 
+func (t *TypeDescriptor) Field() *FieldDescriptor {
+	return t.field
+}
+
 func (t *TypeDescriptor) BaseId() FieldNumber {
 	return t.baseId
 }
@@ -45,7 +50,7 @@ func (t *TypeDescriptor) IsPacked() bool {
 	if t.typ != LIST {
 		return false // if not list, return false forever
 	}
-	return t.elem.typ.NeedVarint()	
+	return t.elem.typ.NeedVarint()
 }
 
 func (f *TypeDescriptor) IsMap() bool {
@@ -66,11 +71,11 @@ func (f *TypeDescriptor) Name() string {
 }
 
 type FieldDescriptor struct {
-	kind ProtoKind // the same value with protobuf descriptor
-	id FieldNumber
-	name FieldName
+	kind     ProtoKind // the same value with protobuf descriptor
+	id       FieldNumber
+	name     FieldName
 	jsonName string
-	typ *TypeDescriptor
+	typ      *TypeDescriptor
 }
 
 func (f *FieldDescriptor) Number() FieldNumber {
@@ -111,12 +116,11 @@ func (f *FieldDescriptor) MapValue() *TypeDescriptor {
 	return f.typ.Elem()
 }
 
-
 type MessageDescriptor struct {
-	baseId FieldNumber
-	name  FieldName
-	ids   map[FieldNumber]*FieldDescriptor
-	names map[FieldName]*FieldDescriptor
+	baseId    FieldNumber
+	name      FieldName
+	ids       map[FieldNumber]*FieldDescriptor
+	names     map[FieldName]*FieldDescriptor
 	jsonNames map[string]*FieldDescriptor
 }
 
@@ -141,8 +145,8 @@ func (m *MessageDescriptor) FieldsCount() int {
 }
 
 type MethodDescriptor struct {
-	name string
-	input *TypeDescriptor
+	name   string
+	input  *TypeDescriptor
 	output *TypeDescriptor
 }
 
@@ -160,7 +164,7 @@ func (m *MethodDescriptor) Output() *TypeDescriptor {
 
 type ServiceDescriptor struct {
 	serviceName string
-	methods map[string]*MethodDescriptor
+	methods     map[string]*MethodDescriptor
 }
 
 func (s *ServiceDescriptor) Name() string {
@@ -174,4 +178,3 @@ func (s *ServiceDescriptor) Methods() map[string]*MethodDescriptor {
 func (s *ServiceDescriptor) LookupMethodByName(name string) *MethodDescriptor {
 	return s.methods[name]
 }
-

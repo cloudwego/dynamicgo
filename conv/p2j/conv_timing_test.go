@@ -11,15 +11,11 @@ import (
 
 func BenchmarkProtobuf2JSON_DynamicGo(t *testing.B) {
 	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
-	messageDesc := proto.FnRequest(proto.GetFnDescFromFile("testdata/idl/example2.proto", "ExampleMethod", proto.Options{}, includeDirs))
-	desc, ok := (*messageDesc).(proto.Descriptor)
-	if !ok {
-		t.Fatal("invalid descriptor")
-	}
+	desc := proto.FnRequest(proto.GetFnDescFromFile("testdata/idl/example2.proto", "ExampleMethod", proto.Options{}, includeDirs))
 	conv := NewBinaryConv(conv.Options{})
 	in := readExampleReqProtoBufData()
 	ctx := context.Background()
-	out, err := conv.Do(ctx, &desc, in)
+	out, err := conv.Do(ctx, desc, in)
 	//print(string(out))
 	if err != nil {
 		t.Fatal(err)
@@ -28,21 +24,17 @@ func BenchmarkProtobuf2JSON_DynamicGo(t *testing.B) {
 	t.ResetTimer()
 	for i := 0; i < t.N; i++ {
 		out = out[:0]
-		_ = conv.DoInto(ctx, &desc, in, &out)
+		_ = conv.DoInto(ctx, desc, in, &out)
 	}
 }
 
 func BenchmarkProtobuf2JSON_Parallel_DynamicGo(t *testing.B) {
 	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
-	messageDesc := proto.FnRequest(proto.GetFnDescFromFile("testdata/idl/example2.proto", "ExampleMethod", proto.Options{}, includeDirs))
-	desc, ok := (*messageDesc).(proto.Descriptor)
-	if !ok {
-		t.Fatal("invalid descriptor")
-	}
+	desc := proto.FnRequest(proto.GetFnDescFromFile("testdata/idl/example2.proto", "ExampleMethod", proto.Options{}, includeDirs))
 	conv := NewBinaryConv(conv.Options{})
 	in := readExampleReqProtoBufData()
 	ctx := context.Background()
-	out, err := conv.Do(ctx, &desc, in)
+	out, err := conv.Do(ctx, desc, in)
 	//print(string(out))
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +45,7 @@ func BenchmarkProtobuf2JSON_Parallel_DynamicGo(t *testing.B) {
 		buf := make([]byte, len(out))
 		for p.Next() {
 			buf = buf[:0]
-			_ = conv.DoInto(ctx, &desc, in, &buf)
+			_ = conv.DoInto(ctx, desc, in, &buf)
 		}
 	})
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example"
-	"google.golang.org/protobuf/encoding/protowire"
 	goproto "google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -257,27 +256,46 @@ func TestBinaryProtocol_ReadAnyWithDesc(t *testing.T) {
 				panic(err)
 			}
 			// get Target FieldDescriptor
-			var fieldDescriptor protoreflect.FieldDescriptor
+			var fieldDescriptor *proto.FieldDescriptor
 			if test.isInput {
-				fieldDescriptor = (*p1).Methods().ByName(protoreflect.Name(test.service)).Input().Fields().ByNumber(protowire.Number(test.fieldNumber))
+				fieldDescriptor = p1.LookupMethodByName(test.service).Input().Message().ByNumber(proto.FieldNumber(test.fieldNumber))
 			} else {
-				fieldDescriptor = (*p1).Methods().ByName(protoreflect.Name(test.service)).Output().Fields().ByNumber(protowire.Number(test.fieldNumber))
+				fieldDescriptor = p1.LookupMethodByName(test.service).Output().Message().ByNumber(proto.FieldNumber(test.fieldNumber))
 			}
 			// protoc build pbData
 			pbData := binaryDataBuild(test.mode)
 			p := NewBinaryProtol(pbData)
-			// ReadAnyWithDesc return data and error
-			v1, err := p.ReadAnyWithDesc(&fieldDescriptor, false, false, true)
-			fmt.Printf("%#v\n", v1)
-			p = NewBinaryProtocolBuffer()
 			// WriteAnyWithDesc write the data into BinaryProtocol
-			err = p.WriteAnyWithDesc(&fieldDescriptor, v1, true, true, true)
+			hasmessageLen := true
+			if !fieldDescriptor.IsMap() && !fieldDescriptor.IsList() {
+				if _, _, _, err := p.ConsumeTag(); err != nil {
+					panic(err)
+				}
+			}
+			v1, err := p.ReadAnyWithDesc(fieldDescriptor.Type(), hasmessageLen, true, false, true)
+			fmt.Printf("%#v\n", v1)
+
+			// wirte
+			p = NewBinaryProtocolBuffer()
+			if !fieldDescriptor.IsMap() && !fieldDescriptor.IsList() {
+				p.AppendTagByKind(fieldDescriptor.Number(), fieldDescriptor.Kind())
+			}
+			needMessageLen := true
+			err = p.WriteAnyWithDesc(fieldDescriptor.Type(), v1, needMessageLen, true, false, true)
 			if err != nil {
 				panic(err)
 			}
 			fmt.Printf("%x\n", p.RawBuf())
+
 			// Read again by ReadAnyWithDesc
-			v2, err := p.ReadAnyWithDesc(&fieldDescriptor, false, false, true)
+			p = NewBinaryProtol(p.RawBuf())
+			hasmessageLen = true
+			if !fieldDescriptor.IsMap() && !fieldDescriptor.IsList() {
+				if _, _, _, err := p.ConsumeTag(); err != nil {
+					panic(err)
+				}
+			}
+			v2, err := p.ReadAnyWithDesc(fieldDescriptor.Type(), hasmessageLen, true, false, true)
 			if err != nil {
 				panic(err)
 			}

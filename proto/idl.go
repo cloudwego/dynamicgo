@@ -108,7 +108,6 @@ func (opts Options) NewDesccriptorFromContent(ctx context.Context, path, content
 	return sdsc, nil
 }
 
-
 // Parse descriptor from fileDescriptor
 func parse(ctx context.Context, fileDesc *desc.FileDescriptor, mode meta.ParseServiceMode, opts Options, methods ...string) (*ServiceDescriptor, error) {
 	svcs := fileDesc.GetServices()
@@ -138,7 +137,7 @@ func parse(ctx context.Context, fileDesc *desc.FileDescriptor, mode meta.ParseSe
 			var req *TypeDescriptor
 			var resp *TypeDescriptor
 			var err error
-			
+
 			req, err = parseMessage(ctx, mtd.GetInputType(), structsCache, 0, opts, Request)
 			if err != nil {
 				return nil, err
@@ -150,8 +149,8 @@ func parse(ctx context.Context, fileDesc *desc.FileDescriptor, mode meta.ParseSe
 			}
 
 			sDsc.methods[mtd.GetName()] = &MethodDescriptor{
-				name: mtd.GetName(),
-				input: req,
+				name:   mtd.GetName(),
+				input:  req,
 				output: resp,
 			}
 
@@ -169,21 +168,21 @@ func parseMessage(ctx context.Context, msgDesc *desc.MessageDescriptor, cache co
 	var err error
 	fields := msgDesc.GetFields()
 	md := &MessageDescriptor{
-		baseId:   FieldNumber(math.MaxInt32),
-		ids:      map[FieldNumber]*FieldDescriptor{},
-		names:    map[FieldName]*FieldDescriptor{},
+		baseId:    FieldNumber(math.MaxInt32),
+		ids:       map[FieldNumber]*FieldDescriptor{},
+		names:     map[FieldName]*FieldDescriptor{},
 		jsonNames: map[string]*FieldDescriptor{},
 	}
 
 	ty = &TypeDescriptor{
-		typ: MESSAGE,
+		typ:  MESSAGE,
 		name: msgDesc.GetName(),
-		msg: md,
+		msg:  md,
 	}
 
 	cache[ty.name] = &compilingInstance{
-		desc: ty,
-		opts: opts,
+		desc:        ty,
+		opts:        opts,
 		parseTarget: parseTarget,
 	}
 
@@ -193,8 +192,8 @@ func parseMessage(ctx context.Context, msgDesc *desc.MessageDescriptor, cache co
 		name := field.GetName()
 		jsonName := field.GetJSONName()
 		fieldDesc := &FieldDescriptor{
-			id: FieldNumber(id),
-			name: FieldName(name),
+			id:       FieldNumber(id),
+			name:     FieldName(name),
 			jsonName: jsonName,
 		}
 
@@ -209,11 +208,18 @@ func parseMessage(ctx context.Context, msgDesc *desc.MessageDescriptor, cache co
 				}
 			}
 
+			mapt, err := parseMessage(ctx, field.GetMessageType(), cache, recursionDepth+1, opts, parseTarget)
+			if err != nil {
+				return nil, err
+			}
+
 			fieldDesc.typ = &TypeDescriptor{
-				typ: MAP,
-				key: kt,
-				elem: vt,
+				typ:    MAP,
+				name:   name,
+				key:    kt,
+				elem:   vt,
 				baseId: FieldNumber(id),
+				msg:    mapt.msg,
 			}
 			fieldDesc.kind = MessageKind
 		} else {
@@ -221,17 +227,24 @@ func parseMessage(ctx context.Context, msgDesc *desc.MessageDescriptor, cache co
 			t := builtinTypes[descpbType]
 			if t.Type() == MESSAGE {
 				t, err = parseMessage(ctx, field.GetMessageType(), cache, recursionDepth+1, opts, parseTarget)
+				if err != nil {
+					return nil, err
+				}
 			}
 			fieldDesc.kind = t.typ.TypeToKind()
-			
+
 			// LIST TypeDescriptor
 			if field.IsRepeated() {
 				t = &TypeDescriptor{
-					typ: LIST,
-					elem: t,
+					typ:    LIST,
+					name:   name,
+					elem:   t,
 					baseId: FieldNumber(id),
+					msg:    t.msg,
+					field:  fieldDesc,
 				}
 			}
+			field.IsMap()
 			fieldDesc.typ = t
 		}
 
@@ -243,4 +256,3 @@ func parseMessage(ctx context.Context, msgDesc *desc.MessageDescriptor, cache co
 
 	return ty, nil
 }
-
