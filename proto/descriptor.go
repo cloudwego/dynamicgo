@@ -15,6 +15,7 @@ package proto
 type TypeDescriptor struct {
 	baseId FieldNumber // for LIST/MAP to write field tag
 	typ  Type
+	name string
 	key  *TypeDescriptor
 	elem *TypeDescriptor
 	msg  *MessageDescriptor
@@ -42,7 +43,7 @@ func (t *TypeDescriptor) BaseId() FieldNumber {
 
 func (t *TypeDescriptor) IsPacked() bool {
 	if t.typ != LIST {
-		panic("not list")
+		return false // if not list, return false forever
 	}
 	return t.elem.typ.NeedVarint()	
 }
@@ -60,8 +61,12 @@ func (f *TypeDescriptor) WireType() WireType {
 	return Kind2Wire[kind]
 }
 
+func (f *TypeDescriptor) Name() string {
+	return f.name
+}
+
 type FieldDescriptor struct {
-	kind ProtoKind
+	kind ProtoKind // the same value with protobuf descriptor
 	id FieldNumber
 	name FieldName
 	jsonName string

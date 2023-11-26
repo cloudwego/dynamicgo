@@ -9,7 +9,7 @@ import (
 func TestProtoFromContent(t *testing.T) {
 	// change / to \\ on windows in path for right mapkey in includes
 	// because `filepath.Join(importPath, path)` in SourceResolver.FindFileByPath will change \\ to /
-	path := "a/b/main.proto"
+	path := "a\\b\\main.proto"
 	content := `
 	syntax = "proto3";
 	package pb3;
@@ -28,7 +28,7 @@ func TestProtoFromContent(t *testing.T) {
 	`
 
 	includes := map[string]string{
-		"a/b/x.proto": `
+		"a\\b\\x.proto": `
 		syntax = "proto3";
 		package pb3;
 		option go_package = "pb/a";
@@ -36,7 +36,7 @@ func TestProtoFromContent(t *testing.T) {
 			string name = 1;
 		}
 		`,
-		"a/y.proto": `
+		"a\\y.proto": `
 		syntax = "proto3";
 		package pb3;
 		option go_package = "pb/b";

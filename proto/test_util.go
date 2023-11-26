@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/cloudwego/dynamicgo/internal/util_test"
-	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // GetFnDescFromFile get a fucntion descriptor from idl path (relative to your git root) and
@@ -15,27 +14,27 @@ func GetFnDescFromFile(filePath, fnName string, opts Options, includeDirs ...str
 	if err != nil {
 		panic(fmt.Errorf("%s:%s", util_test.MustGitPath(filePath), err))
 	}
-	fn := (*svc).Methods().ByName(protoreflect.Name(fnName))
+	fn := svc.LookupMethodByName(fnName)
 	if fn == nil {
 		return nil
 	}
-	return &fn
+	return fn
 }
 
 // FnRequest get the normal requestDescriptor
-func FnRequest(fn *MethodDescriptor) *MessageDescriptor {
-	request := (*fn).Input()
+func FnRequest(fn *MethodDescriptor) *TypeDescriptor {
+	request := fn.Input()
 	if request == nil {
 		return nil
 	}
-	return &request
+	return request
 }
 
 // FnResponse get hte normal responseDescriptor
-func FnResponse(fn *MethodDescriptor) *MessageDescriptor {
-	response := (*fn).Output()
+func FnResponse(fn *MethodDescriptor) *TypeDescriptor {
+	response := fn.Output()
 	if response == nil {
 		return nil
 	}
-	return &response
+	return response
 }

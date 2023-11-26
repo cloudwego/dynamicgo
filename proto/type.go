@@ -3,6 +3,7 @@ package proto
 import (
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 // protobuf encoding wire type
@@ -227,3 +228,27 @@ const (
 
 // define FieldName = protoreflect.Name (string) used in Descriptor.Name()
 type FieldName = protoreflect.Name
+
+// basic type TypeDescriptor
+var builtinTypes = map[descriptorpb.FieldDescriptorProto_Type]*TypeDescriptor{
+	descriptorpb.FieldDescriptorProto_TYPE_DOUBLE:   {name:"DOUBLE", typ: DOUBLE},
+	descriptorpb.FieldDescriptorProto_TYPE_FLOAT:   {name:"FLOAT",typ: FLOAT},
+	descriptorpb.FieldDescriptorProto_TYPE_INT64:   {name:"INT64",typ: INT64},
+	descriptorpb.FieldDescriptorProto_TYPE_UINT64:  {name:"UINT64", typ: UINT64},
+	descriptorpb.FieldDescriptorProto_TYPE_INT32:   {name:"INT32", typ: INT32},
+	descriptorpb.FieldDescriptorProto_TYPE_FIXED64: {name:"FIX64", typ: FIX64},
+	descriptorpb.FieldDescriptorProto_TYPE_FIXED32: {name:"FIX32", typ: FIX32},
+	descriptorpb.FieldDescriptorProto_TYPE_BOOL:    {name:"BOOL", typ: BOOL},
+	descriptorpb.FieldDescriptorProto_TYPE_STRING:  {name:"STRING", typ: STRING},
+	descriptorpb.FieldDescriptorProto_TYPE_MESSAGE: {name:"MESSAGE", typ: MESSAGE},
+	descriptorpb.FieldDescriptorProto_TYPE_GROUP:   {name:"GROUP", typ: GROUP}, // deprecated
+	descriptorpb.FieldDescriptorProto_TYPE_BYTES:   {name:"BYTE", typ: BYTE},
+	descriptorpb.FieldDescriptorProto_TYPE_UINT32:  {name:"UINT32", typ: UINT32},
+	descriptorpb.FieldDescriptorProto_TYPE_ENUM:    {name:"ENUM", typ: ENUM},
+	descriptorpb.FieldDescriptorProto_TYPE_SFIXED32: {name:"SFIX32", typ: SFIX32},
+	descriptorpb.FieldDescriptorProto_TYPE_SFIXED64: {name:"SFIX64", typ: SFIX64},
+	descriptorpb.FieldDescriptorProto_TYPE_SINT32:   {name:"SINT32", typ: SINT32},
+	descriptorpb.FieldDescriptorProto_TYPE_SINT64:   {name:"SINT64", typ: SINT64},
+
+}
+
