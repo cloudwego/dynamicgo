@@ -10,8 +10,8 @@ import "github.com/cloudwego/dynamicgo/conv/p2j"
 
 - [type BinaryConv](<#BinaryConv>)
   - [func NewBinaryConv(opts conv.Options) BinaryConv](<#NewBinaryConv>)
-  - [func (self *BinaryConv) Do(ctx context.Context, desc *proto.Descriptor, pbytes []byte) (json []byte, err error)](<#BinaryConv.Do>)
-  - [func (self *BinaryConv) DoInto(ctx context.Context, desc *proto.Descriptor, pbytes []byte, buf *[]byte) (err error)](<#BinaryConv.DoInto>)
+  - [func (self *BinaryConv) Do(ctx context.Context, desc *proto.TypeDescriptor, pbytes []byte) (json []byte, err error)](<#BinaryConv.Do>)
+  - [func (self *BinaryConv) DoInto(ctx context.Context, desc *proto.TypeDescriptor, pbytes []byte, buf *[]byte) (err error)](<#BinaryConv.DoInto>)
   - [func (self *BinaryConv) SetOptions(opts conv.Options)](<#BinaryConv.SetOptions>)
 
 
@@ -39,7 +39,7 @@ NewBinaryConv returns a new BinaryConv
 ### func (*BinaryConv) [Do](<https://github.com/khan-yin/dynamicgo/blob/main/conv/p2j/conv.go#L28>)
 
 ```go
-func (self *BinaryConv) Do(ctx context.Context, desc *proto.Descriptor, pbytes []byte) (json []byte, err error)
+func (self *BinaryConv) Do(ctx context.Context, desc *proto.TypeDescriptor, pbytes []byte) (json []byte, err error)
 ```
 
 Do converts protobuf binary (pbytes) to json bytes (jbytes) desc is the protobuf type descriptor of the protobuf binary, usually it is a response Message type
@@ -69,18 +69,14 @@ var opts = conv.Options{}
 func main() {
 	// get descriptor and data
 	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
-	messageDesc := proto.FnRequest(proto.GetFnDescFromFile(exampleIDLPath, "ExampleMethod", proto.Options{}, includeDirs))
-	desc, ok := (*messageDesc).(proto.Descriptor)
-	if !ok {
-		panic("invalid descrptor")
-	}
+	desc := proto.FnRequest(proto.GetFnDescFromFile(exampleIDLPath, "ExampleMethod", proto.Options{}, includeDirs))
 
 	// make BinaryConv
 	cv := NewBinaryConv(conv.Options{})
 	in := readExampleReqProtoBufData()
 
 	// do conversion
-	out, err := cv.Do(context.Background(), &desc, in)
+	out, err := cv.Do(context.Background(), desc, in)
 	if err != nil {
 		panic(err)
 	}
@@ -126,7 +122,7 @@ func main() {
 ### func (*BinaryConv) [DoInto](<https://github.com/khan-yin/dynamicgo/blob/main/conv/p2j/conv.go#L57>)
 
 ```go
-func (self *BinaryConv) DoInto(ctx context.Context, desc *proto.Descriptor, pbytes []byte, buf *[]byte) (err error)
+func (self *BinaryConv) DoInto(ctx context.Context, desc *proto.TypeDescriptor, pbytes []byte, buf *[]byte) (err error)
 ```
 
 DoInto behaves like Do, but it writes the result to buffer directly instead of returning a new buffer

@@ -10,8 +10,8 @@ import "github.com/cloudwego/dynamicgo/conv/j2p"
 
 - [type BinaryConv](<#BinaryConv>)
   - [func NewBinaryConv(opts conv.Options) BinaryConv](<#NewBinaryConv>)
-  - [func (self *BinaryConv) Do(ctx context.Context, desc *proto.Descriptor, jbytes []byte) (tbytes []byte, err error)](<#BinaryConv.Do>)
-  - [func (self *BinaryConv) DoInto(ctx context.Context, desc *proto.Descriptor, jbytes []byte, buf *[]byte) error](<#BinaryConv.DoInto>)
+  - [func (self *BinaryConv) Do(ctx context.Context, desc *proto.TypeDescriptor, jbytes []byte) (tbytes []byte, err error)](<#BinaryConv.Do>)
+  - [func (self *BinaryConv) DoInto(ctx context.Context, desc *proto.TypeDescriptor, jbytes []byte, buf *[]byte) error](<#BinaryConv.DoInto>)
 
 
 <a name="BinaryConv"></a>
@@ -38,7 +38,7 @@ NewBinaryConv returns a new BinaryConv
 ### func (*BinaryConv) [Do](<https://github.com/khan-yin/dynamicgo/blob/main/conv/j2p/conv.go#L26>)
 
 ```go
-func (self *BinaryConv) Do(ctx context.Context, desc *proto.Descriptor, jbytes []byte) (tbytes []byte, err error)
+func (self *BinaryConv) Do(ctx context.Context, desc *proto.TypeDescriptor, jbytes []byte) (tbytes []byte, err error)
 ```
 
 Do converts json bytes (jbytes) to protobuf binary (tbytes) desc is the protobuf type descriptor of the protobuf binary, usually it the request Message type
@@ -57,7 +57,6 @@ import (
 	"reflect"
 
 	"github.com/cloudwego/dynamicgo/conv"
-	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
 	"google.golang.org/protobuf/encoding/protowire"
 )
@@ -66,15 +65,14 @@ var opts = conv.Options{}
 
 func main() {
 	// get descriptor and data
-	messageDesc := getExampleDesc()
-	desc := (*messageDesc).(proto.Descriptor)
+	desc := getExampleDesc()
 	data := getExampleData()
 
 	// make BinaryConv
 	cv := NewBinaryConv(opts)
 
 	// do conversion
-	out, err := cv.Do(context.Background(), &desc, data)
+	out, err := cv.Do(context.Background(), desc, data)
 	if err != nil {
 		panic(err)
 	}
@@ -116,7 +114,7 @@ func main() {
 ### func (*BinaryConv) [DoInto](<https://github.com/khan-yin/dynamicgo/blob/main/conv/j2p/conv.go#L55>)
 
 ```go
-func (self *BinaryConv) DoInto(ctx context.Context, desc *proto.Descriptor, jbytes []byte, buf *[]byte) error
+func (self *BinaryConv) DoInto(ctx context.Context, desc *proto.TypeDescriptor, jbytes []byte, buf *[]byte) error
 ```
 
 DoInto behaves like Do, but it writes the result to buffer directly instead of returning a new buffer
