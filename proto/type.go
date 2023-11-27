@@ -144,9 +144,16 @@ func FromProtoKindToType(kind ProtoKind, isList bool, isMap bool) Type {
 	return t
 }
 
-// check if the type need Varint encoding, also used in check list isPacked 
+// check if the type need Varint encoding
 func (p Type) NeedVarint() bool {
 	return p == BOOL || p == ENUM || p == INT32 || p == SINT32 || p == UINT32 || p == INT64 || p == SINT64 || p == UINT64
+}
+
+func (p Type) IsPacked() bool {
+	if p == LIST || p == MAP {
+		panic("error type")
+	}
+	return p != STRING && p != MESSAGE && p != BYTE
 }
 
 // IsInt containing isUint

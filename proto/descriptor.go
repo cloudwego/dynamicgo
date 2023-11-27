@@ -18,8 +18,7 @@ type TypeDescriptor struct {
 	name   string
 	key    *TypeDescriptor
 	elem   *TypeDescriptor
-	msg    *MessageDescriptor
-	field  *FieldDescriptor
+	msg    *MessageDescriptor // for message, list+message element and map key-value entry
 }
 
 func (t *TypeDescriptor) Type() Type {
@@ -34,12 +33,10 @@ func (t *TypeDescriptor) Elem() *TypeDescriptor {
 	return t.elem
 }
 
+// if List+Message it can get message element descriptor
+// if Map it can get map key-value entry massage descriptor
 func (t *TypeDescriptor) Message() *MessageDescriptor {
 	return t.msg
-}
-
-func (t *TypeDescriptor) Field() *FieldDescriptor {
-	return t.field
 }
 
 func (t *TypeDescriptor) BaseId() FieldNumber {
@@ -50,7 +47,7 @@ func (t *TypeDescriptor) IsPacked() bool {
 	if t.typ != LIST {
 		return false // if not list, return false forever
 	}
-	return t.elem.typ.NeedVarint()
+	return t.elem.typ.IsPacked()
 }
 
 func (f *TypeDescriptor) IsMap() bool {
@@ -114,6 +111,14 @@ func (f *FieldDescriptor) MapValue() *TypeDescriptor {
 		panic("not map")
 	}
 	return f.typ.Elem()
+}
+
+func (f *FieldDescriptor) IsMap() bool {
+	return f.typ.IsMap()
+}
+
+func (f *FieldDescriptor) IsList() bool {
+	return f.typ.IsList()
 }
 
 type MessageDescriptor struct {

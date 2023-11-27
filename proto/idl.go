@@ -241,10 +241,8 @@ func parseMessage(ctx context.Context, msgDesc *desc.MessageDescriptor, cache co
 					elem:   t,
 					baseId: FieldNumber(id),
 					msg:    t.msg,
-					field:  fieldDesc,
 				}
 			}
-			field.IsMap()
 			fieldDesc.typ = t
 		}
 
