@@ -41,7 +41,7 @@ Map编码模式与unpacked list相同，根据官方文档所说，Map的每个K
 
 
 ### Descriptor细节
-为了保证兼容性，dynamicgo中所有的descriptor都是直接套用官方源码的descriptor，没有进行任何修改，这里主要介绍一下源码的descriptor设计上的一些需要注意的细节。
+这里主要介绍一下源码的descriptor设计上的一些需要注意的细节，有助于理解我们自定义descriptor的方案。
 - Service接口由ServiceDescriptor来描述，ServiceDescriptor当中可以拿到每个rpc函数的MethodDescriptor。
 - MethodDescriptor中Input()和output()两个函数返回值均为MessageDescriptor分别表示request和response。
 - MessageDescriptor专门用来描述一个Message对象（也可能是一个MapEntry），可以通过Fields()找到每个字段的FieldDescriptor。
@@ -54,6 +54,41 @@ Map编码模式与unpacked list相同，根据官方文档所说，Map的每个K
 2. 如果字段是Map，那么FieldDescriptor中Kind()表示为messageKind，字段是否是List只能通过IsMap()函数区分。
 3. 当字段为messagekind时（可能的情况message，List<Message>，map<int/string，Message>），可以通过Message()方法，可以获得下层嵌套的MessageDescriptor。
 4. MapKey的FieldDescriptor被限定为uint/bool/int/string类型。目前的代码设计上将uint32，uint64，int32，int64全都转成了int，bool没处理。
+
+## Descriptor自定义设计
+Descriptor的设计原理基本与源码一致，不过为了兼容性和避免强转，这里我们通thrift抽象了一个TypeDescriptor来处理类型问题，但因为protobuf编码格式的问题，TypeDescriptor做了一部分修改。
+
+parse过程主要利用的是[`github.com/jhump/protoreflect@v1.8.2`](https://pkg.go.dev/github.com/jhump/protoreflect@v1.8.2)解析得到的第三方descriptor进行的再封装，从实现过程上来看，与高版本protoreflect利用[`protocompile`](https://pkg.go.dev/github.com/bufbuild/protocompile)对原始链路再make出源码的warp版本一致，更好的实现或许是处理利用protoreflect中的ast语法树构造。
+
+### TypeDescriptor
+```go
+type TypeDescriptor struct {
+	baseId FieldNumber // for LIST/MAP to write field tag by baseId
+	typ    Type
+	name   string
+	key    *TypeDescriptor
+	elem   *TypeDescriptor
+	msg    *MessageDescriptor // for message, list+message element and map key-value entry
+}
+```
+
+- `baseId`：因为对于LIST/MAP类型的编码特殊性，如在unpack模式下，每一个元素都需要编写Tag，我们必须在构造时针对LIST/MAP提供fieldnumber，来保证读取和写入的自反射性。
+- `msg`：这里的msg不是仅Message类型独有，主要是方便J2P部分对于List<Message>和marshalto中map获取可能存在value内部字段缺失的MapEntry的MassageDescriptor（在源码的设计理念当中MAP的元素被认为是一个含有key和value两个字段的message）的时候能利用TypeDescriptor进入下一层嵌套。具体位置：[j2p for List<Message>](../conv/j2p/decode.go#L422)和[map entry marshalto](./generic/value.go#L853)。
+- `typ`：这里的Type不同于源码的FieldDescriptor，对LIST/MAP做了单独定义，对应`type.go`文件下的[`Type`](./type.go#L87)。
+
+### FieldDescriptor
+```go
+type FieldDescriptor struct {
+	kind     ProtoKind // the same value with protobuf descriptor
+	id       FieldNumber
+	name     string
+	jsonName string
+	typ      *TypeDescriptor
+}
+```
+
+- FieldDescriptor的设置是希望变量和函数作用与源码FieldDescriptor基本一致，只是增加`*TypeDescriptor`可以更细粒度的反应类型以及对FieldDescriptor的API实现。
+- `kind`：保留kind，对应`type.go`文件下的[`ProtoKind`](./type.go#L41)，LIST情况下，kind是列表元素的kind类型，MAP和MESSAGE情况下，messagekind。
 
 ## ProtoBuf DOM设计
 显然protobuf的层层包裹设计与thrift差异很大，这也给DOM设计造成了许多的困难，虽然思想上和dynamicgo-thrift一致，但为了更统一化的处理节点和片段管理，这里我们对链路的存储格式和函数设计做了一些改进。
@@ -306,5 +341,6 @@ JSON——>ProtoBuf 的转换过程如下：
 - [ ] DOM tree的Assign函数还需要实现，尝试实现但存在一些问题由于时间关系不太好解决。
 - [ ] 序列化/反序列化在small数据规模下的开销进一步优化。
 - [ ] 是否可以优化到不区分DOM的Node不区分root层和其他层的Message？目前的root层MESSAGE的Node不带L，而其他的都带有L，感觉可以优化之前设计没做好可能，如果统一可能有别的地方会带来些小问题，比如在非递归的DOM下marshal则需要自己补充L，因为Path只补齐了Tag。
+- [ ] 用Kind的地方设计如何方便地完全被TypeDescriptor替代。
 - [ ] DOM对于Enum，Oneof，Extension（Extension已经在protobuf3官方弃用）的支持。
 - [ ] DOM相关的部分option有待实现。
