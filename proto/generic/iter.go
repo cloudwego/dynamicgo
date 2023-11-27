@@ -32,7 +32,7 @@ func (self Node) iterElems() (fi listIterator) {
 		fi.et = proto.Type(self.et)
 		kind := fi.et.TypeToKind()
 		fi.ewt = proto.Kind2Wire[kind]
-		fi.isPacked = self.et.NeedVarint()
+		fi.isPacked = self.et.IsPacked()
 	}
 	return
 }

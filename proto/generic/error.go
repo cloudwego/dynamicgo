@@ -47,7 +47,7 @@ func unwrapError(msg string, err error) error {
 }
 
 //go:noinline
-func wrapValue(n Node, desc *proto.FieldDescriptor) Value {
+func wrapValue(n Node, desc *proto.TypeDescriptor) Value {
 	return Value{
 		Node: n,
 		Desc: desc,

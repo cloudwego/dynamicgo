@@ -26,32 +26,32 @@ const (
 )
 
 // parse protofile to get MessageDescriptor
-func getExample2Desc() *proto.MessageDescriptor {
+func getExample2Desc() *proto.TypeDescriptor {
 	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
 	svc, err := proto.NewDescritorFromPath(context.Background(), exampleIDLPath, includeDirs)
 	if err != nil {
 		panic(err)
 	}
-	res := (*svc).Methods().ByName("ExampleMethod").Input()
+	res := svc.LookupMethodByName("ExampleMethod").Input()
 
 	if res == nil {
 		panic("can't find Target MessageDescriptor")
 	}
-	return &res
+	return res
 }
 
-func getExamplePartialDesc() *proto.MessageDescriptor {
+func getExamplePartialDesc() *proto.TypeDescriptor {
 	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
 	svc, err := proto.NewDescritorFromPath(context.Background(), exampleIDLPath, includeDirs)
 	if err != nil {
 		panic(err)
 	}
-	res := (*svc).Methods().ByName("ExamplePartialMethod").Input()
+	res := svc.LookupMethodByName("ExamplePartialMethod").Input()
 
 	if res == nil {
 		panic("can't find Target MessageDescriptor")
 	}
-	return &res
+	return res
 }
 
 func getExample2Data() []byte {
@@ -577,7 +577,7 @@ func TestSetByPath(t *testing.T) {
 	v := NewRootValue(desc, data)
 	v2 := NewNode(proto.MESSAGE, data)
 	// ds := (*desc).Fields().ByName("Subfix")
-	d2 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("Base").Message().Fields().ByName("Extra").MapValue()
+	d2 := desc.Message().ByName("InnerBase2").Message().ByName("Base").Message().ByName("Extra").MapValue()
 	// d3 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListInt32")
 	// d4 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListString")
 	e, err := v.SetByPath(v2)
@@ -601,7 +601,7 @@ func TestSetByPath(t *testing.T) {
 		exp2 := "中文"
 		p := binary.NewBinaryProtocolBuffer()
 		p.WriteString(exp2)
-		vx := NewValue(&d2, p.Buf)
+		vx := NewValue(d2, p.Buf)
 		e, err2 := v.SetByPath(vx.Node, NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("1b"))
 		require.True(t, e)
 		require.Nil(t, err2)
@@ -781,6 +781,9 @@ func TestUnsetByPath(t *testing.T) {
 		err = v.UnsetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
 		require.NoError(t, err)
 
+		k := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"))
+		fmt.Println(k.Len())
+
 		n = v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListInt32"), NewPathIndex(0))
 		require.False(t, n.IsError())
 		exp, _ = n.Int()
@@ -918,8 +921,8 @@ func TestSetMany(t *testing.T) {
 		UseNativeSkip: true,
 	}
 	r := NewRootValue(desc, data)
-	d1 := (*desc).Fields().ByName("Msg")
-	d2 := (*desc).Fields().ByName("Subfix")
+	d1 := desc.Message().ByName("Msg").Type()
+	d2 := desc.Message().ByName("Subfix").Type()
 	address := make([]int, 0)
 	pathes := make([]Path, 0)
 	PathInnerBase = NewPathFieldName("InnerBase2")
@@ -1001,10 +1004,10 @@ func TestSetMany(t *testing.T) {
 		p := binary.NewBinaryProtocolBuffer()
 		p.WriteString(exp1)
 
-		v1 := NewValue(&d1, []byte(string(p.Buf)))
+		v1 := NewValue(d1, []byte(string(p.Buf)))
 		p.Buf = p.Buf[:0]
 		p.WriteDouble(exp2)
-		v2 := NewValue(&d2, []byte(string(p.Buf)))
+		v2 := NewValue(d2, []byte(string(p.Buf)))
 		err := vRoot.SetMany([]PathNode{
 			{
 				Path: NewPathFieldId(1),
@@ -1076,11 +1079,11 @@ func TestSetMany(t *testing.T) {
 		p = binary.NewBinaryProtocolBuffer()
 		e1 := false
 		p.WriteBool(e1)
-		v1 = NewValue(&d1, []byte(string(p.Buf)))
+		v1 = NewValue(d1, []byte(string(p.Buf)))
 		p.Buf = p.Buf[:0]
 		e2 := float64(-255.0001)
 		p.WriteDouble(e2)
-		v2 = NewValue(&d1, []byte(string(p.Buf)))
+		v2 = NewValue(d1, []byte(string(p.Buf)))
 		p.Buf = p.Buf[:0]
 
 		// the last value of path2root and address2root is only a flag not using real value

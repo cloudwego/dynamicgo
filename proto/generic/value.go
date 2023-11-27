@@ -16,8 +16,8 @@ const defaultBytesSize = 64
 
 type Value struct {
 	Node
-	RootDesc *proto.MessageDescriptor
-	Desc     *proto.FieldDescriptor
+	Desc *proto.TypeDescriptor
+	IsRoot  bool
 }
 
 var (
@@ -44,36 +44,35 @@ func FreeBytesToPool(b []byte) {
 	bytesPool.Put(b)
 }
 
-func NewRootValue(desc *proto.MessageDescriptor, src []byte) Value {
+func NewRootValue(desc *proto.TypeDescriptor, src []byte) Value {
 	return Value{
-		Node:     NewNode(proto.MESSAGE, src),
-		RootDesc: desc,
+		Node: NewNode(proto.MESSAGE, src),
+		Desc: desc,
+		IsRoot: true,
 	}
 }
 
 // only for basic Node
-func NewValue(desc *proto.FieldDescriptor, src []byte) Value {
-	typ := proto.FromProtoKindToType((*desc).Kind(), (*desc).IsList(), (*desc).IsMap())
+func NewValue(desc *proto.TypeDescriptor, src []byte) Value {
 	return Value{
-		Node: NewNode(typ, src),
+		Node: NewNode(desc.Type(), src),
 		Desc: desc,
 	}
 }
 
 // only for LIST/MAP parent Node
-func NewComplexValue(desc *proto.FieldDescriptor, src []byte) Value {
-	field := *desc
-	t := proto.FromProtoKindToType(field.Kind(),field.IsList(),field.IsMap())
+func NewComplexValue(desc *proto.TypeDescriptor, src []byte) Value {
+	t := desc.Type()
 	et := proto.UNKNOWN
 	kt := proto.UNKNOWN
 	if t == proto.LIST {
-		et = proto.FromProtoKindToType(field.Kind(),false,false)
+		et = desc.Elem().Type()
 	} else if t == proto.MAP {
 		t = proto.MAP
-		et = proto.FromProtoKindToType(field.MapKey().Kind(),false,false)
-		kt = proto.FromProtoKindToType(field.MapValue().Kind(),false,false)
+		et = desc.Elem().Type()
+		kt = desc.Key().Type()
 	} else {
-		panic("invalid type")
+		panic("only used for list/map node")
 	}
 
 	return Value{
@@ -91,7 +90,7 @@ func (self Value) Fork() Value {
 }
 
 
-func (self Value) sliceWithDesc(s int, e int, desc *proto.FieldDescriptor) Value {
+func (self Value) sliceWithDesc(s int, e int, desc *proto.TypeDescriptor) Value {
 	node := self.sliceNodeWithDesc(s, e, desc)
 	return Value{Node: node, Desc: desc}
 }
@@ -297,13 +296,13 @@ func (self Value) GetByPathWithAddress(pathes ...Path) (Value, []int) {
 func (self Value) getByPath(pathes ...Path) (Value, []int) {
 	address := make([]int, len(pathes))
 	start := 0
-	var desc *proto.FieldDescriptor
 	var err error
 	tt := self.t
 	kt := self.kt
 	et := self.et
 	size := 0
-	isRoot := false
+	desc := self.Desc
+	isRoot := self.IsRoot
 	if len(pathes) == 0 {
 		return self, address
 	}
@@ -316,10 +315,7 @@ func (self Value) getByPath(pathes ...Path) (Value, []int) {
 		Buf: self.raw(),
 	}
 
-	if self.RootDesc != nil {
-		isRoot = true
-	} else {
-		desc = self.Desc
+	if !isRoot {
 		if self.t == proto.LIST || self.t == proto.MAP {
 			p.ConsumeTag()
 		}
@@ -329,78 +325,77 @@ func (self Value) getByPath(pathes ...Path) (Value, []int) {
 		switch path.t {
 		case PathFieldId:
 			id := path.id()
-			var fd proto.FieldDescriptor
 			messageLen := 0
 			if isRoot {
-				fd = (*self.RootDesc).Fields().ByNumber(id)
 				messageLen = len(p.Buf)
 				isRoot = false
 			} else {
-				fd = (*desc).Message().Fields().ByNumber(id)
 				Len, err := p.ReadLength()
 				if err != nil {
 					return errValue(meta.ErrRead, "GetByPath: read field length failed.", err), address
 				}
 				messageLen += Len
 			}
+
+			fd := desc.Message().ByNumber(id)
 			if fd != nil {
-				desc = &fd
-				tt = proto.FromProtoKindToType(fd.Kind(), fd.IsList(), fd.IsMap())
+				desc = fd.Type()
+				tt = desc.Type()
 			}
+
 			start, err = searchFieldId(&p, id, messageLen)
 			if err == errNotFound {
 				tt = proto.MESSAGE
 			}
 		case PathFieldName:
 			name := proto.FieldName(path.str())
-			var fd proto.FieldDescriptor
 			messageLen := 0
 			if isRoot {
-				fd = (*self.RootDesc).Fields().ByName(name)
 				messageLen = len(p.Buf)
 				isRoot = false
 			} else {
-				fd = (*desc).Message().Fields().ByName(name)
 				Len, err := p.ReadLength()
 				if err != nil {
 					return errValue(meta.ErrRead, "GetByPath: read field length failed.", err), address
 				}
 				messageLen += Len
 			}
+
+			fd := desc.Message().ByName(name)
 			if fd == nil {
 				return errValue(meta.ErrUnknownField, fmt.Sprintf("field name '%s' is not defined in IDL", name), nil), address
 			}
-			tt = proto.FromProtoKindToType(fd.Kind(), fd.IsList(), fd.IsMap())
-			desc = &fd
+
+			desc = fd.Type()
+			tt = desc.Type()
 			start, err = searchFieldId(&p, fd.Number(), messageLen)
 			if err == errNotFound {
 				tt = proto.MESSAGE
 			}
 		case PathIndex:
-			elemKind := (*desc).Kind()
-			elementWireType := proto.Kind2Wire[elemKind]
-			isPacked := (*desc).IsPacked()
-			start, err = searchIndex(&p, path.int(), elementWireType, isPacked, (*desc).Number())
-			tt = proto.FromProtoKindToType(elemKind, false, false)
+			elementWireType := desc.Elem().WireType()
+			isPacked := desc.IsPacked()
+			start, err = searchIndex(&p, path.int(), elementWireType, isPacked, desc.BaseId())
+			tt = desc.Elem().Type()
 			if err == errNotFound {
 				tt = proto.LIST
 			}
 		case PathStrKey:
-			mapFieldNumber := (*desc).Number()
+			mapFieldNumber := desc.BaseId()
 			start, err = searchStrKey(&p, path.str(), proto.STRING, mapFieldNumber)
-			tt = proto.FromProtoKindToType((*desc).MapValue().Kind(), false, false)
-			valueDesc := (*desc).MapValue()
-			desc = &valueDesc
+			tt = desc.Elem().Type()
+			valueDesc := desc.Elem()
+			desc = valueDesc
 			if err == errNotFound {
 				tt = proto.MAP
 			}
 		case PathIntKey:
-			keyType := proto.FromProtoKindToType((*desc).MapKey().Kind(), false, false)
-			mapFieldNumber := (*desc).Number()
+			keyType := desc.Key().Type()
+			mapFieldNumber := desc.BaseId()
 			start, err = searchIntKey(&p, path.int(), keyType, mapFieldNumber)
-			tt = proto.FromProtoKindToType((*desc).MapValue().Kind(), false, false)
-			valueDesc := (*desc).MapValue()
-			desc = &valueDesc
+			tt = desc.Elem().Type()
+			valueDesc := desc.Elem()
+			desc = valueDesc
 			if err == errNotFound {
 				tt = proto.MAP
 			}
@@ -413,7 +408,7 @@ func (self Value) getByPath(pathes ...Path) (Value, []int) {
 		if err != nil {
 			// the last one not foud, return start pointer for subsequently inserting operation on `SetByPath()`
 			if i == len(pathes)-1 && err == errNotFound {
-				return Value{errNotFoundLast(unsafe.Pointer(uintptr(self.v)+uintptr(start)), tt), nil, nil}, address
+				return Value{errNotFoundLast(unsafe.Pointer(uintptr(self.v)+uintptr(start)), tt), nil, false}, address
 			}
 			en := err.(Node)
 			return errValue(en.ErrCode().Behavior(), "invalid value node.", err), address
@@ -430,32 +425,39 @@ func (self Value) getByPath(pathes ...Path) (Value, []int) {
 	// check the result node type to get the right slice bytes
 	switch tt {
 	case proto.MAP:
-		kt = proto.FromProtoKindToType((*desc).MapKey().Kind(), false, false)
-		et = proto.FromProtoKindToType((*desc).MapValue().Kind(), false, false)
-		if s, err := p.SkipAllElements((*desc).Number(), (*desc).IsPacked()); err != nil {
+		kt = desc.Key().Type()
+		et = desc.Elem().Type()
+		if s, err := p.SkipAllElements(desc.BaseId(), desc.IsPacked()); err != nil {
 			en := err.(Node)
-			return errValue(en.ErrCode().Behavior(), "invalid list node.", err), address
+			return errValue(en.ErrCode().Behavior(), "invalid map node.", err), address
 		} else {
 			size = s
 		}
 	case proto.LIST:
-		et = proto.FromProtoKindToType((*desc).Kind(), false, false)
-		if s, err := p.SkipAllElements((*desc).Number(), (*desc).IsPacked()); err != nil {
+		et = desc.Elem().Type()
+		if s, err := p.SkipAllElements(desc.BaseId(), desc.IsPacked()); err != nil {
 			en := err.(Node)
 			return errValue(en.ErrCode().Behavior(), "invalid list node.", err), address
 		} else {
 			size = s
 		}
 	default:
-		// node condition: simple field element, message, packed list element, map value element
-		skipType := proto.Kind2Wire[(*desc).Kind()]
-
+		// node condition: field element, list element, map value element
+		var skipType proto.WireType
+		
 		// only packed list element no tag to skip
-		if (*desc).IsPacked() == false {
+		if desc.IsPacked() == false {
 			if _, _, _, err := p.ConsumeTag(); err != nil {
 				return errValue(meta.ErrRead, "invalid field tag.", err), address
 			}
 			start = p.Read
+		}
+		
+		if desc.Type() != proto.LIST{
+			skipType = desc.WireType()
+		} else {
+			skipType = desc.Elem().WireType()
+			desc = desc.Elem()
 		}
 
 		if err := p.Skip(skipType, false); err != nil {
@@ -495,30 +497,21 @@ func (self *Value) SetByPath(sub Node, path ...Path) (exist bool, err error) {
 
 		// find target node descriptor
 		targetPath := path[l-1]
-		desc, err := getDescByPath(self.RootDesc, path[:l-1]...)
-		var fd *proto.FieldDescriptor
+		desc, err := getDescByPath(self.Desc, path[:l-1]...)
+		// var fd *proto.FieldDescriptor
 		if err != nil {
 			return false, err
-		}
-		if f, ok := (*desc).(proto.FieldDescriptor); ok {
-			fd = &f
 		}
 
 		// exchange PathFieldName to create PathFieldId
 		if targetPath.t == PathFieldName {
-			if d, ok := (*desc).(proto.MessageDescriptor); ok {
-				f := d.Fields().ByName(proto.FieldName(targetPath.str()))
-				targetPath = NewPathFieldId(f.Number())
-				fd = &f
-			} else if d, ok := (*desc).(proto.FieldDescriptor); ok {
-				f := d.Message().Fields().ByName(proto.FieldName(targetPath.str()))
-				targetPath = NewPathFieldId(f.Number())
-				fd = &f
-			}
+			f := desc.Message().ByName(proto.FieldName(targetPath.str()))
+			targetPath = NewPathFieldId(f.Number())
+			desc = f.Type()
 		}
 		
 		// set sub node bytes by path and descriptor to check whether the node need to append tag
-		if err := v.setNotFound(targetPath, &sub, fd); err != nil {
+		if err := v.setNotFound(targetPath, &sub, desc); err != nil {
 			return false, err
 		}
 	} else {
@@ -527,7 +520,7 @@ func (self *Value) SetByPath(sub Node, path ...Path) (exist bool, err error) {
 
 	originLen := len(self.raw()) // root buf length
 	err = self.replace(v.Node, sub) // replace ErrorNode bytes by sub Node bytes
-	isPacked := path[l-1].t == PathIndex && sub.t.NeedVarint()
+	isPacked := path[l-1].t == PathIndex && sub.t.IsPacked()
 	self.updateByteLen(originLen, address, isPacked, path...)
 	return
 }
@@ -622,24 +615,20 @@ func (self *Value) UnsetByPath(path ...Path) error {
 		return parentValue
 	}
 
-	isPacked := false
 	p := path[l-1]
-	var desc *proto.Descriptor
+	var desc *proto.TypeDescriptor
 	var err error
-	desc, err = getDescByPath(self.RootDesc, path...)
+	
+	desc, err = getDescByPath(self.Desc, path[:l-1]...)
 	if err != nil {
 		return err
 	}
-
+	isPacked := desc.IsPacked()
+	
 	if p.t == PathFieldName {
-		if d, ok := (*desc).(proto.FieldDescriptor); ok {
-			p = NewPathFieldId(d.Number())
-		}
-	} else if p.t == PathIndex {
-		if d, ok := (*desc).(proto.FieldDescriptor); ok {
-			isPacked = d.IsPacked()
-		}
-	}
+		f := desc.Message().ByName(proto.FieldName(p.str()))
+		p = NewPathFieldId(f.Number())
+	} 
 
 	ret, position := parentValue.findDeleteChild(p)
 	if ret.IsError() {
@@ -665,7 +654,7 @@ func (self *Value) findDeleteChild(path Path) (Node, int) {
 	case proto.MESSAGE:
 		it := self.iterFields()
 		// if not root node
-		if self.RootDesc == nil {
+		if !self.IsRoot {
 			if l, err := it.p.ReadLength(); err != nil {
 				return errNode(meta.ErrRead, "", err), -1
 			} else {
@@ -714,7 +703,7 @@ func (self *Value) findDeleteChild(path Path) (Node, int) {
 		}
 		idx := path.int()
 
-		elemType := proto.Kind2Wire[(*self.Desc).Kind()]
+		elemType := self.Desc.Elem().WireType()
 		size, err := self.Len()
 		if err != nil {
 			return errNode(meta.ErrRead, "", err), -1
@@ -725,7 +714,7 @@ func (self *Value) findDeleteChild(path Path) (Node, int) {
 			return errNotFound, -1
 		}
 		// packed : [ListTag][ListLen][(l)v][(l)v][(l)v][(l)v].....
-		if (*self.Desc).IsPacked() {
+		if self.Desc.IsPacked() {
 			if _, _, _, err := it.p.ConsumeTag(); err != nil {
 				return errNode(meta.ErrRead, "", err), -1
 			}
@@ -842,11 +831,11 @@ func (self *Value) findDeleteChild(path Path) (Node, int) {
 
 // MarshalTo marshals self value into a sub value descripted by the to descriptor, alse called as "Cutting".
 // Usually, the to descriptor is a subset of self descriptor.
-func (self Value) MarshalTo(to *proto.MessageDescriptor, opts *Options) ([]byte, error) {
+func (self Value) MarshalTo(to *proto.TypeDescriptor, opts *Options) ([]byte, error) {
 	var w = binary.NewBinaryProtocolBuffer()
 	var r = binary.BinaryProtocol{}
 	r.Buf = self.raw()
-	var from = self.RootDesc
+	var from = self.Desc
 	messageLen := len(r.Buf)
 	if err := marshalTo(&r, w, from, to, opts, messageLen); err != nil {
 		return nil, err
@@ -857,11 +846,11 @@ func (self Value) MarshalTo(to *proto.MessageDescriptor, opts *Options) ([]byte,
 	return ret, nil
 }
 
-func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *proto.MessageDescriptor, to *proto.MessageDescriptor, opts *Options, massageLen int) error {
+func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *proto.TypeDescriptor, to *proto.TypeDescriptor, opts *Options, massageLen int) error {
 	tail := read.Read + massageLen
 	for read.Read < tail {
 		fieldNumber, wireType, _, _ := read.ConsumeTag()
-		fromField := (*from).Fields().ByNumber(fieldNumber)
+		fromField := from.Message().ByNumber(fieldNumber)
 
 		if fromField == nil {
 			if opts.DisallowUnknown {
@@ -875,7 +864,7 @@ func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *
 			}
 		}
 
-		toField := (*to).Fields().ByNumber(fieldNumber)
+		toField := to.Message().ByNumber(fieldNumber)
 
 		if toField == nil {
 			// if not set, skip to the next field
@@ -893,8 +882,14 @@ func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *
 
 		// when FieldDescriptor.Kind() == MessageKind, it contained 3 conditions: message list, message map value, message;
 		if fromType == proto.MessageKind {
-			fromDesc := fromField.Message()
-			toDesc := toField.Message()
+			fromDesc := fromField.Type()
+			toDesc := toField.Type()
+			// message list
+			if fromDesc.Type() == proto.LIST{
+				fromDesc = fromDesc.Elem()
+				toDesc = toDesc.Elem()
+			}
+
 			write.AppendTag(fieldNumber, wireType)
 			var pos int
 			subMessageLen, err := read.ReadLength()
@@ -902,7 +897,7 @@ func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *
 				return wrapError(meta.ErrRead, "", err)
 			}
 			write.Buf, pos = binary.AppendSpeculativeLength(write.Buf)
-			marshalTo(read, write, &fromDesc, &toDesc, opts, subMessageLen)
+			marshalTo(read, write, fromDesc, toDesc, opts, subMessageLen)
 			write.Buf = binary.FinishSpeculativeLength(write.Buf, pos)
 		} else {
 			start := read.Read
@@ -922,21 +917,21 @@ func marshalTo(read *binary.BinaryProtocol, write *binary.BinaryProtocol, from *
 // GetByInt returns a sub node at the given key from a MAP value.
 func (self Value) GetByStr(key string) (v Value) {
 	n := self.Node.GetByStr(key)
-	vd := (*self.Desc).MapValue()
+	vd := self.Desc.Elem()
 	if n.IsError() {
 		return wrapValue(n, nil)
 	}
-	return wrapValue(n, &vd)
+	return wrapValue(n, vd)
 }
 
 // GetByInt returns a sub node at the given key from a MAP value.
 func (self Value) GetByInt(key int) (v Value) {
 	n := self.Node.GetByInt(key)
-	vd := (*self.Desc).MapValue()
+	vd := self.Desc.Elem()
 	if n.IsError() {
 		return wrapValue(n, nil)
 	}
-	return wrapValue(n, &vd)
+	return wrapValue(n, vd)
 }
 
 // Index returns a sub node at the given index from a LIST value.
@@ -945,7 +940,7 @@ func (self Value) Index(i int) (v Value) {
 	if n.IsError() {
 		return wrapValue(n, nil)
 	}
-	v = wrapValue(n, self.Desc)
+	v = wrapValue(n, self.Desc.Elem())
 	return
 }
 
@@ -956,17 +951,13 @@ func (self Value) FieldByName(name string) (v Value) {
 	}
 
 	it := self.iterFields()
-
-	var f proto.FieldDescriptor
-	if self.RootDesc != nil {
-		f = (*self.RootDesc).Fields().ByName(proto.FieldName(name))
-	} else {
-		f = (*self.Desc).Message().Fields().ByName(proto.FieldName(name))
+	if !self.IsRoot {
 		if _, err := it.p.ReadLength(); err != nil {
 			return errValue(meta.ErrRead, "", err)
 		}
 	}
 
+	f := self.Desc.Message().ByName(proto.FieldName(name))
 	if f == nil {
 		return errValue(meta.ErrUnknownField, fmt.Sprintf("field '%s' is not defined in IDL", name), nil)
 	}
@@ -979,15 +970,16 @@ func (self Value) FieldByName(name string) (v Value) {
 	for it.HasNext() {
 		i, wt, s, e, tagPos := it.Next(UseNativeSkipForGet)
 		if i == f.Number() {
-			if f.IsMap() || f.IsList() {
+			typDesc := f.Type()
+			if typDesc.IsMap() || typDesc.IsList() {
 				it.p.Read = tagPos
-				if _, err := it.p.SkipAllElements(i, f.IsPacked()); err != nil {
+				if _, err := it.p.SkipAllElements(i, typDesc.IsPacked()); err != nil {
 					return errValue(meta.ErrRead, "SkipAllElements in LIST/MAP failed", err)
 				}
 				s = tagPos
 				e = it.p.Read
 
-				v = self.sliceWithDesc(s, e, &f)
+				v = self.sliceWithDesc(s, e, typDesc)
 				goto ret
 			}
 
@@ -996,7 +988,7 @@ func (self Value) FieldByName(name string) (v Value) {
 				v = errValue(meta.ErrDismatchType, fmt.Sprintf("field '%s' expects type %s, buf got type %s", string(f.Name()), t, wt), nil)
 				goto ret
 			}
-			v = self.sliceWithDesc(s, e, &f)
+			v = self.sliceWithDesc(s, e, typDesc)
 			goto ret
 		} else if it.Err != nil {
 			v = errValue(meta.ErrRead, "", it.Err)
@@ -1012,20 +1004,15 @@ ret:
 
 // Field returns a sub node at the given field id from a MESSAGE value.
 func (self Value) Field(id proto.FieldNumber) (v Value) {
-	rootLayer := true
-	msgDesc := self.RootDesc
-	if self.Desc != nil {
-		rootLayer = false
-		msgfd := (*self.Desc).Message()
-		msgDesc = &msgfd
-	}
+	rootLayer := self.IsRoot
+	msgDesc := self.Desc.Message()
 	 
 	n, d := self.Node.Field(id, rootLayer, msgDesc)
 
 	if n.IsError() {
 		return wrapValue(n, nil)
 	}
-	return wrapValue(n, d)
+	return wrapValue(n, d.Type())
 }
 
 // GetMany searches transversely and returns all the sub nodes along with the given pathes.
@@ -1056,13 +1043,8 @@ func (self Value) getMany(pathes []PathNode, clearDirty bool, opts *Options) err
 }
 
 func (self Value) Fields(ids []PathNode, opts *Options) error {
-	rootLayer := true
-	msgDesc := self.RootDesc
-	if self.Desc != nil {
-		rootLayer = false
-		msgfd := (*self.Desc).Message()
-		msgDesc = &msgfd
-	}
+	rootLayer := self.IsRoot
+	msgDesc := self.Desc.Message()
 
 	err := self.Node.Fields(ids, rootLayer, msgDesc, opts)
 	return err
@@ -1091,9 +1073,9 @@ func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, addres
 	}
 	copy(ps.a, pathes)
 	ps.b = pathes
-	isPacked := false
 	originLen := len(self.raw()) // current buf length
 	rootLen := len(root.raw())   // root buf length
+	isPacked := self.Desc.IsPacked()
 
 	// get original values
 	if err = self.getMany(ps.a, true, opts); err != nil {
@@ -1115,12 +1097,8 @@ func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, addres
 		}
 	}
 
-	if self.t == proto.LIST {
-		isPacked = (*self.Desc).IsPacked()
-	}
-
 	// if current is not root node, update current Node length
-	if self.RootDesc == nil {
+	if !self.IsRoot {
 		err = self.replaceMany(ps)
 		if self.t == proto.LIST && isPacked {
 			currentAdd := []int{0, -1}

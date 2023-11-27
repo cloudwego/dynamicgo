@@ -72,20 +72,18 @@ func (self Node) sliceComplex(s int, e int, t proto.Type, kt proto.Type, et prot
 	return ret
 }
 
-func (self Node) sliceNodeWithDesc(s int, e int, desc *proto.FieldDescriptor) Node {
-	t := proto.FromProtoKindToType((*desc).Kind(), (*desc).IsList(), (*desc).IsMap())
+func (self Node) sliceNodeWithDesc(s int, e int, desc *proto.TypeDescriptor) Node {
+	t := desc.Type()
 	ret := Node{
 		t: t,
 		l: (e - s),
 		v: rt.AddPtr(self.v, uintptr(s)),
 	}
 	if t == proto.LIST {
-		ret.et = proto.FromProtoKindToType((*desc).Kind(), false, false)
+		ret.et = desc.Elem().Type()
 	} else if t == proto.MAP {
-		mapkey := (*desc).MapKey()
-		mapvalue := (*desc).MapValue()
-		ret.kt = proto.FromProtoKindToType(mapkey.Kind(), mapkey.IsList(), mapkey.IsMap())
-		ret.et = proto.FromProtoKindToType(mapvalue.Kind(), mapvalue.IsList(), mapvalue.IsMap())
+		ret.kt = desc.Key().Type()
+		ret.et = desc.Elem().Type()
 	}
 	return ret
 }
@@ -132,7 +130,7 @@ func (self *Node) replace(o Node, n Node) error {
 }
 
 // have problem in deal with byteLength
-func (o *Node) setNotFound(path Path, n *Node, desc *proto.FieldDescriptor) error {
+func (o *Node) setNotFound(path Path, n *Node, desc *proto.TypeDescriptor) error {
 	switch o.kt {
 	case proto.MESSAGE:
 		tag := path.ToRaw(n.t)
@@ -145,7 +143,7 @@ func (o *Node) setNotFound(path Path, n *Node, desc *proto.FieldDescriptor) erro
 	case proto.LIST:
 		// unpacked need write tag, packed needn't
 		if (*desc).IsPacked() == false {
-			fdNum := (*desc).Number()
+			fdNum := desc.BaseId()
 			tag := protowire.AppendVarint(nil, uint64(fdNum)<<3|uint64(proto.BytesType))
 			src := n.raw()
 			buf := make([]byte, 0, len(tag)+len(src))
@@ -156,11 +154,11 @@ func (o *Node) setNotFound(path Path, n *Node, desc *proto.FieldDescriptor) erro
 		}
 	case proto.MAP:
 		// pair tag
-		fdNum := (*desc).Number()
+		fdNum := desc.BaseId()
 		pairTag := protowire.AppendVarint(nil, uint64(fdNum)<<3|uint64(proto.BytesType))
 		buf := path.ToRaw(n.t) // keytag + key
-		valueKind := (*desc).MapValue().Kind()
-		valueTag := uint64(1)<<3 | uint64(proto.Kind2Wire[valueKind])
+		valueWireType := desc.Elem().WireType()
+		valueTag := uint64(1)<<3 | uint64(valueWireType)
 		buf = protowire.BinaryEncoder{}.EncodeUint64(buf, valueTag)                  // + value tag
 		src := n.raw()                                                               // + value
 		buf = append(buf, src...)                                                    // key + value
@@ -347,7 +345,7 @@ func NewComplexNode(t proto.Type, et proto.Type, kt proto.Type, src []byte) (ret
 }
 
 // returns all the children of a node, when recurse is false, it switch to lazyload mode, only direct children are returned
-func (self Node) Children(out *[]PathNode, recurse bool, opts *Options, desc *proto.MessageDescriptor) (err error) {
+func (self Node) Children(out *[]PathNode, recurse bool, opts *Options, desc *proto.TypeDescriptor) (err error) {
 	if self.Error() != "" {
 		return self
 	}
@@ -364,8 +362,8 @@ func (self Node) Children(out *[]PathNode, recurse bool, opts *Options, desc *pr
 		Node: self,
 		Next: (*out)[:0], // NOTICE: we reset it to zero.
 	}
-	rootDesc := (*desc).(proto.Descriptor)
-	err = tree.scanChildren(&p, recurse, opts, &rootDesc, len(p.Buf))
+	// rootDesc := (*desc).(proto.Descriptor)
+	err = tree.scanChildren(&p, recurse, opts, desc, len(p.Buf))
 	if err == nil {
 		*out = tree.Next
 	}
@@ -486,7 +484,7 @@ func (self Node) Field(id proto.FieldNumber, rootLayer bool, msgDesc *proto.Mess
 		return errNode(meta.ErrUnsupportedType, err, nil), nil
 	}
 
-	fd := (*msgDesc).Fields().ByNumber(id)
+	fd := msgDesc.ByNumber(id)
 
 	if fd == nil {
 		return errNode(meta.ErrUnknownField, fmt.Sprintf("field '%d' is not defined in IDL", id), nil), nil
@@ -511,15 +509,16 @@ func (self Node) Field(id proto.FieldNumber, rootLayer bool, msgDesc *proto.Mess
 	for it.HasNext() {
 		i, wt, s, e, tagPos := it.Next(UseNativeSkipForGet)
 		if i == fd.Number() {
-			if fd.IsMap() || fd.IsList() {
+			typDesc := fd.Type()
+			if typDesc.IsMap() || typDesc.IsList() {
 				it.p.Read = tagPos
-				if _, err := it.p.SkipAllElements(i, fd.IsPacked()); err != nil {
+				if _, err := it.p.SkipAllElements(i, typDesc.IsPacked()); err != nil {
 					return errNode(meta.ErrRead, "SkipAllElements in LIST/MAP failed", err), nil
 				}
 				s = tagPos
 				e = it.p.Read
 
-				v = self.sliceNodeWithDesc(s, e, &fd)
+				v = self.sliceNodeWithDesc(s, e, typDesc)
 				goto ret
 			}
 
@@ -528,7 +527,7 @@ func (self Node) Field(id proto.FieldNumber, rootLayer bool, msgDesc *proto.Mess
 				v = errNode(meta.ErrDismatchType, fmt.Sprintf("field '%s' expects type %s, buf got type %s", fd.Name(), t, wt), nil)
 				goto ret
 			}
-			v = self.sliceNodeWithDesc(s, e, &fd)
+			v = self.sliceNodeWithDesc(s, e, typDesc)
 			goto ret
 		} else if it.Err != nil {
 			v = errNode(meta.ErrRead, "", it.Err)
@@ -538,7 +537,7 @@ func (self Node) Field(id proto.FieldNumber, rootLayer bool, msgDesc *proto.Mess
 
 	v = errNode(meta.ErrNotFound, fmt.Sprintf("field '%d' is not found in this value", id), errNotFound)
 ret:
-	return v, &fd
+	return v, fd
 }
 
 func (self Node) Fields(ids []PathNode, rootLayer bool, msgDesc *proto.MessageDescriptor, opts *Options) error {
@@ -561,7 +560,7 @@ func (self Node) Fields(ids []PathNode, rootLayer bool, msgDesc *proto.MessageDe
 		return errNode(meta.ErrRead, "", it.Err)
 	}
 
-	Fields := (*msgDesc).Fields()
+
 
 	if !rootLayer {
 		if _, err := it.p.ReadLength(); err != nil {
@@ -580,17 +579,18 @@ func (self Node) Fields(ids []PathNode, rootLayer bool, msgDesc *proto.MessageDe
 		if it.Err != nil {
 			return errNode(meta.ErrRead, "", it.Err)
 		}
-		f := Fields.ByNumber(i)
-		if f.IsMap() || f.IsList() {
+		f := msgDesc.ByNumber(i)
+		typDesc := f.Type()
+		if typDesc.IsMap() || typDesc.IsList() {
 			it.p.Read = tagPos
-			if _, err := it.p.SkipAllElements(i, f.IsPacked()); err != nil {
+			if _, err := it.p.SkipAllElements(i, typDesc.IsPacked()); err != nil {
 				return errNode(meta.ErrRead, "SkipAllElements in LIST/MAP failed", err)
 			}
 			s = tagPos
 			e = it.p.Read
 		}
 
-		v := self.sliceNodeWithDesc(s, e, &f)
+		v := self.sliceNodeWithDesc(s, e, typDesc)
 
 		//TODO: use bitmap to avoid repeatedly scan
 		for j, id := range ids {

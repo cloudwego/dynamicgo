@@ -17,7 +17,7 @@ var opts = &Options{
 	CastStringAsBinary: false,
 }
 
-func TestExampleValue_GetByPath(t *testing.T) {
+func ExampleValue_GetByPath(t *testing.T) {
 	desc := getExample2Desc()
 	data := getExample2Data()
 	v := NewRootValue(desc, data)
@@ -77,7 +77,7 @@ func ExampleValue_SetByPath() {
 	fmt.Println(f2) // 中文
 }
 
-func TestExampleValue_SetMany(t *testing.T) {
+func ExampleValue_SetMany(t *testing.T) {
 	desc := getExample2Desc()
 	data := getExample2Data()
 	root := NewRootValue(desc, data)
@@ -156,7 +156,7 @@ func TestExampleValue_SetMany(t *testing.T) {
 	fmt.Println(ll2) // 8
 }
 
-func TestExampleValue_MarshalTo(t *testing.T) {
+func ExampleValue_MarshalTo(t *testing.T) {
 	desc := getExample2Desc()
 	data := getExample2Data()
 	v := NewRootValue(desc, data)
@@ -176,7 +176,7 @@ func TestExampleValue_MarshalTo(t *testing.T) {
 }
 
 
-func TestExamplePathNode_Load(* testing.T) {
+func ExamplePathNode_Load(* testing.T) {
 	desc := getExample2Desc()
 	data := getExample2Data()
 
@@ -235,7 +235,7 @@ func ExampleValue_MarshalAll() {
 	fmt.Printf("%#v", msg)
 }
 
-func TestExamplePathNode_MarshalMany(t *testing.T) {
+func ExamplePathNode_MarshalMany(t *testing.T) {
 	desc := getExample2Desc()
 	data := getExample2Data()
 

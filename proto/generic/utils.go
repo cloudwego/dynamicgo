@@ -353,7 +353,7 @@ func structToMapFieldNumberInterface(data interface{}, desc *proto.MessageDescri
 		fieldValue := value.FieldByName(fieldName).Interface()
 
 		// Convert the field name to FieldNumber type
-		fieldNumber := (*desc).Fields().ByName(protoreflect.Name(fieldName)).Number()
+		fieldNumber := desc.ByName(protoreflect.Name(fieldName)).Number()
 
 		result[fieldNumber] = fieldValue
 	}

@@ -204,7 +204,7 @@ func (self Value) list(opts *Options) ([]interface{}, error) {
 		return nil, it.Err
 	}
 	ret := make([]interface{}, 0, it.Size())
-	isPacked := (*self.Desc).IsPacked()
+	isPacked := self.Desc.IsPacked()
 
 	// read packed list tag and bytelen
 	if isPacked {
@@ -222,7 +222,7 @@ func (self Value) list(opts *Options) ([]interface{}, error) {
 			return nil, it.Err
 		}
 
-		v := wrapValue(self.slice(s, e, self.et), self.Desc)
+		v := wrapValue(self.slice(s, e, self.et), self.Desc.Elem())
 		vv, err := v.Interface(opts)
 		if err != nil {
 			return ret, err
@@ -259,13 +259,13 @@ func (self Value) intMap(opts *Options) (map[int]interface{}, error) {
 		return nil, it.Err
 	}
 	ret := make(map[int]interface{}, it.size)
-	valueDesc := (*self.Desc).MapValue()
+	valueDesc := self.Desc.Elem()
 	for it.HasNext() {
 		_, ks, s, e := it.NextInt(opts.UseNativeSkip)
 		if it.Err != nil {
 			return nil, it.Err
 		}
-		v := self.sliceWithDesc(s, e, &valueDesc)
+		v := self.sliceWithDesc(s, e, valueDesc)
 		vv, err := v.Interface(opts)
 		if err != nil {
 			return ret, err
@@ -298,13 +298,13 @@ func (self Value) strMap(opts *Options) (map[string]interface{}, error) {
 		return nil, errNode(meta.ErrUnsupportedType, "key type must be STRING", nil)
 	}
 	ret := make(map[string]interface{}, it.size)
-	valueDesc := (*self.Desc).MapValue()
+	valueDesc := self.Desc.Elem()
 	for it.HasNext() {
 		_, ks, s, e := it.NextStr(opts.UseNativeSkip)
 		if it.Err != nil {
 			return nil, it.Err
 		}
-		v := self.sliceWithDesc(s, e, &valueDesc)
+		v := self.sliceWithDesc(s, e, valueDesc)
 		vv, err := v.Interface(opts)
 		if err != nil {
 			return ret, err
@@ -348,11 +348,8 @@ func (self Value) Interface(opts *Options) (interface{}, error) {
 		}
 	case proto.MESSAGE:
 		it := self.iterFields()
-		var fds proto.FieldDescriptors
-		if self.RootDesc != nil {
-			fds = (*self.RootDesc).Fields()
-		} else {
-			fds = (*self.Desc).Message().Fields()
+		msg := self.Desc.Message()
+		if !self.IsRoot {
 			if _, err := it.p.ReadLength(); err != nil {
 				return nil, errValue(meta.ErrRead, "", err)
 			}
@@ -372,16 +369,16 @@ func (self Value) Interface(opts *Options) (interface{}, error) {
 
 		for it.HasNext() {
 			id, _, s, e, tagPos := it.Next(UseNativeSkipForGet)
-			f := fds.ByNumber(id)
+			f := msg.ByNumber(id)
 
 			if f == nil {
 				return nil, errValue(meta.ErrUnknownField, fmt.Sprintf("unknown field id %d", id), nil)
 			}
-
+			typDesc := f.Type()
 			if id == f.Number() {
-				if f.IsMap() || f.IsList() {
+				if typDesc.IsMap() || typDesc.IsList() {
 					it.p.Read = tagPos
-					if _, err := it.p.SkipAllElements(id, f.IsPacked()); err != nil {
+					if _, err := it.p.SkipAllElements(id, typDesc.IsPacked()); err != nil {
 						return nil, errValue(meta.ErrRead, "SkipAllElements in LIST/MAP failed", err)
 					}
 					s = tagPos
@@ -389,7 +386,7 @@ func (self Value) Interface(opts *Options) (interface{}, error) {
 				}
 			}
 
-			v := self.sliceWithDesc(s, e, &f)
+			v := self.sliceWithDesc(s, e, typDesc)
 			vv, err := v.Interface(opts)
 			if err != nil {
 				return nil, err
