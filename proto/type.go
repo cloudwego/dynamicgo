@@ -221,22 +221,19 @@ func (p Type) String() string {
 // define Number = protowire.Number (int32)
 type Number = protowire.Number
 
-type FieldNumber = Number
-type EnumNumber = Number
+type FieldNumber int32
+type EnumNumber int32
 
 // reserved field number min-max ranges in a proto message
 const (
-	MinValidNumber        Number = 1
-	FirstReservedNumber   Number = 19000
-	LastReservedNumber    Number = 19999
-	MaxValidNumber        Number = 1<<29 - 1
+	MinValidNumber        FieldNumber = 1
+	FirstReservedNumber   FieldNumber = 19000
+	LastReservedNumber    FieldNumber = 19999
+	MaxValidNumber        FieldNumber = 1<<29 - 1
 	DefaultRecursionLimit        = 10000
 )
 
-// define FieldName = protoreflect.Name (string) used in Descriptor.Name()
-type FieldName = protoreflect.Name
-
-// basic type TypeDescriptor
+// builtinTypes from descriptorProto to TypeDescriptor
 var builtinTypes = map[descriptorpb.FieldDescriptorProto_Type]*TypeDescriptor{
 	descriptorpb.FieldDescriptorProto_TYPE_DOUBLE:   {name:"DOUBLE", typ: DOUBLE},
 	descriptorpb.FieldDescriptorProto_TYPE_FLOAT:   {name:"FLOAT",typ: FLOAT},

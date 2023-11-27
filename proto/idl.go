@@ -169,8 +169,8 @@ func parseMessage(ctx context.Context, msgDesc *desc.MessageDescriptor, cache co
 	fields := msgDesc.GetFields()
 	md := &MessageDescriptor{
 		baseId:    FieldNumber(math.MaxInt32),
-		ids:       map[FieldNumber]*FieldDescriptor{},
-		names:     map[FieldName]*FieldDescriptor{},
+		ids:       FieldNumberMap{},
+		names:     FieldNameMap{},
 		jsonNames: map[string]*FieldDescriptor{},
 	}
 
@@ -193,7 +193,7 @@ func parseMessage(ctx context.Context, msgDesc *desc.MessageDescriptor, cache co
 		jsonName := field.GetJSONName()
 		fieldDesc := &FieldDescriptor{
 			id:       FieldNumber(id),
-			name:     FieldName(name),
+			name:     name,
 			jsonName: jsonName,
 		}
 
@@ -247,10 +247,12 @@ func parseMessage(ctx context.Context, msgDesc *desc.MessageDescriptor, cache co
 		}
 
 		// add fieldDescriptor to MessageDescriptor
-		md.ids[FieldNumber(id)] = fieldDesc
-		md.names[FieldName(name)] = fieldDesc
+		// md.ids[FieldNumber(id)] = fieldDesc
+		md.ids.Set(FieldNumber(id), fieldDesc)
+		md.names.Set(name, fieldDesc)
 		md.jsonNames[jsonName] = fieldDesc
 	}
+	md.names.Build()
 
 	return ty, nil
 }

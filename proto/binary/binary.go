@@ -135,7 +135,7 @@ func (p *BinaryProtocol) Recycle() {
 }
 
 // Append Tag
-func (p *BinaryProtocol) AppendTag(num proto.Number, typ proto.WireType) error {
+func (p *BinaryProtocol) AppendTag(num proto.FieldNumber, typ proto.WireType) error {
 	tag := uint64(num)<<3 | uint64(typ&7)
 	if num > proto.MaxValidNumber || num < proto.MinValidNumber {
 		return errInvalidFieldNumber
@@ -150,7 +150,7 @@ func (p *BinaryProtocol) AppendTagByKind(number proto.FieldNumber, kind proto.Pr
 }
 
 // ConsumeTag parses b as a varint-encoded tag, reporting its length.
-func (p *BinaryProtocol) ConsumeTag() (proto.Number, proto.WireType, int, error) {
+func (p *BinaryProtocol) ConsumeTag() (proto.FieldNumber, proto.WireType, int, error) {
 	v, n := protowire.ConsumeVarint((p.Buf)[p.Read:])
 	if n < 0 {
 		return 0, 0, n, errInvalidTag
@@ -159,7 +159,7 @@ func (p *BinaryProtocol) ConsumeTag() (proto.Number, proto.WireType, int, error)
 	if v>>3 > uint64(math.MaxInt32) {
 		return -1, 0, n, errUnknonwField
 	}
-	num, typ := proto.Number(v>>3), proto.WireType(v&7)
+	num, typ := proto.FieldNumber(v>>3), proto.WireType(v&7)
 	if num < proto.MinValidNumber {
 		return 0, 0, n, errInvalidFieldNumber
 	}
@@ -167,7 +167,7 @@ func (p *BinaryProtocol) ConsumeTag() (proto.Number, proto.WireType, int, error)
 }
 
 // ConsumeChildTag parses b as a varint-encoded tag, don't move p.Read
-func (p *BinaryProtocol) ConsumeTagWithoutMove() (proto.Number, proto.WireType, int, error) {
+func (p *BinaryProtocol) ConsumeTagWithoutMove() (proto.FieldNumber, proto.WireType, int, error) {
 	v, n := protowire.ConsumeVarint((p.Buf)[p.Read:])
 	if n < 0 {
 		return 0, 0, n, errInvalidTag
@@ -175,7 +175,7 @@ func (p *BinaryProtocol) ConsumeTagWithoutMove() (proto.Number, proto.WireType, 
 	if v>>3 > uint64(math.MaxInt32) {
 		return -1, 0, n, errUnknonwField
 	}
-	num, typ := proto.Number(v>>3), proto.WireType(v&7)
+	num, typ := proto.FieldNumber(v>>3), proto.WireType(v&7)
 	if num < proto.MinValidNumber {
 		return 0, 0, n, errInvalidFieldNumber
 	}
@@ -453,7 +453,7 @@ func (p *BinaryProtocol) WriteMessageFields(desc *proto.MessageDescriptor, val i
 	NeedMessageLen := true
 	if useFieldName {
 		for name, v := range val.(map[string]interface{}) {
-			f := desc.ByName(proto.FieldName(name))
+			f := desc.ByName(name)
 			if f == nil {
 				if disallowUnknown {
 					return errUnknonwField

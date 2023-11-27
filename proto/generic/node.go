@@ -142,7 +142,7 @@ func (o *Node) setNotFound(path Path, n *Node, desc *proto.TypeDescriptor) error
 		n.v = rt.GetBytePtr(buf)
 	case proto.LIST:
 		// unpacked need write tag, packed needn't
-		if (*desc).IsPacked() == false {
+		if desc.IsPacked() == false {
 			fdNum := desc.BaseId()
 			tag := protowire.AppendVarint(nil, uint64(fdNum)<<3|uint64(proto.BytesType))
 			src := n.raw()
@@ -362,7 +362,6 @@ func (self Node) Children(out *[]PathNode, recurse bool, opts *Options, desc *pr
 		Node: self,
 		Next: (*out)[:0], // NOTICE: we reset it to zero.
 	}
-	// rootDesc := (*desc).(proto.Descriptor)
 	err = tree.scanChildren(&p, recurse, opts, desc, len(p.Buf))
 	if err == nil {
 		*out = tree.Next

@@ -88,7 +88,7 @@ func (it *structIterator) Next(useNative bool) (id proto.FieldNumber, typ proto.
 	}
 	end = it.p.Read
 
-	id = proto.FieldNumber(fieldId)
+	id = fieldId
 	return
 }
 

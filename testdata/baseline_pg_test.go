@@ -1619,7 +1619,7 @@ func BenchmarkRationGet_DynamicGo(b *testing.B) {
 		testNums := int(math.Ceil(float64(fieldNums) * factor))
 		value := reflect.ValueOf(obj)
 		for id := 1; id <= testNums; id++ {
-			vv := v.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+			vv := v.GetByPath(generic.NewPathFieldId(proto.FieldNumber(id)))
 			require.Nil(b, vv.Check())
 			size := sizeNestingField(value, id)
 			data := make([]byte, size)
@@ -1639,7 +1639,7 @@ func BenchmarkRationGet_DynamicGo(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				option := generic.Options{}
 				for id := 1; id <= testNums; id++ {
-					vv := v.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+					vv := v.GetByPath(generic.NewPathFieldId(proto.FieldNumber(id)))
 					vv.Interface(&option)
 				}
 			}
@@ -1667,7 +1667,7 @@ func BenchmarkRationGet_DynamicGo(b *testing.B) {
 // 		value := reflect.ValueOf(obj)
 // 		for id := 1; id <= testNums; id++ {
 // 			// dynamicpb read data
-// 			targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+// 			targetDesc := (*desc).Fields().ByNumber(proto.FieldNumber(id))
 // 			if !message.Has(targetDesc) {
 // 				b.Fatal("dynamicpb can't find targetDesc")
 // 			}
@@ -1684,7 +1684,7 @@ func BenchmarkRationGet_DynamicGo(b *testing.B) {
 // 			for i := 0; i < b.N; i++ {
 // 				_ = goproto.Unmarshal(data, message)
 // 				for id := 1; id <= testNums; id++ {
-// 					targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+// 					targetDesc := (*desc).Fields().ByNumber(proto.FieldNumber(id))
 // 					v := message.Get(targetDesc)
 // 					v.Interface()
 // 				}
@@ -1713,18 +1713,18 @@ func BenchmarkProtoRationSetBefore(b *testing.B) {
 		value := reflect.ValueOf(obj)
 		for id := 1; id <= testNums; id++ {
 			p := binary.NewBinaryProtocolBuffer()
-			fieldDesc := desc.Message().ByNumber(proto.Number(id))
+			fieldDesc := desc.Message().ByNumber(proto.FieldNumber(id))
 			if err := collectMarshalData(id, value, &mObj); err != nil {
 				b.Fatal("collect MarshalData failed")
 			}
 			if err := buildBinaryProtocolByFieldId(id, p, value, fieldDesc); err != nil {
 				b.Fatal("build BinaryProtocolByFieldId failed")
 			}
-			field := desc.Message().ByNumber(proto.Number(id)).Type()
+			field := desc.Message().ByNumber(proto.FieldNumber(id)).Type()
 			n := generic.NewValue(field, p.Buf)
-			_, err := v.SetByPath(n.Node, generic.NewPathFieldId(proto.Number(id)))
+			_, err := v.SetByPath(n.Node, generic.NewPathFieldId(proto.FieldNumber(id)))
 			require.Nil(b, err)
-			nn := v.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+			nn := v.GetByPath(generic.NewPathFieldId(proto.FieldNumber(id)))
 			nndata := nn.Raw()
 			ndata := n.Raw()
 			if nn.Type() != proto.MAP {
@@ -1758,11 +1758,11 @@ func BenchmarkProtoRationSetBefore(b *testing.B) {
 				ps := make([]generic.PathNode, 0)
 				for id := 1; id <= testNums; id++ {
 					p := binary.NewBinaryProtocolBuffer()
-					fieldDesc := desc.Message().ByNumber(proto.Number(id))
+					fieldDesc := desc.Message().ByNumber(proto.FieldNumber(id))
 					_ = buildBinaryProtocolByFieldId(id, p, value, fieldDesc)
-					field := desc.Message().ByNumber(proto.Number(id)).Type()
+					field := desc.Message().ByNumber(proto.FieldNumber(id)).Type()
 					n := generic.NewValue(field, p.Buf)
-					_, _ = v.SetByPath(n.Node, generic.NewPathFieldId(proto.Number(id)))
+					_, _ = v.SetByPath(n.Node, generic.NewPathFieldId(proto.FieldNumber(id)))
 					pnode := generic.PathNode{
 						Path: generic.NewPathFieldId(proto.FieldNumber(id)),
 						Node: n.Node,
@@ -1804,11 +1804,11 @@ func BenchmarkRationSet_DynamicGo(b *testing.B) {
 			if err := collectMarshalData(id, value, &mObj); err != nil {
 				b.Fatal("collect MarshalData failed")
 			}
-			x := objRoot.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+			x := objRoot.GetByPath(generic.NewPathFieldId(proto.FieldNumber(id)))
 			require.Nil(b, x.Check())
 			m, err := x.Interface(&generic.Options{MapStructById: true})
 			require.Nil(b, err)
-			field := desc.Message().ByNumber(proto.Number(id)).Type()
+			field := desc.Message().ByNumber(proto.FieldNumber(id)).Type()
 			if field.IsMap() {
 				err = p.WriteMap(field, m, true, false, false)
 			} else if field.IsList() {
@@ -1826,9 +1826,9 @@ func BenchmarkRationSet_DynamicGo(b *testing.B) {
 			}
 			// fmt.Println(id)
 			require.Equal(b, len(newValue.Raw()), len(x.Raw()))
-			_, err = newRoot.SetByPath(newValue.Node, generic.NewPathFieldId(proto.Number(id)))
+			_, err = newRoot.SetByPath(newValue.Node, generic.NewPathFieldId(proto.FieldNumber(id)))
 			require.Nil(b, err)
-			vv := newRoot.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+			vv := newRoot.GetByPath(generic.NewPathFieldId(proto.FieldNumber(id)))
 			require.Equal(b, len(newValue.Raw()), len(vv.Raw()))
 			p.Recycle()
 			ps = append(ps, generic.PathNode{ Path: generic.NewPathFieldId(proto.FieldNumber(id)), Node: newValue.Node })
@@ -1855,9 +1855,9 @@ func BenchmarkRationSet_DynamicGo(b *testing.B) {
 				p := binary.NewBinaryProtocolBuffer()
 				opt := &generic.Options{MapStructById: true}
 				for id := 1; id <= testNums; id++ {
-					x := objRoot.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+					x := objRoot.GetByPath(generic.NewPathFieldId(proto.FieldNumber(id)))
 					newValue := x.Fork()
-					_, err = newRoot.SetByPath(newValue.Node, generic.NewPathFieldId(proto.Number(id)))
+					_, err = newRoot.SetByPath(newValue.Node, generic.NewPathFieldId(proto.FieldNumber(id)))
 					p.Recycle()
 					ps = append(ps, generic.PathNode{Path: generic.NewPathFieldId(proto.FieldNumber(id))})
 				}
@@ -1897,11 +1897,11 @@ func BenchmarkRationSetByInterface_DynamicGo(b *testing.B) {
 			if err := collectMarshalData(id, value, &mObj); err != nil {
 				b.Fatal("collect MarshalData failed")
 			}
-			x := objRoot.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+			x := objRoot.GetByPath(generic.NewPathFieldId(proto.FieldNumber(id)))
 			require.Nil(b, x.Check())
 			m, err := x.Interface(&generic.Options{MapStructById: true})
 			require.Nil(b, err)
-			field := desc.Message().ByNumber(proto.Number(id)).Type()
+			field := desc.Message().ByNumber(proto.FieldNumber(id)).Type()
 			if field.IsMap() {
 				err = p.WriteMap(field, m, true, false, false)
 			} else if field.IsList() {
@@ -1919,9 +1919,9 @@ func BenchmarkRationSetByInterface_DynamicGo(b *testing.B) {
 			}
 			// fmt.Println(id)
 			require.Equal(b, len(newValue.Raw()), len(x.Raw()))
-			_, err = newRoot.SetByPath(newValue.Node, generic.NewPathFieldId(proto.Number(id)))
+			_, err = newRoot.SetByPath(newValue.Node, generic.NewPathFieldId(proto.FieldNumber(id)))
 			require.Nil(b, err)
-			vv := newRoot.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+			vv := newRoot.GetByPath(generic.NewPathFieldId(proto.FieldNumber(id)))
 			require.Equal(b, len(newValue.Raw()), len(vv.Raw()))
 			p.Recycle()
 			ps = append(ps, generic.PathNode{ Path: generic.NewPathFieldId(proto.FieldNumber(id)), Node: newValue.Node })
@@ -1948,9 +1948,9 @@ func BenchmarkRationSetByInterface_DynamicGo(b *testing.B) {
 				p := binary.NewBinaryProtocolBuffer()
 				opt := &generic.Options{MapStructById: true}
 				for id := 1; id <= testNums; id++ {
-					x := objRoot.GetByPath(generic.NewPathFieldId(proto.Number(id)))
+					x := objRoot.GetByPath(generic.NewPathFieldId(proto.FieldNumber(id)))
 					m, _ := x.Interface(opt)
-					field := desc.Message().ByNumber(proto.Number(id)).Type()
+					field := desc.Message().ByNumber(proto.FieldNumber(id)).Type()
 					if field.IsMap() {
 						_ = p.WriteMap(field, m, true, false, false)
 					} else if field.IsList() {
@@ -1971,7 +1971,7 @@ func BenchmarkRationSetByInterface_DynamicGo(b *testing.B) {
 					// 	et := proto.FromProtoKindToType(field.MapValue().Kind(), false, false)
 					// 	newValue.SetElemType(et)
 					// }
-					_, err = newRoot.SetByPath(newValue.Node, generic.NewPathFieldId(proto.Number(id)))
+					_, err = newRoot.SetByPath(newValue.Node, generic.NewPathFieldId(proto.FieldNumber(id)))
 					p.Recycle()
 					ps = append(ps, generic.PathNode{Path: generic.NewPathFieldId(proto.FieldNumber(id))})
 				}
@@ -2086,7 +2086,7 @@ func BenchmarkRationSetMany_DynamicGo(b *testing.B) {
 
 // 		message := dynamicpb.NewMessage(*desc)
 // 		for id := 1; id <= testNums; id++ {
-// 			targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+// 			targetDesc := (*desc).Fields().ByNumber(proto.FieldNumber(id))
 // 			fieldValue := objMessage.Get(targetDesc)
 // 			v := fieldValue.Interface()
 // 			newValue := protoreflect.ValueOf(v)
@@ -2107,7 +2107,7 @@ func BenchmarkRationSetMany_DynamicGo(b *testing.B) {
 // 				}
 // 				message := dynamicpb.NewMessage(*desc)
 // 				for id := 1; id <= testNums; id++ {
-// 					targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+// 					targetDesc := (*desc).Fields().ByNumber(proto.FieldNumber(id))
 // 					fieldValue := objMessage.Get(targetDesc)
 // 					message.Set(targetDesc, fieldValue)
 // 				}
@@ -2137,7 +2137,7 @@ func BenchmarkRationSetMany_DynamicGo(b *testing.B) {
 
 // 		message := dynamicpb.NewMessage(*desc)
 // 		for id := 1; id <= testNums; id++ {
-// 			targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+// 			targetDesc := (*desc).Fields().ByNumber(proto.FieldNumber(id))
 // 			fieldValue := objMessage.Get(targetDesc)
 // 			v := fieldValue.Interface()
 // 			newValue := protoreflect.ValueOf(v)
@@ -2158,7 +2158,7 @@ func BenchmarkRationSetMany_DynamicGo(b *testing.B) {
 // 				}
 // 				message := dynamicpb.NewMessage(*desc)
 // 				for id := 1; id <= testNums; id++ {
-// 					targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+// 					targetDesc := (*desc).Fields().ByNumber(proto.FieldNumber(id))
 // 					fieldValue := objMessage.Get(targetDesc)
 // 					v := fieldValue.Interface()
 // 					newValue := protoreflect.ValueOf(v)

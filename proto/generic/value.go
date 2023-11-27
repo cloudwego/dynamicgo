@@ -120,7 +120,7 @@ func searchFieldId(p *binary.BinaryProtocol, id proto.FieldNumber, messageLen in
 // searchIndex in LIST Node
 // packed: if idx is found, return the element[V] value start position, otherwise return the end of p.Buf
 // unpacked: if idx is found, return the element[TLV] tag position, otherwise return the end of p.Buf
-func searchIndex(p *binary.BinaryProtocol, idx int, elementWireType proto.WireType, isPacked bool, fieldNumber proto.Number) (int, error) {
+func searchIndex(p *binary.BinaryProtocol, idx int, elementWireType proto.WireType, isPacked bool, fieldNumber proto.FieldNumber) (int, error) {
 	// packed list
 	cnt := 0
 	result := p.Read
@@ -348,7 +348,7 @@ func (self Value) getByPath(pathes ...Path) (Value, []int) {
 				tt = proto.MESSAGE
 			}
 		case PathFieldName:
-			name := proto.FieldName(path.str())
+			name := path.str()
 			messageLen := 0
 			if isRoot {
 				messageLen = len(p.Buf)
@@ -505,7 +505,7 @@ func (self *Value) SetByPath(sub Node, path ...Path) (exist bool, err error) {
 
 		// exchange PathFieldName to create PathFieldId
 		if targetPath.t == PathFieldName {
-			f := desc.Message().ByName(proto.FieldName(targetPath.str()))
+			f := desc.Message().ByName(targetPath.str())
 			targetPath = NewPathFieldId(f.Number())
 			desc = f.Type()
 		}
@@ -626,7 +626,7 @@ func (self *Value) UnsetByPath(path ...Path) error {
 	isPacked := desc.IsPacked()
 	
 	if p.t == PathFieldName {
-		f := desc.Message().ByName(proto.FieldName(p.str()))
+		f := desc.Message().ByName(p.str())
 		p = NewPathFieldId(f.Number())
 	} 
 
@@ -957,7 +957,7 @@ func (self Value) FieldByName(name string) (v Value) {
 		}
 	}
 
-	f := self.Desc.Message().ByName(proto.FieldName(name))
+	f := self.Desc.Message().ByName(name)
 	if f == nil {
 		return errValue(meta.ErrUnknownField, fmt.Sprintf("field '%s' is not defined in IDL", name), nil)
 	}

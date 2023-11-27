@@ -8,7 +8,6 @@ import (
 
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 var bytesType = reflect.TypeOf([]byte{})
@@ -353,7 +352,7 @@ func structToMapFieldNumberInterface(data interface{}, desc *proto.MessageDescri
 		fieldValue := value.FieldByName(fieldName).Interface()
 
 		// Convert the field name to FieldNumber type
-		fieldNumber := desc.ByName(protoreflect.Name(fieldName)).Number()
+		fieldNumber := desc.ByName(fieldName).Number()
 
 		result[fieldNumber] = fieldValue
 	}

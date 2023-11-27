@@ -1,19 +1,7 @@
 package proto
 
-// type Descriptor = protoreflect.Descriptor
-
-// type FileDescriptor = protoreflect.FileDescriptor
-
-// type ServiceDescriptor = protoreflect.ServiceDescriptor
-
-// type MethodDescriptor = protoreflect.MethodDescriptor
-
-// type MessageDescriptor = protoreflect.MessageDescriptor
-
-// type FieldDescriptor = protoreflect.FieldDescriptor
-
 type TypeDescriptor struct {
-	baseId FieldNumber // for LIST/MAP to write field tag
+	baseId FieldNumber // for LIST/MAP to write field tag by baseId
 	typ    Type
 	name   string
 	key    *TypeDescriptor
@@ -33,8 +21,6 @@ func (t *TypeDescriptor) Elem() *TypeDescriptor {
 	return t.elem
 }
 
-// if List+Message it can get message element descriptor
-// if Map it can get map key-value entry massage descriptor
 func (t *TypeDescriptor) Message() *MessageDescriptor {
 	return t.msg
 }
@@ -70,7 +56,7 @@ func (f *TypeDescriptor) Name() string {
 type FieldDescriptor struct {
 	kind     ProtoKind // the same value with protobuf descriptor
 	id       FieldNumber
-	name     FieldName
+	name     string
 	jsonName string
 	typ      *TypeDescriptor
 }
@@ -83,7 +69,7 @@ func (f *FieldDescriptor) Kind() ProtoKind {
 	return f.kind
 }
 
-func (f *FieldDescriptor) Name() FieldName {
+func (f *FieldDescriptor) Name() string {
 	return f.name
 }
 
@@ -95,6 +81,9 @@ func (f *FieldDescriptor) Type() *TypeDescriptor {
 	return f.typ
 }
 
+// when List+Message it can get message element descriptor
+// when Map it can get map key-value entry massage descriptor
+// when Message it can get sub message descriptor
 func (f *FieldDescriptor) Message() *MessageDescriptor {
 	return f.typ.Message()
 }
@@ -122,14 +111,16 @@ func (f *FieldDescriptor) IsList() bool {
 }
 
 type MessageDescriptor struct {
-	baseId    FieldNumber
-	name      FieldName
-	ids       map[FieldNumber]*FieldDescriptor
-	names     map[FieldName]*FieldDescriptor
+	baseId FieldNumber
+	name   string
+	ids    FieldNumberMap
+	names  FieldNameMap
+	// ids       map[FieldNumber]*FieldDescriptor
+	// names     map[FieldName]*FieldDescriptor
 	jsonNames map[string]*FieldDescriptor
 }
 
-func (m *MessageDescriptor) Name() FieldName {
+func (m *MessageDescriptor) Name() string {
 	return m.name
 }
 
@@ -137,16 +128,16 @@ func (m *MessageDescriptor) ByJSONName(name string) *FieldDescriptor {
 	return m.jsonNames[name]
 }
 
-func (m *MessageDescriptor) ByName(name FieldName) *FieldDescriptor {
-	return m.names[name]
+func (m *MessageDescriptor) ByName(name string) *FieldDescriptor {
+	return m.names.Get(name)
 }
 
 func (m *MessageDescriptor) ByNumber(id FieldNumber) *FieldDescriptor {
-	return m.ids[id]
+	return m.ids.Get(id)
 }
 
 func (m *MessageDescriptor) FieldsCount() int {
-	return len(m.ids)
+	return m.ids.Size() - 1
 }
 
 type MethodDescriptor struct {

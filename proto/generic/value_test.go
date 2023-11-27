@@ -576,10 +576,7 @@ func TestSetByPath(t *testing.T) {
 	data := getExample2Data()
 	v := NewRootValue(desc, data)
 	v2 := NewNode(proto.MESSAGE, data)
-	// ds := (*desc).Fields().ByName("Subfix")
 	d2 := desc.Message().ByName("InnerBase2").Message().ByName("Base").Message().ByName("Extra").MapValue()
-	// d3 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListInt32")
-	// d4 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListString")
 	e, err := v.SetByPath(v2)
 	require.True(t, e)
 	require.Nil(t, err)
@@ -713,12 +710,6 @@ func TestUnsetByPath(t *testing.T) {
 	data := getExample2Data()
 	r := NewRootValue(desc, data)
 	req := getExample2Req()
-
-	// ds := (*desc).Fields().ByName("Subfix")
-	// d1 := (*desc).Fields().ByName("Msg")
-	// d2 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("Base").Message().Fields().ByName("Extra").MapValue()
-	// d3 := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("ListInt32")
-
 	v := r.Fork()
 	err := v.UnsetByPath()
 	require.Nil(t, err)

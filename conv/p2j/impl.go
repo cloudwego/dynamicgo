@@ -10,7 +10,6 @@ import (
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/proto/binary"
-	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
@@ -58,7 +57,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.TypeDesc
 			return wrapError(meta.ErrRead, "", e)
 		}
 
-		fd := messageDesc.ByNumber(protowire.Number(fieldId))
+		fd := messageDesc.ByNumber(fieldId)
 		if fd == nil {
 			if self.opts.DisallowUnknownField {
 				return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", fieldId), nil)
@@ -220,7 +219,7 @@ func (self *BinaryConv) unmarshalSingular(ctx context.Context, resp http.Respons
 				return wrapError(meta.ErrRead, "", e)
 			}
 
-			fd := message.ByNumber(protowire.Number(fieldId))
+			fd := message.ByNumber(fieldId)
 			if fd == nil {
 				if self.opts.DisallowUnknownField {
 					return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", fieldId), nil)

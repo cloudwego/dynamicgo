@@ -346,7 +346,7 @@ func (self *visitorUserNode) OnObjectBegin(capacity int) error {
 			}
 		} else {
 			// case Message, encode Tag、PrefixLen, push MessageDesc、PrefixLen
-			if err = self.p.AppendTag(proto.Number(fieldDesc.Number()), proto.BytesType); err != nil {
+			if err = self.p.AppendTag(fieldDesc.Number(), proto.BytesType); err != nil {
 				return meta.NewError(meta.ErrWrite, "append prefix tag failed", nil)
 			}
 			self.p.Buf, curNodeLenPos = binary.AppendSpeculativeLength(self.p.Buf)
@@ -471,7 +471,7 @@ func (self *visitorUserNode) OnArrayBegin(capacity int) error {
 	if self.globalFieldDesc != nil {
 		// PackedList: encode Tag、Len
 		if self.globalFieldDesc.Type().IsPacked() {
-			if err = self.p.AppendTag(proto.Number(self.globalFieldDesc.Number()), proto.BytesType); err != nil {
+			if err = self.p.AppendTag(self.globalFieldDesc.Number(), proto.BytesType); err != nil {
 				return meta.NewError(meta.ErrWrite, "append prefix tag failed", nil)
 			}
 			self.p.Buf, curNodeLenPos = binary.AppendSpeculativeLength(self.p.Buf)

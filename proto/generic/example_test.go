@@ -53,12 +53,10 @@ func ExampleValue_SetByPath() {
 	data := getExample2Data()
 	v := NewRootValue(desc, data)
 
-	// d := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("Base").Message().Fields().ByName("Extra")
 	p := binary.NewBinaryProtol([]byte{})
 	exp := "中文"
 	p.WriteString(exp)
 	buf := p.RawBuf()
-	// vv := NewValue(&d, buf)
 	vv := NewNode(proto.STRING, buf)
 
 	ps := []Path{NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("b")}

@@ -266,40 +266,6 @@ func guardPathNodeSlice(con *[]PathNode, l int) {
 	}
 }
 
-// // DescriptorToPathNode converts a proto kind descriptor to a DOM, assgining path to root
-// // NOTICE: it only recursively converts MESSAGE type
-// func descriptorToPathNode(desc *proto.FieldDescriptor, root *PathNode, opts *Options) error {
-// 	if desc == nil || root == nil {
-// 		panic("nil pointer")
-// 	}
-
-// 	if desc.Kind() == proto.MessageKind && (*desc).IsMap() == false {
-// 		fs := (*desc).Message().Fields()
-// 		ns := root.Next
-// 		if cap(ns) == 0 {
-// 			ns = make([]PathNode, 0, fs.Len())
-// 		} else {
-// 			ns = ns[:0]
-// 		}
-// 		for i := 0; i <= fs.Len(); i++ {
-// 			fd := fs.Get(i)
-// 			var p PathNode
-// 			// if opts.FieldByName {
-// 			// 	p.Path = NewPathFieldName(f.Name())
-// 			// } else {
-// 			p.Path = NewPathFieldId(fd.Number())
-// 			// }
-// 			if err := descriptorToPathNode(&fd, &p, opts); err != nil {
-// 				return err
-// 			}
-// 			ns = append(ns, p)
-// 		}
-// 		root.Next = ns
-
-// 	}
-// 	return nil
-// }
-
 // scanChildren scans all children of self and store them in self.Next
 // messageLen is only used when self.Node.t == proto.MESSAGE
 func (self *PathNode) scanChildren(p *binary.BinaryProtocol, recurse bool, opts *Options, desc *proto.TypeDescriptor, messageLen int) (err error) {
@@ -624,7 +590,7 @@ func getDescByPath(root *proto.TypeDescriptor, pathes ...Path) (*proto.TypeDescr
 				}
 				desc = f.Type()
 			case PathFieldName:
-				f := desc.Message().ByName(proto.FieldName(p.str()))
+				f := desc.Message().ByName(p.str())
 				if f == nil {
 					return nil, wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %s", p.str()), nil)
 				}
@@ -644,7 +610,7 @@ func getDescByPath(root *proto.TypeDescriptor, pathes ...Path) (*proto.TypeDescr
 					}
 					desc = f.Type()
 				case PathFieldName:
-					f := desc.Message().ByName(proto.FieldName(p.str()))
+					f := desc.Message().ByName(p.str())
 					if f == nil {
 						return nil, wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %s", p.str()), nil)
 					}
