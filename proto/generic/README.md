@@ -175,7 +175,7 @@ type Node struct {
 ```
 
 <a name="NewComplexNode"></a>
-### func [NewComplexNode](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L319>)
+### func [NewComplexNode](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L317>)
 
 ```go
 func NewComplexNode(t proto.Type, et proto.Type, kt proto.Type, src []byte) (ret Node)
@@ -184,7 +184,7 @@ func NewComplexNode(t proto.Type, et proto.Type, kt proto.Type, src []byte) (ret
 NewComplexNode can deal with all the types, only if the src is a valid byte slice
 
 <a name="NewNode"></a>
-### func [NewNode](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L207>)
+### func [NewNode](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L205>)
 
 ```go
 func NewNode(t proto.Type, src []byte) Node
@@ -193,7 +193,7 @@ func NewNode(t proto.Type, src []byte) Node
 NewNode method: creates a new node from a byte slice
 
 <a name="NewNodeBool"></a>
-### func [NewNodeBool](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L216>)
+### func [NewNodeBool](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L214>)
 
 ```go
 func NewNodeBool(val bool) Node
@@ -202,7 +202,7 @@ func NewNodeBool(val bool) Node
 
 
 <a name="NewNodeByte"></a>
-### func [NewNodeByte](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L222>)
+### func [NewNodeByte](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L220>)
 
 ```go
 func NewNodeByte(val byte) Node
@@ -211,7 +211,7 @@ func NewNodeByte(val byte) Node
 
 
 <a name="NewNodeBytes"></a>
-### func [NewNodeBytes](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L312>)
+### func [NewNodeBytes](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L310>)
 
 ```go
 func NewNodeBytes(val []byte) Node
@@ -220,7 +220,7 @@ func NewNodeBytes(val []byte) Node
 
 
 <a name="NewNodeDouble"></a>
-### func [NewNodeDouble](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L300>)
+### func [NewNodeDouble](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L298>)
 
 ```go
 func NewNodeDouble(val float64) Node
@@ -229,7 +229,7 @@ func NewNodeDouble(val float64) Node
 
 
 <a name="NewNodeEnum"></a>
-### func [NewNodeEnum](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L228>)
+### func [NewNodeEnum](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L226>)
 
 ```go
 func NewNodeEnum(val int32) Node
@@ -238,7 +238,7 @@ func NewNodeEnum(val int32) Node
 
 
 <a name="NewNodeFixed32"></a>
-### func [NewNodeFixed32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L252>)
+### func [NewNodeFixed32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L250>)
 
 ```go
 func NewNodeFixed32(val uint32) Node
@@ -247,7 +247,7 @@ func NewNodeFixed32(val uint32) Node
 
 
 <a name="NewNodeFixed64"></a>
-### func [NewNodeFixed64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L282>)
+### func [NewNodeFixed64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L280>)
 
 ```go
 func NewNodeFixed64(val uint64) Node
@@ -256,7 +256,7 @@ func NewNodeFixed64(val uint64) Node
 
 
 <a name="NewNodeFloat"></a>
-### func [NewNodeFloat](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L294>)
+### func [NewNodeFloat](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L292>)
 
 ```go
 func NewNodeFloat(val float32) Node
@@ -265,7 +265,7 @@ func NewNodeFloat(val float32) Node
 
 
 <a name="NewNodeInt32"></a>
-### func [NewNodeInt32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L234>)
+### func [NewNodeInt32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L232>)
 
 ```go
 func NewNodeInt32(val int32) Node
@@ -274,7 +274,7 @@ func NewNodeInt32(val int32) Node
 
 
 <a name="NewNodeInt64"></a>
-### func [NewNodeInt64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L264>)
+### func [NewNodeInt64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L262>)
 
 ```go
 func NewNodeInt64(val int64) Node
@@ -283,7 +283,7 @@ func NewNodeInt64(val int64) Node
 
 
 <a name="NewNodeSfixed32"></a>
-### func [NewNodeSfixed32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L258>)
+### func [NewNodeSfixed32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L256>)
 
 ```go
 func NewNodeSfixed32(val int32) Node
@@ -292,7 +292,7 @@ func NewNodeSfixed32(val int32) Node
 
 
 <a name="NewNodeSfixed64"></a>
-### func [NewNodeSfixed64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L288>)
+### func [NewNodeSfixed64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L286>)
 
 ```go
 func NewNodeSfixed64(val int64) Node
@@ -301,7 +301,7 @@ func NewNodeSfixed64(val int64) Node
 
 
 <a name="NewNodeSint32"></a>
-### func [NewNodeSint32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L240>)
+### func [NewNodeSint32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L238>)
 
 ```go
 func NewNodeSint32(val int32) Node
@@ -310,7 +310,7 @@ func NewNodeSint32(val int32) Node
 
 
 <a name="NewNodeSint64"></a>
-### func [NewNodeSint64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L270>)
+### func [NewNodeSint64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L268>)
 
 ```go
 func NewNodeSint64(val int64) Node
@@ -319,7 +319,7 @@ func NewNodeSint64(val int64) Node
 
 
 <a name="NewNodeString"></a>
-### func [NewNodeString](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L306>)
+### func [NewNodeString](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L304>)
 
 ```go
 func NewNodeString(val string) Node
@@ -328,7 +328,7 @@ func NewNodeString(val string) Node
 
 
 <a name="NewNodeUint32"></a>
-### func [NewNodeUint32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L246>)
+### func [NewNodeUint32](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L244>)
 
 ```go
 func NewNodeUint32(val uint32) Node
@@ -337,7 +337,7 @@ func NewNodeUint32(val uint32) Node
 
 
 <a name="NewNodeUint64"></a>
-### func [NewNodeUint64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L276>)
+### func [NewNodeUint64](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L274>)
 
 ```go
 func NewNodeUint64(val uint64) Node
@@ -373,10 +373,10 @@ func (self *Node) Check() error
 Check checks if it is a ERROR node and returns corresponding error
 
 <a name="Node.Children"></a>
-### func (Node) [Children](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L350>)
+### func (Node) [Children](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L348>)
 
 ```go
-func (self Node) Children(out *[]PathNode, recurse bool, opts *Options, desc *proto.MessageDescriptor) (err error)
+func (self Node) Children(out *[]PathNode, recurse bool, opts *Options, desc *proto.TypeDescriptor) (err error)
 ```
 
 returns all the children of a node, when recurse is false, it switch to lazyload mode, only direct children are returned
@@ -409,7 +409,7 @@ func (self Node) Error() string
 Error return error message if it is a ERROR node
 
 <a name="Node.Field"></a>
-### func (Node) [Field](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L484>)
+### func (Node) [Field](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L481>)
 
 ```go
 func (self Node) Field(id proto.FieldNumber, rootLayer bool, msgDesc *proto.MessageDescriptor) (v Node, f *proto.FieldDescriptor)
@@ -418,7 +418,7 @@ func (self Node) Field(id proto.FieldNumber, rootLayer bool, msgDesc *proto.Mess
 
 
 <a name="Node.Fields"></a>
-### func (Node) [Fields](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L544>)
+### func (Node) [Fields](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L542>)
 
 ```go
 func (self Node) Fields(ids []PathNode, rootLayer bool, msgDesc *proto.MessageDescriptor, opts *Options) error
@@ -445,7 +445,7 @@ func (self Node) Fork() Node
 Fork forks the node to a new node, copy underlying data as well
 
 <a name="Node.GetByInt"></a>
-### func (Node) [GetByInt](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L454>)
+### func (Node) [GetByInt](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L451>)
 
 ```go
 func (self Node) GetByInt(key int) (v Node)
@@ -454,7 +454,7 @@ func (self Node) GetByInt(key int) (v Node)
 Get int key of a MAP node
 
 <a name="Node.GetByStr"></a>
-### func (Node) [GetByStr](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L422>)
+### func (Node) [GetByStr](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L419>)
 
 ```go
 func (self Node) GetByStr(key string) (v Node)
@@ -463,7 +463,7 @@ func (self Node) GetByStr(key string) (v Node)
 Get string key of a MAP node
 
 <a name="Node.Gets"></a>
-### func (Node) [Gets](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L675>)
+### func (Node) [Gets](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L674>)
 
 ```go
 func (self Node) Gets(keys []PathNode, opts *Options) error
@@ -472,7 +472,7 @@ func (self Node) Gets(keys []PathNode, opts *Options) error
 
 
 <a name="Node.Index"></a>
-### func (Node) [Index](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L376>)
+### func (Node) [Index](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L373>)
 
 ```go
 func (self Node) Index(idx int) (v Node)
@@ -481,7 +481,7 @@ func (self Node) Index(idx int) (v Node)
 Get idx element of a LIST node
 
 <a name="Node.Indexes"></a>
-### func (Node) [Indexes](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L612>)
+### func (Node) [Indexes](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L611>)
 
 ```go
 func (self Node) Indexes(ins []PathNode, opts *Options) error
@@ -553,7 +553,7 @@ func (self Node) Raw() []byte
 Return its underlying raw data
 
 <a name="Node.SetElemType"></a>
-### func (*Node) [SetElemType](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L97>)
+### func (*Node) [SetElemType](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L95>)
 
 ```go
 func (self *Node) SetElemType(et proto.Type)
@@ -562,7 +562,7 @@ func (self *Node) SetElemType(et proto.Type)
 
 
 <a name="Node.SetKeyType"></a>
-### func (*Node) [SetKeyType](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L101>)
+### func (*Node) [SetKeyType](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/node.go#L99>)
 
 ```go
 func (self *Node) SetKeyType(kt proto.Type)
@@ -774,16 +774,16 @@ func (self PathNode) CopyTo(to *PathNode)
 CopyTo deeply copy self and its children to a PathNode
 
 <a name="PathNode.Load"></a>
-### func (*PathNode) [Load](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/path.go#L596>)
+### func (*PathNode) [Load](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/path.go#L563>)
 
 ```go
-func (self *PathNode) Load(recurse bool, opts *Options, desc *proto.MessageDescriptor) error
+func (self *PathNode) Load(recurse bool, opts *Options, desc *proto.TypeDescriptor) error
 ```
 
 Load loads self's all children ( and children's children if recurse is true) into self.Next, no matter whether self.Next is empty or set before (will be reset). NOTICE: if opts.NotScanParentNode is true, the parent nodes (PathNode.Node) of complex (map/list/struct) type won't be assgined data
 
 <a name="PathNode.Marshal"></a>
-### func (PathNode) [Marshal](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/path.go#L677>)
+### func (PathNode) [Marshal](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/path.go#L639>)
 
 ```go
 func (self PathNode) Marshal(opt *Options) (out []byte, err error)
@@ -852,8 +852,8 @@ const (
 ```go
 type Value struct {
     Node
-    RootDesc *proto.MessageDescriptor
-    Desc     *proto.FieldDescriptor
+    Desc   *proto.TypeDescriptor
+    IsRoot bool
 }
 ```
 
@@ -893,7 +893,7 @@ fmt.Printf("%#v", msg)
 ### func [NewComplexValue](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L64>)
 
 ```go
-func NewComplexValue(desc *proto.FieldDescriptor, src []byte) Value
+func NewComplexValue(desc *proto.TypeDescriptor, src []byte) Value
 ```
 
 only for LIST/MAP parent Node
@@ -902,22 +902,22 @@ only for LIST/MAP parent Node
 ### func [NewRootValue](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L47>)
 
 ```go
-func NewRootValue(desc *proto.MessageDescriptor, src []byte) Value
+func NewRootValue(desc *proto.TypeDescriptor, src []byte) Value
 ```
 
 
 
 <a name="NewValue"></a>
-### func [NewValue](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L55>)
+### func [NewValue](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L56>)
 
 ```go
-func NewValue(desc *proto.FieldDescriptor, src []byte) Value
+func NewValue(desc *proto.TypeDescriptor, src []byte) Value
 ```
 
 only for basic Node
 
 <a name="Value.Field"></a>
-### func (Value) [Field](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L1014>)
+### func (Value) [Field](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L1006>)
 
 ```go
 func (self Value) Field(id proto.FieldNumber) (v Value)
@@ -926,7 +926,7 @@ func (self Value) Field(id proto.FieldNumber) (v Value)
 Field returns a sub node at the given field id from a MESSAGE value.
 
 <a name="Value.FieldByName"></a>
-### func (Value) [FieldByName](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L953>)
+### func (Value) [FieldByName](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L948>)
 
 ```go
 func (self Value) FieldByName(name string) (v Value)
@@ -935,7 +935,7 @@ func (self Value) FieldByName(name string) (v Value)
 FieldByName returns a sub node at the given field name from a MESSAGE value.
 
 <a name="Value.Fields"></a>
-### func (Value) [Fields](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L1058>)
+### func (Value) [Fields](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L1045>)
 
 ```go
 func (self Value) Fields(ids []PathNode, opts *Options) error
@@ -944,7 +944,7 @@ func (self Value) Fields(ids []PathNode, opts *Options) error
 
 
 <a name="Value.Fork"></a>
-### func (Value) [Fork](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L87>)
+### func (Value) [Fork](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L86>)
 
 ```go
 func (self Value) Fork() Value
@@ -953,7 +953,7 @@ func (self Value) Fork() Value
 NewValueFromNode copy both Node and TypeDescriptor from another Value.
 
 <a name="Value.GetByInt"></a>
-### func (Value) [GetByInt](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L933>)
+### func (Value) [GetByInt](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L928>)
 
 ```go
 func (self Value) GetByInt(key int) (v Value)
@@ -962,7 +962,7 @@ func (self Value) GetByInt(key int) (v Value)
 GetByInt returns a sub node at the given key from a MAP value.
 
 <a name="Value.GetByPath"></a>
-### func (Value) [GetByPath](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L287>)
+### func (Value) [GetByPath](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L286>)
 
 ```go
 func (self Value) GetByPath(pathes ...Path) Value
@@ -971,7 +971,7 @@ func (self Value) GetByPath(pathes ...Path) Value
 
 
 <a name="Value.GetByPathWithAddress"></a>
-### func (Value) [GetByPathWithAddress](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L292>)
+### func (Value) [GetByPathWithAddress](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L291>)
 
 ```go
 func (self Value) GetByPathWithAddress(pathes ...Path) (Value, []int)
@@ -980,7 +980,7 @@ func (self Value) GetByPathWithAddress(pathes ...Path) (Value, []int)
 
 
 <a name="Value.GetByStr"></a>
-### func (Value) [GetByStr](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L923>)
+### func (Value) [GetByStr](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L918>)
 
 ```go
 func (self Value) GetByStr(key string) (v Value)
@@ -989,7 +989,7 @@ func (self Value) GetByStr(key string) (v Value)
 GetByInt returns a sub node at the given key from a MAP value.
 
 <a name="Value.GetMany"></a>
-### func (Value) [GetMany](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L1032>)
+### func (Value) [GetMany](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L1019>)
 
 ```go
 func (self Value) GetMany(pathes []PathNode, opts *Options) error
@@ -1023,7 +1023,7 @@ if err != nil {
 </details>
 
 <a name="Value.Index"></a>
-### func (Value) [Index](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L943>)
+### func (Value) [Index](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L938>)
 
 ```go
 func (self Value) Index(i int) (v Value)
@@ -1059,16 +1059,16 @@ func (self Value) List(opts *Options) ([]interface{}, error)
 
 
 <a name="Value.MarshalTo"></a>
-### func (Value) [MarshalTo](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L845>)
+### func (Value) [MarshalTo](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L834>)
 
 ```go
-func (self Value) MarshalTo(to *proto.MessageDescriptor, opts *Options) ([]byte, error)
+func (self Value) MarshalTo(to *proto.TypeDescriptor, opts *Options) ([]byte, error)
 ```
 
 MarshalTo marshals self value into a sub value descripted by the to descriptor, alse called as "Cutting". Usually, the to descriptor is a subset of self descriptor.
 
 <a name="Value.SetByPath"></a>
-### func (*Value) [SetByPath](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L471>)
+### func (*Value) [SetByPath](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L473>)
 
 ```go
 func (self *Value) SetByPath(sub Node, path ...Path) (exist bool, err error)
@@ -1086,12 +1086,10 @@ desc := getExample2Desc()
 data := getExample2Data()
 v := NewRootValue(desc, data)
 
-// d := (*desc).Fields().ByName("InnerBase2").Message().Fields().ByName("Base").Message().Fields().ByName("Extra")
 p := binary.NewBinaryProtol([]byte{})
 exp := "中文"
 p.WriteString(exp)
 buf := p.RawBuf()
-// vv := NewValue(&d, buf)
 vv := NewNode(proto.STRING, buf)
 
 ps := []Path{NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("b")}
@@ -1114,7 +1112,7 @@ fmt.Println(f2) // 中文
 </details>
 
 <a name="Value.SetMany"></a>
-### func (*Value) [SetMany](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L1076>)
+### func (*Value) [SetMany](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L1058>)
 
 ```go
 func (self *Value) SetMany(pathes []PathNode, opts *Options, root *Value, address []int, path ...Path) (err error)
@@ -1132,7 +1130,7 @@ func (self Value) StrMap(opts *Options) (map[string]interface{}, error)
 
 
 <a name="Value.UnsetByPath"></a>
-### func (*Value) [UnsetByPath](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L605>)
+### func (*Value) [UnsetByPath](<https://github.com/khan-yin/dynamicgo/blob/main/proto/generic/value.go#L598>)
 
 ```go
 func (self *Value) UnsetByPath(path ...Path) error

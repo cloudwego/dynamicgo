@@ -23,15 +23,15 @@ protobuf的接口必定包裹在一个Message类型下，因此无论是request�
 - ByteLen用于编码表示value部分所占的字节长度，同样我们的bytelen的值也是经过varint压缩后得到的，但bytelen并不是每个字段都会带有，只有不定长编码类型BytesType才会编码bytelen。**ByteLen由于其不定长特性，计算过程在序列化过程中是需要先预先分配空间，记录位置，等写完内部字段以后再回过头来填充。**
 - Value部分是根据wiretype进行对应的编码，字段的value可能存在嵌套的T(L)V结构，如字段是Message，Map等情况。
 #### Message
-关于Message本身的编码是与上面提到的字段编码一致的，也就是说遇到一个Message字段时，我们会先编码Message字段本身的Tag和bytelen，然后再来逐个编码Message里面的每个字段的TLV。**但需要提醒注意的是，在最外层我们不存在包裹整个Message的Tag和bytelen前缀，只有每个字段的TLV拼接。**
+关于Message本身的编码是与上面提到的字段编码一致的，也就是说遇到一个Message字段时，我们会先编码Message字段本身的Tag和bytelen，然后再来逐个编码Message里面的每个字段的TLV。**但需要提醒注意的是，在最外层不存在包裹整个Message的Tag和bytelen前缀，只有每个字段的TLV拼接。**
 
 #### List
 list字段比较特殊，protobuf为了节省存储空间，根据list元素的类型分别采用不同的编码模式。
 - Packed List Mode
-如果list的元素value本身属于VarintType编码格式，那么将采用packed模式编码整个List，注意：只有VarintType才会使用packed模式，在这种模式下的list是有bytelen的。protobuf3默认对VarintType类型的list启用packed。
+如果list的元素value本身属于VarintType/Fixed32Type/Fixed64Type编码格式，那么将采用packed模式编码整个List，在这种模式下的list是有bytelen的。protobuf3默认对这些类型的list启用packed。
 ![](../image/intro-11.png)
 - UnPacked List Mode
-当list元素属于其他三种wiretype编码格式时，list将使用unpacked模式，直接编码每一个元素的TLV，这里的V可能是嵌套的如List<Message>模式，那么unpacked模式下所有元素的tag都是相同的，list字段的结束标志为与下一个TLV字段编码不同或者到达buf末尾。
+当list元素属于BytesType编码格式时，list将使用unpacked模式，直接编码每一个元素的TLV，这里的V可能是嵌套的如List<Message>模式，那么unpacked模式下所有元素的tag都是相同的，list字段的结束标志为与下一个TLV字段编码不同或者到达buf末尾。
 ![](../image/intro-12.png)
 
 #### Map
@@ -78,7 +78,7 @@ type Node struct {
   - t = LIST，et = 元素类型，kt = UNKNOWN，size = 元素个数。
 - Map类型Node：同理，Map的指针v也指向了第一个pair的tag位置。
   - t = MAP ，kt = Key类型 et = Value类型，size = 元素个数。
-- UNKNOWN类型Node：无法解析的合理字段Node会将TLV完整存储，多个相同字段Id的会存到同一节点，缺点内部的子节点无法构建，同官方源码unknownFields原理一致。
+- UNKNOWN类型Node：无法解析的合理字段Node会将TLV完整存储，多个相同字段Id的会存到同一节点，缺点是内部的子节点无法构建，同官方源码unknownFields原理一致。
 - ERROR类型Node：基本与thrift一致，在setnotfound中，若片段设计与上述规则一致则可正确构造插入。
 - 虽然MAP/LIST的父级Node存储有些变化，但是其子元素节点都是基本类型/MESSAGE，所以**DOM当中的所有叶子节点存储格式还是基本的(L)V。**
 
@@ -88,27 +88,28 @@ value的结构本身是对Node的封装，将Node与相应的descriptor封装起
 ```go
 type Value struct {
     Node
-    RootDesc *proto.MessageDescriptor
-    Desc     *proto.FieldDescriptor
+    Desc    *proto.TypeDescriptor
+    IsRoot  bool
 }
 
-func NewRootValue(desc *proto.MessageDescriptor, src []byte) Value {
+func NewRootValue(desc *proto.TypeDescriptor, src []byte) Value {
     return Value{
         Node:     NewNode(proto.MESSAGE, src),
         RootDesc: desc,
+        IsRoot: true,
     }
 }
 
 // only for basic Node
-func NewValue(desc *proto.FieldDescriptor, src []byte) Value {
+func NewValue(desc *proto.TypeDescriptor, src []byte) Value {
     typ := proto.FromProtoKindToType((*desc).Kind(), (*desc).IsList(), (*desc).IsMap())
     return Value{
-        Node: NewNode(typ, src),
+        Node: NewNode(desc.Type(), src),
         Desc: desc,
     }
 }
 ```
-由于从rpc接口解析后我们直接得到了对应的MessageDescriptor，再加上root节点本身没有前缀TL的独特编码结构，我们设计了RootDesc和Desc来区分root节点和其余节点，也能避免利用父类强转，这两者构造过程当中不会同时不为nil，缺点是后续的逻辑需要利用这里判断是否是root节点，来调用不同的descriptor。
+由于从rpc接口解析后我们直接得到了对应的TypeDescriptor，再加上root节点本身没有前缀TL的独特编码结构，我们设计`IsRoot`来区分root节点和其余节点，也能避免利用父类强转。
 
 #### Path与PathNode
 结构功能均与thrift一致，且protobuf不存在PathBinKey。
@@ -259,7 +260,7 @@ JSON——>ProtoBuf 的转换过程如下：
 5. 更新输入和输出字节流位置，跳回第 1 步循环处理，直到处理完输入流数据。
 
 ## 性能测试
-构造与thrift性能测试基本相同的[baseline.proto](../testdata/idl/baseline.proto)文件，定义了对应的简单（[Small](../testdata/idl/baseline.proto#L6)）、复杂（[Medium](../testdata/idl/baseline.proto#L22)）、简单缺失（[SmallPartial](../testdata/idl/baseline.proto#L16)）、复杂缺失（[MediumPartial](../testdata/idl/baseline.proto#L40)） 两个对应子集，并用kitex命令生成了对应的[baseline.pb.go](../testdata/kitex_gen/pb/baseline/baseline.pb.go)。
+构造与thrift性能测试基本相同的[baseline.proto](../testdata/idl/baseline.proto)文件，定义了对应的简单（[Small](../testdata/idl/baseline.proto#L7)）、复杂（[Medium](../testdata/idl/baseline.proto#L22)）、简单缺失（[SmallPartial](../testdata/idl/baseline.proto#L16)）、复杂缺失（[MediumPartial](../testdata/idl/baseline.proto#L40)） 两个对应子集，并用kitex命令生成了对应的[baseline.pb.go](../testdata/kitex_gen/pb/baseline/baseline.pb.go)。
 主要与Protobuf-Go官方源码进行比较，部分测试与kitex-fast也进行了比较，测试环境如下：
 - OS：Windows 11 Pro Version 23H2
 - GOARCH: amd64
@@ -269,13 +270,13 @@ JSON——>ProtoBuf 的转换过程如下：
 ### 反射
 - 代码：[dynamicgo/testdata/baseline_pg_test.go](../testdata/baseline_pg_test.go)
 - 图中列举了DOM常用操作的性能，测试细节与thrift相同。
-- MarshalTo方法：相比protobufGo提升随着数据规模的增大趋势越明显，ns/op开销约为源码方法的0.51 ~ 0.60。
+- MarshalTo方法：相比protobufGo提升随着数据规模的增大趋势越明显，ns/op开销约为源码方法的0.29 ~ 0.32。
   
 ![](../image/intro-17.png)
 
 ### 字段Get/Set定量测试
-- 代码：[dynamicgo/testdata/baseline_pg_test.go#BenchmarkRationGet_DynamicGo](../testdata/baseline_pg_test.go#L1619)
-- [factor](../testdata/baseline_pg_test.go#L1576)用于修改从上到下扫描proto文件字段获取比率。
+- 代码：[dynamicgo/testdata/baseline_pg_test.go#BenchmarkRationGet_DynamicGo](../testdata/baseline_pg_test.go#L1607)
+- [factor](../testdata/baseline_pg_test.go#L1563)用于修改从上到下扫描proto文件字段获取比率。
 - 定量测试比较方法是protobufGo的dynamicpb模块和DynamicGo的Get/SetByPath，SetMany，测试对象是medium data的情况。
 - Set/Get字段定量测试结果均优于ProtobufGo，且在获取字段越稀疏的情况下性能加速越明显，因为protobuf源码不论获取多少比率的字段，都需要完整序列化全体对象，而dynamicgo则是直接解析buf完成copy。
 - setmany性能加速更明显，在100%字段下ns/op开销约为0.11。
@@ -283,16 +284,16 @@ JSON——>ProtoBuf 的转换过程如下：
 ![](../image/intro-18.png)
 
 ### 序列化/反序列化
-- 代码：[dynamicgo/testdata/baseline_pg_test.go#BenchmarkProtoMarshalAll_DynamicGo](../testdata/baseline_pg_test.go#L1225)
-- 序列化在small规模略高于protobufGo，medium规模的数据上性能优势更明显，ns/op开销约为源码的0.56 ~ 0.83。
-- 反序列化在reuse模式下，small规模略高于protobufGo，在medium规模数据上性能优势更明显，ns/op开销约为源码的0.54 ~ 0.72，随数据规模增大性能优势增加。
+- 代码：[dynamicgo/testdata/baseline_pg_test.go#BenchmarkProtoMarshalAll_DynamicGo](../testdata/baseline_pg_test.go#L1212)
+- 序列化在small规模略高于protobufGo，medium规模的数据上性能优势更明显，ns/op开销约为源码的0.54 ~ 0.84。
+- 反序列化在reuse模式下，small规模略高于protobufGo，在medium规模数据上性能优势更明显，ns/op开销约为源码的0.44 ~ 0.47，随数据规模增大性能优势增加。
 ![](../image/intro-19.png)
 ![](../image/intro-20.png)
 
 ### 协议转换
-- Json2Protobuf优于ProtobufGo，ns/op性能开销约为源码的0.38 ~ 0.90，随着数据量规模增大优势增加。
+- Json2Protobuf优于ProtobufGo，ns/op性能开销约为源码的0.21 ~ 0.89，随着数据量规模增大优势增加。
 - 代码：[dynamicgo/testdata/baseline_j2p_test.go](../testdata/baseline_j2p_test.go)
-- Protobuf2Json性能明显优于ProtobufGo，ns/op开销约为源码的0.18 ~ 0.25，而相比Kitex，在small数据规模下开销基本相同，medium模式下ns/op约为Sonic+Kitex的0.57，随着数据量规模增大优势增加。
+- Protobuf2Json性能明显优于ProtobufGo，ns/op开销约为源码的0.13 ~ 0.21，而相比Kitex，ns/op约为Sonic+Kitex的0.40 ~ 0.92，随着数据量规模增大优势增加。
 - 代码：[dynamicgo/testdata/baseline_p2j_test.go](../testdata/baseline_p2j_test.go)
   
 ![](../image/intro-21.png)
@@ -301,6 +302,7 @@ JSON——>ProtoBuf 的转换过程如下：
 
 ## TODO
 - [ ] 添加JSON协议的HttpMapping。
+- [ ] 修改为TypeDescriptor后，J2P由于sonic限定接口`Onxxx`，为了write tag，暂时还是只能用fielddescriptor，兼容其他类型的建议不放到snoic当中，而是走其他分支直接用binaryprotocol写入比较好。
 - [ ] 部分JSON option暂未实现。
 - [ ] DOM tree的Assign函数还需要实现，尝试实现但存在一些问题由于时间关系不太好解决。
 - [ ] 序列化/反序列化在small数据规模下的开销进一步优化。

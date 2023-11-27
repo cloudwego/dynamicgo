@@ -11,24 +11,42 @@ import "github.com/cloudwego/dynamicgo/proto"
 - [proto](#proto)
   - [Index](#index)
   - [Variables](#variables)
-  - [type Descriptor](#type-descriptor)
-  - [type EnumDescriptor](#type-enumdescriptor)
   - [type EnumNumber](#type-enumnumber)
-  - [type EnumValueDescriptor](#type-enumvaluedescriptor)
-  - [type ExtensionDescriptor](#type-extensiondescriptor)
-  - [type ExtensionTypeDescriptor](#type-extensiontypedescriptor)
   - [type FieldDescriptor](#type-fielddescriptor)
-  - [type FieldDescriptors](#type-fielddescriptors)
-  - [type FieldName](#type-fieldname)
+    - [func (\*FieldDescriptor) IsList](#func-fielddescriptor-islist)
+    - [func (\*FieldDescriptor) IsMap](#func-fielddescriptor-ismap)
+    - [func (\*FieldDescriptor) JSONName](#func-fielddescriptor-jsonname)
+    - [func (\*FieldDescriptor) Kind](#func-fielddescriptor-kind)
+    - [func (\*FieldDescriptor) MapKey](#func-fielddescriptor-mapkey)
+    - [func (\*FieldDescriptor) MapValue](#func-fielddescriptor-mapvalue)
+    - [func (\*FieldDescriptor) Message](#func-fielddescriptor-message)
+    - [func (\*FieldDescriptor) Name](#func-fielddescriptor-name)
+    - [func (\*FieldDescriptor) Number](#func-fielddescriptor-number)
+    - [func (\*FieldDescriptor) Type](#func-fielddescriptor-type)
+  - [type FieldNameMap](#type-fieldnamemap)
+    - [func (FieldNameMap) All](#func-fieldnamemap-all)
+    - [func (\*FieldNameMap) Build](#func-fieldnamemap-build)
+    - [func (FieldNameMap) Get](#func-fieldnamemap-get)
+    - [func (\*FieldNameMap) Set](#func-fieldnamemap-set)
+    - [func (FieldNameMap) Size](#func-fieldnamemap-size)
   - [type FieldNumber](#type-fieldnumber)
-  - [type FileDescriptor](#type-filedescriptor)
+  - [type FieldNumberMap](#type-fieldnumbermap)
+    - [func (FieldNumberMap) All](#func-fieldnumbermap-all)
+    - [func (FieldNumberMap) Get](#func-fieldnumbermap-get)
+    - [func (\*FieldNumberMap) Set](#func-fieldnumbermap-set)
+    - [func (FieldNumberMap) Size](#func-fieldnumbermap-size)
   - [type MessageDescriptor](#type-messagedescriptor)
-    - [func FnRequest](#func-fnrequest)
-    - [func FnResponse](#func-fnresponse)
+    - [func (\*MessageDescriptor) ByJSONName](#func-messagedescriptor-byjsonname)
+    - [func (\*MessageDescriptor) ByName](#func-messagedescriptor-byname)
+    - [func (\*MessageDescriptor) ByNumber](#func-messagedescriptor-bynumber)
+    - [func (\*MessageDescriptor) FieldsCount](#func-messagedescriptor-fieldscount)
+    - [func (\*MessageDescriptor) Name](#func-messagedescriptor-name)
   - [type MethodDescriptor](#type-methoddescriptor)
     - [func GetFnDescFromFile](#func-getfndescfromfile)
+    - [func (\*MethodDescriptor) Input](#func-methoddescriptor-input)
+    - [func (\*MethodDescriptor) Name](#func-methoddescriptor-name)
+    - [func (\*MethodDescriptor) Output](#func-methoddescriptor-output)
   - [type Number](#type-number)
-  - [type OneofDescriptor](#type-oneofdescriptor)
   - [type Options](#type-options)
     - [func NewDefaultOptions](#func-newdefaultoptions)
     - [func (Options) NewDesccriptorFromContent](#func-options-newdesccriptorfromcontent)
@@ -38,15 +56,32 @@ import "github.com/cloudwego/dynamicgo/proto"
   - [type ServiceDescriptor](#type-servicedescriptor)
     - [func NewDescritorFromContent](#func-newdescritorfromcontent)
     - [func NewDescritorFromPath](#func-newdescritorfrompath)
+    - [func (\*ServiceDescriptor) LookupMethodByName](#func-servicedescriptor-lookupmethodbyname)
+    - [func (\*ServiceDescriptor) Methods](#func-servicedescriptor-methods)
+    - [func (\*ServiceDescriptor) Name](#func-servicedescriptor-name)
   - [type Type](#type-type)
     - [func FromProtoKindToType](#func-fromprotokindtotype)
     - [func (Type) IsComplex](#func-type-iscomplex)
     - [func (Type) IsInt](#func-type-isint)
+    - [func (Type) IsPacked](#func-type-ispacked)
     - [func (Type) IsUint](#func-type-isuint)
     - [func (Type) NeedVarint](#func-type-needvarint)
     - [func (Type) String](#func-type-string)
     - [func (Type) TypeToKind](#func-type-typetokind)
     - [func (Type) Valid](#func-type-valid)
+  - [type TypeDescriptor](#type-typedescriptor)
+    - [func FnRequest](#func-fnrequest)
+    - [func FnResponse](#func-fnresponse)
+    - [func (\*TypeDescriptor) BaseId](#func-typedescriptor-baseid)
+    - [func (\*TypeDescriptor) Elem](#func-typedescriptor-elem)
+    - [func (\*TypeDescriptor) IsList](#func-typedescriptor-islist)
+    - [func (\*TypeDescriptor) IsMap](#func-typedescriptor-ismap)
+    - [func (\*TypeDescriptor) IsPacked](#func-typedescriptor-ispacked)
+    - [func (\*TypeDescriptor) Key](#func-typedescriptor-key)
+    - [func (\*TypeDescriptor) Message](#func-typedescriptor-message)
+    - [func (\*TypeDescriptor) Name](#func-typedescriptor-name)
+    - [func (\*TypeDescriptor) Type](#func-typedescriptor-type)
+    - [func (\*TypeDescriptor) WireType](#func-typedescriptor-wiretype)
   - [type WireType](#type-wiretype)
     - [func (WireType) String](#func-wiretype-string)
 
@@ -78,143 +113,309 @@ var Kind2Wire = map[ProtoKind]WireType{
 }
 ```
 
-<a name="Descriptor"></a>
-## type [Descriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L7>)
-
-
-
-```go
-type Descriptor = protoreflect.Descriptor
-```
-
-<a name="EnumDescriptor"></a>
-## type [EnumDescriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L20>)
-
-special fielddescriptor for enum, oneof, extension, extensionrange
-
-```go
-type EnumDescriptor = protoreflect.EnumDescriptor
-```
-
 <a name="EnumNumber"></a>
-## type [EnumNumber](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L217>)
+## type [EnumNumber](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L225>)
 
 
 
 ```go
-type EnumNumber = Number
-```
-
-<a name="EnumValueDescriptor"></a>
-## type [EnumValueDescriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L22>)
-
-
-
-```go
-type EnumValueDescriptor = protoreflect.EnumValueDescriptor
-```
-
-<a name="ExtensionDescriptor"></a>
-## type [ExtensionDescriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L27>)
-
-ExtensionDescriptor is the same as FieldDescriptor
-
-```go
-type ExtensionDescriptor = protoreflect.ExtensionDescriptor
-```
-
-<a name="ExtensionTypeDescriptor"></a>
-## type [ExtensionTypeDescriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L29>)
-
-
-
-```go
-type ExtensionTypeDescriptor = protoreflect.ExtensionTypeDescriptor
+type EnumNumber int32
 ```
 
 <a name="FieldDescriptor"></a>
-## type [FieldDescriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L17>)
+## type [FieldDescriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L56-L62>)
 
 
 
 ```go
-type FieldDescriptor = protoreflect.FieldDescriptor
+type FieldDescriptor struct {
+    // contains filtered or unexported fields
+}
 ```
 
-<a name="FieldDescriptors"></a>
-## type [FieldDescriptors](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L31>)
-
-
+<a name="FieldDescriptor.IsList"></a>
+### func (*FieldDescriptor) [IsList](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L109>)
 
 ```go
-type FieldDescriptors = protoreflect.FieldDescriptors
+func (f *FieldDescriptor) IsList() bool
 ```
 
-<a name="FieldName"></a>
-## type [FieldName](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L229>)
 
-define FieldName = protoreflect.Name (string) used in Descriptor.Name()
+
+<a name="FieldDescriptor.IsMap"></a>
+### func (*FieldDescriptor) [IsMap](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L105>)
 
 ```go
-type FieldName = protoreflect.Name
+func (f *FieldDescriptor) IsMap() bool
 ```
+
+
+
+<a name="FieldDescriptor.JSONName"></a>
+### func (*FieldDescriptor) [JSONName](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L76>)
+
+```go
+func (f *FieldDescriptor) JSONName() string
+```
+
+
+
+<a name="FieldDescriptor.Kind"></a>
+### func (*FieldDescriptor) [Kind](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L68>)
+
+```go
+func (f *FieldDescriptor) Kind() ProtoKind
+```
+
+
+
+<a name="FieldDescriptor.MapKey"></a>
+### func (*FieldDescriptor) [MapKey](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L91>)
+
+```go
+func (f *FieldDescriptor) MapKey() *TypeDescriptor
+```
+
+
+
+<a name="FieldDescriptor.MapValue"></a>
+### func (*FieldDescriptor) [MapValue](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L98>)
+
+```go
+func (f *FieldDescriptor) MapValue() *TypeDescriptor
+```
+
+
+
+<a name="FieldDescriptor.Message"></a>
+### func (*FieldDescriptor) [Message](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L87>)
+
+```go
+func (f *FieldDescriptor) Message() *MessageDescriptor
+```
+
+when List+Message it can get message element descriptor when Map it can get map key-value entry massage descriptor when Message it can get sub message descriptor
+
+<a name="FieldDescriptor.Name"></a>
+### func (*FieldDescriptor) [Name](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L72>)
+
+```go
+func (f *FieldDescriptor) Name() string
+```
+
+
+
+<a name="FieldDescriptor.Number"></a>
+### func (*FieldDescriptor) [Number](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L64>)
+
+```go
+func (f *FieldDescriptor) Number() FieldNumber
+```
+
+
+
+<a name="FieldDescriptor.Type"></a>
+### func (*FieldDescriptor) [Type](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L80>)
+
+```go
+func (f *FieldDescriptor) Type() *TypeDescriptor
+```
+
+
+
+<a name="FieldNameMap"></a>
+## type [FieldNameMap](<https://github.com/khan-yin/dynamicgo/blob/main/proto/utils.go#L18-L23>)
+
+FieldNameMap is a map for field name and field descriptor
+
+```go
+type FieldNameMap struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="FieldNameMap.All"></a>
+### func (FieldNameMap) [All](<https://github.com/khan-yin/dynamicgo/blob/main/proto/utils.go#L52>)
+
+```go
+func (ft FieldNameMap) All() []*FieldDescriptor
+```
+
+All returns all field descriptors
+
+<a name="FieldNameMap.Build"></a>
+### func (*FieldNameMap) [Build](<https://github.com/khan-yin/dynamicgo/blob/main/proto/utils.go#L67>)
+
+```go
+func (ft *FieldNameMap) Build()
+```
+
+Build builds the map. It will try to build a trie tree if the dispersion of keys is higher enough (min).
+
+<a name="FieldNameMap.Get"></a>
+### func (FieldNameMap) [Get](<https://github.com/khan-yin/dynamicgo/blob/main/proto/utils.go#L42>)
+
+```go
+func (ft FieldNameMap) Get(k string) *FieldDescriptor
+```
+
+Get gets the field descriptor for the given key
+
+<a name="FieldNameMap.Set"></a>
+### func (*FieldNameMap) [Set](<https://github.com/khan-yin/dynamicgo/blob/main/proto/utils.go#L26>)
+
+```go
+func (ft *FieldNameMap) Set(key string, field *FieldDescriptor) (exist bool)
+```
+
+Set sets the field descriptor for the given key
+
+<a name="FieldNameMap.Size"></a>
+### func (FieldNameMap) [Size](<https://github.com/khan-yin/dynamicgo/blob/main/proto/utils.go#L57>)
+
+```go
+func (ft FieldNameMap) Size() int
+```
+
+Size returns the size of the map
 
 <a name="FieldNumber"></a>
-## type [FieldNumber](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L216>)
+## type [FieldNumber](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L224>)
 
 
 
 ```go
-type FieldNumber = Number
+type FieldNumber int32
 ```
 
-<a name="FileDescriptor"></a>
-## type [FileDescriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L9>)
-
-
+<a name="MinValidNumber"></a>reserved field number min-max ranges in a proto message
 
 ```go
-type FileDescriptor = protoreflect.FileDescriptor
+const (
+    MinValidNumber        FieldNumber = 1
+    FirstReservedNumber   FieldNumber = 19000
+    LastReservedNumber    FieldNumber = 19999
+    MaxValidNumber        FieldNumber = 1<<29 - 1
+    DefaultRecursionLimit             = 10000
+)
 ```
+
+<a name="FieldNumberMap"></a>
+## type [FieldNumberMap](<https://github.com/khan-yin/dynamicgo/blob/main/proto/utils.go#L149-L152>)
+
+FieldIDMap is a map from field id to field descriptor
+
+```go
+type FieldNumberMap struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="FieldNumberMap.All"></a>
+### func (FieldNumberMap) [All](<https://github.com/khan-yin/dynamicgo/blob/main/proto/utils.go#L155>)
+
+```go
+func (fd FieldNumberMap) All() (ret []*FieldDescriptor)
+```
+
+All returns all field descriptors
+
+<a name="FieldNumberMap.Get"></a>
+### func (FieldNumberMap) [Get](<https://github.com/khan-yin/dynamicgo/blob/main/proto/utils.go#L165>)
+
+```go
+func (fd FieldNumberMap) Get(id FieldNumber) *FieldDescriptor
+```
+
+Get gets the field descriptor for the given id
+
+<a name="FieldNumberMap.Set"></a>
+### func (*FieldNumberMap) [Set](<https://github.com/khan-yin/dynamicgo/blob/main/proto/utils.go#L173>)
+
+```go
+func (fd *FieldNumberMap) Set(id FieldNumber, f *FieldDescriptor)
+```
+
+Set sets the field descriptor for the given id
+
+<a name="FieldNumberMap.Size"></a>
+### func (FieldNumberMap) [Size](<https://github.com/khan-yin/dynamicgo/blob/main/proto/utils.go#L160>)
+
+```go
+func (fd FieldNumberMap) Size() int
+```
+
+Size returns the size of the map
 
 <a name="MessageDescriptor"></a>
-## type [MessageDescriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L15>)
+## type [MessageDescriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L113-L121>)
 
 
 
 ```go
-type MessageDescriptor = protoreflect.MessageDescriptor
+type MessageDescriptor struct {
+    // contains filtered or unexported fields
+}
 ```
 
-<a name="FnRequest"></a>
-### func [FnRequest](<https://github.com/khan-yin/dynamicgo/blob/main/proto/test_util.go#L26>)
+<a name="MessageDescriptor.ByJSONName"></a>
+### func (*MessageDescriptor) [ByJSONName](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L127>)
 
 ```go
-func FnRequest(fn *MethodDescriptor) *MessageDescriptor
+func (m *MessageDescriptor) ByJSONName(name string) *FieldDescriptor
 ```
 
-FnRequest get the normal requestDescriptor
 
-<a name="FnResponse"></a>
-### func [FnResponse](<https://github.com/khan-yin/dynamicgo/blob/main/proto/test_util.go#L35>)
+
+<a name="MessageDescriptor.ByName"></a>
+### func (*MessageDescriptor) [ByName](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L131>)
 
 ```go
-func FnResponse(fn *MethodDescriptor) *MessageDescriptor
+func (m *MessageDescriptor) ByName(name string) *FieldDescriptor
 ```
 
-FnResponse get hte normal responseDescriptor
+
+
+<a name="MessageDescriptor.ByNumber"></a>
+### func (*MessageDescriptor) [ByNumber](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L135>)
+
+```go
+func (m *MessageDescriptor) ByNumber(id FieldNumber) *FieldDescriptor
+```
+
+
+
+<a name="MessageDescriptor.FieldsCount"></a>
+### func (*MessageDescriptor) [FieldsCount](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L139>)
+
+```go
+func (m *MessageDescriptor) FieldsCount() int
+```
+
+
+
+<a name="MessageDescriptor.Name"></a>
+### func (*MessageDescriptor) [Name](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L123>)
+
+```go
+func (m *MessageDescriptor) Name() string
+```
+
+
 
 <a name="MethodDescriptor"></a>
-## type [MethodDescriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L13>)
+## type [MethodDescriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L143-L147>)
 
 
 
 ```go
-type MethodDescriptor = protoreflect.MethodDescriptor
+type MethodDescriptor struct {
+    // contains filtered or unexported fields
+}
 ```
 
 <a name="GetFnDescFromFile"></a>
-### func [GetFnDescFromFile](<https://github.com/khan-yin/dynamicgo/blob/main/proto/test_util.go#L13>)
+### func [GetFnDescFromFile](<https://github.com/khan-yin/dynamicgo/blob/main/proto/test_util.go#L12>)
 
 ```go
 func GetFnDescFromFile(filePath, fnName string, opts Options, includeDirs ...string) *MethodDescriptor
@@ -222,8 +423,35 @@ func GetFnDescFromFile(filePath, fnName string, opts Options, includeDirs ...str
 
 GetFnDescFromFile get a fucntion descriptor from idl path (relative to your git root) and the function name
 
+<a name="MethodDescriptor.Input"></a>
+### func (*MethodDescriptor) [Input](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L153>)
+
+```go
+func (m *MethodDescriptor) Input() *TypeDescriptor
+```
+
+
+
+<a name="MethodDescriptor.Name"></a>
+### func (*MethodDescriptor) [Name](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L149>)
+
+```go
+func (m *MethodDescriptor) Name() string
+```
+
+
+
+<a name="MethodDescriptor.Output"></a>
+### func (*MethodDescriptor) [Output](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L157>)
+
+```go
+func (m *MethodDescriptor) Output() *TypeDescriptor
+```
+
+
+
 <a name="Number"></a>
-## type [Number](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L214>)
+## type [Number](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L222>)
 
 define Number = protowire.Number (int32)
 
@@ -231,29 +459,8 @@ define Number = protowire.Number (int32)
 type Number = protowire.Number
 ```
 
-<a name="MinValidNumber"></a>reserved field number min-max ranges in a proto message
-
-```go
-const (
-    MinValidNumber        Number = 1
-    FirstReservedNumber   Number = 19000
-    LastReservedNumber    Number = 19999
-    MaxValidNumber        Number = 1<<29 - 1
-    DefaultRecursionLimit        = 10000
-)
-```
-
-<a name="OneofDescriptor"></a>
-## type [OneofDescriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L24>)
-
-
-
-```go
-type OneofDescriptor = protoreflect.OneofDescriptor
-```
-
 <a name="Options"></a>
-## type [Options](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L21-L38>)
+## type [Options](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L31-L48>)
 
 Options is options for parsing thrift IDL.
 
@@ -279,7 +486,7 @@ type Options struct {
 ```
 
 <a name="NewDefaultOptions"></a>
-### func [NewDefaultOptions](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L41>)
+### func [NewDefaultOptions](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L51>)
 
 ```go
 func NewDefaultOptions() Options
@@ -288,7 +495,7 @@ func NewDefaultOptions() Options
 NewDefaultOptions creates a default Options.
 
 <a name="Options.NewDesccriptorFromContent"></a>
-### func (Options) [NewDesccriptorFromContent](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L82>)
+### func (Options) [NewDesccriptorFromContent](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L85>)
 
 ```go
 func (opts Options) NewDesccriptorFromContent(ctx context.Context, path, content string, includes map[string]string, importDirs ...string) (*ServiceDescriptor, error)
@@ -297,7 +504,7 @@ func (opts Options) NewDesccriptorFromContent(ctx context.Context, path, content
 
 
 <a name="Options.NewDescriptorFromPath"></a>
-### func (Options) [NewDescriptorFromPath](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L52>)
+### func (Options) [NewDescriptorFromPath](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L62>)
 
 ```go
 func (opts Options) NewDescriptorFromPath(ctx context.Context, path string, importDirs ...string) (*ServiceDescriptor, error)
@@ -306,7 +513,7 @@ func (opts Options) NewDescriptorFromPath(ctx context.Context, path string, impo
 NewDescritorFromContent creates a ServiceDescriptor from a proto path and its imports, which uses the given options. The importDirs is used to find the include files.
 
 <a name="ParseTarget"></a>
-## type [ParseTarget](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L18>)
+## type [ParseTarget](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L28>)
 
 ParseTarget indicates the target to parse
 
@@ -325,7 +532,7 @@ const (
 ```
 
 <a name="ProtoKind"></a>
-## type [ProtoKind](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L40>)
+## type [ProtoKind](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L41>)
 
 define ProtoKind = protoreflect.Kind (int8)
 
@@ -359,16 +566,18 @@ const (
 ```
 
 <a name="ServiceDescriptor"></a>
-## type [ServiceDescriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L11>)
+## type [ServiceDescriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L161-L164>)
 
 
 
 ```go
-type ServiceDescriptor = protoreflect.ServiceDescriptor
+type ServiceDescriptor struct {
+    // contains filtered or unexported fields
+}
 ```
 
 <a name="NewDescritorFromContent"></a>
-### func [NewDescritorFromContent](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L78>)
+### func [NewDescritorFromContent](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L81>)
 
 ```go
 func NewDescritorFromContent(ctx context.Context, path, content string, includes map[string]string, importDirs ...string) (*ServiceDescriptor, error)
@@ -377,7 +586,7 @@ func NewDescritorFromContent(ctx context.Context, path, content string, includes
 NewDescritorFromContent behaviors like NewDescritorFromPath, besides it uses DefaultOptions.
 
 <a name="NewDescritorFromPath"></a>
-### func [NewDescritorFromPath](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L46>)
+### func [NewDescritorFromPath](<https://github.com/khan-yin/dynamicgo/blob/main/proto/idl.go#L56>)
 
 ```go
 func NewDescritorFromPath(ctx context.Context, path string, importDirs ...string) (*ServiceDescriptor, error)
@@ -385,8 +594,35 @@ func NewDescritorFromPath(ctx context.Context, path string, importDirs ...string
 
 NewDescritorFromPath behaviors like NewDescritorFromPath, besides it uses DefaultOptions.
 
+<a name="ServiceDescriptor.LookupMethodByName"></a>
+### func (*ServiceDescriptor) [LookupMethodByName](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L174>)
+
+```go
+func (s *ServiceDescriptor) LookupMethodByName(name string) *MethodDescriptor
+```
+
+
+
+<a name="ServiceDescriptor.Methods"></a>
+### func (*ServiceDescriptor) [Methods](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L170>)
+
+```go
+func (s *ServiceDescriptor) Methods() map[string]*MethodDescriptor
+```
+
+
+
+<a name="ServiceDescriptor.Name"></a>
+### func (*ServiceDescriptor) [Name](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L166>)
+
+```go
+func (s *ServiceDescriptor) Name() string
+```
+
+
+
 <a name="Type"></a>
-## type [Type](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L86>)
+## type [Type](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L87>)
 
 Node type (uint8) mapping ProtoKind the same value, except for UNKNOWN, LIST, MAP, ERROR
 
@@ -424,7 +660,7 @@ const (
 ```
 
 <a name="FromProtoKindToType"></a>
-### func [FromProtoKindToType](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L136>)
+### func [FromProtoKindToType](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L137>)
 
 ```go
 func FromProtoKindToType(kind ProtoKind, isList bool, isMap bool) Type
@@ -433,7 +669,7 @@ func FromProtoKindToType(kind ProtoKind, isList bool, isMap bool) Type
 FromProtoKindTType converts ProtoKind to Type
 
 <a name="Type.IsComplex"></a>
-### func (Type) [IsComplex](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L161>)
+### func (Type) [IsComplex](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L169>)
 
 ```go
 func (p Type) IsComplex() bool
@@ -442,7 +678,7 @@ func (p Type) IsComplex() bool
 IsComplex tells if the type is one of STRUCT, MAP, SET, LIST
 
 <a name="Type.IsInt"></a>
-### func (Type) [IsInt](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L152>)
+### func (Type) [IsInt](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L160>)
 
 ```go
 func (p Type) IsInt() bool
@@ -450,8 +686,17 @@ func (p Type) IsInt() bool
 
 IsInt containing isUint
 
+<a name="Type.IsPacked"></a>
+### func (Type) [IsPacked](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L152>)
+
+```go
+func (p Type) IsPacked() bool
+```
+
+
+
 <a name="Type.IsUint"></a>
-### func (Type) [IsUint](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L156>)
+### func (Type) [IsUint](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L164>)
 
 ```go
 func (p Type) IsUint() bool
@@ -460,16 +705,16 @@ func (p Type) IsUint() bool
 
 
 <a name="Type.NeedVarint"></a>
-### func (Type) [NeedVarint](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L147>)
+### func (Type) [NeedVarint](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L148>)
 
 ```go
 func (p Type) NeedVarint() bool
 ```
 
-check if the type need Varint encoding, also used in check list isPacked
+check if the type need Varint encoding
 
 <a name="Type.String"></a>
-### func (Type) [String](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L166>)
+### func (Type) [String](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L174>)
 
 ```go
 func (p Type) String() string
@@ -478,7 +723,7 @@ func (p Type) String() string
 String for format and print
 
 <a name="Type.TypeToKind"></a>
-### func (Type) [TypeToKind](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L123>)
+### func (Type) [TypeToKind](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L124>)
 
 ```go
 func (p Type) TypeToKind() ProtoKind
@@ -487,7 +732,7 @@ func (p Type) TypeToKind() ProtoKind
 
 
 <a name="Type.Valid"></a>
-### func (Type) [Valid](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L113>)
+### func (Type) [Valid](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L114>)
 
 ```go
 func (p Type) Valid() bool
@@ -495,8 +740,127 @@ func (p Type) Valid() bool
 
 
 
+<a name="TypeDescriptor"></a>
+## type [TypeDescriptor](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L3-L10>)
+
+
+
+```go
+type TypeDescriptor struct {
+    // contains filtered or unexported fields
+}
+```
+
+<a name="FnRequest"></a>
+### func [FnRequest](<https://github.com/khan-yin/dynamicgo/blob/main/proto/test_util.go#L25>)
+
+```go
+func FnRequest(fn *MethodDescriptor) *TypeDescriptor
+```
+
+FnRequest get the normal requestDescriptor
+
+<a name="FnResponse"></a>
+### func [FnResponse](<https://github.com/khan-yin/dynamicgo/blob/main/proto/test_util.go#L34>)
+
+```go
+func FnResponse(fn *MethodDescriptor) *TypeDescriptor
+```
+
+FnResponse get hte normal responseDescriptor
+
+<a name="TypeDescriptor.BaseId"></a>
+### func (*TypeDescriptor) [BaseId](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L28>)
+
+```go
+func (t *TypeDescriptor) BaseId() FieldNumber
+```
+
+
+
+<a name="TypeDescriptor.Elem"></a>
+### func (*TypeDescriptor) [Elem](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L20>)
+
+```go
+func (t *TypeDescriptor) Elem() *TypeDescriptor
+```
+
+
+
+<a name="TypeDescriptor.IsList"></a>
+### func (*TypeDescriptor) [IsList](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L43>)
+
+```go
+func (f *TypeDescriptor) IsList() bool
+```
+
+
+
+<a name="TypeDescriptor.IsMap"></a>
+### func (*TypeDescriptor) [IsMap](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L39>)
+
+```go
+func (f *TypeDescriptor) IsMap() bool
+```
+
+
+
+<a name="TypeDescriptor.IsPacked"></a>
+### func (*TypeDescriptor) [IsPacked](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L32>)
+
+```go
+func (t *TypeDescriptor) IsPacked() bool
+```
+
+
+
+<a name="TypeDescriptor.Key"></a>
+### func (*TypeDescriptor) [Key](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L16>)
+
+```go
+func (t *TypeDescriptor) Key() *TypeDescriptor
+```
+
+
+
+<a name="TypeDescriptor.Message"></a>
+### func (*TypeDescriptor) [Message](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L24>)
+
+```go
+func (t *TypeDescriptor) Message() *MessageDescriptor
+```
+
+
+
+<a name="TypeDescriptor.Name"></a>
+### func (*TypeDescriptor) [Name](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L52>)
+
+```go
+func (f *TypeDescriptor) Name() string
+```
+
+
+
+<a name="TypeDescriptor.Type"></a>
+### func (*TypeDescriptor) [Type](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L12>)
+
+```go
+func (t *TypeDescriptor) Type() Type
+```
+
+
+
+<a name="TypeDescriptor.WireType"></a>
+### func (*TypeDescriptor) [WireType](<https://github.com/khan-yin/dynamicgo/blob/main/proto/descriptor.go#L47>)
+
+```go
+func (f *TypeDescriptor) WireType() WireType
+```
+
+
+
 <a name="WireType"></a>
-## type [WireType](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L9>)
+## type [WireType](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L10>)
 
 protobuf encoding wire type
 
@@ -518,7 +882,7 @@ const (
 ```
 
 <a name="WireType.String"></a>
-### func (WireType) [String](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L20>)
+### func (WireType) [String](<https://github.com/khan-yin/dynamicgo/blob/main/proto/type.go#L21>)
 
 ```go
 func (p WireType) String() string
