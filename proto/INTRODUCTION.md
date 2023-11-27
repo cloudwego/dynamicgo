@@ -27,11 +27,11 @@ protobuf的接口必定包裹在一个Message类型下，因此无论是request�
 
 #### List
 list字段比较特殊，protobuf为了节省存储空间，根据list元素的类型分别采用不同的编码模式。
-- Packed List Mode
+- Packed List Mode  
 如果list的元素value本身属于VarintType/Fixed32Type/Fixed64Type编码格式，那么将采用packed模式编码整个List，在这种模式下的list是有bytelen的。protobuf3默认对这些类型的list启用packed。
 ![](../image/intro-11.png)
-- UnPacked List Mode
-当list元素属于BytesType编码格式时，list将使用unpacked模式，直接编码每一个元素的TLV，这里的V可能是嵌套的如List<Message>模式，那么unpacked模式下所有元素的tag都是相同的，list字段的结束标志为与下一个TLV字段编码不同或者到达buf末尾。
+- UnPacked List Mode  
+**当list元素属于BytesType编码格式时**，list将使用unpacked模式，直接编码每一个元素的TLV，这里的V可能是嵌套的如List<Message>模式，**那么unpacked模式下所有元素的tag都是相同的，list字段的结束标志为与下一个TLV字段编码不同或者到达buf末尾。**
 ![](../image/intro-12.png)
 
 #### Map
@@ -95,14 +95,13 @@ type Value struct {
 func NewRootValue(desc *proto.TypeDescriptor, src []byte) Value {
     return Value{
         Node:     NewNode(proto.MESSAGE, src),
-        RootDesc: desc,
+        Desc: desc,
         IsRoot: true,
     }
 }
 
 // only for basic Node
 func NewValue(desc *proto.TypeDescriptor, src []byte) Value {
-    typ := proto.FromProtoKindToType((*desc).Kind(), (*desc).IsList(), (*desc).IsMap())
     return Value{
         Node: NewNode(desc.Type(), src),
         Desc: desc,
