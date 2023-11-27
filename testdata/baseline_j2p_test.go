@@ -12,10 +12,8 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/conv/j2p"
-	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/baseline"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/protowire"
 )
 
@@ -151,11 +149,8 @@ func TestJSON2Protobuf_Simple(t *testing.T) {
 		EnableHttpMapping: false,
 	})
 	ctx := context.Background()
-	desc, ok := (*simple).(proto.Descriptor)
-	if !ok {
-		t.Fatal("test failed")
-	}
-	out, err := cv.Do(ctx, &desc, []byte(simplePbJSON))
+
+	out, err := cv.Do(ctx, simple, []byte(simplePbJSON))
 	require.Nil(t, err)
 
 	// kitex read pb bytes to pb obj
@@ -208,11 +203,8 @@ func TestJSON2Protobuf_Simple_Parallel(t *testing.T) {
 			}()
 			defer wg.Done()
 			ctx := context.Background()
-			desc, ok := (*simple).(proto.Descriptor)
-			if !ok {
-				t.Fatal("test failed")
-			}
-			out, err := cv.Do(ctx, &desc, []byte(simplePbJSON))
+
+			out, err := cv.Do(ctx, simple, []byte(simplePbJSON))
 			require.Nil(t, err)
 
 			stru := baseline.Simple{}
@@ -257,11 +249,7 @@ func TestJSON2Protobuf_Nesting(t *testing.T) {
 		EnableHttpMapping: false,
 	})
 	ctx := context.Background()
-	desc, ok := (*nesting).(proto.Descriptor)
-	if !ok {
-		t.Fatal("test failed")
-	}
-	out, err := cv.Do(ctx, &desc, []byte(nestingPbJSON))
+	out, err := cv.Do(ctx, nesting, []byte(nestingPbJSON))
 	require.Nil(t, err)
 
 	// kitex read pb bytes to pb obj
@@ -315,11 +303,8 @@ func TestJSON2Protobuf_Nesting_Parallel(t *testing.T) {
 			}()
 			defer wg.Done()
 			ctx := context.Background()
-			desc, ok := (*nesting).(proto.Descriptor)
-			if !ok {
-				t.Fatal("test failed")
-			}
-			out, err := cv.Do(ctx, &desc, []byte(nestingPbJSON))
+
+			out, err := cv.Do(ctx, nesting, []byte(nestingPbJSON))
 			require.Nil(t, err)
 
 			stru := baseline.Nesting{}
@@ -355,17 +340,13 @@ func BenchmarkJSON2Protobuf_DynamicGo_Raw(b *testing.B) {
 		})
 		// nj := []byte(convertI642StringSimple(simpleJSON))
 		ctx := context.Background()
-		desc, ok := (*simple).(proto.Descriptor)
-		if !ok {
-			b.Fatal("test failed")
-		}
-		out, err := cv.Do(ctx, &desc, []byte(simplePbJSON))
+		out, err := cv.Do(ctx, simple, []byte(simplePbJSON))
 		require.Nil(b, err)
 
 		b.SetBytes(int64(len(out)))
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_, _ = cv.Do(ctx, &desc, []byte(simplePbJSON))
+			_, _ = cv.Do(ctx, simple, []byte(simplePbJSON))
 		}
 	})
 
@@ -378,17 +359,14 @@ func BenchmarkJSON2Protobuf_DynamicGo_Raw(b *testing.B) {
 		// println(string(nestingPbJSON))
 		// nj := []byte(convertI642StringSimple(simpleJSON))
 		ctx := context.Background()
-		desc, ok := (*nesting).(proto.Descriptor)
-		if !ok {
-			b.Fatal("test failed")
-		}
-		out, err := cv.Do(ctx, &desc, []byte(nestingPbJSON))
+
+		out, err := cv.Do(ctx, nesting, []byte(nestingPbJSON))
 		require.Nil(b, err)
 
 		b.SetBytes(int64(len(out)))
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			_, _ = cv.Do(ctx, &desc, []byte(nestingPbJSON))
+			_, _ = cv.Do(ctx, nesting, []byte(nestingPbJSON))
 		}
 	})
 }
@@ -431,26 +409,26 @@ func BenchmarkJSON2Protobuf_SonicAndKitex(b *testing.B) {
 	})
 }
 
-func BenchmarkJSON2Protobuf_ProtoBufGo(b *testing.B) {
-	b.Run("small", func(b *testing.B) {
-		v := baseline.Simple{}
-		if err := protojson.Unmarshal([]byte(simplePbJSON), v.ProtoReflect().Interface()); err != nil {
-			b.Fatal(err)
-		}
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_ = protojson.Unmarshal([]byte(simplePbJSON), v.ProtoReflect().Interface())
-		}
-	})
+// func BenchmarkJSON2Protobuf_ProtoBufGo(b *testing.B) {
+// 	b.Run("small", func(b *testing.B) {
+// 		v := baseline.Simple{}
+// 		if err := protojson.Unmarshal([]byte(simplePbJSON), v.ProtoReflect().Interface()); err != nil {
+// 			b.Fatal(err)
+// 		}
+// 		b.ResetTimer()
+// 		for i := 0; i < b.N; i++ {
+// 			_ = protojson.Unmarshal([]byte(simplePbJSON), v.ProtoReflect().Interface())
+// 		}
+// 	})
 
-	b.Run("medium", func(b *testing.B) {
-		v := baseline.Nesting{}
-		if err := protojson.Unmarshal([]byte(nestingPbJSON), v.ProtoReflect().Interface()); err != nil {
-			b.Fatal(err)
-		}
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_ = protojson.Unmarshal([]byte(nestingPbJSON), v.ProtoReflect().Interface())
-		}
-	})
-}
+// 	b.Run("medium", func(b *testing.B) {
+// 		v := baseline.Nesting{}
+// 		if err := protojson.Unmarshal([]byte(nestingPbJSON), v.ProtoReflect().Interface()); err != nil {
+// 			b.Fatal(err)
+// 		}
+// 		b.ResetTimer()
+// 		for i := 0; i < b.N; i++ {
+// 			_ = protojson.Unmarshal([]byte(nestingPbJSON), v.ProtoReflect().Interface())
+// 		}
+// 	})
+// }

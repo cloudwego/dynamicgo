@@ -1,7 +1,6 @@
 package testdata
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -9,16 +8,12 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/cloudwego/dynamicgo/internal/util_test"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/proto/binary"
 	"github.com/cloudwego/dynamicgo/proto/generic"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/baseline"
 	"github.com/stretchr/testify/require"
 	goprotowire "google.golang.org/protobuf/encoding/protowire"
-	goproto "google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 func init() {
@@ -33,14 +28,6 @@ func init() {
 
 	pnobj := getPbPartialNestingValue()
 	println("medium protobuf data size: ", pnobj.Size())
-}
-
-func getPbServiceDescriptor() *proto.ServiceDescriptor {
-	svc, err := proto.Options{}.NewDescriptorFromPath(context.Background(), util_test.MustGitPath(protoPath))
-	if err != nil {
-		panic(err)
-	}
-	return svc
 }
 
 /*
@@ -70,7 +57,7 @@ func BenchmarkProtoSkip_DynamicGo(b *testing.B) {
 				b.Fatal(err)
 			}
 
-			if (*desc).Fields().ByNumber(fieldNumber) == nil {
+			if desc.Message().ByNumber(fieldNumber) == nil {
 				b.Fatal("field not found")
 			}
 
@@ -110,7 +97,7 @@ func BenchmarkProtoSkip_DynamicGo(b *testing.B) {
 				b.Fatal(err)
 			}
 
-			if (*desc).Fields().ByNumber(fieldNumber) == nil {
+			if desc.Message().ByNumber(fieldNumber) == nil {
 				b.Fatal("field not found")
 			}
 
@@ -185,39 +172,39 @@ func BenchmarkProtoGetOne_DynamicGo(b *testing.B) {
 	})
 }
 
-func BenchmarkProtoGetOne_ProtobufGo(b *testing.B) {
-	b.Run("small", func(b *testing.B) {
-		// build desc、obj
-		desc := getPbSimpleDesc()
-		obj := getPbSimpleValue()
-		data := make([]byte, obj.Size())
-		ret := obj.FastWrite(data)
-		if ret != len(data) {
-			b.Fatal(ret)
-		}
-		// build dynamicpb Message
-		message := dynamicpb.NewMessage(*desc)
-		if err := goproto.Unmarshal(data, message); err != nil {
-			b.Fatal("build dynamicpb failed")
-		}
-		targetDesc := (*desc).Fields().ByNumber(6)
-		if !message.Has(targetDesc) {
-			b.Fatal("dynamicpb can't find targetDesc")
-		}
-		value := message.Get(targetDesc)
-		require.Equal(b, obj.BinaryField, value.Bytes())
-		b.ResetTimer()
-		b.Run("go", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				_ = goproto.Unmarshal(data, message)
-				_ = message.Get(targetDesc)
-				// _ = goproto.Marshal(message)
-			}
-		})
-	})
+// func BenchmarkProtoGetOne_ProtobufGo(b *testing.B) {
+// 	b.Run("small", func(b *testing.B) {
+// 		// build desc、obj
+// 		desc := getPbSimpleDesc()
+// 		obj := getPbSimpleValue()
+// 		data := make([]byte, obj.Size())
+// 		ret := obj.FastWrite(data)
+// 		if ret != len(data) {
+// 			b.Fatal(ret)
+// 		}
+// 		// build dynamicpb Message
+// 		message := dynamicpb.NewMessage(*desc)
+// 		if err := goproto.Unmarshal(data, message); err != nil {
+// 			b.Fatal("build dynamicpb failed")
+// 		}
+// 		targetDesc := (*desc).Fields().ByNumber(6)
+// 		if !message.Has(targetDesc) {
+// 			b.Fatal("dynamicpb can't find targetDesc")
+// 		}
+// 		value := message.Get(targetDesc)
+// 		require.Equal(b, obj.BinaryField, value.Bytes())
+// 		b.ResetTimer()
+// 		b.Run("go", func(b *testing.B) {
+// 			for i := 0; i < b.N; i++ {
+// 				_ = goproto.Unmarshal(data, message)
+// 				_ = message.Get(targetDesc)
+// 				// _ = goproto.Marshal(message)
+// 			}
+// 		})
+// 	})
 
-	// todo: medium data test, have no idea to get the inner data in MapStringSimple["15"].BinaryField?
-}
+// 	// todo: medium data test, have no idea to get the inner data in MapStringSimple["15"].BinaryField?
+// }
 
 
 func BenchmarkProtoSetOne_DynamicGo(b *testing.B) {
@@ -232,8 +219,8 @@ func BenchmarkProtoSetOne_DynamicGo(b *testing.B) {
 		v := generic.NewRootValue(desc, data)
 		p := binary.NewBinaryProtocolBuffer()
 		p.WriteBytes(obj.BinaryField)
-		fd6 := (*desc).Fields().ByNumber(6)
-		n := generic.NewValue(&fd6, p.Buf)
+		fd6 := desc.Message().ByNumber(6).Type()
+		n := generic.NewValue(fd6, p.Buf)
 		_, err := v.SetByPath(n.Node, generic.NewPathFieldId(6))
 		require.Nil(b, err)
 		nn := v.GetByPath(generic.NewPathFieldId(6))
@@ -260,8 +247,8 @@ func BenchmarkProtoSetOne_DynamicGo(b *testing.B) {
 		v := generic.NewRootValue(desc, data)
 		p := binary.NewBinaryProtocolBuffer()
 		p.WriteBytes(obj.MapStringSimple["15"].BinaryField)
-		fd15 := (*desc).Fields().ByNumber(15).MapValue().Message().Fields().ByNumber(6)
-		n := generic.NewValue(&fd15, p.Buf)
+		fd15 := desc.Message().ByNumber(15).MapValue().Message().ByNumber(6).Type()
+		n := generic.NewValue(fd15, p.Buf)
 		_, err := v.SetByPath(n.Node, generic.NewPathFieldId(15), generic.NewPathStrKey("15"), generic.NewPathFieldId(6))
 		require.Nil(b, err)
 		nn := v.GetByPath(generic.NewPathFieldId(15), generic.NewPathStrKey("15"), generic.NewPathFieldId(6))
@@ -277,40 +264,40 @@ func BenchmarkProtoSetOne_DynamicGo(b *testing.B) {
 	})
 }
 
-func BenchmarkProtoSetOne_ProtobufGo(b *testing.B) {
-	b.Run("small", func(b *testing.B) {
-		desc := getPbSimpleDesc()
-		obj := getPbSimpleValue()
-		data := make([]byte, obj.Size())
-		ret := obj.FastWrite(data)
-		if ret != len(data) {
-			b.Fatal(ret)
-		}
-		message := dynamicpb.NewMessage(*desc)
-		targetDesc := (*desc).Fields().ByNumber(6)
-		if err := goproto.Unmarshal(data, message); err != nil {
-			b.Fatal("build dynamicpb failed")
-		}
-		fieldValue := protoreflect.ValueOfBytes(obj.BinaryField)
-		message.Set(targetDesc, fieldValue)
-		if !message.Has(targetDesc) {
-			b.Fatal("dynamicpb can't find targetDesc")
-		}
-		find := message.Get(targetDesc)
-		require.Equal(b, obj.BinaryField, find.Bytes())
-		b.ResetTimer()
-		b.Run("go", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				message = dynamicpb.NewMessage(*desc)
-				_ = goproto.Unmarshal(data, message)
-				fieldValue := protoreflect.ValueOfBytes(obj.BinaryField)
-				message.Set(targetDesc, fieldValue)
-			}
-		})
-	})
+// func BenchmarkProtoSetOne_ProtobufGo(b *testing.B) {
+// 	b.Run("small", func(b *testing.B) {
+// 		desc := getPbSimpleDesc()
+// 		obj := getPbSimpleValue()
+// 		data := make([]byte, obj.Size())
+// 		ret := obj.FastWrite(data)
+// 		if ret != len(data) {
+// 			b.Fatal(ret)
+// 		}
+// 		message := dynamicpb.NewMessage(*desc)
+// 		targetDesc := (*desc).Fields().ByNumber(6)
+// 		if err := goproto.Unmarshal(data, message); err != nil {
+// 			b.Fatal("build dynamicpb failed")
+// 		}
+// 		fieldValue := protoreflect.ValueOfBytes(obj.BinaryField)
+// 		message.Set(targetDesc, fieldValue)
+// 		if !message.Has(targetDesc) {
+// 			b.Fatal("dynamicpb can't find targetDesc")
+// 		}
+// 		find := message.Get(targetDesc)
+// 		require.Equal(b, obj.BinaryField, find.Bytes())
+// 		b.ResetTimer()
+// 		b.Run("go", func(b *testing.B) {
+// 			for i := 0; i < b.N; i++ {
+// 				message = dynamicpb.NewMessage(*desc)
+// 				_ = goproto.Unmarshal(data, message)
+// 				fieldValue := protoreflect.ValueOfBytes(obj.BinaryField)
+// 				message.Set(targetDesc, fieldValue)
+// 			}
+// 		})
+// 	})
 
-	// todo: medium data test, have no idea to set the inner data in MapStringSimple["15"].BinaryField?
-}
+// 	// todo: medium data test, have no idea to set the inner data in MapStringSimple["15"].BinaryField?
+// }
 
 func BenchmarkProtoGetMany_DynamicGo(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
@@ -770,81 +757,81 @@ func BenchmarkProtoMarshalTo_KitexFast(b *testing.B) {
 	})
 }
 
-func BenchmarkProtoMarshalTo_ProtoBufGo(b *testing.B) {
-	b.Run("small", func(b *testing.B) {
-		obj := getPbSimpleValue()
-		data, err := goproto.Marshal(obj)
-		if err != nil {
-			b.Fatal(err)
-		}
-		part := &baseline.PartialSimple{}
-		opts := goproto.UnmarshalOptions{DiscardUnknown: true}
-		err = opts.Unmarshal(data, part)
-		if err != nil {
-			b.Fatal(err)
-		}
+// func BenchmarkProtoMarshalTo_ProtoBufGo(b *testing.B) {
+// 	b.Run("small", func(b *testing.B) {
+// 		obj := getPbSimpleValue()
+// 		data, err := goproto.Marshal(obj)
+// 		if err != nil {
+// 			b.Fatal(err)
+// 		}
+// 		part := &baseline.PartialSimple{}
+// 		opts := goproto.UnmarshalOptions{DiscardUnknown: true}
+// 		err = opts.Unmarshal(data, part)
+// 		if err != nil {
+// 			b.Fatal(err)
+// 		}
 
-		out, err2 := goproto.Marshal(part)
-		if err2 != nil {
-			b.Fatal(err2)
-		}
+// 		out, err2 := goproto.Marshal(part)
+// 		if err2 != nil {
+// 			b.Fatal(err2)
+// 		}
 		
-		desc := getPbSimpleDesc()
-		partdesc := getPbPartialSimpleDesc()
-		v := generic.NewRootValue(desc, data)
-		out2, err3 := v.MarshalTo(partdesc, &generic.Options{})
-		if err3 != nil {
-			b.Fatal(err3)
-		}
+// 		desc := getPbSimpleDesc()
+// 		partdesc := getPbPartialSimpleDesc()
+// 		v := generic.NewRootValue(desc, data)
+// 		out2, err3 := v.MarshalTo(partdesc, &generic.Options{})
+// 		if err3 != nil {
+// 			b.Fatal(err3)
+// 		}
 
-		require.Equal(b, len(out), len(out2))
+// 		require.Equal(b, len(out), len(out2))
 
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			part := &baseline.PartialSimple{}
-			_ = opts.Unmarshal(data, part)
-			_, _ = goproto.Marshal(part)
-		}
-	})
+// 		b.SetBytes(int64(len(data)))
+// 		b.ResetTimer()
+// 		for i := 0; i < b.N; i++ {
+// 			part := &baseline.PartialSimple{}
+// 			_ = opts.Unmarshal(data, part)
+// 			_, _ = goproto.Marshal(part)
+// 		}
+// 	})
 
-	b.Run("medium", func(b *testing.B) {
-		obj := getPbNestingValue()
-		data, err := goproto.Marshal(obj)
-		if err != nil {
-			b.Fatal(err)
-		}
-		part := &baseline.PartialNesting{}
-		opts := goproto.UnmarshalOptions{DiscardUnknown: true}
-		err = opts.Unmarshal(data, part)
-		if err != nil {
-			b.Fatal(err)
-		}
+// 	b.Run("medium", func(b *testing.B) {
+// 		obj := getPbNestingValue()
+// 		data, err := goproto.Marshal(obj)
+// 		if err != nil {
+// 			b.Fatal(err)
+// 		}
+// 		part := &baseline.PartialNesting{}
+// 		opts := goproto.UnmarshalOptions{DiscardUnknown: true}
+// 		err = opts.Unmarshal(data, part)
+// 		if err != nil {
+// 			b.Fatal(err)
+// 		}
 
-		out, err2 := goproto.Marshal(part)
-		if err2 != nil {
-			b.Fatal(err2)
-		}
+// 		out, err2 := goproto.Marshal(part)
+// 		if err2 != nil {
+// 			b.Fatal(err2)
+// 		}
 
-		desc := getPbNestingDesc()
-		partdesc := getPbPartialNestingDesc()
-		v := generic.NewRootValue(desc, data)
-		out2, err3 := v.MarshalTo(partdesc, &generic.Options{})
-		if err3 != nil {
-			b.Fatal(err3)
-		}
+// 		desc := getPbNestingDesc()
+// 		partdesc := getPbPartialNestingDesc()
+// 		v := generic.NewRootValue(desc, data)
+// 		out2, err3 := v.MarshalTo(partdesc, &generic.Options{})
+// 		if err3 != nil {
+// 			b.Fatal(err3)
+// 		}
 
-		require.Equal(b, len(out), len(out2))
+// 		require.Equal(b, len(out), len(out2))
 
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			part := &baseline.PartialNesting{}
-			_ = opts.Unmarshal(data, part)
-			_, _ = goproto.Marshal(part)
-		}
-	})
-}
+// 		b.SetBytes(int64(len(data)))
+// 		b.ResetTimer()
+// 		for i := 0; i < b.N; i++ {
+// 			part := &baseline.PartialNesting{}
+// 			_ = opts.Unmarshal(data, part)
+// 			_, _ = goproto.Marshal(part)
+// 		}
+// 	})
+// }
 
 /*
  * Marshal/Unmarshal test with ProtoBufGo, KitexFast, DynamicGo
@@ -854,123 +841,123 @@ func BenchmarkProtoMarshalTo_ProtoBufGo(b *testing.B) {
  * 4. UnmarshalPartial
  */
 
-func BenchmarkProtoMarshalAll_ProtoBufGo(b *testing.B) {
-	b.Run("small", func(b *testing.B) {
-		obj := getPbSimpleValue()
-		data, err := goproto.Marshal(obj)
-		if err != nil {
-			b.Fatal(err)
-		}
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, _ = goproto.Marshal(obj)
-		}
-	})
+// func BenchmarkProtoMarshalAll_ProtoBufGo(b *testing.B) {
+// 	b.Run("small", func(b *testing.B) {
+// 		obj := getPbSimpleValue()
+// 		data, err := goproto.Marshal(obj)
+// 		if err != nil {
+// 			b.Fatal(err)
+// 		}
+// 		b.SetBytes(int64(len(data)))
+// 		b.ResetTimer()
+// 		for i := 0; i < b.N; i++ {
+// 			_, _ = goproto.Marshal(obj)
+// 		}
+// 	})
 
-	b.Run("medium", func(b *testing.B) {
-		obj := getPbNestingValue()
-		data, err := goproto.Marshal(obj)
-		if err != nil {
-			b.Fatal(err)
-		}
+// 	b.Run("medium", func(b *testing.B) {
+// 		obj := getPbNestingValue()
+// 		data, err := goproto.Marshal(obj)
+// 		if err != nil {
+// 			b.Fatal(err)
+// 		}
 
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, _ = goproto.Marshal(obj)
-		}
-	})
-}
+// 		b.SetBytes(int64(len(data)))
+// 		b.ResetTimer()
+// 		for i := 0; i < b.N; i++ {
+// 			_, _ = goproto.Marshal(obj)
+// 		}
+// 	})
+// }
 
-func BenchmarkProtoMarshalPartial_ProtoBufGo(b *testing.B) {
-	b.Run("small", func(b *testing.B) {
-		obj := getPbPartialSimpleValue()
-		data, err := goproto.Marshal(obj)
-		if err != nil {
-			b.Fatal(err)
-		}
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, _ = goproto.Marshal(obj)
-		}
-	})
+// func BenchmarkProtoMarshalPartial_ProtoBufGo(b *testing.B) {
+// 	b.Run("small", func(b *testing.B) {
+// 		obj := getPbPartialSimpleValue()
+// 		data, err := goproto.Marshal(obj)
+// 		if err != nil {
+// 			b.Fatal(err)
+// 		}
+// 		b.SetBytes(int64(len(data)))
+// 		b.ResetTimer()
+// 		for i := 0; i < b.N; i++ {
+// 			_, _ = goproto.Marshal(obj)
+// 		}
+// 	})
 
-	b.Run("medium", func(b *testing.B) {
-		obj := getPbPartialNestingValue()
-		data, err := goproto.Marshal(obj)
-		if err != nil {
-			b.Fatal(err)
-		}
+// 	b.Run("medium", func(b *testing.B) {
+// 		obj := getPbPartialNestingValue()
+// 		data, err := goproto.Marshal(obj)
+// 		if err != nil {
+// 			b.Fatal(err)
+// 		}
 
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, _ = goproto.Marshal(obj)
-		}
-	})
-}
+// 		b.SetBytes(int64(len(data)))
+// 		b.ResetTimer()
+// 		for i := 0; i < b.N; i++ {
+// 			_, _ = goproto.Marshal(obj)
+// 		}
+// 	})
+// }
 
-func BenchmarkProtoUnmarshalAll_ProtoBufGo(b *testing.B) {
-	b.Run("small", func(b *testing.B) {
-		obj := getPbSimpleValue()
-		data, err := goproto.Marshal(obj)
-		if err != nil {
-			b.Fatal(err)
-		}
-		v := &baseline.Simple{}
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_ = goproto.Unmarshal(data, v)
-		}
-	})
+// func BenchmarkProtoUnmarshalAll_ProtoBufGo(b *testing.B) {
+// 	b.Run("small", func(b *testing.B) {
+// 		obj := getPbSimpleValue()
+// 		data, err := goproto.Marshal(obj)
+// 		if err != nil {
+// 			b.Fatal(err)
+// 		}
+// 		v := &baseline.Simple{}
+// 		b.SetBytes(int64(len(data)))
+// 		b.ResetTimer()
+// 		for i := 0; i < b.N; i++ {
+// 			_ = goproto.Unmarshal(data, v)
+// 		}
+// 	})
 
-	b.Run("medium", func(b *testing.B) {
-		obj := getPbNestingValue()
-		data, err := goproto.Marshal(obj)
-		if err != nil {
-			b.Fatal(err)
-		}
-		v := &baseline.Nesting{}
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_ = goproto.Unmarshal(data, v)
-		}
-	})
-}
+// 	b.Run("medium", func(b *testing.B) {
+// 		obj := getPbNestingValue()
+// 		data, err := goproto.Marshal(obj)
+// 		if err != nil {
+// 			b.Fatal(err)
+// 		}
+// 		v := &baseline.Nesting{}
+// 		b.SetBytes(int64(len(data)))
+// 		b.ResetTimer()
+// 		for i := 0; i < b.N; i++ {
+// 			_ = goproto.Unmarshal(data, v)
+// 		}
+// 	})
+// }
 
-func BenchmarkProtoUnmarshalPartial_ProtoBufGo(b *testing.B) {
-	b.Run("small", func(b *testing.B) {
-		obj := getPbPartialSimpleValue()
-		data, err := goproto.Marshal(obj)
-		if err != nil {
-			b.Fatal(err)
-		}
-		v := &baseline.PartialSimple{}
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_ = goproto.Unmarshal(data, v)
-		}
-	})
+// func BenchmarkProtoUnmarshalPartial_ProtoBufGo(b *testing.B) {
+// 	b.Run("small", func(b *testing.B) {
+// 		obj := getPbPartialSimpleValue()
+// 		data, err := goproto.Marshal(obj)
+// 		if err != nil {
+// 			b.Fatal(err)
+// 		}
+// 		v := &baseline.PartialSimple{}
+// 		b.SetBytes(int64(len(data)))
+// 		b.ResetTimer()
+// 		for i := 0; i < b.N; i++ {
+// 			_ = goproto.Unmarshal(data, v)
+// 		}
+// 	})
 
-	b.Run("medium", func(b *testing.B) {
-		obj := getPbPartialNestingValue()
-		data, err := goproto.Marshal(obj)
-		if err != nil {
-			b.Fatal(err)
-		}
-		v := &baseline.PartialNesting{}
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_ = goproto.Unmarshal(data, v)
-		}
-	})
-}
+// 	b.Run("medium", func(b *testing.B) {
+// 		obj := getPbPartialNestingValue()
+// 		data, err := goproto.Marshal(obj)
+// 		if err != nil {
+// 			b.Fatal(err)
+// 		}
+// 		v := &baseline.PartialNesting{}
+// 		b.SetBytes(int64(len(data)))
+// 		b.ResetTimer()
+// 		for i := 0; i < b.N; i++ {
+// 			_ = goproto.Unmarshal(data, v)
+// 		}
+// 	})
+// }
 
 func BenchmarkProtoMarshalAll_KitexFast(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
@@ -1609,7 +1596,8 @@ func buildBinaryProtocolByFieldId(id int, p *binary.BinaryProtocol, value reflec
 	if err = encNestingField(value, id, data); err != nil {
 		return err
 	}
-	if !(*desc).IsList() && !(*desc).IsMap() {
+	t := desc.Type()
+	if !t.IsList() && !t.IsMap() {
 		data = data[1:] // skip Tag because the test case tag len is 1, we just use 1, it is not always 1, please use comsumevarint
 	}
 	p.Buf = data
@@ -1619,7 +1607,7 @@ func buildBinaryProtocolByFieldId(id int, p *binary.BinaryProtocol, value reflec
 func BenchmarkRationGet_DynamicGo(b *testing.B) {
 	b.Run("ration", func(b *testing.B) {
 		desc := getPbNestingDesc()
-		fieldNums := (*desc).Fields().Len()
+		fieldNums := desc.Message().FieldsCount()
 		obj := getPbNestingValue()
 		data := make([]byte, obj.Size())
 		ret := obj.FastWrite(data)
@@ -1659,57 +1647,57 @@ func BenchmarkRationGet_DynamicGo(b *testing.B) {
 	})
 }
 
-func BenchmarkRationGet_ProtobufGo(b *testing.B) {
-	b.Run("ration", func(b *testing.B) {
-		desc := getPbNestingDesc()
-		fieldNums := (*desc).Fields().Len()
-		obj := getPbNestingValue()
-		data := make([]byte, obj.Size())
-		ret := obj.FastWrite(data)
-		if ret != len(data) {
-			b.Fatal(ret)
-		}
+// func BenchmarkRationGet_ProtobufGo(b *testing.B) {
+// 	b.Run("ration", func(b *testing.B) {
+// 		desc := getPbNestingDesc()
+// 		fieldNums := (*desc).Fields().Len()
+// 		obj := getPbNestingValue()
+// 		data := make([]byte, obj.Size())
+// 		ret := obj.FastWrite(data)
+// 		if ret != len(data) {
+// 			b.Fatal(ret)
+// 		}
 
-		testNums := int(math.Ceil(float64(fieldNums) * factor))
-		// build dynamicpb Message
-		message := dynamicpb.NewMessage(*desc)
-		if err := goproto.Unmarshal(data, message); err != nil {
-			b.Fatal("build dynamicpb failed")
-		}
-		value := reflect.ValueOf(obj)
-		for id := 1; id <= testNums; id++ {
-			// dynamicpb read data
-			targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
-			if !message.Has(targetDesc) {
-				b.Fatal("dynamicpb can't find targetDesc")
-			}
-			_ = message.Get(targetDesc)
-			// fastRead data
-			size := sizeNestingField(value, id)
-			data := make([]byte, size)
-			if err := encNestingField(value, id, data); err != nil {
-				b.Fatal("encNestingField failed, fieldId: {}", id)
-			}
-		}
-		b.ResetTimer()
-		b.Run("go", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				_ = goproto.Unmarshal(data, message)
-				for id := 1; id <= testNums; id++ {
-					targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
-					v := message.Get(targetDesc)
-					v.Interface()
-				}
-			}
-		})
-	})
-}
+// 		testNums := int(math.Ceil(float64(fieldNums) * factor))
+// 		// build dynamicpb Message
+// 		message := dynamicpb.NewMessage(*desc)
+// 		if err := goproto.Unmarshal(data, message); err != nil {
+// 			b.Fatal("build dynamicpb failed")
+// 		}
+// 		value := reflect.ValueOf(obj)
+// 		for id := 1; id <= testNums; id++ {
+// 			// dynamicpb read data
+// 			targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+// 			if !message.Has(targetDesc) {
+// 				b.Fatal("dynamicpb can't find targetDesc")
+// 			}
+// 			_ = message.Get(targetDesc)
+// 			// fastRead data
+// 			size := sizeNestingField(value, id)
+// 			data := make([]byte, size)
+// 			if err := encNestingField(value, id, data); err != nil {
+// 				b.Fatal("encNestingField failed, fieldId: {}", id)
+// 			}
+// 		}
+// 		b.ResetTimer()
+// 		b.Run("go", func(b *testing.B) {
+// 			for i := 0; i < b.N; i++ {
+// 				_ = goproto.Unmarshal(data, message)
+// 				for id := 1; id <= testNums; id++ {
+// 					targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+// 					v := message.Get(targetDesc)
+// 					v.Interface()
+// 				}
+// 			}
+// 		})
+// 	})
+// }
 
 // deprecated
 func BenchmarkProtoRationSetBefore(b *testing.B) {
 	b.Run("ration", func(b *testing.B) {
 		desc := getPbNestingDesc()
-		fieldNums := (*desc).Fields().Len()
+		fieldNums := desc.Message().FieldsCount()
 		obj := getPbNestingValue()
 		data := make([]byte, obj.Size())
 		ret := obj.FastWrite(data)
@@ -1725,15 +1713,15 @@ func BenchmarkProtoRationSetBefore(b *testing.B) {
 		value := reflect.ValueOf(obj)
 		for id := 1; id <= testNums; id++ {
 			p := binary.NewBinaryProtocolBuffer()
-			fieldDesc := (*desc).Fields().ByNumber(proto.Number(id))
+			fieldDesc := desc.Message().ByNumber(proto.Number(id))
 			if err := collectMarshalData(id, value, &mObj); err != nil {
 				b.Fatal("collect MarshalData failed")
 			}
-			if err := buildBinaryProtocolByFieldId(id, p, value, &fieldDesc); err != nil {
+			if err := buildBinaryProtocolByFieldId(id, p, value, fieldDesc); err != nil {
 				b.Fatal("build BinaryProtocolByFieldId failed")
 			}
-			field := (*desc).Fields().ByNumber(proto.Number(id))
-			n := generic.NewValue(&field, p.Buf)
+			field := desc.Message().ByNumber(proto.Number(id)).Type()
+			n := generic.NewValue(field, p.Buf)
 			_, err := v.SetByPath(n.Node, generic.NewPathFieldId(proto.Number(id)))
 			require.Nil(b, err)
 			nn := v.GetByPath(generic.NewPathFieldId(proto.Number(id)))
@@ -1770,10 +1758,10 @@ func BenchmarkProtoRationSetBefore(b *testing.B) {
 				ps := make([]generic.PathNode, 0)
 				for id := 1; id <= testNums; id++ {
 					p := binary.NewBinaryProtocolBuffer()
-					fieldDesc := (*desc).Fields().ByNumber(proto.Number(id))
-					_ = buildBinaryProtocolByFieldId(id, p, value, &fieldDesc)
-					field := (*desc).Fields().ByNumber(proto.Number(id))
-					n := generic.NewValue(&field, p.Buf)
+					fieldDesc := desc.Message().ByNumber(proto.Number(id))
+					_ = buildBinaryProtocolByFieldId(id, p, value, fieldDesc)
+					field := desc.Message().ByNumber(proto.Number(id)).Type()
+					n := generic.NewValue(field, p.Buf)
 					_, _ = v.SetByPath(n.Node, generic.NewPathFieldId(proto.Number(id)))
 					pnode := generic.PathNode{
 						Path: generic.NewPathFieldId(proto.FieldNumber(id)),
@@ -1797,7 +1785,7 @@ func BenchmarkProtoRationSetBefore(b *testing.B) {
 func BenchmarkRationSet_DynamicGo(b *testing.B) {
 	b.Run("ration", func(b *testing.B) {
 		desc := getPbNestingDesc()
-		fieldNums := (*desc).Fields().Len()
+		fieldNums := desc.Message().FieldsCount()
 		obj := getPbNestingValue()
 		data := make([]byte, obj.Size())
 		ret := obj.FastWrite(data)
@@ -1820,20 +1808,21 @@ func BenchmarkRationSet_DynamicGo(b *testing.B) {
 			require.Nil(b, x.Check())
 			m, err := x.Interface(&generic.Options{MapStructById: true})
 			require.Nil(b, err)
-			field := (*desc).Fields().ByNumber(proto.Number(id))
+			field := desc.Message().ByNumber(proto.Number(id)).Type()
 			if field.IsMap() {
-				err = p.WriteMap(&field, m, true, false, false)
+				err = p.WriteMap(field, m, true, false, false)
 			} else if field.IsList() {
-				err = p.WriteList(&field, m, true, false, false)
+				err = p.WriteList(field, m, true, false, false)
 			} else {
 				// bacause basic type node buf no tag, just LV
-				err = p.WriteBaseTypeWithDesc(&field, m, true, false, false)
+				needMessageLen := true
+				err = p.WriteBaseTypeWithDesc(field, m, needMessageLen, true, false, false)
 			}
 			// fmt.Println(id)
 			require.Nil(b, err)
-			newValue := generic.NewValue(&field, p.Buf)
+			newValue := generic.NewValue(field, p.Buf)
 			if field.IsMap() || field.IsList() {
-				newValue = generic.NewComplexValue(&field, p.Buf)
+				newValue = generic.NewComplexValue(field, p.Buf)
 			}
 			// fmt.Println(id)
 			require.Equal(b, len(newValue.Raw()), len(x.Raw()))
@@ -1889,7 +1878,7 @@ func BenchmarkRationSet_DynamicGo(b *testing.B) {
 func BenchmarkRationSetByInterface_DynamicGo(b *testing.B) {
 	b.Run("ration", func(b *testing.B) {
 		desc := getPbNestingDesc()
-		fieldNums := (*desc).Fields().Len()
+		fieldNums := desc.Message().FieldsCount()
 		obj := getPbNestingValue()
 		data := make([]byte, obj.Size())
 		ret := obj.FastWrite(data)
@@ -1912,20 +1901,21 @@ func BenchmarkRationSetByInterface_DynamicGo(b *testing.B) {
 			require.Nil(b, x.Check())
 			m, err := x.Interface(&generic.Options{MapStructById: true})
 			require.Nil(b, err)
-			field := (*desc).Fields().ByNumber(proto.Number(id))
+			field := desc.Message().ByNumber(proto.Number(id)).Type()
 			if field.IsMap() {
-				err = p.WriteMap(&field, m, true, false, false)
+				err = p.WriteMap(field, m, true, false, false)
 			} else if field.IsList() {
-				err = p.WriteList(&field, m, true, false, false)
+				err = p.WriteList(field, m, true, false, false)
 			} else {
 				// bacause basic type node buf no tag, just LV
-				err = p.WriteBaseTypeWithDesc(&field, m, true, false, false)
+				needMessageLen := true
+				err = p.WriteBaseTypeWithDesc(field, m, needMessageLen, true, false, false)
 			}
 			// fmt.Println(id)
 			require.Nil(b, err)
-			newValue := generic.NewValue(&field, p.Buf)
+			newValue := generic.NewValue(field, p.Buf)
 			if field.IsMap() || field.IsList() {
-				newValue = generic.NewComplexValue(&field, p.Buf)
+				newValue = generic.NewComplexValue(field, p.Buf)
 			}
 			// fmt.Println(id)
 			require.Equal(b, len(newValue.Raw()), len(x.Raw()))
@@ -1960,16 +1950,17 @@ func BenchmarkRationSetByInterface_DynamicGo(b *testing.B) {
 				for id := 1; id <= testNums; id++ {
 					x := objRoot.GetByPath(generic.NewPathFieldId(proto.Number(id)))
 					m, _ := x.Interface(opt)
-					field := (*desc).Fields().ByNumber(proto.Number(id))
+					field := desc.Message().ByNumber(proto.Number(id)).Type()
 					if field.IsMap() {
-						_ = p.WriteMap(&field, m, true, false, false)
+						_ = p.WriteMap(field, m, true, false, false)
 					} else if field.IsList() {
-						_ = p.WriteList(&field, m, true, false, false)
+						_ = p.WriteList(field, m, true, false, false)
 					} else {
 						// bacause basic type node buf no tag, just LV
-						_ = p.WriteBaseTypeWithDesc(&field, m, true, false, false)
+						needMessageLen := true
+						_ = p.WriteBaseTypeWithDesc(field, m, needMessageLen, true, false, false)
 					}
-					newValue := generic.NewValue(&field, p.Buf)
+					newValue := generic.NewValue(field, p.Buf)
 					// can not set when set complex value if use GetMany
 					// if field.IsList() {
 					// 	et := proto.FromProtoKindToType(field.Kind(), false, false)
@@ -2001,7 +1992,7 @@ func BenchmarkRationSetByInterface_DynamicGo(b *testing.B) {
 func BenchmarkRationSetMany_DynamicGo(b *testing.B) {
 	b.Run("ration", func(b *testing.B) {
 		desc := getPbNestingDesc()
-		fieldNums := (*desc).Fields().Len()
+		fieldNums := desc.Message().FieldsCount()
 		obj := getPbNestingValue()
 		data := make([]byte, obj.Size())
 		ret := obj.FastWrite(data)
@@ -2075,107 +2066,107 @@ func BenchmarkRationSetMany_DynamicGo(b *testing.B) {
 	})
 }
 
-func BenchmarkRationSet_ProtobufGo(b *testing.B) {
-	b.Run("ration", func(b *testing.B) {
-		desc := getPbNestingDesc()
-		fieldNums := (*desc).Fields().Len()
-		obj := getPbNestingValue()
-		data := make([]byte, obj.Size())
-		ret := obj.FastWrite(data)
-		if ret != len(data) {
-			b.Fatal(ret)
-		}
+// func BenchmarkRationSet_ProtobufGo(b *testing.B) {
+// 	b.Run("ration", func(b *testing.B) {
+// 		desc := getPbNestingDesc()
+// 		fieldNums := (*desc).Fields().Len()
+// 		obj := getPbNestingValue()
+// 		data := make([]byte, obj.Size())
+// 		ret := obj.FastWrite(data)
+// 		if ret != len(data) {
+// 			b.Fatal(ret)
+// 		}
 
-		objMessage := dynamicpb.NewMessage(*desc)
-		if err := goproto.Unmarshal(data, objMessage); err != nil {
-			b.Fatal("build dynamicpb failed")
-		}
+// 		objMessage := dynamicpb.NewMessage(*desc)
+// 		if err := goproto.Unmarshal(data, objMessage); err != nil {
+// 			b.Fatal("build dynamicpb failed")
+// 		}
 
-		testNums := int(math.Ceil(float64(fieldNums) * factor))
+// 		testNums := int(math.Ceil(float64(fieldNums) * factor))
 
-		message := dynamicpb.NewMessage(*desc)
-		for id := 1; id <= testNums; id++ {
-			targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
-			fieldValue := objMessage.Get(targetDesc)
-			v := fieldValue.Interface()
-			newValue := protoreflect.ValueOf(v)
-			message.Set(targetDesc, newValue)
-		}
-		out, err := goproto.Marshal(message)
-		if err != nil {
-			b.Fatal("Dynamicpb marshal failed")
-		}
-		fmt.Println(len(out))
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		b.Run("go", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				objMessage := dynamicpb.NewMessage(*desc)
-				if err := goproto.Unmarshal(data, objMessage); err != nil {
-					b.Fatal("build dynamicpb failed")
-				}
-				message := dynamicpb.NewMessage(*desc)
-				for id := 1; id <= testNums; id++ {
-					targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
-					fieldValue := objMessage.Get(targetDesc)
-					message.Set(targetDesc, fieldValue)
-				}
-				_, _ = goproto.Marshal(message)
-			}
-		})
-	})
-}
+// 		message := dynamicpb.NewMessage(*desc)
+// 		for id := 1; id <= testNums; id++ {
+// 			targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+// 			fieldValue := objMessage.Get(targetDesc)
+// 			v := fieldValue.Interface()
+// 			newValue := protoreflect.ValueOf(v)
+// 			message.Set(targetDesc, newValue)
+// 		}
+// 		out, err := goproto.Marshal(message)
+// 		if err != nil {
+// 			b.Fatal("Dynamicpb marshal failed")
+// 		}
+// 		fmt.Println(len(out))
+// 		b.SetBytes(int64(len(data)))
+// 		b.ResetTimer()
+// 		b.Run("go", func(b *testing.B) {
+// 			for i := 0; i < b.N; i++ {
+// 				objMessage := dynamicpb.NewMessage(*desc)
+// 				if err := goproto.Unmarshal(data, objMessage); err != nil {
+// 					b.Fatal("build dynamicpb failed")
+// 				}
+// 				message := dynamicpb.NewMessage(*desc)
+// 				for id := 1; id <= testNums; id++ {
+// 					targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+// 					fieldValue := objMessage.Get(targetDesc)
+// 					message.Set(targetDesc, fieldValue)
+// 				}
+// 				_, _ = goproto.Marshal(message)
+// 			}
+// 		})
+// 	})
+// }
 
-func BenchmarkRationSetByInterface_ProtobufGo(b *testing.B) {
-	b.Run("ration", func(b *testing.B) {
-		desc := getPbNestingDesc()
-		fieldNums := (*desc).Fields().Len()
-		obj := getPbNestingValue()
-		data := make([]byte, obj.Size())
-		ret := obj.FastWrite(data)
-		if ret != len(data) {
-			b.Fatal(ret)
-		}
+// func BenchmarkRationSetByInterface_ProtobufGo(b *testing.B) {
+// 	b.Run("ration", func(b *testing.B) {
+// 		desc := getPbNestingDesc()
+// 		fieldNums := (*desc).Fields().Len()
+// 		obj := getPbNestingValue()
+// 		data := make([]byte, obj.Size())
+// 		ret := obj.FastWrite(data)
+// 		if ret != len(data) {
+// 			b.Fatal(ret)
+// 		}
 
-		objMessage := dynamicpb.NewMessage(*desc)
-		if err := goproto.Unmarshal(data, objMessage); err != nil {
-			b.Fatal("build dynamicpb failed")
-		}
+// 		objMessage := dynamicpb.NewMessage(*desc)
+// 		if err := goproto.Unmarshal(data, objMessage); err != nil {
+// 			b.Fatal("build dynamicpb failed")
+// 		}
 
-		testNums := int(math.Ceil(float64(fieldNums) * factor))
+// 		testNums := int(math.Ceil(float64(fieldNums) * factor))
 
-		message := dynamicpb.NewMessage(*desc)
-		for id := 1; id <= testNums; id++ {
-			targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
-			fieldValue := objMessage.Get(targetDesc)
-			v := fieldValue.Interface()
-			newValue := protoreflect.ValueOf(v)
-			message.Set(targetDesc, newValue)
-		}
-		out, err := goproto.Marshal(message)
-		if err != nil {
-			b.Fatal("Dynamicpb marshal failed")
-		}
-		fmt.Println(len(out))
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		b.Run("go", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				objMessage := dynamicpb.NewMessage(*desc)
-				if err := goproto.Unmarshal(data, objMessage); err != nil {
-					b.Fatal("build dynamicpb failed")
-				}
-				message := dynamicpb.NewMessage(*desc)
-				for id := 1; id <= testNums; id++ {
-					targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
-					fieldValue := objMessage.Get(targetDesc)
-					v := fieldValue.Interface()
-					newValue := protoreflect.ValueOf(v)
-					message.Set(targetDesc, newValue)
-				}
-				_, _ = goproto.Marshal(message)
-			}
-		})
-	})
-}
+// 		message := dynamicpb.NewMessage(*desc)
+// 		for id := 1; id <= testNums; id++ {
+// 			targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+// 			fieldValue := objMessage.Get(targetDesc)
+// 			v := fieldValue.Interface()
+// 			newValue := protoreflect.ValueOf(v)
+// 			message.Set(targetDesc, newValue)
+// 		}
+// 		out, err := goproto.Marshal(message)
+// 		if err != nil {
+// 			b.Fatal("Dynamicpb marshal failed")
+// 		}
+// 		fmt.Println(len(out))
+// 		b.SetBytes(int64(len(data)))
+// 		b.ResetTimer()
+// 		b.Run("go", func(b *testing.B) {
+// 			for i := 0; i < b.N; i++ {
+// 				objMessage := dynamicpb.NewMessage(*desc)
+// 				if err := goproto.Unmarshal(data, objMessage); err != nil {
+// 					b.Fatal("build dynamicpb failed")
+// 				}
+// 				message := dynamicpb.NewMessage(*desc)
+// 				for id := 1; id <= testNums; id++ {
+// 					targetDesc := (*desc).Fields().ByNumber(proto.Number(id))
+// 					fieldValue := objMessage.Get(targetDesc)
+// 					v := fieldValue.Interface()
+// 					newValue := protoreflect.ValueOf(v)
+// 					message.Set(targetDesc, newValue)
+// 				}
+// 				_, _ = goproto.Marshal(message)
+// 			}
+// 		})
+// 	})
+// }
 
