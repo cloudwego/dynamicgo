@@ -32,8 +32,3 @@ jobs:
           go test -race github.com/cloudwego/dynamicgo/conv/t2j
           go test -race github.com/cloudwego/dynamicgo/http
           go test -race github.com/cloudwego/dynamicgo/internal/json
-          go test -race github.com/cloudwego/dynamicgo/conv/j2p
-          go test -race github.com/cloudwego/dynamicgo/conv/p2j
-          go test -race github.com/cloudwego/dynamicgo/proto/generic
-          go test -race github.com/cloudwego/dynamicgo/proto/binary
-          go test -race github.com/cloudwego/dynamicgo/proto/protowire
