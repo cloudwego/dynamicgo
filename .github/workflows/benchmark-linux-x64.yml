@@ -1,6 +1,6 @@
 name: Benchmark Linux-X64
 
-on: [ push ]
+on: [ push, pull_request ]
 
 jobs:
   build:
