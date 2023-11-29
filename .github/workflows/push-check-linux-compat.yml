@@ -1,6 +1,6 @@
 name: Compatibility Test
 
-on: push
+on: [ push ]
 
 jobs:
   build:
