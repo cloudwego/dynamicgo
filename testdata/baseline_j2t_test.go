@@ -30,10 +30,10 @@ import (
 
 	athrift "github.com/apache/thrift/lib/go/thrift"
 	"github.com/bytedance/sonic"
+	json "github.com/bytedance/sonic/ast"
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/conv/j2t"
 	"github.com/cloudwego/dynamicgo/http"
-	json "github.com/bytedance/sonic/ast"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/baseline"
 	"github.com/cloudwego/kitex/pkg/generic"
 	"github.com/cloudwego/kitex/pkg/generic/descriptor"

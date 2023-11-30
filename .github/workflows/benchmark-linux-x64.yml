@@ -1,6 +1,6 @@
 name: Benchmark Linux-X64
 
-on: push
+on: [ push, pull_request ]
 
 jobs:
   build:
@@ -30,6 +30,7 @@ jobs:
           go get github.com/thrift-iterator/go@latest
           go get github.com/cloudwego/kitex/pkg/remote/codec/thrift@latest
           go get github.com/cloudwego/kitex/pkg/generic@latest
+          go get github.com/cloudwego/kitex/pkg/retry@latest
           go get github.com/cloudwego/frugal@latest
           go test -race github.com/cloudwego/dynamicgo/testdata
 
