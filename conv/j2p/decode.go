@@ -8,7 +8,6 @@ import (
 	"unsafe"
 
 	"github.com/bytedance/sonic/ast"
-	"github.com/chenzhuoyu/base64x"
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
@@ -39,6 +38,10 @@ var (
 		},
 	}
 )
+
+func decodeBinary(val string) ([]byte, error) {
+	return decodeBase64(val)
+}
 
 // NewvisitorUserNode gets a new visitorUserNode from sync.Pool
 // and reuse the buffer in pool
@@ -199,7 +202,7 @@ func (self *visitorUserNode) OnString(v string) error {
 	switch fieldDesc.Kind() {
 	case proto.BytesKind:
 		// JSON format string data needs to be decoded via Base64x
-		bytesData, err := base64x.StdEncoding.DecodeString(v)
+		bytesData, err := decodeBinary(v)
 		if err = self.p.WriteBytes(bytesData); err != nil {
 			return err
 		}
@@ -283,7 +286,7 @@ func (self *visitorUserNode) OnFloat64(v float64, n json.Number) error {
 	switch fieldDesc.Kind() {
 	case proto.FloatKind:
 		convertData := *(*float32)(unsafe.Pointer(&v))
-		if err = self.p.AppendTagByKind(fieldDesc.Number(),fieldDesc.Kind()); err != nil {
+		if err = self.p.AppendTagByKind(fieldDesc.Number(), fieldDesc.Kind()); err != nil {
 			return err
 		}
 		if err = self.p.WriteFloat(convertData); err != nil {
@@ -291,7 +294,7 @@ func (self *visitorUserNode) OnFloat64(v float64, n json.Number) error {
 		}
 	case proto.DoubleKind:
 		convertData := *(*float64)(unsafe.Pointer(&v))
-		if err = self.p.AppendTagByKind(fieldDesc.Number(),fieldDesc.Kind()); err != nil {
+		if err = self.p.AppendTagByKind(fieldDesc.Number(), fieldDesc.Kind()); err != nil {
 			return err
 		}
 		if err = self.p.WriteDouble(convertData); err != nil {
@@ -299,7 +302,7 @@ func (self *visitorUserNode) OnFloat64(v float64, n json.Number) error {
 		}
 	case proto.Int32Kind:
 		convertData := int32(v)
-		if err = self.p.AppendTagByKind(fieldDesc.Number(),fieldDesc.Kind()); err != nil {
+		if err = self.p.AppendTagByKind(fieldDesc.Number(), fieldDesc.Kind()); err != nil {
 			return err
 		}
 		if err = self.p.WriteInt32(convertData); err != nil {
@@ -307,7 +310,7 @@ func (self *visitorUserNode) OnFloat64(v float64, n json.Number) error {
 		}
 	case proto.Int64Kind:
 		convertData := int64(v)
-		if err = self.p.AppendTagByKind(fieldDesc.Number(),fieldDesc.Kind()); err != nil {
+		if err = self.p.AppendTagByKind(fieldDesc.Number(), fieldDesc.Kind()); err != nil {
 			return err
 		}
 		if err = self.p.WriteInt64(convertData); err != nil {
