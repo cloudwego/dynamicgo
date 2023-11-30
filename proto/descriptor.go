@@ -114,10 +114,7 @@ type MessageDescriptor struct {
 	baseId FieldNumber
 	name   string
 	ids    FieldNumberMap
-	names  FieldNameMap
-	// ids       map[FieldNumber]*FieldDescriptor
-	// names     map[FieldName]*FieldDescriptor
-	jsonNames map[string]*FieldDescriptor
+	names  FieldNameMap // store name and jsonName for FieldDescriptor
 }
 
 func (m *MessageDescriptor) Name() string {
@@ -125,7 +122,7 @@ func (m *MessageDescriptor) Name() string {
 }
 
 func (m *MessageDescriptor) ByJSONName(name string) *FieldDescriptor {
-	return m.jsonNames[name]
+	return m.names.Get(name)
 }
 
 func (m *MessageDescriptor) ByName(name string) *FieldDescriptor {
