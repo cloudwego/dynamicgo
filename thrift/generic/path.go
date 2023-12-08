@@ -312,10 +312,19 @@ func FreePathNode(p *PathNode) {
 // DescriptorToPathNode converts a thrift type descriptor to a DOM, assgining path to root
 // NOTICE: it only recursively converts STRUCT type
 func DescriptorToPathNode(desc *thrift.TypeDescriptor, root *PathNode, opts *Options) error {
+	return descriptorToPathNode(0, desc, root, opts)
+}
+
+func descriptorToPathNode(recurse int, desc *thrift.TypeDescriptor, root *PathNode, opts *Options) error {
+	if opts.DescriptorToPathNodeMaxDepth > 0 && recurse > opts.DescriptorToPathNodeMaxDepth {
+		return nil
+	}
 	if desc == nil || root == nil {
 		panic("nil pointer")
 	}
-	if desc.Type() == thrift.STRUCT {
+	t := desc.Type()
+	root.Node.t = t
+	if t == thrift.STRUCT {
 		fs := desc.Struct().Fields()
 		ns := root.Next
 		if cap(ns) == 0 {
@@ -329,16 +338,159 @@ func DescriptorToPathNode(desc *thrift.TypeDescriptor, root *PathNode, opts *Opt
 			// 	p.Path = NewPathFieldName(f.Name())
 			// } else {
 			p.Path = NewPathFieldId(f.ID())
+			// println("field: ", f.ID())
 			// }
-			if err := DescriptorToPathNode(f.Type(), &p, opts); err != nil {
+			if err := descriptorToPathNode(recurse+1, f.Type(), &p, opts); err != nil {
 				return err
 			}
 			ns = append(ns, p)
 		}
 		root.Next = ns
-
+	} else if t == thrift.LIST || t == thrift.SET {
+		if opts.DescriptorToPathNodeArraySize > 0 {
+			next := make([]PathNode, opts.DescriptorToPathNodeArraySize)
+			for i := range next {
+				next[i].Path = NewPathIndex(i)
+				if err := descriptorToPathNode(recurse+1, desc.Elem(), &next[i], opts); err != nil {
+					return err
+				}
+			}
+			root.Next = next
+			root.Node.et = desc.Elem().Type()
+		}
+	} else if t == thrift.MAP {
+		if opts.DescriptorToPathNodeMapSize > 0 {
+			next := make([]PathNode, opts.DescriptorToPathNodeMapSize)
+			for i := range next {
+				if ty := desc.Key().Type(); ty.IsInt() {
+					next[i].Path = NewPathIntKey(i) // NOTICE: use index as int key here
+				} else if ty == thrift.STRING {
+					next[i].Path = NewPathStrKey(strconv.Itoa(i))// NOTICE: use index as string key here
+				} else {
+					buf := thrift.NewBinaryProtocol([]byte{})
+					_ = buf.WriteEmpty(desc.Key()) // NOTICE: use emtpy value as binary key here
+					next[i].Path = NewPathBinKey(buf.Buf)
+				}
+				if err := descriptorToPathNode(recurse+1, desc.Elem(), &next[i], opts); err != nil {
+					return err
+				}
+			}
+			root.Next = next
+			root.Node.kt = desc.Key().Type()
+			root.Node.et = desc.Elem().Type()
+		}
+	} else {
+		// println("type: ", desc.Type().String())
+		buf := thrift.NewBinaryProtocol([]byte{})
+		_ = buf.WriteEmpty(desc)
+		root.Node = NewNode(desc.Type(), buf.Buf)
 	}
 	return nil
+}
+
+// PathNodeToInterface convert a pathnode to a interface
+func PathNodeToInterface(tree PathNode, opts *Options, useParent bool) interface{} {
+	switch tree.Node.Type() {
+	case thrift.STRUCT:
+		if len(tree.Next) == 0 && useParent {
+			vv, err := tree.Node.Interface(opts)
+			if err != nil {
+				panic(err)
+			}
+			return vv
+		}
+		ret := make(map[int]interface{}, len(tree.Next))
+		for _, v := range tree.Next {
+			vv := PathNodeToInterface(v, opts, useParent)
+			if vv == nil {
+				continue
+			}
+			ret[int(v.Path.Id())] = vv
+		}
+		return ret
+	case thrift.LIST, thrift.SET:
+		if len(tree.Next) == 0 && useParent {
+			vv, err := tree.Node.Interface(opts)
+			if err != nil {
+				panic(err)
+			}
+			return vv
+		}
+		ret := make([]interface{}, len(tree.Next))
+		for _, v := range tree.Next {
+			vv := PathNodeToInterface(v, opts, useParent)
+			if vv == nil {
+				continue
+			}
+			ret[v.Path.Int()] = vv
+		}
+		return ret
+	case thrift.MAP:
+		if len(tree.Next) == 0 && useParent {
+			vv, err := tree.Node.Interface(opts)
+			if err != nil {
+				panic(err)
+			}
+			return vv
+		}
+		if kt := tree.Node.kt; kt == thrift.STRING {
+			ret := make(map[string]interface{}, len(tree.Next))
+			for _, v := range tree.Next {
+				vv := PathNodeToInterface(v, opts, useParent)
+				if vv == nil {
+					continue
+				}
+				ret[v.Path.Str()] = vv
+			}
+			return ret
+		} else if kt.IsInt() {
+			ret := make(map[int]interface{}, len(tree.Next))
+			for _, v := range tree.Next {
+				vv := PathNodeToInterface(v, opts, useParent)
+				if vv == nil {
+					continue
+				}
+				ret[v.Path.Int()] = vv
+			}
+			return ret
+		} else {
+			ret := make(map[interface{}]interface{}, len(tree.Next))
+			for _, v := range tree.Next {
+				kp := PathNode{
+					Node: NewNode(kt, v.Path.Bin()),
+				}
+				kv := PathNodeToInterface(kp, opts, true)
+				if kv == nil {
+					continue
+				}
+				vv := PathNodeToInterface(v, opts, useParent)
+				if vv == nil {
+					continue
+				}
+				switch x := kv.(type) {
+				case map[string]interface{}:
+					ret[&x] = vv
+				case map[int]interface{}:
+					ret[&x] = vv
+				case map[interface{}]interface{}:
+					ret[&x] = vv
+				case []interface{}:
+					ret[&x] = vv
+				default:
+					ret[kv] = vv
+				}
+			}
+			return ret
+		}
+	case thrift.STOP:
+		return nil
+	default:
+		ret, err := tree.Node.Interface(opts)
+		if err != nil {
+			panic(err)
+		}
+		return ret
+	}
 }
 
 // Assgin assigns self's raw Value according to its Next Path,
