@@ -72,6 +72,15 @@ type Options struct {
 
 	// IterateStructByName indicates `Value.Foreach()` API to pass PathFieldName instead of PathFieldId to handler.
 	IterateStructByName bool
+
+	// DescriptorToPathNodeArraySize indicates initial array size for API `DescriptorToPathNode`
+	DescriptorToPathNodeArraySize int
+
+	// DescriptorToPathNodeArraySize indicates initial map size for API `DescriptorToPathNode`
+	DescriptorToPathNodeMapSize int
+
+	// DescriptorToPathNodeMaxDepth indicates max recurse limits (>0) for API `DescriptorToPathNode`
+	DescriptorToPathNodeMaxDepth int
 }
 
 var (
