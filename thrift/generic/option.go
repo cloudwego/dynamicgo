@@ -81,13 +81,18 @@ type Options struct {
 
 	// DescriptorToPathNodeMaxDepth indicates max recurse limits (>0) for API `DescriptorToPathNode`
 	DescriptorToPathNodeMaxDepth int
+
+	// DescriptorToPathNodeWriteOptional indicates writing empty value for optional fields for API `DescriptorToPathNode`
+	DescriptorToPathNodeWriteOptional bool
+
+	// DescriptorToPathNodeWriteDefualt indicates writing empty value for default fields for API `DescriptorToPathNode`
+	DescriptorToPathNodeWriteDefualt bool
 }
 
 var (
 	// StoreChildrenByIdShreshold is the maximum id to store children node by id.
-	StoreChildrenByIdShreshold  = 256
+	StoreChildrenByIdShreshold = 256
 
 	// StoreChildrenByIdShreshold is the minimum id to store children node by hash.
 	StoreChildrenByIntHashShreshold = DefaultNodeSliceCap
 )
-

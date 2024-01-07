@@ -333,6 +333,12 @@ func descriptorToPathNode(recurse int, desc *thrift.TypeDescriptor, root *PathNo
 			ns = ns[:0]
 		}
 		for _, f := range fs {
+			if f.Required() == thrift.OptionalRequireness && !opts.DescriptorToPathNodeWriteOptional {
+				continue
+			}
+			if f.Required() == thrift.DefaultRequireness && !opts.DescriptorToPathNodeWriteDefualt {
+				continue
+			}
 			var p PathNode
 			// if opts.FieldByName {
 			// 	p.Path = NewPathFieldName(f.Name())
@@ -365,7 +371,7 @@ func descriptorToPathNode(recurse int, desc *thrift.TypeDescriptor, root *PathNo
 				if ty := desc.Key().Type(); ty.IsInt() {
 					next[i].Path = NewPathIntKey(i) // NOTICE: use index as int key here
 				} else if ty == thrift.STRING {
-					next[i].Path = NewPathStrKey(strconv.Itoa(i))// NOTICE: use index as string key here
+					next[i].Path = NewPathStrKey(strconv.Itoa(i)) // NOTICE: use index as string key here
 				} else {
 					buf := thrift.NewBinaryProtocol([]byte{})
 					_ = buf.WriteEmpty(desc.Key()) // NOTICE: use emtpy value as binary key here
@@ -759,7 +765,7 @@ func (self PathNode) marshal(p *thrift.BinaryProtocol, opts *Options) error {
 func guardPathNodeSlice(con *[]PathNode, l int) {
 	c := cap(*con)
 	if l >= c {
-		tmp := make([]PathNode, len(*con), l + DefaultNodeSliceCap)
+		tmp := make([]PathNode, len(*con), l+DefaultNodeSliceCap)
 		copy(tmp, *con)
 		*con = tmp
 	}
@@ -858,7 +864,7 @@ func (self *PathNode) should2(op string, t thrift.Type, t2 thrift.Type) *PathNod
 	if self == nil {
 		return errPathNode(meta.ErrNotFound, op, nil)
 	}
-	if self.Node.t != t && self.Node.t != t2{
+	if self.Node.t != t && self.Node.t != t2 {
 		return errPathNode(meta.ErrDismatchType, op, nil)
 	}
 	return nil
@@ -914,7 +920,7 @@ func (self *PathNode) GetByStr(key string, opts *Options) *PathNode {
 	// fast path: use hash to find the key.
 	if opts.StoreChildrenByHash {
 		n, _ := self.Node.len()
-		N := n*2
+		N := n * 2
 		// TODO: cap may change after Set. Use better way to store hash size
 		if cap(self.Next) >= N {
 			if s := getStrHash(&self.Next, key, N); s != nil {
@@ -934,7 +940,7 @@ func (self *PathNode) GetByStr(key string, opts *Options) *PathNode {
 
 // SetByStr set the child node by string. Only support MAP with string-type key.
 // If the key already exists, it will be overwritten and return true.
-// 
+//
 // If opts.StoreChildrenByHash is true, it will try to use hash (O(1)) to search the key.
 // However, if the map hash size has changed, it may fallback to O(n) search.
 func (self *PathNode) SetByStr(key string, val Node, opts *Options) (bool, error) {
@@ -947,7 +953,7 @@ func (self *PathNode) SetByStr(key string, val Node, opts *Options) (bool, error
 	// fast path: use hash to find the key.
 	if opts.StoreChildrenByHash {
 		n, _ := self.Node.len()
-		N := n*2
+		N := n * 2
 		// TODO: cap may change after Set. Use better way to store hash size
 		if cap(self.Next) >= N {
 			if s := getStrHash(&self.Next, key, N); s != nil {
@@ -972,7 +978,7 @@ func (self *PathNode) SetByStr(key string, val Node, opts *Options) (bool, error
 }
 
 // GetByInt get the child node by integer. Only support MAP with integer-type key.
-//	
+//
 // If opts.StoreChildrenByHash is true, it will try to use hash (O(1)) to search the key.
 // However, if the map size has changed, it may fallback to O(n) search.
 func (self *PathNode) GetByInt(key int, opts *Options) *PathNode {
@@ -986,7 +992,7 @@ func (self *PathNode) GetByInt(key int, opts *Options) *PathNode {
 	if opts.StoreChildrenByHash {
 		// TODO: size may change after Set. Use better way to store hash size
 		n, _ := self.Node.len()
-		N := n*2
+		N := n * 2
 		if cap(self.Next) >= N {
 			if s := getIntHash(&self.Next, uint64(key), N); s != nil {
 				return s
@@ -1018,7 +1024,7 @@ func (self *PathNode) SetByInt(key int, val Node, opts *Options) (bool, error) {
 	// fast path: use hash to find the key.
 	if opts.StoreChildrenByHash {
 		n, _ := self.Node.len()
-		N := n*2
+		N := n * 2
 		if cap(self.Next) >= N {
 			if s := getIntHash(&self.Next, uint64(key), N); s != nil {
 				s.Node = val
@@ -1062,8 +1068,8 @@ func (self *PathNode) Field(id thrift.FieldID, opts *Options) *PathNode {
 		if v.Path.t == PathFieldId && v.Path.id() == id {
 			return v
 		}
-	} 
-	for i := 0; i < len(self.Next) && i<StoreChildrenByIdShreshold; i++ {
+	}
+	for i := 0; i < len(self.Next) && i < StoreChildrenByIdShreshold; i++ {
 		v := &self.Next[i]
 		if v.Path.t == PathFieldId && v.Path.id() == id {
 			return v
@@ -1096,7 +1102,7 @@ func (self *PathNode) SetField(id thrift.FieldID, val Node, opts *Options) (bool
 			return true, nil
 		}
 	}
-	for i := 0; i < len(self.Next) && i<StoreChildrenByIdShreshold; i++ {
+	for i := 0; i < len(self.Next) && i < StoreChildrenByIdShreshold; i++ {
 		v := &self.Next[i]
 		if v.Path.t == PathFieldId && v.Path.id() == id {
 			v.Node = val
@@ -1174,7 +1180,7 @@ func (self *PathNode) scanChildren(p *thrift.BinaryProtocol, recurse bool, opts 
 			// fast path: use hash to store the key.
 			if opts.StoreChildrenByHash && size > StoreChildrenByIntHashShreshold {
 				// NOTE: we use original count*2 as the capacity of the hash table.
-				N = size*2
+				N = size * 2
 				guardPathNodeSlice(&con, N-1)
 				conAddr = *(*unsafe.Pointer)(unsafe.Pointer(&con))
 				c = N
@@ -1198,7 +1204,7 @@ func (self *PathNode) scanChildren(p *thrift.BinaryProtocol, recurse bool, opts 
 			// fast path: use hash to store the key.
 			if opts.StoreChildrenByHash && size > StoreChildrenByIntHashShreshold {
 				// NOTE: we use original count*2 as the capacity of the hash table.
-				N = size*2
+				N = size * 2
 				guardPathNodeSlice(&con, N-1)
 				conAddr = *(*unsafe.Pointer)(unsafe.Pointer(&con))
 				c = N

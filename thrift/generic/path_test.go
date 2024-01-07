@@ -727,7 +727,6 @@ func checkHelper2(t *testing.T, exp []PathNode, act []PathNode, checkNode bool) 
 // 	}
 // }
 
-
 func DeepEqual(exp interface{}, act interface{}) bool {
 	switch ev := exp.(type) {
 	case map[int]interface{}:
@@ -884,7 +883,8 @@ func TestUnknownFields(t *testing.T) {
 	t.Run("Assgin(true, )", func(t *testing.T) {
 		// t.Run("allow", func(t *testing.T) {
 		opts := Options{
-			// DisallowUnknow: false,
+			DescriptorToPathNodeWriteDefualt:  true,
+			DescriptorToPathNodeWriteOptional: true,
 		}
 		path := PathNode{
 			Node: v.Node,
@@ -897,13 +897,11 @@ func TestUnknownFields(t *testing.T) {
 		require.NoError(t, err)
 		act := PathNodeToInterface(path, &opts, true)
 		exp := toInterface2(sample.Example2Obj, false, b2s)
+		// require.Equal(t, exp, act)
 		if !DeepEqual(exp, act) {
+			spew.Dump(exp, act)
 			t.Fatal()
 		}
-		spew.Dump(exp, "\nnext:\n", act)
-		// if !DeepEqual(act, exp) {
-		// 	t.Fatal()
-		// }
 
 		// })
 		// t.Run("disallow", func(t *testing.T) {
@@ -1003,24 +1001,24 @@ func TestDescriptorToPathNode(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		{name:"defualt", args: args{
+		{name: "defualt", args: args{
 			desc: getExampleDesc(),
 			root: new(PathNode),
 			opts: &Options{},
 		}, wantErr: false},
-		{name:"array size 1", args: args{
+		{name: "array size 1", args: args{
 			desc: getExampleDesc(),
 			root: new(PathNode),
 			opts: &Options{
 				DescriptorToPathNodeArraySize: 1,
-				DescriptorToPathNodeMaxDepth: 256,
+				DescriptorToPathNodeMaxDepth:  256,
 			},
 		}, wantErr: false},
-		{name:"map size 1", args: args{
+		{name: "map size 1", args: args{
 			desc: getExampleDesc(),
 			root: new(PathNode),
 			opts: &Options{
-				DescriptorToPathNodeMapSize: 1,
+				DescriptorToPathNodeMapSize:  1,
 				DescriptorToPathNodeMaxDepth: 256,
 			},
 		}, wantErr: false},
@@ -1033,6 +1031,6 @@ func TestDescriptorToPathNode(t *testing.T) {
 			println(tt.name)
 			spew.Dump(PathNodeToInterface(*tt.args.root, tt.args.opts, false))
 		})
-		
+
 	}
 }
