@@ -60,6 +60,3 @@ Convert JSON value into protobuf message.
 Convert protobuf message into JSON value.
 [DOC](conv/p2j/README.md)
 
-## Requirements
-- Go 1.16~1.20
-- Amd64 arch CPU
