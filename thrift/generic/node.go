@@ -27,6 +27,8 @@ import (
 	"github.com/cloudwego/dynamicgo/thrift"
 )
 
+var defaultOpts = &Options{}
+
 // Node is a generic wrap of raw thrift data
 type Node struct {
 	t  thrift.Type
@@ -157,9 +159,47 @@ func NewNodeBinary(val []byte) Node {
 	return NewNode(thrift.STRING, buf)
 }
 
+// NewNodeList creates a LIST node.
+// Element's type depends on concrete type of elements in vals, 
+// which must be accordance with above scalar-typed API (NewNodeString()/NewNodeInt64()...)
+func NewNodeList(vals []interface{}) Node {
+	if len(vals) == 0 {
+		return Node{}
+	}
+	p := thrift.NewBinaryProtocol(make([]byte, 0, len(vals)*64))
+	if err := p.WriteAny(vals); err != nil {
+		panic(err)
+	}
+	return NewNode(thrift.LIST, p.Buf)
+	// p.WriteListBegin(thrift.BOOL, len(vals))
+	// for _, val := range vals {
+	// 	switch v := val.(type) {
+	// 	case int8:
+	// 		p.WriteByte(byte(v))
+	// 	case byte:
+	// 		p.WriteByte(byte(v))
+	// 	case int16:
+	// 		p.WriteI16(int16(v))
+	// 	case int32:
+	// 		p.WriteI32(int32(v))
+		
+	// 	}
+	// }
+}
+
+
+func NewNodeSet(vals []interface{}) Node 
+func NewNodeMap(kvs map[interface{}]interface{}) Node 
+func NewNodeStruct(fields map[thrift.FieldID]interface{}) Node 
+
 // NewTypedNode creates a new Node with the given typ,
-// including element type (for LIST/SET/MAP) and key type (for MAP)
-func NewTypedNode(typ thrift.Type, et thrift.Type, kt thrift.Type) (ret Node){
+// including element type (for LIST/SET/MAP) and key type (for MAP),
+// Its children PathNode sholud be according to typ:
+//   - STRUCT: PathTypeFieldId path and any-typed node
+//   - LIST/SET: PathTypeIndex path and et typed node
+//   - MAP: PathStrKey/PathIntKey/PathBinKey according to kt path and et typed node
+//   - scalar(STRING|I08|I16|I32|I64|BOOL|DOUBLE): only one Node with corresponding type.
+func NewTypedNode(typ thrift.Type, et thrift.Type, kt thrift.Type, children ...PathNode) (ret Node){
 	if !typ.Valid() {
 		panic("invalid node type")
 	}
@@ -168,7 +208,6 @@ func NewTypedNode(typ thrift.Type, et thrift.Type, kt thrift.Type) (ret Node){
 		if !et.Valid() {
 			panic("invalid element type")
 		}
-		ret.et = et
 	case thrift.MAP:
 		if !et.Valid() {
 			panic("invalid element type")
@@ -176,10 +215,26 @@ func NewTypedNode(typ thrift.Type, et thrift.Type, kt thrift.Type) (ret Node){
 		if !kt.Valid() {
 			panic("invalid key type")
 		}
-		ret.et = et
-		ret.kt = kt
+	case thrift.STRUCT:
+		break
+	default:
+		if len(children) != 1 {
+			panic("should only pass one children for scalar type!")
+		}
+		return NewNode(typ, children[0].Node.Raw())
 	}
-	ret.t = typ
+
+	tmp := PathNode{
+		Next: children,
+	}
+	tmp.Node.t = typ
+	tmp.Node.et = et
+	tmp.Node.kt = kt
+	bs, err := tmp.Marshal(defaultOpts)
+	if err != nil {
+		panic(err)
+	}
+	ret = NewNode(typ, bs)
 	return 
 }
 
