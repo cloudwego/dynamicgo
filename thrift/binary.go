@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -1292,6 +1293,358 @@ func (p *BinaryProtocol) DecodeText(val string, desc *TypeDescriptor, disallowUn
 	}
 }
 
+// GoType2ThriftType a go primitive type to a thrift type
+// The rules is:
+//   - bool -> BOOL
+//   - byte/int8 -> BYTE
+//   - int16 -> I16
+//   - int32 -> I32
+//   - int64/int -> I64
+//   - int -> I64
+//   - float64/float32 -> DOUBLE
+//   - string/[]byte -> STRING
+//   - []interface{} -> LIST
+//   - map[FieldID]interface{} -> STRUCT
+//   - map[(int|string|interface{})]interface{} -> MAP
+func GoType2ThriftType(val interface{}) Type {
+	_, ok := val.(map[FieldID]interface{})
+	if ok {
+		return STRUCT
+	}
+	switch reflect.TypeOf(val).Kind() {
+	case reflect.Bool:
+		return BOOL
+	case reflect.Int8, reflect.Uint8:
+		return BYTE
+	case reflect.Int16, reflect.Uint16:
+		return I16
+	case reflect.Int32, reflect.Uint32:
+		return I32
+	case reflect.Int64, reflect.Uint64, reflect.Int, reflect.Uint:
+		return I64
+	case reflect.Float64:
+		return DOUBLE
+	case reflect.String:
+		return STRING
+	case reflect.Slice:
+		return LIST
+	case reflect.Map:
+		return MAP
+	case reflect.Struct:
+		return STRUCT
+	case reflect.Ptr:
+		return GoType2ThriftType(reflect.ValueOf(val).Elem().Interface())
+	default:
+		return STOP
+	}
+}
+
+// ReadAny reads a thrift value from buffer and convert it to go primitive type
+// It basicallly obeys rules in `GoType2ThriftType`.
+// Specially,
+//   - For INT(8/16/32/64) type, the return type is corresponding int8/int16/int32/int64 by default;
+//   - For MAP type, the output key type could be string, int or interface{}, depends on the input key's thrift type.
+//   - for STRUCT type, the return type is map[thrift.FieldID]interface{}.
+func (p *BinaryProtocol) ReadAny(typ Type, strAsBinary bool, byteAsInt8 bool) (interface{}, error) {
+	switch typ {
+	case BOOL:
+		return p.ReadBool()
+	case BYTE:
+		if byteAsInt8 {
+			n, e := p.ReadByte()
+			return int8(n), e
+		}
+		return p.ReadByte()
+	case I16:
+		return p.ReadI16()
+	case I32:
+		return p.ReadI32()
+	case I64:
+		return p.ReadI64()
+	case DOUBLE:
+		return p.ReadDouble()
+	case STRING:
+		if strAsBinary {
+			return p.ReadBinary(false)
+		}
+		return p.ReadString(false)
+	case LIST, SET:
+		elemType, size, e := p.ReadListBegin()
+		if e != nil {
+			return nil, e
+		}
+		ret := make([]interface{}, 0, size)
+		for i := 0; i < size; i++ {
+			v, e := p.ReadAny(elemType, strAsBinary, byteAsInt8)
+			if e != nil {
+				return nil, e
+			}
+			ret = append(ret, v)
+		}
+		return ret, p.ReadListEnd()
+	case MAP:
+		keyType, valueType, size, e := p.ReadMapBegin()
+		if e != nil {
+			return nil, e
+		}
+		if keyType == STRING {
+			ret := make(map[string]interface{}, size)
+			for i := 0; i < size; i++ {
+				k, e := p.ReadString(false)
+				if e != nil {
+					return nil, e
+				}
+				v, e := p.ReadAny(valueType, strAsBinary, byteAsInt8)
+				if e != nil {
+					return nil, e
+				}
+				ret[k] = v
+			}
+			return ret, p.ReadMapEnd()
+		} else if keyType.IsInt() {
+			ret := make(map[int]interface{}, size)
+			for i := 0; i < size; i++ {
+				k, e := p.ReadInt(keyType)
+				if e != nil {
+					return nil, e
+				}
+				v, e := p.ReadAny(valueType, strAsBinary, byteAsInt8)
+				if e != nil {
+					return nil, e
+				}
+				ret[k] = v
+			}
+			return ret, p.ReadMapEnd()
+		} else {
+			m := make(map[interface{}]interface{}, size)
+			for i := 0; i < size; i++ {
+				k, e := p.ReadAny(keyType, strAsBinary, byteAsInt8)
+				if e != nil {
+					return nil, e
+				}
+				v, e := p.ReadAny(valueType, strAsBinary, byteAsInt8)
+				if e != nil {
+					return nil, e
+				}
+				switch x := k.(type) {
+				case map[string]interface{}:
+					m[&x] = v
+				case map[int]interface{}:
+					m[&x] = v
+				case map[interface{}]interface{}:
+					m[&x] = v
+				case []interface{}:
+					m[&x] = v
+				case map[FieldID]interface{}:
+					m[&x] = v
+				default:
+					m[k] = v
+				}
+			}
+			return m, p.ReadMapEnd()
+		}
+	case STRUCT:
+		ret := make(map[FieldID]interface{})
+		for {
+			_, typ, id, err := p.ReadFieldBegin()
+			if err != nil {
+				return nil, err
+			}
+			if typ == STOP {
+				return ret, nil
+			}
+			v, e := p.ReadAny(typ, strAsBinary, byteAsInt8)
+			if e != nil {
+				return nil, e
+			}
+			ret[id] = v
+		}
+	default:
+		return nil, errUnsupportedType
+	}
+}
+
+// WriteAny write any go primitive type to thrift data, and return top level thrift type
+// It basically obeys rules in `GoType2ThriftType`.
+// Specially,
+//   - for MAP type, the key type should be string or int8/int16/int32/int64/int or interface{}.
+//   - for STRUCT type, the val type should be map[thrift.FieldID]interface{}.
+func (p *BinaryProtocol) WriteAny(val interface{}, sliceAsSet bool) (Type, error) {
+	switch v := val.(type) {
+	case bool:
+		return BOOL, p.WriteBool(v)
+	case byte:
+		return BYTE, p.WriteByte(v)
+	case int8:
+		return BYTE, p.WriteByte(byte(v))
+	case int16:
+		return I16, p.WriteI16(v)
+	case int32:
+		return I32, p.WriteI32(v)
+	case int64:
+		return I64, p.WriteI64(v)
+	case int:
+		return I64, p.WriteI64(int64(v))
+	case float64:
+		return DOUBLE, p.WriteDouble(v)
+	case float32:
+		return DOUBLE, p.WriteDouble(float64(v))
+	case string:
+		return STRING, p.WriteString(v)
+	case []byte:
+		return STRING, p.WriteBinary(v)
+	case []interface{}:
+		if len(v) == 0 {
+			return 0, fmt.Errorf("empty []interface is not supported")
+		}
+		if sliceAsSet {
+			e := p.WriteSetBegin(GoType2ThriftType(v[0]), len(v))
+			if e != nil {
+				return 0, e
+			}
+		} else {
+			e := p.WriteListBegin(GoType2ThriftType(v[0]), len(v))
+			if e != nil {
+				return 0, e
+			}
+		}
+		for _, vv := range v {
+			if _, e := p.WriteAny(vv, sliceAsSet); e != nil {
+				return 0, e
+			}
+		}
+		return LIST, p.WriteListEnd()
+	case map[string]interface{}:
+		if len(v) == 0 {
+			return 0, fmt.Errorf("empty map[string]interface is not supported")
+		}
+		var firstVal interface{}
+		for _, vv := range v {
+			firstVal = vv
+			break
+		}
+		e := p.WriteMapBegin(STRING, GoType2ThriftType(firstVal), len(v))
+		if e != nil {
+			return 0, e
+		}
+		for k, vv := range v {
+			if e := p.WriteString(k); e != nil {
+				return 0, e
+			}
+			if _, e := p.WriteAny(vv, sliceAsSet); e != nil {
+				return 0, e
+			}
+		}
+		return MAP, p.WriteMapEnd()
+	case map[byte]interface{}, map[int]interface{}, map[int8]interface{}, map[int16]interface{}, map[int32]interface{}, map[int64]interface{}:
+		vr := reflect.ValueOf(v)
+		if vr.Len() == 0 {
+			return 0, fmt.Errorf("empty map[int]interface{} is not supported")
+		}
+		it := vr.MapRange()
+		it.Next()
+		firstKey := it.Key().Interface()
+		firstVal := it.Value().Interface()
+		e := p.WriteMapBegin(GoType2ThriftType(firstKey), GoType2ThriftType(firstVal), vr.Len())
+		if e != nil {
+			return 0, e
+		}
+		if _, e := p.WriteAny(firstKey, sliceAsSet); e != nil {
+			return 0, e
+		}
+		if _, e := p.WriteAny(firstVal, sliceAsSet); e != nil {
+			return 0, e
+		}
+		for it.Next() {
+			if _, e := p.WriteAny(it.Key().Interface(), sliceAsSet); e != nil {
+				return 0, e
+			}
+			if _, e := p.WriteAny(it.Value().Interface(), sliceAsSet); e != nil {
+				return 0, e
+			}
+		}
+		return MAP, p.WriteMapEnd()
+	case map[interface{}]interface{}:
+		if len(v) == 0 {
+			return 0, fmt.Errorf("empty map[int]interface{} is not supported")
+		}
+		var firstVal, firstKey interface{}
+		for kk, vv := range v {
+			firstVal = vv
+			firstKey = kk
+			break
+		}
+		e := p.WriteMapBegin(GoType2ThriftType(firstKey), GoType2ThriftType(firstVal), len(v))
+		if e != nil {
+			return 0, e
+		}
+		for k, vv := range v {
+			switch kt := k.(type) {
+			case *map[string]interface{}:
+				if _, err := p.WriteAny(*kt, sliceAsSet); err != nil {
+					return 0, err
+				}
+			case *map[int]interface{}:
+				if _, err := p.WriteAny(*kt, sliceAsSet); err != nil {
+					return 0, err
+				}
+			case *map[int8]interface{}:
+				if _, err := p.WriteAny(*kt, sliceAsSet); err != nil {
+					return 0, err
+				}
+			case *map[int16]interface{}:
+				if _, err := p.WriteAny(*kt, sliceAsSet); err != nil {
+					return 0, err
+				}
+			case *map[int32]interface{}:
+				if _, err := p.WriteAny(*kt, sliceAsSet); err != nil {
+					return 0, err
+				}
+			case *map[int64]interface{}:
+				if _, err := p.WriteAny(*kt, sliceAsSet); err != nil {
+					return 0, err
+				}
+			case *map[FieldID]interface{}:
+				if _, err := p.WriteAny(*kt, sliceAsSet); err != nil {
+					return 0, err
+				}
+			case *map[interface{}]interface{}:
+				if _, err := p.WriteAny(*kt, sliceAsSet); err != nil {
+					return 0, err
+				}
+			case *[]interface{}:
+				if _, err := p.WriteAny(*kt, sliceAsSet); err != nil {
+					return 0, err
+				}
+			default:
+				if _, err := p.WriteAny(k, sliceAsSet); err != nil {
+					return 0, err
+				}
+			}
+			if _, e := p.WriteAny(vv, sliceAsSet); e != nil {
+				return 0, e
+			}
+		}
+		return MAP, p.WriteMapEnd()
+	case map[FieldID]interface{}:
+		e := p.WriteStructBegin("")
+		if e != nil {
+			return 0, e
+		}
+		for k, vv := range v {
+			if e := p.WriteFieldBegin("", GoType2ThriftType(vv), k); e != nil {
+				return 0, e
+			}
+			if _, e := p.WriteAny(vv, sliceAsSet); e != nil {
+				return 0, e
+			}
+		}
+		return STRUCT, p.WriteFieldStop()
+	default:
+		return 0, errUnsupportedType
+	}
+}
+
 // WriteAnyWithDesc explain desc and val and write them into buffer
 //   - LIST/SET will be converted from []interface{}
 //   - MAP will be converted from map[string]interface{} or map[int]interface{}
@@ -1558,6 +1911,10 @@ func (p *BinaryProtocol) WriteAnyWithDesc(desc *TypeDescriptor, val interface{},
 					}
 				case *[]interface{}:
 					if err := p.WriteAnyWithDesc(desc.Key(), *kt, cast, disallowUnknown, useFieldName); err != nil {
+						return err
+					}
+				default:
+					if err := p.WriteAnyWithDesc(desc.Key(), k, cast, disallowUnknown, useFieldName); err != nil {
 						return err
 					}
 				}
