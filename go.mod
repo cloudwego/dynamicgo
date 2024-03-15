@@ -14,6 +14,6 @@ require (
 	github.com/iancoleman/strcase v0.2.0
 	github.com/jhump/protoreflect v1.8.2
 	github.com/klauspost/cpuid/v2 v2.2.4
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.8.2
 	google.golang.org/protobuf v1.28.1
 )
