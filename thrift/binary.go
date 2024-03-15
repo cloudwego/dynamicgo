@@ -1311,6 +1311,10 @@ func GoType2ThriftType(val interface{}) Type {
 	if ok {
 		return STRUCT
 	}
+	_, ok = val.([]byte)
+	if ok {
+		return STRING
+	}
 	switch reflect.TypeOf(val).Kind() {
 	case reflect.Bool:
 		return BOOL

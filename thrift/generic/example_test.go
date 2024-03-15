@@ -2,12 +2,51 @@ package generic
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/cloudwego/dynamicgo/thrift"
 )
 
 var opts = &Options{
 	UseNativeSkip: true,
+}
+
+func ExampleNewTypedNode() {
+	// make a map<string,list<i32>> node
+	ret := NewTypedNode(thrift.MAP, thrift.LIST, thrift.STRING, PathNode{
+		Path: NewPathStrKey("1"),
+		Node: NewNodeList([]interface{}{int32(1), int32(2)}),
+	})
+
+	// print raw data
+	fmt.Printf("buf:%+v\n", ret.Raw())
+
+	// print interface
+	val, err := ret.Interface(opts)
+	fmt.Printf("val:%#v\n", val)
+	if err != nil {
+		panic(err)
+	}
+	if !reflect.DeepEqual(val, map[string]interface{}{"1": []interface{}{int(1), int(2)}}) {
+		panic("not equal")
+	}
+
+	// make a struct{1:map<string, binary>} node
+	ret = NewTypedNode(thrift.STRUCT, 0, 0, PathNode{
+		Path: NewPathFieldId(1),
+		Node: NewNodeMap(map[interface{}]interface{}{"1": []byte{1}}),
+	})
+	// print interface
+	opts.CastStringAsBinary = true
+	opts.MapStructById = true
+	val, err = ret.Interface(opts)
+	fmt.Printf("val:%#v\n", val)
+	if err != nil {
+		panic(err)
+	}
+	if !reflect.DeepEqual(val, map[thrift.FieldID]interface{}{thrift.FieldID(1): map[string]interface{}{"1": []byte{1}}}) {
+		panic("not equal")
+	}
 }
 
 func ExampleValue_SetByPath() {
