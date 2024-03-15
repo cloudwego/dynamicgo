@@ -23,8 +23,11 @@ import (
 	"os"
 	"runtime"
 	"runtime/debug"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -90,4 +93,81 @@ func TestBinaryProtocol_ReadAnyWithDesc(t *testing.T) {
 		panic(err)
 	}
 	fmt.Printf("%#v", v)
+}
+
+func TestBinaryProtocol_WriteAny_ReadAny(t *testing.T) {
+	type args struct {
+		val         interface{}
+		sliceAsSet  bool
+		strAsBinary bool
+		byteAsInt8  bool
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+		want    interface{}
+	}{
+		{"bool", args{true, false, false, false}, false, true},
+		{"byte", args{byte(1), false, false, false}, false, byte(1)},
+		{"byte", args{byte(1), false, false, true}, false, int8(1)},
+		{"i16", args{int16(1), false, false, false}, false, int16(1)},
+		{"i32", args{int32(1), false, false, false}, false, int32(1)},
+		{"i64", args{int64(1), false, false, false}, false, int64(1)},
+		{"int", args{1, false, false, false}, false, int64(1)},
+		{"f32", args{float32(1.0), false, false, false}, false, float64(1.0)},
+		{"f64", args{1.0, false, false, false}, false, float64(1.0)},
+		{"string", args{"1", false, false, false}, false, "1"},
+		{"string2binary", args{"1", false, true, false}, false, []byte{'1'}},
+		{"binary2string", args{[]byte{1}, false, false, false}, false, string("\x01")},
+		{"binary2binary", args{[]byte{1}, false, true, false}, false, []byte{1}},
+		{"list", args{[]interface{}{int32(1)}, false, false, false}, false, []interface{}{int32(1)}},
+		{"set", args{[]interface{}{int64(1)}, true, false, false}, false, []interface{}{int64(1)}},
+		{"int map", args{map[int]interface{}{1: byte(1)}, false, false, false}, false, map[int]interface{}{1: byte(1)}},
+		{"int map error", args{map[int64]interface{}{1: byte(1)}, false, false, true}, false, map[int]interface{}{1: int8(1)}},
+		{"int map empty", args{map[int64]interface{}{}, false, false, false}, true, nil},
+		{"string map", args{map[string]interface{}{"1": "1"}, false, false, true}, false, map[string]interface{}{"1": "1"}},
+		{"string map error", args{map[string]interface{}{"1": []int{1}}, false, false, true}, true, nil},
+		{"string map empty", args{map[string]interface{}{}, false, false, true}, true, nil},
+		{"any map", args{map[interface{}]interface{}{1.1: "1"}, false, false, false}, false, map[interface{}]interface{}{1.1: "1"}},
+		{"any map + key list", args{map[interface{}]interface{}{&[]interface{}{1}: "1"}, false, false, false}, false, map[interface{}]interface{}{&[]interface{}{int64(1)}: "1"}},
+		{"any map + val list", args{map[interface{}]interface{}{1.1: []interface{}{"1"}}, false, true, false}, false, map[interface{}]interface{}{1.1: []interface{}{[]byte{'1'}}}},
+		{"any map empty", args{map[interface{}]interface{}{}, false, false, false}, true, nil},
+		{"struct", args{map[FieldID]interface{}{FieldID(1): 1.1}, false, false, false}, false, map[FieldID]interface{}{FieldID(1): 1.1}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			println("case:", tt.name)
+			p := &BinaryProtocol{}
+			typ, err := p.WriteAny(tt.args.val, tt.args.sliceAsSet)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("BinaryProtocol.WriteAny() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			fmt.Printf("buf:%+v\n", p.RawBuf())
+			got, err := p.ReadAny(typ, tt.args.strAsBinary, tt.args.byteAsInt8)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("BinaryProtocol.ReadAny() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			fmt.Printf("got:%#v\n", got)
+			if strings.Contains(tt.name, "any map + key") {
+				em := tt.want.(map[interface{}]interface{})
+				gm := got.(map[interface{}]interface{})
+				require.Equal(t, len(em), len(gm))
+				var firstK, firstV interface{}
+				for k, v := range em {
+					firstK, firstV = k, v
+					break
+				}
+				var firstKgot, firstVgot interface{}
+				for k, v := range gm {
+					firstKgot, firstVgot = k, v
+					break
+				}
+				require.Equal(t, firstK, firstKgot)
+				require.Equal(t, firstV, firstVgot)
+			} else {
+				require.Equal(t, tt.want, got)
+			}
+		})
+	}
 }

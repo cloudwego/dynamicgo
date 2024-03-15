@@ -160,37 +160,48 @@ func NewNodeBinary(val []byte) Node {
 }
 
 // NewNodeList creates a LIST node.
-// Element's type depends on concrete type of elements in vals, 
-// which must be accordance with above scalar-typed API (NewNodeString()/NewNodeInt64()...)
+// The element thrift type depends on vals' concrete type,
+// thus there must be at least one val.
 func NewNodeList(vals []interface{}) Node {
-	if len(vals) == 0 {
-		return Node{}
-	}
 	p := thrift.NewBinaryProtocol(make([]byte, 0, len(vals)*64))
-	if err := p.WriteAny(vals); err != nil {
+	if _, err := p.WriteAny(vals, false); err != nil {
 		panic(err)
 	}
 	return NewNode(thrift.LIST, p.Buf)
-	// p.WriteListBegin(thrift.BOOL, len(vals))
-	// for _, val := range vals {
-	// 	switch v := val.(type) {
-	// 	case int8:
-	// 		p.WriteByte(byte(v))
-	// 	case byte:
-	// 		p.WriteByte(byte(v))
-	// 	case int16:
-	// 		p.WriteI16(int16(v))
-	// 	case int32:
-	// 		p.WriteI32(int32(v))
-		
-	// 	}
-	// }
 }
 
+// NewNodeSet creates a SET node.
+// The element thrift type depends on vals' concrete type,
+// thus there must be at least one val.
+func NewNodeSet(vals []interface{}) Node {
+	p := thrift.NewBinaryProtocol(make([]byte, 0, len(vals)*64))
+	if _, err := p.WriteAny(vals, true); err != nil {
+		panic(err)
+	}
+	return NewNode(thrift.SET, p.Buf)
+}
 
-func NewNodeSet(vals []interface{}) Node 
-func NewNodeMap(kvs map[interface{}]interface{}) Node 
-func NewNodeStruct(fields map[thrift.FieldID]interface{}) Node 
+// NewNodeMap creates a MAP node.
+// The thrift type of key and element depends on kvs' concrete type,
+// thus there must be at least one kv.
+func NewNodeMap(kvs map[interface{}]interface{}) Node {
+	p := thrift.NewBinaryProtocol(make([]byte, 0, len(kvs)*128))
+	if _, err := p.WriteAny(kvs, false); err != nil {
+		panic(err)
+	}
+	return NewNode(thrift.MAP, p.Buf)
+}
+
+// NewNodeStruct creates a STRUCT node.
+// The thrift type of element depends on vals' concrete type,
+// thus there must be at least one field.
+func NewNodeStruct(fields map[thrift.FieldID]interface{}) Node {
+	p := thrift.NewBinaryProtocol(make([]byte, 0, len(fields)*128))
+	if _, err := p.WriteAny(fields, false); err != nil {
+		panic(err)
+	}
+	return NewNode(thrift.STRUCT, p.Buf)
+}
 
 // NewTypedNode creates a new Node with the given typ,
 // including element type (for LIST/SET/MAP) and key type (for MAP),
@@ -198,11 +209,16 @@ func NewNodeStruct(fields map[thrift.FieldID]interface{}) Node
 //   - STRUCT: PathTypeFieldId path and any-typed node
 //   - LIST/SET: PathTypeIndex path and et typed node
 //   - MAP: PathStrKey/PathIntKey/PathBinKey according to kt path and et typed node
-//   - scalar(STRING|I08|I16|I32|I64|BOOL|DOUBLE): only one Node with corresponding type.
-func NewTypedNode(typ thrift.Type, et thrift.Type, kt thrift.Type, children ...PathNode) (ret Node){
+//   - scalar(STRING|I08|I16|I32|I64|BOOL|DOUBLE): the children is itself.
+func NewTypedNode(typ thrift.Type, et thrift.Type, kt thrift.Type, children ...PathNode) (ret Node) {
 	if !typ.Valid() {
 		panic("invalid node type")
 	}
+	if len(children) == 0 {
+		// NOTICE: dummy node just for PathNode.Node to work
+		return newNode(typ, et, kt, nil)
+	}
+
 	switch typ {
 	case thrift.LIST, thrift.SET:
 		if !et.Valid() {
@@ -221,9 +237,10 @@ func NewTypedNode(typ thrift.Type, et thrift.Type, kt thrift.Type, children ...P
 		if len(children) != 1 {
 			panic("should only pass one children for scalar type!")
 		}
-		return NewNode(typ, children[0].Node.Raw())
+		return newNode(typ, et, kt, children[0].Node.Raw())
 	}
 
+	// for nested type, marshal the children to bytes
 	tmp := PathNode{
 		Next: children,
 	}
@@ -234,8 +251,17 @@ func NewTypedNode(typ thrift.Type, et thrift.Type, kt thrift.Type, children ...P
 	if err != nil {
 		panic(err)
 	}
-	ret = NewNode(typ, bs)
-	return 
+	return newNode(typ, et, kt, bs)
+}
+
+func newNode(typ thrift.Type, et thrift.Type, kt thrift.Type, bs []byte) Node {
+	return Node{
+		t:  typ,
+		et: et,
+		kt: kt,
+		v:  rt.GetBytePtr(bs),
+		l:  len(bs),
+	}
 }
 
 // Fork forks the node to a new node, copy underlying data as well
