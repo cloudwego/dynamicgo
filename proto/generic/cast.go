@@ -128,6 +128,25 @@ func (self Node) int() (int, error) {
 	}
 }
 
+// Enum returns the int value contained by a Enum node
+func (self Node) Enum() (int, error) {
+	if self.IsError() {
+		return 0, self
+	}
+	return self.enum()
+}
+
+func (self Node) enum() (int, error) {
+	buf := rt.BytesFrom(self.v, int(self.l), int(self.l))
+	switch self.t {
+	case proto.ENUM:
+		v, _ := protowire.BinaryDecoder{}.DecodeInt32(buf)
+		return int(v), nil
+	default:
+		return 0, errNode(meta.ErrUnsupportedType, "Node.enum: the Node type is not Enum", nil)
+	}
+}
+
 // Float64 returns the float64 value contained by a DOUBLE node
 func (self Node) Float64() (float64, error) {
 	if self.IsError() {
@@ -336,6 +355,8 @@ func (self Value) Interface(opts *Options) (interface{}, error) {
 			return self.binary()
 		}
 		return self.string()
+	case proto.ENUM:
+		return self.enum()
 	case proto.LIST:
 		return self.List(opts)
 	case proto.MAP:
