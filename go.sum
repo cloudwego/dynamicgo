@@ -31,14 +31,16 @@ github.com/cloudwego/base64x v0.1.3 h1:b5J/l8xolB7dyDTTmhJP2oTs5LdrjyrUFuNxdfq5h
 github.com/cloudwego/base64x v0.1.3/go.mod h1:1+1K5BUHIQzyapgpF7LwvOGAEDicKtt1umPV+aN8pi8=
 github.com/cloudwego/configmanager v0.2.1/go.mod h1:0oD/BWaTuznBOawVeTmTl3LE99RWaw7rX2jECowmY58=
 github.com/cloudwego/dynamicgo v0.2.2-dep3/go.mod h1:oFLzd9SEUtU7XbSc7AT9e5xoAV1OJ1mVpudtUOiD7PQ=
+github.com/cloudwego/dynamicgo v0.2.2/go.mod h1:k840iCFH9ng9PBqr6jIoOyZxdk58EPEccrbfOk4ni1s=
 github.com/cloudwego/fastpb v0.0.4 h1:/ROVVfoFtpfc+1pkQLzGs+azjxUbSOsAqSY4tAAx4mg=
 github.com/cloudwego/fastpb v0.0.4/go.mod h1:/V13XFTq2TUkxj2qWReV8MwfPC4NnPcy6FsrojnsSG0=
 github.com/cloudwego/frugal v0.1.15/go.mod h1:26kU1r18vA8vRg12c66XPDlfv1GQHDbE1RpusipXfcI=
 github.com/cloudwego/iasm v0.0.9/go.mod h1:8rXZaNYT2n95jn+zTI1sDr+IgcD2GVs0nlbbQPiEFhY=
 github.com/cloudwego/iasm v0.2.0 h1:1KNIy1I1H9hNNFEEH3DVnI4UujN+1zjpuk6gwHLTssg=
 github.com/cloudwego/iasm v0.2.0/go.mod h1:8rXZaNYT2n95jn+zTI1sDr+IgcD2GVs0nlbbQPiEFhY=
-github.com/cloudwego/kitex v0.9.3-dep3 h1:yJ0Z3UOLXdu8G2Mmy3ITbivFUmuBH9B0U9dVEv1obBw=
 github.com/cloudwego/kitex v0.9.3-dep3/go.mod h1:87pfgsZMaso0tFISQZzMhwmh6pajfVmw/R3COsh2pCg=
+github.com/cloudwego/kitex v0.9.3-rc h1:1fiI74BMKuNEAVnnXbUr13Dom9XYp44/scRD3EkbOqs=
+github.com/cloudwego/kitex v0.9.3-rc/go.mod h1:QurmwA8Wh/s7qz6C+Da9sc9B4TRW6q4TN6Y56mu90SE=
 github.com/cloudwego/localsession v0.0.2/go.mod h1:kiJxmvAcy4PLgKtEnPS5AXed3xCiXcs7Z+KBHP72Wv8=
 github.com/cloudwego/netpoll v0.6.0 h1:JRMkrA1o8k/4quxzg6Q1XM+zIhwZsyoWlq6ef+ht31U=
 github.com/cloudwego/netpoll v0.6.0/go.mod h1:xVefXptcyheopwNDZjDPcfU6kIjZXZ4nY550k1yH9eQ=
