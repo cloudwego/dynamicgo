@@ -9,7 +9,7 @@ import (
 
 const (
     _entry__f64toa = 464
-    _entry__format_significand = 48448
+    _entry__format_significand = 48336
     _entry__format_integer = 3264
     _entry__hm_get = 27952
     _entry__i64toa = 3696
@@ -26,8 +26,8 @@ const (
     _entry__atof_eisel_lemire64 = 10496
     _entry__atof_native = 12048
     _entry__decimal_to_f64 = 10864
-    _entry__right_shift = 49408
-    _entry__left_shift = 48912
+    _entry__right_shift = 49296
+    _entry__left_shift = 48800
     _entry__j2t_string = 34800
     _entry__unquote = 6880
     _entry__b64decode = 24448
@@ -36,7 +36,7 @@ const (
     _entry__j2t_write_unset_fields = 33344
     _entry__j2t_find_field_key = 36432
     _entry__quote = 5136
-    _entry__tb_skip = 47408
+    _entry__tb_skip = 47296
     _entry__tb_write_i64 = 29504
     _entry__trie_get = 28768
 )
@@ -82,7 +82,7 @@ const (
     _size__hm_get = 464
     _size__i64toa = 48
     _size__u64toa = 1264
-    _size__j2t_fsm_exec = 7800
+    _size__j2t_fsm_exec = 7684
     _size__advance_ns = 704
     _size__fsm_exec = 1416
     _size__validate_string = 1424
@@ -184,15 +184,15 @@ var (
         {10, 32},
         {12, 40},
         {13, 48},
-        {6416, 280},
-        {6423, 48},
-        {6424, 40},
-        {6426, 32},
-        {6428, 24},
-        {6430, 16},
-        {6432, 8},
-        {6433, 0},
-        {7800, 280},
+        {6368, 280},
+        {6375, 48},
+        {6376, 40},
+        {6378, 32},
+        {6380, 24},
+        {6382, 16},
+        {6384, 8},
+        {6385, 0},
+        {7684, 280},
     }
     _pcsp__advance_ns = [][2]uint32{
         {1, 0},

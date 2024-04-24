@@ -1061,10 +1061,6 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
             xprintf("[J2T_VAL] null\n");
             long s = *p;
             J2T_XERR(advance_dword(src, p, 1, *p - 1, VS_NULL), s);
-            if (IS_STATE_FIELD(st) && unlikely(vt->ex.ef.f->required == REQ_REQUIRED))
-            {
-                WRAP_ERR(ERR_NULL_REQUIRED, vt->ex.ef.f->ID);
-            }
             null_val = true;
             break;
         }

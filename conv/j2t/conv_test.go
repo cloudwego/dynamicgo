@@ -566,6 +566,11 @@ func TestError(t *testing.T) {
 		msg := err.Error()
 		require.Equal(t, meta.ErrMissRequiredField, err.(meta.Error).Code.Behavior())
 		require.True(t, strings.Contains(msg, "missing required field 3"))
+		cv2 := NewBinaryConv(conv.Options{
+			WriteRequireField: true,
+		})
+		_, err2 := cv2.Do(context.Background(), desc, data)
+		require.NoError(t, err2)
 		// require.True(t, strings.Contains(msg, "near "+strconv.Itoa(strings.Index(string(data), `"Null3": null`)+13)))
 	})
 
