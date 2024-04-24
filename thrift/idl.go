@@ -81,6 +81,7 @@ type Options struct {
 	//   - Key: "thrift.name_space" (== NameSpaceAnnotationKey)
 	//   - Values: pairs of Language and Name. for example:
 	//      `namespace go base` will got ["go", "base"]
+	// NOTICE: at present, only StructDescriptor.Annotations() can get this
 	PutNameSpaceToAnnotation bool
 }
 
