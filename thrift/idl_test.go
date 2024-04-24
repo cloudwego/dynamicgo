@@ -271,6 +271,38 @@ func TestOptionSetOptionalBitmap(t *testing.T) {
 	require.Equal(t, true, req.Struct().Requires().IsSet(3))
 }
 
+func TestOptionPutNameSpaceToAnnotation(t *testing.T) {
+	content := `
+	namespace py py.base
+	namespace go go.base
+
+	struct Base {
+		1: string DefaultField,
+		2: optional string OptionalField,
+		3: required string RequiredField,
+	}
+
+	service InboxService {
+		Base ExampleMethod(1: Base req)
+	}
+	`
+	p, err := GetDescFromContent(content, "ExampleMethod", &Options{
+		PutNameSpaceToAnnotation: true,
+	})
+	require.NoError(t, err)
+	req := p.Request().Struct().Fields()[0].Type()
+	annos := req.Struct().Annotations()
+	var ns *parser.Annotation
+	for i, a := range annos {
+		if a.Key == NameSpaceAnnotationKey {
+			ns = &annos[i]
+			break
+		}
+	}
+	require.NotNil(t, ns)
+	require.Equal(t, ns.Values, []string{"py", "py.base", "go", "go.base"})
+}
+
 func TestNewFunctionDescriptorFromContent_absPath(t *testing.T) {
 	content := `
 	include "/a/b/main.thrift"
