@@ -4,9 +4,9 @@ go 1.16
 
 require (
 	github.com/apache/thrift v0.13.0
-	github.com/bytedance/sonic v1.11.5
-	github.com/bytedance/sonic/loader v0.1.0
-	github.com/cloudwego/base64x v0.1.3
+	github.com/bytedance/sonic v1.11.6
+	github.com/bytedance/sonic/loader v0.1.1
+	github.com/cloudwego/base64x v0.1.4
 	github.com/cloudwego/fastpb v0.0.4
 	github.com/cloudwego/kitex v0.9.3-rc
 	github.com/cloudwego/thriftgo v0.3.6

@@ -75,6 +75,14 @@ type Options struct {
 	//   1. Its type is 'base.Base' (for request base) or 'base.BaseResp' (for response base);
 	//   2. it is on the top layer of the root struct of one function.
 	EnableThriftBase bool
+
+	// PutNameSpaceToAnnotation indicates to extract the name-space of one type 
+	// and put it on the type's annotation. The annotion format is:
+	//   - Key: "thrift.name_space" (== NameSpaceAnnotationKey)
+	//   - Values: pairs of Language and Name. for example:
+	//      `namespace go base` will got ["go", "base"]
+	// NOTICE: at present, only StructDescriptor.Annotations() can get this
+	PutNameSpaceToAnnotation bool
 }
 
 // NewDefaultOptions creates a default Options.
@@ -547,6 +555,9 @@ func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache c
 
 		// copy original annotations
 		oannos := copyAnnotationValues(st.Annotations)
+		if opts.PutNameSpaceToAnnotation {
+			oannos = append(oannos, extractNameSpaceToAnnos(tree))
+		}
 
 		// inject previous annotations
 		injectAnnotations((*[]*parser.Annotation)(&st.Annotations), nextAnns)

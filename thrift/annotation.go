@@ -423,6 +423,23 @@ func copyAnnotationValues(anns []*parser.Annotation) []parser.Annotation {
 	return ret
 }
 
+// NameSpaceAnnotationKey is used for Option.PutNameSpaceToAnnotation
+const NameSpaceAnnotationKey = "thrift.name_space"
+
+func extractNameSpaceToAnnos(ast *parser.Thrift) parser.Annotation {
+	ret := parser.Annotation{
+		Key: NameSpaceAnnotationKey,
+	}
+	for _, s := range ast.Namespaces {
+		if s == nil {
+			continue
+		}
+		ret.Values = append(ret.Values, s.Language)
+		ret.Values = append(ret.Values, s.Name)
+	}
+	return ret
+}
+
 // injectAnnotation injects next annotation by appending.
 // NOTICE: the next annotation will be appended to the end of the current annotation.
 func injectAnnotations(origin *[]*parser.Annotation, next []parser.Annotation) error {
