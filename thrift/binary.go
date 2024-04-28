@@ -1306,40 +1306,40 @@ func (p *BinaryProtocol) DecodeText(val string, desc *TypeDescriptor, disallowUn
 //   - []interface{} -> LIST
 //   - map[FieldID]interface{} -> STRUCT
 //   - map[(int|string|interface{})]interface{} -> MAP
-func GoType2ThriftType(val interface{}) Type {
+func GoType2ThriftType(val interface{}) (Type, error) {
 	_, ok := val.(map[FieldID]interface{})
 	if ok {
-		return STRUCT
+		return STRUCT, nil
 	}
 	_, ok = val.([]byte)
 	if ok {
-		return STRING
+		return STRING, nil
 	}
 	switch reflect.TypeOf(val).Kind() {
 	case reflect.Bool:
-		return BOOL
+		return BOOL, nil
 	case reflect.Int8, reflect.Uint8:
-		return BYTE
+		return BYTE, nil
 	case reflect.Int16, reflect.Uint16:
-		return I16
+		return I16, nil
 	case reflect.Int32, reflect.Uint32:
-		return I32
+		return I32, nil
 	case reflect.Int64, reflect.Uint64, reflect.Int, reflect.Uint:
-		return I64
+		return I64, nil
 	case reflect.Float64:
-		return DOUBLE
+		return DOUBLE, nil
 	case reflect.String:
-		return STRING
+		return STRING, nil
 	case reflect.Slice:
-		return LIST
+		return LIST, nil
 	case reflect.Map:
-		return MAP
+		return MAP, nil
 	case reflect.Struct:
-		return STRUCT
+		return STRUCT, nil
 	case reflect.Ptr:
 		return GoType2ThriftType(reflect.ValueOf(val).Elem().Interface())
 	default:
-		return STOP
+		return STOP, errUnsupportedType
 	}
 }
 
@@ -1502,12 +1502,20 @@ func (p *BinaryProtocol) WriteAny(val interface{}, sliceAsSet bool) (Type, error
 			return 0, fmt.Errorf("empty []interface is not supported")
 		}
 		if sliceAsSet {
-			e := p.WriteSetBegin(GoType2ThriftType(v[0]), len(v))
+			et, e := GoType2ThriftType(v[0])
+			if e != nil {
+				return 0, e
+			}
+			e = p.WriteSetBegin(et, len(v))
 			if e != nil {
 				return 0, e
 			}
 		} else {
-			e := p.WriteListBegin(GoType2ThriftType(v[0]), len(v))
+			et, e := GoType2ThriftType(v[0])
+			if e != nil {
+				return 0, e
+			}
+			e = p.WriteListBegin(et, len(v))
 			if e != nil {
 				return 0, e
 			}
@@ -1527,7 +1535,11 @@ func (p *BinaryProtocol) WriteAny(val interface{}, sliceAsSet bool) (Type, error
 			firstVal = vv
 			break
 		}
-		e := p.WriteMapBegin(STRING, GoType2ThriftType(firstVal), len(v))
+		et, e := GoType2ThriftType(firstVal)
+		if e != nil {
+			return 0, e
+		}
+		e = p.WriteMapBegin(STRING, et, len(v))
 		if e != nil {
 			return 0, e
 		}
@@ -1549,7 +1561,15 @@ func (p *BinaryProtocol) WriteAny(val interface{}, sliceAsSet bool) (Type, error
 		it.Next()
 		firstKey := it.Key().Interface()
 		firstVal := it.Value().Interface()
-		e := p.WriteMapBegin(GoType2ThriftType(firstKey), GoType2ThriftType(firstVal), vr.Len())
+		kt, e := GoType2ThriftType(firstKey)
+		if e != nil {
+			return 0, e
+		}
+		et, e := GoType2ThriftType(firstVal)
+		if e != nil {
+			return 0, e
+		}
+		e = p.WriteMapBegin(kt, et, vr.Len())
 		if e != nil {
 			return 0, e
 		}
@@ -1578,7 +1598,15 @@ func (p *BinaryProtocol) WriteAny(val interface{}, sliceAsSet bool) (Type, error
 			firstKey = kk
 			break
 		}
-		e := p.WriteMapBegin(GoType2ThriftType(firstKey), GoType2ThriftType(firstVal), len(v))
+		kt, e := GoType2ThriftType(firstKey)
+		if e != nil {
+			return 0, e
+		}
+		et, e := GoType2ThriftType(firstVal)
+		if e != nil {
+			return 0, e
+		}
+		e = p.WriteMapBegin(kt, et, len(v))
 		if e != nil {
 			return 0, e
 		}
@@ -1636,7 +1664,11 @@ func (p *BinaryProtocol) WriteAny(val interface{}, sliceAsSet bool) (Type, error
 			return 0, e
 		}
 		for k, vv := range v {
-			if e := p.WriteFieldBegin("", GoType2ThriftType(vv), k); e != nil {
+			ft, e := GoType2ThriftType(vv)
+			if e != nil {
+				return 0, e
+			}
+			if e := p.WriteFieldBegin("", ft, k); e != nil {
 				return 0, e
 			}
 			if _, e := p.WriteAny(vv, sliceAsSet); e != nil {
