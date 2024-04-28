@@ -74,32 +74,16 @@ func (self Node) offset() unsafe.Pointer {
 	return rt.AddPtr(self.v, uintptr(self.l))
 }
 
-// func NewNodeAny(val interface{}) Node {
-// 	vt := reflect.ValueOf(val)
-// 	switch vt.Kind() {
-// 	case reflect.Int8:
-// 		return NewNodeInt8(int8(vt.Int()))
-// 	case reflect.Int16:
-// 		return NewNodeInt16(int16(vt.Int()))
-// 	case reflect.Int32:
-// 		return NewNodeInt32(int32(vt.Int()))
-// 	case reflect.Int64:
-// 		return NewNodeInt64(vt.Int())
-// 	case reflect.Float32, reflect.Float64:
-// 		return NewNodeDouble(vt.Float())
-// 	case reflect.String:
-// 		return NewNodeString(vt.String())
-// 	case reflect.Bool:
-// 		return NewNodeBool(vt.Bool())
-// 	case reflect.Slice:
-// 		if vt.Type().Elem().Kind() == reflect.Uint8 {
-// 			return NewNodeBinary(vt.Bytes())
-// 		}
-// 		panic("not supported")
-// 	default:
-// 		panic("not supported")
-// 	}
-// }
+// NewNodeAny convert a go premitive type to Node.
+// NOTICE: It only accepts LIMITED types. See `thrift.GoType2ThriftType()` for detailed conversion rules.
+func NewNodeAny(val interface{}) Node {
+	p := thrift.NewBinaryProtocol(make([]byte, 0, 64))
+	if tt, err := p.WriteAny(val, false); err != nil {
+		panic(err)
+	} else {
+		return NewNode(tt, p.Buf)
+	}
+}
 
 // NewNodeBool converts a bool value to a BOOL node
 func NewNodeBool(val bool) Node {
@@ -205,11 +189,14 @@ func NewNodeStruct(fields map[thrift.FieldID]interface{}) Node {
 
 // NewTypedNode creates a new Node with the given typ,
 // including element type (for LIST/SET/MAP) and key type (for MAP),
+// and its children nodes.
 // Its children PathNode sholud be according to typ:
 //   - STRUCT: PathTypeFieldId path and any-typed node
 //   - LIST/SET: PathTypeIndex path and et typed node
 //   - MAP: PathStrKey/PathIntKey/PathBinKey according to kt path and et typed node
 //   - scalar(STRING|I08|I16|I32|I64|BOOL|DOUBLE): the children is itself.
+//
+// NOTICE: the children nodes will be marshaled to bytes.
 func NewTypedNode(typ thrift.Type, et thrift.Type, kt thrift.Type, children ...PathNode) (ret Node) {
 	if !typ.Valid() {
 		panic("invalid node type")
