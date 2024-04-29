@@ -34,7 +34,7 @@ func ExampleNewTypedNode() {
 	// make a struct{1:map<string, binary>} node
 	ret = NewTypedNode(thrift.STRUCT, 0, 0, PathNode{
 		Path: NewPathFieldId(1),
-		Node: NewNodeMap(map[interface{}]interface{}{"1": []byte{1}}),
+		Node: NewNodeMap(map[interface{}]interface{}{"1": []byte{1}}, &Options{}),
 	})
 	// print interface
 	opts.CastStringAsBinary = true

@@ -149,6 +149,8 @@ func NewNodeBinary(val []byte) Node {
 // NewNodeList creates a LIST node.
 // The element thrift type depends on vals' concrete type,
 // thus there must be at least one val.
+//
+// NOTICE: all recursive sub slice will be regard as LIST too
 func NewNodeList(vals []interface{}) Node {
 	p := thrift.NewBinaryProtocol(make([]byte, 0, len(vals)*DefaultNodeBufferSize))
 	if _, err := p.WriteAny(vals, false); err != nil {
@@ -160,6 +162,8 @@ func NewNodeList(vals []interface{}) Node {
 // NewNodeSet creates a SET node.
 // The element thrift type depends on vals' concrete type,
 // thus there must be at least one val.
+//
+// NOTICE: all recursive sub slice will be regard as SET too
 func NewNodeSet(vals []interface{}) Node {
 	p := thrift.NewBinaryProtocol(make([]byte, 0, len(vals)*DefaultNodeBufferSize))
 	if _, err := p.WriteAny(vals, true); err != nil {
@@ -171,9 +175,12 @@ func NewNodeSet(vals []interface{}) Node {
 // NewNodeMap creates a MAP node.
 // The thrift type of key and element depends on kvs' concrete type,
 // thus there must be at least one kv.
-func NewNodeMap(kvs map[interface{}]interface{}) Node {
+//
+// opts provides options when making the node.
+// Notice: only `Option.SliceAsSet` is effective now
+func NewNodeMap(kvs map[interface{}]interface{}, opts *Options) Node {
 	p := thrift.NewBinaryProtocol(make([]byte, 0, len(kvs)*DefaultNodeBufferSize*2))
-	if _, err := p.WriteAny(kvs, false); err != nil {
+	if _, err := p.WriteAny(kvs, opts.SliceAsSet); err != nil {
 		panic(err)
 	}
 	return NewNode(thrift.MAP, p.Buf)

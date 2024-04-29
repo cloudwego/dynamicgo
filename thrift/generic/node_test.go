@@ -51,7 +51,7 @@ func TestNewTypedNode(t *testing.T) {
 		{"int map", args{thrift.MAP, thrift.BYTE, thrift.BYTE, []PathNode{{Path: NewPathIntKey(1), Node: NewNodeByte(1)}}}, Options{}, map[int]interface{}{int(1): int(1)}},
 		{"string map", args{thrift.MAP, thrift.BYTE, thrift.STRING, []PathNode{{Path: NewPathStrKey("1"), Node: NewNodeByte(1)}}}, Options{}, map[string]interface{}{"1": int(1)}},
 		{"any map + key list", args{thrift.MAP, thrift.BYTE, thrift.LIST, []PathNode{{Path: NewPathBinKey(NewNodeList([]interface{}{1, 2}).Raw()), Node: NewNodeByte(1)}}}, Options{}, map[interface{}]interface{}{&[]interface{}{int(1), int(2)}: int(1)}},
-		{"any map + key map", args{thrift.MAP, thrift.BYTE, thrift.MAP, []PathNode{{Path: NewPathBinKey(NewNodeMap(map[interface{}]interface{}{1: 2}).Raw()), Node: NewNodeByte(1)}}}, Options{}, map[interface{}]interface{}{&map[int]interface{}{1: 2}: int(1)}},
+		{"any map + key map", args{thrift.MAP, thrift.BYTE, thrift.MAP, []PathNode{{Path: NewPathBinKey(NewNodeMap(map[interface{}]interface{}{1: 2}, &Options{}).Raw()), Node: NewNodeByte(1)}}}, Options{}, map[interface{}]interface{}{&map[int]interface{}{1: 2}: int(1)}},
 		{"struct", args{thrift.STRUCT, 0, 0, []PathNode{{Path: NewPathFieldId(1), Node: NewNodeByte(1)}}}, Options{MapStructById: true}, map[thrift.FieldID]interface{}{thrift.FieldID(1): int(1)}},
 		{"struct + struct", args{thrift.STRUCT, 0, 0, []PathNode{{Path: NewPathFieldId(1), Node: NewNodeStruct(map[thrift.FieldID]interface{}{1: 1}, &Options{})}}}, Options{MapStructById: true}, map[thrift.FieldID]interface{}{thrift.FieldID(1): map[thrift.FieldID]interface{}{thrift.FieldID(1): int(1)}}},
 	}
