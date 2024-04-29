@@ -1501,20 +1501,16 @@ func (p *BinaryProtocol) WriteAny(val interface{}, sliceAsSet bool) (Type, error
 		if len(v) == 0 {
 			return 0, fmt.Errorf("empty []interface is not supported")
 		}
+		et, e := GoType2ThriftType(v[0])
+		if e != nil {
+			return 0, e
+		}
 		if sliceAsSet {
-			et, e := GoType2ThriftType(v[0])
-			if e != nil {
-				return 0, e
-			}
 			e = p.WriteSetBegin(et, len(v))
 			if e != nil {
 				return 0, e
 			}
 		} else {
-			et, e := GoType2ThriftType(v[0])
-			if e != nil {
-				return 0, e
-			}
 			e = p.WriteListBegin(et, len(v))
 			if e != nil {
 				return 0, e

@@ -76,9 +76,12 @@ func (self Node) offset() unsafe.Pointer {
 
 // NewNodeAny convert a go premitive type to Node.
 // NOTICE: It only accepts LIMITED types. See `thrift.GoType2ThriftType()` for detailed conversion rules.
-func NewNodeAny(val interface{}) Node {
-	p := thrift.NewBinaryProtocol(make([]byte, 0, 64))
-	if tt, err := p.WriteAny(val, false); err != nil {
+//
+// opts provides options when making the node.
+// Notice: only `Option.SliceAsSet` is effective now
+func NewNodeAny(val interface{}, opts *Options) Node {
+	p := thrift.NewBinaryProtocol(make([]byte, 0, DefaultNodeBufferSize))
+	if tt, err := p.WriteAny(val, opts.SliceAsSet); err != nil {
 		panic(err)
 	} else {
 		return NewNode(tt, p.Buf)
@@ -147,7 +150,7 @@ func NewNodeBinary(val []byte) Node {
 // The element thrift type depends on vals' concrete type,
 // thus there must be at least one val.
 func NewNodeList(vals []interface{}) Node {
-	p := thrift.NewBinaryProtocol(make([]byte, 0, len(vals)*64))
+	p := thrift.NewBinaryProtocol(make([]byte, 0, len(vals)*DefaultNodeBufferSize))
 	if _, err := p.WriteAny(vals, false); err != nil {
 		panic(err)
 	}
@@ -158,7 +161,7 @@ func NewNodeList(vals []interface{}) Node {
 // The element thrift type depends on vals' concrete type,
 // thus there must be at least one val.
 func NewNodeSet(vals []interface{}) Node {
-	p := thrift.NewBinaryProtocol(make([]byte, 0, len(vals)*64))
+	p := thrift.NewBinaryProtocol(make([]byte, 0, len(vals)*DefaultNodeBufferSize))
 	if _, err := p.WriteAny(vals, true); err != nil {
 		panic(err)
 	}
@@ -169,7 +172,7 @@ func NewNodeSet(vals []interface{}) Node {
 // The thrift type of key and element depends on kvs' concrete type,
 // thus there must be at least one kv.
 func NewNodeMap(kvs map[interface{}]interface{}) Node {
-	p := thrift.NewBinaryProtocol(make([]byte, 0, len(kvs)*128))
+	p := thrift.NewBinaryProtocol(make([]byte, 0, len(kvs)*DefaultNodeBufferSize*2))
 	if _, err := p.WriteAny(kvs, false); err != nil {
 		panic(err)
 	}
@@ -179,9 +182,12 @@ func NewNodeMap(kvs map[interface{}]interface{}) Node {
 // NewNodeStruct creates a STRUCT node.
 // The thrift type of element depends on vals' concrete type,
 // thus there must be at least one field.
-func NewNodeStruct(fields map[thrift.FieldID]interface{}) Node {
-	p := thrift.NewBinaryProtocol(make([]byte, 0, len(fields)*128))
-	if _, err := p.WriteAny(fields, false); err != nil {
+//
+// opts provides options when making the node.
+// Notice: only `Option.SliceAsSet` is effective now
+func NewNodeStruct(fields map[thrift.FieldID]interface{}, opts *Options) Node {
+	p := thrift.NewBinaryProtocol(make([]byte, 0, len(fields)*DefaultNodeBufferSize))
+	if _, err := p.WriteAny(fields, opts.SliceAsSet); err != nil {
 		panic(err)
 	}
 	return NewNode(thrift.STRUCT, p.Buf)
@@ -195,8 +201,6 @@ func NewNodeStruct(fields map[thrift.FieldID]interface{}) Node {
 //   - LIST/SET: PathTypeIndex path and et typed node
 //   - MAP: PathStrKey/PathIntKey/PathBinKey according to kt path and et typed node
 //   - scalar(STRING|I08|I16|I32|I64|BOOL|DOUBLE): the children is itself.
-//
-// NOTICE: the children nodes will be marshaled to bytes.
 func NewTypedNode(typ thrift.Type, et thrift.Type, kt thrift.Type, children ...PathNode) (ret Node) {
 	if !typ.Valid() {
 		panic("invalid node type")
