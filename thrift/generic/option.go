@@ -87,6 +87,9 @@ type Options struct {
 
 	// DescriptorToPathNodeWriteDefualt indicates writing empty value for default fields for API `DescriptorToPathNode`
 	DescriptorToPathNodeWriteDefualt bool
+
+	// SliceAsSet indicates `NewNodeAny()` to covert go slice to SET instead of LIST
+	SliceAsSet bool
 }
 
 var (
@@ -95,4 +98,8 @@ var (
 
 	// StoreChildrenByIdShreshold is the minimum id to store children node by hash.
 	StoreChildrenByIntHashShreshold = DefaultNodeSliceCap
+
+	// DefaultNodeBufferSize indicates every element buffer size for one complex-type Node,
+	// including `NewNodeList()\NewNodeSet()\NewNodeMap()\NewNodeStruct()\NewNodeAny()`
+	DefaultNodeBufferSize = 64
 )
