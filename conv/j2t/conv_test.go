@@ -46,6 +46,7 @@ import (
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/null"
 	"github.com/cloudwego/dynamicgo/testdata/sample"
 	"github.com/cloudwego/dynamicgo/thrift"
+	"github.com/cloudwego/dynamicgo/thrift/annotation"
 	"github.com/cloudwego/dynamicgo/thrift/base"
 	"github.com/stretchr/testify/require"
 )
@@ -66,6 +67,7 @@ func TestMain(m *testing.M) {
 		}
 	}()
 	time.Sleep(time.Millisecond)
+	annotation.InitAGWAnnos()
 	m.Run()
 }
 

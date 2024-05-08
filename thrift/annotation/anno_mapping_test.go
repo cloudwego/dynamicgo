@@ -24,6 +24,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestMain(m *testing.M) {
+	InitAGWAnnos()
+	m.Run()
+}
+
 func TestGoTagJSON(t *testing.T) {
 	p, err := GetDescFromContent(`
 	namespace go kitex.test.server
