@@ -8,7 +8,7 @@ require (
 	github.com/bytedance/sonic/loader v0.1.1
 	github.com/cloudwego/base64x v0.1.4
 	github.com/cloudwego/fastpb v0.0.4
-	github.com/cloudwego/kitex v0.9.3-rc
+	github.com/cloudwego/kitex v0.9.3-rc2
 	github.com/cloudwego/thriftgo v0.3.6
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/fatih/structtag v1.2.0
