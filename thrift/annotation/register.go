@@ -39,24 +39,30 @@ func init() {
 	// OptionMaker
 
 	// ValueMapping
-	thrift.RegisterAnnotation(newValueMappingAnnotation(thrift.MakeAnnoID(thrift.AnnoKindValueMapping, thrift.AnnoScopeField, JSConv)), "api.js_conv", "agw.js_conv")
-	thrift.RegisterAnnotation(newValueMappingAnnotation(thrift.MakeAnnoID(thrift.AnnoKindValueMapping, thrift.AnnoScopeField, BodyDynamic)), "agw.body_dynamic")
+	thrift.RegisterAnnotation(newValueMappingAnnotation(thrift.MakeAnnoID(thrift.AnnoKindValueMapping, thrift.AnnoScopeField, JSConv)), "api.js_conv")
 
 	// KeyMapping
-	thrift.RegisterAnnotation(newKeyMappingAnnotation(thrift.MakeAnnoID(thrift.AnnoKindKeyMapping, thrift.AnnoScopeField, APIKey)), "agw.key", APIKeyName)
-	// thrift.RegisterAnnotation(newKeyMappingAnnotation(thrift.MakeAnnoID(thrift.AnnoKindKeyMapping, thrift.AnnoScopeField, NameCase)), "agw.to_snake", "janus.to_snake", "agw.to_lower_camel_case", "janus.to_lower_camel_case")
-
+	
 	// AnnotationMapper
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, goTagMapper{}, "go.tag")
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, apiBodyMapper{}, "api.body")
 	// make raw.body not failed, expected caller to implement this anno
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, apiBodyMapper{}, "raw.body")
-	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, sourceMapper{}, "janus.source", "agw.source")
-	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, targetMapper{}, "agw.target", "janus.target")
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeService, nameCaseMapper{}, NameCaseKeys...)
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeFunction, nameCaseMapper{}, NameCaseKeys...)
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeStruct, nameCaseMapper{}, NameCaseKeys...)
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, nameCaseMapper{}, NameCaseKeys...)
+}
+
+// This is only used for internal specifications.
+// DO NOT USE IT if you don't know related annotations
+func InitAGWAnnos() {
+	thrift.RegisterAnnotation(newValueMappingAnnotation(thrift.MakeAnnoID(thrift.AnnoKindValueMapping, thrift.AnnoScopeField, JSConv)), "agw.js_conv")
+	thrift.RegisterAnnotation(newValueMappingAnnotation(thrift.MakeAnnoID(thrift.AnnoKindValueMapping, thrift.AnnoScopeField, BodyDynamic)), "agw.body_dynamic")
+    thrift.RegisterAnnotation(newKeyMappingAnnotation(thrift.MakeAnnoID(thrift.AnnoKindKeyMapping, thrift.AnnoScopeField, APIKey)), "agw.key", APIKeyName)
+	// thrift.RegisterAnnotation(newKeyMappingAnnotation(thrift.MakeAnnoID(thrift.AnnoKindKeyMapping, thrift.AnnoScopeField, NameCase)), "agw.to_snake", "janus.to_snake", "agw.to_lower_camel_case", "janus.to_lower_camel_case")
+	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, sourceMapper{}, "janus.source", "agw.source")
+	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, targetMapper{}, "agw.target", "janus.target")
 }
 
 //go:noline

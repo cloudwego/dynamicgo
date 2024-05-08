@@ -39,6 +39,7 @@ import (
 	kbase "github.com/cloudwego/dynamicgo/testdata/kitex_gen/base"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/example3"
 	"github.com/cloudwego/dynamicgo/thrift"
+	"github.com/cloudwego/dynamicgo/thrift/annotation"
 	"github.com/cloudwego/dynamicgo/thrift/base"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
@@ -61,6 +62,7 @@ func TestMain(m *testing.M) {
 		}
 	}()
 	time.Sleep(time.Millisecond)
+	annotation.InitAGWAnnos()
 	m.Run()
 }
 

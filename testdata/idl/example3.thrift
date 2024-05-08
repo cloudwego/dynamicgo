@@ -79,7 +79,7 @@ struct ExampleErrorResp {
 }
 
 struct ExampleInt2Float {
-    1: i32 Int32 (agw.js_conv = ""),
+    1: i32 Int32 (api.js_conv = ""),
     2: double Float64 (api.js_conv = ""),
     3: string String (go.tag="json:\"中文\"", api.js_conv = "")
     4: i64 Int64

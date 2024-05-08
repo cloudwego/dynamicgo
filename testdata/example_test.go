@@ -28,6 +28,7 @@ import (
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/base"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/example2"
 	"github.com/cloudwego/dynamicgo/testdata/sample"
+	"github.com/cloudwego/dynamicgo/thrift/annotation"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/stretchr/testify/require"
 )
@@ -49,6 +50,7 @@ func TestMain(m *testing.M) {
 		}
 	}()
 	time.Sleep(time.Millisecond)
+	annotation.InitAGWAnnos()
 	m.Run()
 }
 
