@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/apache/thrift v0.13.0
-	github.com/bytedance/sonic v1.11.6
+	github.com/bytedance/sonic v1.11.7-0.20240517092252-d2edb31b167b
 	github.com/bytedance/sonic/loader v0.1.1
 	github.com/cloudwego/base64x v0.1.4
 	github.com/cloudwego/fastpb v0.0.4
