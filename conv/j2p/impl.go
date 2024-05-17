@@ -27,6 +27,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.TypeDesc
 func (self *BinaryConv) unmarshal(src []byte, out *[]byte, desc *proto.TypeDescriptor) error {
 	// use sonic to decode json bytes, get visitorUserNode
 	vu := newVisitorUserNodeBuffer()
+	vu.opts = &self.opts
 	vu.p = binary.NewBinaryProtocolBuffer()
 	// use Visitor onxxx() to decode json2pb
 	data, err := vu.decode(src, desc)

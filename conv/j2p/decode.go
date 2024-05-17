@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/bytedance/sonic/ast"
+	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
@@ -73,6 +74,7 @@ func (self *visitorUserNode) reset() {
 		self.stk[i].reset()
 	}
 	self.globalFieldDesc = nil
+	self.opts = nil
 }
 
 // visitorUserNode is used to store some conditional variables about Protobuf when parsing json
@@ -81,10 +83,11 @@ func (self *visitorUserNode) reset() {
 // P: Output of Protobuf BinaryData
 // GlobalFieldDesc：After parsing the FieldKey, save the FieldDescriptor
 type visitorUserNode struct {
-	stk             []visitorUserNodeStack
 	sp              uint8
+	stk             []visitorUserNodeStack
 	p               *binary.BinaryProtocol
 	globalFieldDesc *proto.FieldDescriptor
+	opts *conv.Options
 }
 
 // keep hierarchy when parsing, objStkType represents Message and arrStkType represents List and mapStkType represents Map
@@ -203,6 +206,9 @@ func (self *visitorUserNode) OnString(v string) error {
 	case proto.BytesKind:
 		// JSON format string data needs to be decoded via Base64x
 		bytesData, err := decodeBinary(v)
+		if err != nil {
+			return err
+		}
 		if err = self.p.WriteBytes(bytesData); err != nil {
 			return err
 		}
@@ -362,7 +368,7 @@ func (self *visitorUserNode) OnObjectBegin(capacity int) error {
 }
 
 // MapKey maybe int32/sint32/uint32/uint64 etc....
-func (self *visitorUserNode) decodeMapKey(key string, t proto.Type) error {
+func (self *visitorUserNode) encodeMapKey(key string, t proto.Type) error {
 	switch t {
 	case proto.INT32, proto.SINT32, proto.SFIX32, proto.FIX32:
 		t, _ := strconv.ParseInt(key, 10, 32)
@@ -417,27 +423,48 @@ func (self *visitorUserNode) OnObjectKey(key string) error {
 	if top.state.msgDesc != nil {
 		// first hierarchy
 		rootDesc := top.state.msgDesc
-		curDesc = *rootDesc.ByJSONName(key)
+		fd := rootDesc.ByJSONName(key)
+		if fd == nil {
+			if !self.opts.DisallowUnknownField {
+				return newError(meta.ErrUnknownField, fmt.Sprintf("json key '%s' is unknown", key), err)
+			} else {
+				// todo
+				return nil
+			}
+		}
+		curDesc = *fd
 	} else {
 		fieldDesc := top.state.fieldDesc
 		// case MessageField
 		if top.typ == objStkType {
-			curDesc = *fieldDesc.Message().ByJSONName(key)
+			fd := fieldDesc.Message().ByJSONName(key)
+			if fd == nil {
+				if !self.opts.DisallowUnknownField {
+					return newError(meta.ErrUnknownField, fmt.Sprintf("json key '%s' is unknown", key), err)
+				} else {
+					// todo
+					return nil
+				}
+			}
+			curDesc = *fd
 		} else if top.typ == mapStkType {
 			// case MapKey, write PairTag、PairLen、MapKeyTag、MapKeyLen、MapKeyData, push MapDesc into stack
 
 			// encode PairTag、PairLen
-			self.p.AppendTag(top.state.fieldDesc.Number(), proto.BytesType)
+			fd := top.state.fieldDesc;
+			if err := self.p.AppendTag(fd.Number(), proto.BytesType); err != nil {
+				return newError(meta.ErrWrite, fmt.Sprintf("field '%s' encode pair tag faield", fd.Name()), err)
+			}
 			self.p.Buf, curNodeLenPos = binary.AppendSpeculativeLength(self.p.Buf)
 
 			// encode MapKeyTag、MapKeyLen、MapKeyData
 			mapKeyDesc := fieldDesc.MapKey()
 			if err := self.p.AppendTag(mapkeyFieldNumber, mapKeyDesc.WireType()); err != nil {
-				return newError(meta.ErrUnsupportedType, "unsatfisied mapKeyDescriptor Type", err)
+				return newError(meta.ErrUnsupportedType, fmt.Sprintf("field '%s' encode map key tag faield", fd.Name()), err)
 			}
 
-			if err := self.decodeMapKey(key, mapKeyDesc.Type()); err != nil {
-				return newError(meta.ErrUnsupportedType, "unsatfisied mapKeyDescriptor Type", err)
+			if err := self.encodeMapKey(key, mapKeyDesc.Type()); err != nil {
+				return newError(meta.ErrUnsupportedType, fmt.Sprintf("field '%s' encode map key faield", fd.Name()), err)
 			}
 
 			// push MapDesc into stack
