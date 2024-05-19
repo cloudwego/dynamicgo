@@ -42,7 +42,7 @@ Http request/response wrapper interfaces. They are mainly used to pass http valu
 [DOC](http/README.md)
 
 ### conv
-Protocol convertors. Based on reflecting ability of `thrift`, `json` and `protobuf`(WIP) modules, it can convert message from one protocol into another. 
+Protocol convertors. Based on reflecting ability of `thrift`, `json` and `protobuf` modules, it can convert message from one protocol into another. 
 
 #### conv/j2t
 Convert JSON value or JSON-body HTTP request into thrift message.
