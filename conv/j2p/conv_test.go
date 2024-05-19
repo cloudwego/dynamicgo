@@ -264,8 +264,16 @@ func TestUnknownFields(t *testing.T) {
 		desc := getExampleDesc()
 		data := getExampleData()
 		root := ast.NewRaw(string(data))
-		root.SetAny("UNKNOWN", 1)
+		root.Set("UNKNOWN-null", ast.NewNull())
+		root.SetAny("UNKNOWN-num", 1)
+		root.SetAny("UNKNOWN-bool", true)
+		root.SetAny("UNKNOWN-string", "a")
+		root.Set("UNKNOWN-object", ast.NewRaw(`{"1":1}`))
+		root.Set("UNKNOWN-array", ast.NewRaw(`[1]`))
+		base := root.Get("InnerBase2")
+		base.SetAny("UNKNOWN-sub", 1)
 		data, _ = root.MarshalJSON()
+		println(string(data))
 		cv := NewBinaryConv(conv.Options{
 			DisallowUnknownField: false,
 		})
