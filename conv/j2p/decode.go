@@ -75,6 +75,7 @@ func (self *visitorUserNode) reset() {
 	}
 	self.globalFieldDesc = nil
 	self.opts = nil
+	self.inskip = false
 }
 
 // visitorUserNode is used to store some conditional variables about Protobuf when parsing json
