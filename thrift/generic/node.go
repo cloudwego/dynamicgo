@@ -213,8 +213,11 @@ func NewTypedNode(typ thrift.Type, et thrift.Type, kt thrift.Type, children ...P
 		panic("invalid node type")
 	}
 	if len(children) == 0 {
-		// NOTICE: dummy node just for PathNode.Node to work
-		return newNode(typ, et, kt, nil)
+		b, err := thrift.BinaryEncoding{}.EncodeEmpty(typ, et, kt, []byte{})
+		if err != nil {
+			panic(err)
+		}
+		return newNode(typ, et, kt, b)
 	}
 
 	switch typ {

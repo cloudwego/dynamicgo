@@ -2176,6 +2176,56 @@ func (p *BinaryProtocol) next(size int) ([]byte, error) {
 // BinaryEncoding is the implementation of Encoding for binary encoding.
 type BinaryEncoding struct{}
 
+func (b BinaryEncoding) EncodeEmpty(typ, et, kt Type, buf []byte) ([]byte, error) {
+	switch typ {
+	case BOOL:
+		rt.GuardSlice(&buf, 1)
+		b.EncodeBool(buf[len(buf):len(buf)+1], false)
+		buf = buf[:len(buf)+1]
+	case DOUBLE:
+		rt.GuardSlice(&buf, 8)
+		b.EncodeDouble(buf[len(buf):len(buf)+8], 0)
+		buf = buf[:len(buf)+8]
+	case I08:
+		rt.GuardSlice(&buf, 1)
+		b.EncodeByte(buf[len(buf):len(buf)+1], 0)
+		buf = buf[:len(buf)+1]
+	case I16:
+		rt.GuardSlice(&buf, 2)
+		b.EncodeInt16(buf[len(buf):len(buf)+2], 0)
+		buf = buf[:len(buf)+2]
+	case I32:
+		rt.GuardSlice(&buf, 4)
+		b.EncodeInt32(buf[len(buf):len(buf)+4], 0)
+		buf = buf[:len(buf)+4]
+	case I64:
+		rt.GuardSlice(&buf, 8)
+		b.EncodeInt64(buf[len(buf):len(buf)+8], 0)
+		buf = buf[:len(buf)+8]
+	case STRING:
+		rt.GuardSlice(&buf, 4)
+		b.EncodeString(buf[len(buf):len(buf)+4], "")
+		buf = buf[:len(buf)+4]
+	case STRUCT:
+		rt.GuardSlice(&buf, 1)
+		buf = append(buf, 0)
+	case MAP:
+		rt.GuardSlice(&buf, 6)
+		buf = append(buf, byte(kt))
+		buf = append(buf, byte(et))
+		b.EncodeInt32(buf[len(buf):len(buf)+4], 0)
+		buf = buf[:len(buf)+4]
+	case LIST, SET:
+		rt.GuardSlice(&buf, 5)
+		buf = append(buf, byte(et))
+		b.EncodeInt32(buf[len(buf):len(buf)+4], 0)
+		buf = buf[:len(buf)+4]
+	default:
+		return nil, errUnsupportedType
+	}
+	return buf, nil
+}
+
 // EncodeBool encodes a bool value.
 func (BinaryEncoding) EncodeBool(b []byte, v bool) {
 	if v {
