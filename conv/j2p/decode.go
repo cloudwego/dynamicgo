@@ -75,6 +75,7 @@ func (self *visitorUserNode) reset() {
 	}
 	self.globalFieldDesc = nil
 	self.opts = nil
+	self.inskip = false
 }
 
 // visitorUserNode is used to store some conditional variables about Protobuf when parsing json
@@ -84,10 +85,11 @@ func (self *visitorUserNode) reset() {
 // GlobalFieldDesc：After parsing the FieldKey, save the FieldDescriptor
 type visitorUserNode struct {
 	sp              uint8
+	inskip          bool
 	stk             []visitorUserNodeStack
 	p               *binary.BinaryProtocol
 	globalFieldDesc *proto.FieldDescriptor
-	opts *conv.Options
+	opts            *conv.Options
 }
 
 // keep hierarchy when parsing, objStkType represents Message and arrStkType represents List and mapStkType represents Map
@@ -167,6 +169,10 @@ func (self *visitorUserNode) incrSP() error {
 }
 
 func (self *visitorUserNode) OnNull() error {
+	if self.inskip {
+		self.inskip = false
+		return nil
+	}
 	// self.stk[self.sp].val = &visitorUserNull{}
 	if err := self.incrSP(); err != nil {
 		return err
@@ -175,6 +181,10 @@ func (self *visitorUserNode) OnNull() error {
 }
 
 func (self *visitorUserNode) OnBool(v bool) error {
+	if self.inskip {
+		self.inskip = false
+		return nil
+	}
 	var err error
 	if self.globalFieldDesc == nil {
 		return newError(meta.ErrConvert, "self.globalFieldDescriptor is nil, type Onbool", nil)
@@ -191,6 +201,10 @@ func (self *visitorUserNode) OnBool(v bool) error {
 
 // Parse stringType/bytesType
 func (self *visitorUserNode) OnString(v string) error {
+	if self.inskip {
+		self.inskip = false
+		return nil
+	}
 	var err error
 	top := self.stk[self.sp].state.fieldDesc
 	fieldDesc := self.globalFieldDesc
@@ -226,6 +240,10 @@ func (self *visitorUserNode) OnString(v string) error {
 }
 
 func (self *visitorUserNode) OnInt64(v int64, n json.Number) error {
+	if self.inskip {
+		self.inskip = false
+		return nil
+	}
 	var err error
 	top := self.stk[self.sp]
 	fieldDesc := self.globalFieldDesc
@@ -282,6 +300,10 @@ func (self *visitorUserNode) OnInt64(v int64, n json.Number) error {
 }
 
 func (self *visitorUserNode) OnFloat64(v float64, n json.Number) error {
+	if self.inskip {
+		self.inskip = false
+		return nil
+	}
 	var err error
 	top := self.stk[self.sp]
 	fieldDesc := self.globalFieldDesc
@@ -337,6 +359,9 @@ func (self *visitorUserNode) OnFloat64(v float64, n json.Number) error {
 //  3. When Field is Message type, encode Tag and PrefixLen, and push FieldDescriptor and PrefixLen to the stack.
 //     When Field is Map type, only perform pressing stack operation.
 func (self *visitorUserNode) OnObjectBegin(capacity int) error {
+	if self.inskip {
+		return ast.VisitOPSkip
+	}
 	var err error
 	fieldDesc := self.globalFieldDesc
 	top := self.stk[self.sp]
@@ -425,10 +450,10 @@ func (self *visitorUserNode) OnObjectKey(key string) error {
 		rootDesc := top.state.msgDesc
 		fd := rootDesc.ByJSONName(key)
 		if fd == nil {
-			if !self.opts.DisallowUnknownField {
+			if self.opts.DisallowUnknownField {
 				return newError(meta.ErrUnknownField, fmt.Sprintf("json key '%s' is unknown", key), err)
 			} else {
-				// todo
+				self.inskip = true
 				return nil
 			}
 		}
@@ -439,10 +464,10 @@ func (self *visitorUserNode) OnObjectKey(key string) error {
 		if top.typ == objStkType {
 			fd := fieldDesc.Message().ByJSONName(key)
 			if fd == nil {
-				if !self.opts.DisallowUnknownField {
+				if self.opts.DisallowUnknownField {
 					return newError(meta.ErrUnknownField, fmt.Sprintf("json key '%s' is unknown", key), err)
 				} else {
-					// todo
+					self.inskip = true
 					return nil
 				}
 			}
@@ -484,6 +509,10 @@ func (self *visitorUserNode) OnObjectKey(key string) error {
 
 // After parsing JSONObject, write back prefixLen of Message
 func (self *visitorUserNode) OnObjectEnd() error {
+	if self.inskip {
+		self.inskip = false
+		return nil
+	}
 	top := &self.stk[self.sp]
 	// root layer no need to write tag and len
 	if top.state.lenPos != -1 {
@@ -496,6 +525,9 @@ func (self *visitorUserNode) OnObjectEnd() error {
 // 1. If PackedList, Encode ListTag、PrefixLen
 // 2. push ListDescriptor、PrefixLen(UnPackedList is -1) into stack
 func (self *visitorUserNode) OnArrayBegin(capacity int) error {
+	if self.inskip {
+		return ast.VisitOPSkip
+	}
 	var err error
 	curNodeLenPos := -1
 	if self.globalFieldDesc != nil {
@@ -515,6 +547,10 @@ func (self *visitorUserNode) OnArrayBegin(capacity int) error {
 
 // After Parsing JSONArray, writing back PrefixLen If PackedList
 func (self *visitorUserNode) OnArrayEnd() error {
+	if self.inskip {
+		self.inskip = false
+		return nil
+	}
 	var top *visitorUserNodeStack
 	top = &self.stk[self.sp]
 	// case PackedList

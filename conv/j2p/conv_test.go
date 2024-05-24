@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bytedance/sonic/ast"
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/internal/util_test"
 	"github.com/cloudwego/dynamicgo/proto"
@@ -48,11 +49,11 @@ const (
 )
 
 func TestConvJSON2Protobf(t *testing.T) {
-	buildExampleJSONData()
+	// buildExampleJSONData()
 	desc := getExampleDesc()
 	data := getExampleData()
-	pdata, _ := ioutil.ReadFile(util_test.MustGitPath(exampleProtoPath))
-	fmt.Println(pdata)
+	// pdata, _ := ioutil.ReadFile(util_test.MustGitPath(exampleProtoPath))
+	// fmt.Println(pdata)
 	cv := NewBinaryConv(conv.Options{})
 	ctx := context.Background()
 	// get protobuf-encode bytes
@@ -243,6 +244,66 @@ func getExampleInt2Float() *proto.TypeDescriptor {
 		panic(err)
 	}
 	return (*svc).LookupMethodByName("Int2FloatMethod").Output()
+}
+
+func TestUnknownFields(t *testing.T) {
+	t.Run("disallow", func(t *testing.T) {
+		desc := getExampleDesc()
+		data := getExampleData()
+		root := ast.NewRaw(string(data))
+		root.SetAny("UNKNOWN", 1)
+		data, _ = root.MarshalJSON()
+		cv := NewBinaryConv(conv.Options{
+			DisallowUnknownField: true,
+		})
+		ctx := context.Background()
+		_, err := cv.Do(ctx, desc, data)
+		require.Error(t, err)
+	})
+	t.Run("allow", func(t *testing.T) {
+		desc := getExampleDesc()
+		data := getExampleData()
+		root := ast.NewRaw(string(data))
+		root.Set("UNKNOWN-null", ast.NewNull())
+		root.SetAny("UNKNOWN-num", 1)
+		root.SetAny("UNKNOWN-bool", true)
+		root.SetAny("UNKNOWN-string", "a")
+		root.Set("UNKNOWN-object", ast.NewRaw(`{"1":1}`))
+		root.Set("UNKNOWN-array", ast.NewRaw(`[1]`))
+		base := root.Get("InnerBase2")
+		base.SetAny("UNKNOWN-sub", 1)
+		data, _ = root.MarshalJSON()
+		println(string(data))
+		cv := NewBinaryConv(conv.Options{
+			DisallowUnknownField: false,
+		})
+		ctx := context.Background()
+		out, err := cv.Do(ctx, desc, data)
+		require.NoError(t, err)
+		exp := &example2.ExampleReq{}
+		// unmarshal target struct
+		err = json.Unmarshal(data, exp)
+		require.NoError(t, err)
+		act := &example2.ExampleReq{}
+		l := 0
+		// fmt.Print(out)
+		dataLen := len(out)
+		// fastRead to get target struct
+		for l < dataLen {
+			id, wtyp, tagLen := goprotowire.ConsumeTag(out)
+			if tagLen < 0 {
+				t.Fatal("test failed")
+			}
+			l += tagLen
+			out = out[tagLen:]
+			offset, err := act.FastRead(out, int8(wtyp), int32(id))
+			require.Nil(t, err)
+			out = out[offset:]
+			l += offset
+		}
+		require.Nil(t, err)
+		require.Equal(t, exp, act)
+	})
 }
 
 func TestFloat2Int(t *testing.T) {

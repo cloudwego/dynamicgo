@@ -33,7 +33,7 @@ func (self *BinaryConv) unmarshal(src []byte, out *[]byte, desc *proto.TypeDescr
 	data, err := vu.decode(src, desc)
 	freeVisitorUserNodePool(vu)
 	if err != nil {
-		return newError(meta.ErrConvert, "sonic decode json bytes failed", err)
+		return err
 	}
 	*out = data
 	return nil
