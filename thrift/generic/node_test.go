@@ -38,6 +38,16 @@ func TestNewTypedNode(t *testing.T) {
 		opts    Options
 		wantRet interface{}
 	}{
+		{"empty map", args{thrift.MAP, thrift.DOUBLE, thrift.STRING, []PathNode{}}, Options{}, map[string]interface{}{}},
+		{"empty list", args{thrift.LIST, thrift.DOUBLE, 0, []PathNode{}}, Options{}, []interface{}{}},
+		{"empty struct", args{thrift.STRUCT, 0, 0, []PathNode{}}, Options{MapStructById: true}, map[thrift.FieldID]interface{}{}},
+		{"empty string", args{thrift.STRING, 0, 0, []PathNode{}}, Options{}, ""},
+		{"empty bool", args{thrift.BOOL, 0, 0, []PathNode{}}, Options{}, false},
+		{"empty int8", args{thrift.I08, 0, 0, []PathNode{}}, Options{}, int(0)},
+		{"empty int16", args{thrift.I16, 0, 0, []PathNode{}}, Options{}, int(0)},
+		{"empty int32", args{thrift.I32, 0, 0, []PathNode{}}, Options{}, int(0)},
+		{"empty int64", args{thrift.I64, 0, 0, []PathNode{}}, Options{}, int(0)},
+		{"empty double", args{thrift.DOUBLE, 0, 0, []PathNode{}}, Options{}, float64(0)},
 		{"bool", args{thrift.BOOL, 0, 0, []PathNode{{Node: NewNodeBool(true)}}}, Options{}, true},
 		{"string", args{thrift.STRING, 0, 0, []PathNode{{Node: NewNodeString("1")}}}, Options{}, "1"},
 		{"binary", args{thrift.STRING, 0, 0, []PathNode{{Node: NewNodeBinary([]byte{1})}}}, Options{CastStringAsBinary: true}, []byte{1}},
@@ -62,10 +72,7 @@ func TestNewTypedNode(t *testing.T) {
 			fmt.Printf("buf:%+v\n", ret.Raw())
 			val, err := ret.Interface(&tt.opts)
 			fmt.Printf("val:%#v\n", val)
-			if err != nil {
-				t.Errorf("NewTypedNode() error = %v", err)
-				return
-			}
+			require.NoError(t, err)
 			if strings.Contains(tt.name, "map + key") {
 				em := tt.wantRet.(map[interface{}]interface{})
 				gm := val.(map[interface{}]interface{})
