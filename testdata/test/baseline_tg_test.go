@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package testdata
+package test
 
 import (
 	"bytes"

@@ -15,7 +15,7 @@
  */
 
 //go:generate kitex -module=github.com/cloudwego/dynamicgo idl/baseline.thrift
-package testdata
+package test
 
 import (
 	"bytes"
