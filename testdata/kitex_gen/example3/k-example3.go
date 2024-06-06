@@ -12,7 +12,7 @@ import (
 
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/base"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/ref"
-	"github.com/cloudwego/kitex/pkg/protocol/bthrift"
+	"github.com/cloudwego/dynamicgo/internal/bthrift"
 )
 
 // unused protection

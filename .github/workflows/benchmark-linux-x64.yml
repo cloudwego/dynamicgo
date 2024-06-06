@@ -25,15 +25,10 @@ jobs:
       
       - name: Testdata
         run: |
-          go get -t github.com/cloudwego/dynamicgo/testdata
-          go get github.com/json-iterator/go@latest
-          go get github.com/thrift-iterator/go@latest
-          go get github.com/cloudwego/kitex/pkg/remote/codec/thrift@latest
-          go get github.com/cloudwego/kitex/pkg/generic@latest
-          go get github.com/cloudwego/kitex/pkg/retry@latest
-          go get github.com/cloudwego/frugal@latest
-          go test -race github.com/cloudwego/dynamicgo/testdata
+          cd testdata/test
+          go test -race -v ./...
 
       - name: Benchmark sonic
         run: |
-          go test -benchmem -run=^$ -bench . github.com/cloudwego/dynamicgo/testdata
+          cd testdata/test
+          go test -benchmem -run=^$ -bench . 

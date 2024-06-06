@@ -11,7 +11,7 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/base"
-	"github.com/cloudwego/kitex/pkg/protocol/bthrift"
+	"github.com/cloudwego/dynamicgo/internal/bthrift"
 )
 
 // unused protection
