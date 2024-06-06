@@ -8,104 +8,128 @@ import (
 )
 
 const (
-    _entry__f64toa = 464
-    _entry__format_significand = 48336
-    _entry__format_integer = 3264
-    _entry__hm_get = 27952
-    _entry__i64toa = 3696
-    _entry__u64toa = 3824
-    _entry__j2t_fsm_exec = 39088
-    _entry__advance_ns = 12720
-    _entry__fsm_exec = 19536
-    _entry__validate_string = 21728
-    _entry__utf8_validate = 23152
-    _entry__advance_string = 14944
-    _entry__skip_number = 18288
-    _entry__j2t_number = 34208
-    _entry__vnumber = 15952
-    _entry__atof_eisel_lemire64 = 10496
-    _entry__atof_native = 12048
-    _entry__decimal_to_f64 = 10864
-    _entry__right_shift = 49296
-    _entry__left_shift = 48800
-    _entry__j2t_string = 34800
-    _entry__unquote = 6880
-    _entry__b64decode = 24448
-    _entry__j2t_field_vm = 37456
-    _entry__tb_write_default_or_empty = 31248
-    _entry__j2t_write_unset_fields = 33344
-    _entry__j2t_find_field_key = 36432
-    _entry__quote = 5136
-    _entry__tb_skip = 47296
-    _entry__tb_write_i64 = 29504
-    _entry__trie_get = 28768
+    _entry__f64toa = 2544
+    _entry___xassert = 58256
+    _entry__xprintf = 448
+    _entry__write_syscall = 58224
+    _entry__format_significand = 58304
+    _entry__format_integer = 5408
+    _entry__hm_get = 30080
+    _entry__i64toa = 5840
+    _entry__u64toa = 5968
+    _entry__j2t_fsm_exec = 43712
+    _entry__advance_ns = 14864
+    _entry__fsm_exec = 21680
+    _entry__validate_string = 23872
+    _entry__utf8_validate = 25296
+    _entry__advance_string = 17088
+    _entry__skip_number = 20432
+    _entry__j2t_number = 37632
+    _entry__vnumber = 18096
+    _entry__atof_eisel_lemire64 = 12640
+    _entry__atof_native = 14192
+    _entry__decimal_to_f64 = 13008
+    _entry__right_shift = 59264
+    _entry__left_shift = 58768
+    _entry__j2t_string = 38320
+    _entry__unquote = 9024
+    _entry__j2t_binary = 39456
+    _entry__b64decode = 26592
+    _entry__tb_write_map_begin = 33536
+    _entry__j2t_field_vm = 41808
+    _entry__tb_write_default_or_empty = 34176
+    _entry__tb_write_map_n = 33376
+    _entry__j2t_write_unset_fields = 36688
+    _entry__j2t_read_key = 41376
+    _entry__j2t_find_field_key = 40576
+    _entry__j2t_map_key = 39824
+    _entry__quote = 7280
+    _entry__tb_skip = 56688
+    _entry__tb_write_i64 = 31808
+    _entry__trie_get = 30896
 )
 
 const (
-    _stack__f64toa = 80
+    _stack__f64toa = 616
+    _stack___xassert = 560
+    _stack__xprintf = 552
+    _stack__write_syscall = 0
     _stack__format_significand = 24
     _stack__format_integer = 16
     _stack__hm_get = 16
     _stack__i64toa = 16
     _stack__u64toa = 8
-    _stack__j2t_fsm_exec = 592
+    _stack__j2t_fsm_exec = 1672
     _stack__advance_ns = 16
     _stack__fsm_exec = 208
     _stack__validate_string = 120
     _stack__utf8_validate = 32
     _stack__advance_string = 64
     _stack__skip_number = 48
-    _stack__j2t_number = 296
+    _stack__j2t_number = 608
     _stack__vnumber = 240
     _stack__atof_eisel_lemire64 = 32
     _stack__atof_native = 136
     _stack__decimal_to_f64 = 80
     _stack__right_shift = 8
     _stack__left_shift = 24
-    _stack__j2t_string = 160
+    _stack__j2t_string = 656
     _stack__unquote = 88
+    _stack__j2t_binary = 640
     _stack__b64decode = 160
-    _stack__j2t_field_vm = 312
-    _stack__tb_write_default_or_empty = 56
-    _stack__j2t_write_unset_fields = 176
-    _stack__j2t_find_field_key = 32
+    _stack__tb_write_map_begin = 576
+    _stack__j2t_field_vm = 744
+    _stack__tb_write_default_or_empty = 632
+    _stack__tb_write_map_n = 576
+    _stack__j2t_write_unset_fields = 752
+    _stack__j2t_read_key = 640
+    _stack__j2t_find_field_key = 592
+    _stack__j2t_map_key = 696
     _stack__quote = 64
-    _stack__tb_skip = 48
-    _stack__tb_write_i64 = 8
+    _stack__tb_skip = 672
+    _stack__tb_write_i64 = 576
     _stack__trie_get = 32
 )
 
 const (
-    _size__f64toa = 2800
+    _size__f64toa = 2864
+    _size___xassert = 48
+    _size__xprintf = 1992
+    _size__write_syscall = 32
     _size__format_significand = 464
     _size__format_integer = 432
     _size__hm_get = 464
     _size__i64toa = 48
     _size__u64toa = 1264
-    _size__j2t_fsm_exec = 7684
+    _size__j2t_fsm_exec = 12448
     _size__advance_ns = 704
     _size__fsm_exec = 1416
     _size__validate_string = 1424
     _size__utf8_validate = 416
     _size__advance_string = 960
     _size__skip_number = 956
-    _size__j2t_number = 548
+    _size__j2t_number = 648
     _size__vnumber = 1552
     _size__atof_eisel_lemire64 = 368
     _size__atof_native = 608
     _size__decimal_to_f64 = 1184
     _size__right_shift = 400
     _size__left_shift = 496
-    _size__j2t_string = 784
+    _size__j2t_string = 1136
     _size__unquote = 2272
+    _size__j2t_binary = 368
     _size__b64decode = 2832
-    _size__j2t_field_vm = 1576
-    _size__tb_write_default_or_empty = 1024
-    _size__j2t_write_unset_fields = 864
-    _size__j2t_find_field_key = 752
+    _size__tb_write_map_begin = 160
+    _size__j2t_field_vm = 1844
+    _size__tb_write_default_or_empty = 1224
+    _size__tb_write_map_n = 160
+    _size__j2t_write_unset_fields = 944
+    _size__j2t_read_key = 432
+    _size__j2t_find_field_key = 800
+    _size__j2t_map_key = 752
     _size__quote = 1728
-    _size__tb_skip = 968
-    _size__tb_write_i64 = 64
+    _size__tb_skip = 1456
+    _size__tb_write_i64 = 96
     _size__trie_get = 304
 )
 
@@ -118,15 +142,39 @@ var (
         {10, 32},
         {12, 40},
         {13, 48},
-        {2740, 56},
-        {2744, 48},
-        {2745, 40},
-        {2747, 32},
-        {2749, 24},
-        {2751, 16},
-        {2753, 8},
-        {2754, 0},
-        {2792, 56},
+        {2756, 56},
+        {2760, 48},
+        {2761, 40},
+        {2763, 32},
+        {2765, 24},
+        {2767, 16},
+        {2769, 8},
+        {2770, 0},
+        {2856, 56},
+    }
+    _pcsp___xassert = [][2]uint32{
+        {1, 0},
+        {37, 8},
+    }
+    _pcsp__xprintf = [][2]uint32{
+        {1, 0},
+        {4, 8},
+        {6, 16},
+        {8, 24},
+        {10, 32},
+        {12, 40},
+        {13, 48},
+        {1973, 552},
+        {1980, 48},
+        {1981, 40},
+        {1983, 32},
+        {1985, 24},
+        {1987, 16},
+        {1989, 8},
+        {1992, 0},
+    }
+    _pcsp__write_syscall = [][2]uint32{
+        {32, 0},
     }
     _pcsp__format_significand = [][2]uint32{
         {1, 0},
@@ -184,15 +232,203 @@ var (
         {10, 32},
         {12, 40},
         {13, 48},
-        {6368, 280},
-        {6375, 48},
-        {6376, 40},
-        {6378, 32},
-        {6380, 24},
-        {6382, 16},
-        {6384, 8},
-        {6385, 0},
-        {7684, 280},
+        {158, 856},
+        {179, 864},
+        {182, 872},
+        {185, 880},
+        {186, 888},
+        {188, 896},
+        {199, 904},
+        {441, 856},
+        {463, 864},
+        {466, 872},
+        {469, 880},
+        {470, 888},
+        {472, 896},
+        {480, 904},
+        {1483, 856},
+        {1504, 864},
+        {1510, 872},
+        {3114, 856},
+        {3135, 864},
+        {3139, 872},
+        {3143, 880},
+        {3145, 888},
+        {3147, 896},
+        {3341, 856},
+        {3345, 864},
+        {3349, 872},
+        {3351, 880},
+        {3353, 888},
+        {3355, 896},
+        {3363, 904},
+        {3371, 912},
+        {3382, 920},
+        {3463, 856},
+        {3466, 864},
+        {3469, 872},
+        {3470, 880},
+        {3472, 888},
+        {3474, 896},
+        {3482, 904},
+        {3490, 912},
+        {3498, 920},
+        {3955, 856},
+        {3976, 864},
+        {3979, 872},
+        {3982, 880},
+        {3983, 888},
+        {3985, 896},
+        {4101, 856},
+        {4122, 864},
+        {4125, 872},
+        {4128, 880},
+        {4129, 888},
+        {4131, 896},
+        {4189, 856},
+        {4203, 864},
+        {4212, 872},
+        {4528, 856},
+        {4549, 864},
+        {4553, 872},
+        {4557, 880},
+        {4559, 888},
+        {4561, 896},
+        {4562, 904},
+        {5643, 856},
+        {5646, 864},
+        {5649, 872},
+        {5650, 880},
+        {5652, 888},
+        {5654, 896},
+        {5662, 904},
+        {5670, 912},
+        {5678, 920},
+        {6146, 856},
+        {6150, 864},
+        {6154, 872},
+        {6156, 880},
+        {6158, 888},
+        {6159, 896},
+        {6167, 904},
+        {6170, 912},
+        {6182, 920},
+        {6224, 856},
+        {6245, 864},
+        {6248, 872},
+        {6251, 880},
+        {6252, 888},
+        {6254, 896},
+        {6261, 904},
+        {6553, 856},
+        {6574, 864},
+        {6577, 872},
+        {6580, 880},
+        {6581, 888},
+        {6583, 896},
+        {7205, 856},
+        {7230, 864},
+        {7233, 872},
+        {7236, 880},
+        {7237, 888},
+        {7243, 896},
+        {7250, 904},
+        {7292, 856},
+        {7317, 864},
+        {7320, 872},
+        {7323, 880},
+        {7324, 888},
+        {7326, 896},
+        {7333, 904},
+        {8280, 856},
+        {8301, 864},
+        {8305, 872},
+        {8307, 880},
+        {8309, 888},
+        {8311, 896},
+        {8519, 856},
+        {8540, 864},
+        {8544, 872},
+        {8546, 880},
+        {8548, 888},
+        {8550, 896},
+        {8588, 856},
+        {8609, 864},
+        {8613, 872},
+        {8615, 880},
+        {8617, 888},
+        {8619, 896},
+        {9393, 856},
+        {9414, 864},
+        {9418, 872},
+        {9420, 880},
+        {9422, 888},
+        {9424, 896},
+        {9516, 856},
+        {9537, 864},
+        {9541, 872},
+        {9543, 880},
+        {9545, 888},
+        {9547, 896},
+        {9585, 856},
+        {9606, 864},
+        {9610, 872},
+        {9612, 880},
+        {9614, 888},
+        {9616, 896},
+        {9624, 904},
+        {9631, 856},
+        {9638, 48},
+        {9639, 40},
+        {9641, 32},
+        {9643, 24},
+        {9645, 16},
+        {9647, 8},
+        {9648, 0},
+        {10208, 856},
+        {10229, 864},
+        {10232, 872},
+        {10234, 880},
+        {10235, 888},
+        {10781, 856},
+        {10802, 864},
+        {10805, 872},
+        {10807, 880},
+        {10808, 888},
+        {10810, 896},
+        {10844, 856},
+        {10865, 864},
+        {10869, 872},
+        {10870, 880},
+        {10872, 888},
+        {10874, 896},
+        {10882, 904},
+        {11028, 856},
+        {11049, 864},
+        {11052, 872},
+        {11054, 880},
+        {11055, 888},
+        {11057, 896},
+        {11852, 856},
+        {11877, 864},
+        {11880, 872},
+        {11883, 880},
+        {11884, 888},
+        {11886, 896},
+        {11927, 856},
+        {11952, 864},
+        {11955, 872},
+        {11958, 880},
+        {11962, 888},
+        {11964, 896},
+        {11998, 856},
+        {12023, 864},
+        {12026, 872},
+        {12029, 880},
+        {12410, 856},
+        {12435, 864},
+        {12438, 872},
+        {12448, 880},
     }
     _pcsp__advance_ns = [][2]uint32{
         {1, 0},
@@ -293,14 +529,14 @@ var (
         {10, 32},
         {12, 40},
         {13, 48},
-        {531, 56},
-        {535, 48},
-        {536, 40},
-        {538, 32},
-        {540, 24},
-        {542, 16},
-        {544, 8},
-        {548, 0},
+        {633, 56},
+        {637, 48},
+        {638, 40},
+        {640, 32},
+        {642, 24},
+        {644, 16},
+        {646, 8},
+        {648, 0},
     }
     _pcsp__vnumber = [][2]uint32{
         {1, 0},
@@ -388,15 +624,15 @@ var (
         {10, 32},
         {12, 40},
         {13, 48},
-        {605, 72},
-        {609, 48},
-        {610, 40},
-        {612, 32},
-        {614, 24},
-        {616, 16},
-        {618, 8},
-        {619, 0},
-        {782, 72},
+        {734, 104},
+        {738, 48},
+        {739, 40},
+        {741, 32},
+        {743, 24},
+        {745, 16},
+        {747, 8},
+        {748, 0},
+        {1129, 104},
     }
     _pcsp__unquote = [][2]uint32{
         {1, 0},
@@ -416,6 +652,24 @@ var (
         {1698, 0},
         {2270, 88},
     }
+    _pcsp__j2t_binary = [][2]uint32{
+        {1, 0},
+        {4, 8},
+        {6, 16},
+        {8, 24},
+        {10, 32},
+        {12, 40},
+        {13, 48},
+        {296, 88},
+        {300, 48},
+        {301, 40},
+        {303, 32},
+        {305, 24},
+        {307, 16},
+        {309, 8},
+        {310, 0},
+        {359, 88},
+    }
     _pcsp__b64decode = [][2]uint32{
         {1, 0},
         {4, 8},
@@ -433,6 +687,16 @@ var (
         {2826, 8},
         {2828, 0},
     }
+    _pcsp__tb_write_map_begin = [][2]uint32{
+        {1, 0},
+        {4, 8},
+        {6, 16},
+        {137, 24},
+        {138, 16},
+        {140, 8},
+        {141, 0},
+        {153, 24},
+    }
     _pcsp__j2t_field_vm = [][2]uint32{
         {1, 0},
         {4, 8},
@@ -441,23 +705,23 @@ var (
         {10, 32},
         {12, 40},
         {13, 48},
-        {343, 72},
-        {347, 48},
-        {348, 40},
-        {350, 32},
-        {352, 24},
-        {354, 16},
-        {356, 8},
-        {357, 0},
-        {387, 72},
-        {391, 48},
-        {392, 40},
-        {394, 32},
-        {396, 24},
-        {398, 16},
-        {400, 8},
-        {401, 0},
-        {1576, 72},
+        {441, 88},
+        {445, 48},
+        {446, 40},
+        {448, 32},
+        {450, 24},
+        {452, 16},
+        {454, 8},
+        {455, 0},
+        {816, 88},
+        {820, 48},
+        {821, 40},
+        {823, 32},
+        {825, 24},
+        {827, 16},
+        {829, 8},
+        {830, 0},
+        {1844, 88},
     }
     _pcsp__tb_write_default_or_empty = [][2]uint32{
         {1, 0},
@@ -467,15 +731,33 @@ var (
         {10, 32},
         {12, 40},
         {13, 48},
-        {960, 56},
-        {964, 48},
-        {965, 40},
-        {967, 32},
-        {969, 24},
-        {971, 16},
-        {973, 8},
-        {974, 0},
-        {1024, 56},
+        {910, 56},
+        {914, 48},
+        {915, 40},
+        {917, 32},
+        {919, 24},
+        {921, 16},
+        {923, 8},
+        {924, 0},
+        {1104, 56},
+        {1108, 48},
+        {1109, 40},
+        {1111, 32},
+        {1113, 24},
+        {1115, 16},
+        {1117, 8},
+        {1118, 0},
+        {1224, 56},
+    }
+    _pcsp__tb_write_map_n = [][2]uint32{
+        {1, 0},
+        {4, 8},
+        {6, 16},
+        {130, 24},
+        {131, 16},
+        {133, 8},
+        {134, 0},
+        {154, 24},
     }
     _pcsp__j2t_write_unset_fields = [][2]uint32{
         {1, 0},
@@ -485,26 +767,64 @@ var (
         {10, 32},
         {12, 40},
         {13, 48},
-        {835, 120},
-        {839, 48},
-        {840, 40},
-        {842, 32},
-        {844, 24},
-        {846, 16},
-        {848, 8},
-        {850, 0},
+        {916, 120},
+        {920, 48},
+        {921, 40},
+        {923, 32},
+        {925, 24},
+        {927, 16},
+        {929, 8},
+        {931, 0},
+    }
+    _pcsp__j2t_read_key = [][2]uint32{
+        {1, 0},
+        {4, 8},
+        {6, 16},
+        {8, 24},
+        {10, 32},
+        {12, 40},
+        {13, 48},
+        {188, 88},
+        {192, 48},
+        {193, 40},
+        {195, 32},
+        {197, 24},
+        {199, 16},
+        {201, 8},
+        {202, 0},
+        {420, 88},
     }
     _pcsp__j2t_find_field_key = [][2]uint32{
         {1, 0},
         {4, 8},
         {6, 16},
         {8, 24},
-        {721, 32},
-        {722, 24},
-        {724, 16},
-        {726, 8},
-        {727, 0},
-        {738, 32},
+        {9, 32},
+        {355, 40},
+        {359, 32},
+        {360, 24},
+        {362, 16},
+        {364, 8},
+        {365, 0},
+        {798, 40},
+    }
+    _pcsp__j2t_map_key = [][2]uint32{
+        {1, 0},
+        {4, 8},
+        {6, 16},
+        {8, 24},
+        {10, 32},
+        {12, 40},
+        {13, 48},
+        {265, 88},
+        {269, 48},
+        {270, 40},
+        {272, 32},
+        {274, 24},
+        {276, 16},
+        {278, 8},
+        {279, 0},
+        {751, 88},
     }
     _pcsp__quote = [][2]uint32{
         {1, 0},
@@ -531,21 +851,28 @@ var (
         {8, 24},
         {10, 32},
         {12, 40},
-        {944, 48},
-        {945, 40},
-        {947, 32},
-        {949, 24},
-        {951, 16},
-        {953, 8},
-        {954, 0},
-        {968, 48},
+        {13, 48},
+        {143, 104},
+        {145, 112},
+        {151, 120},
+        {1427, 104},
+        {1431, 48},
+        {1432, 40},
+        {1434, 32},
+        {1436, 24},
+        {1438, 16},
+        {1440, 8},
+        {1441, 0},
+        {1456, 104},
     }
     _pcsp__tb_write_i64 = [][2]uint32{
         {1, 0},
-        {33, 8},
-        {34, 0},
-        {51, 8},
-        {53, 0},
+        {4, 8},
+        {6, 16},
+        {86, 24},
+        {87, 16},
+        {89, 8},
+        {91, 0},
     }
     _pcsp__trie_get = [][2]uint32{
         {1, 0},
@@ -563,6 +890,9 @@ var (
 var Funcs = []loader.CFunc{
     {"__native_entry__", 0, 67, 0, nil},
     {"_f64toa", _entry__f64toa, _size__f64toa, _stack__f64toa, _pcsp__f64toa},
+    {"__xassert", _entry___xassert, _size___xassert, _stack___xassert, _pcsp___xassert},
+    {"_xprintf", _entry__xprintf, _size__xprintf, _stack__xprintf, _pcsp__xprintf},
+    {"_write_syscall", _entry__write_syscall, _size__write_syscall, _stack__write_syscall, _pcsp__write_syscall},
     {"_format_significand", _entry__format_significand, _size__format_significand, _stack__format_significand, _pcsp__format_significand},
     {"_format_integer", _entry__format_integer, _size__format_integer, _stack__format_integer, _pcsp__format_integer},
     {"_hm_get", _entry__hm_get, _size__hm_get, _stack__hm_get, _pcsp__hm_get},
@@ -584,11 +914,16 @@ var Funcs = []loader.CFunc{
     {"_left_shift", _entry__left_shift, _size__left_shift, _stack__left_shift, _pcsp__left_shift},
     {"_j2t_string", _entry__j2t_string, _size__j2t_string, _stack__j2t_string, _pcsp__j2t_string},
     {"_unquote", _entry__unquote, _size__unquote, _stack__unquote, _pcsp__unquote},
+    {"_j2t_binary", _entry__j2t_binary, _size__j2t_binary, _stack__j2t_binary, _pcsp__j2t_binary},
     {"_b64decode", _entry__b64decode, _size__b64decode, _stack__b64decode, _pcsp__b64decode},
+    {"_tb_write_map_begin", _entry__tb_write_map_begin, _size__tb_write_map_begin, _stack__tb_write_map_begin, _pcsp__tb_write_map_begin},
     {"_j2t_field_vm", _entry__j2t_field_vm, _size__j2t_field_vm, _stack__j2t_field_vm, _pcsp__j2t_field_vm},
     {"_tb_write_default_or_empty", _entry__tb_write_default_or_empty, _size__tb_write_default_or_empty, _stack__tb_write_default_or_empty, _pcsp__tb_write_default_or_empty},
+    {"_tb_write_map_n", _entry__tb_write_map_n, _size__tb_write_map_n, _stack__tb_write_map_n, _pcsp__tb_write_map_n},
     {"_j2t_write_unset_fields", _entry__j2t_write_unset_fields, _size__j2t_write_unset_fields, _stack__j2t_write_unset_fields, _pcsp__j2t_write_unset_fields},
+    {"_j2t_read_key", _entry__j2t_read_key, _size__j2t_read_key, _stack__j2t_read_key, _pcsp__j2t_read_key},
     {"_j2t_find_field_key", _entry__j2t_find_field_key, _size__j2t_find_field_key, _stack__j2t_find_field_key, _pcsp__j2t_find_field_key},
+    {"_j2t_map_key", _entry__j2t_map_key, _size__j2t_map_key, _stack__j2t_map_key, _pcsp__j2t_map_key},
     {"_quote", _entry__quote, _size__quote, _stack__quote, _pcsp__quote},
     {"_tb_skip", _entry__tb_skip, _size__tb_skip, _stack__tb_skip, _pcsp__tb_skip},
     {"_tb_write_i64", _entry__tb_write_i64, _size__tb_write_i64, _stack__tb_write_i64, _pcsp__tb_write_i64},
