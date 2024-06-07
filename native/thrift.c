@@ -284,7 +284,11 @@ uint64_t j2t_write_unset_fields(J2TStateMachine *self, GoSlice *buf, const tStru
                 }
                 tFieldDesc *f = (st->ids.buf)[id];
                 // xprintf("[j2t_write_unset_fields] field:%d, f.name:%s\n", (int64_t)id, &f->name);
-
+                // NOTICE: request_base should be handled by upper layer logic
+                if (f == NULL || f->is_request_base)
+                {
+                    continue;
+                }
                 // NOTICE: if traceback is enabled AND (field is required OR current state is root layer),
                 // return field id to traceback field value from http-mapping in Go.
                 if (tb_enabled && (f->required == REQ_REQUIRED || self->sp == 1))

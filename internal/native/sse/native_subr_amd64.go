@@ -9,34 +9,34 @@ import (
 
 const (
     _entry__f64toa = 464
-    _entry__format_significand = 48336
+    _entry__format_significand = 48448
     _entry__format_integer = 3264
     _entry__hm_get = 27952
     _entry__i64toa = 3696
     _entry__u64toa = 3824
-    _entry__j2t_fsm_exec = 39088
+    _entry__j2t_fsm_exec = 39200
     _entry__advance_ns = 12720
     _entry__fsm_exec = 19536
     _entry__validate_string = 21728
     _entry__utf8_validate = 23152
     _entry__advance_string = 14944
     _entry__skip_number = 18288
-    _entry__j2t_number = 34208
+    _entry__j2t_number = 34320
     _entry__vnumber = 15952
     _entry__atof_eisel_lemire64 = 10496
     _entry__atof_native = 12048
     _entry__decimal_to_f64 = 10864
-    _entry__right_shift = 49296
-    _entry__left_shift = 48800
-    _entry__j2t_string = 34800
+    _entry__right_shift = 49408
+    _entry__left_shift = 48912
+    _entry__j2t_string = 34912
     _entry__unquote = 6880
     _entry__b64decode = 24448
-    _entry__j2t_field_vm = 37456
+    _entry__j2t_field_vm = 37568
     _entry__tb_write_default_or_empty = 31248
     _entry__j2t_write_unset_fields = 33344
-    _entry__j2t_find_field_key = 36432
+    _entry__j2t_find_field_key = 36544
     _entry__quote = 5136
-    _entry__tb_skip = 47296
+    _entry__tb_skip = 47408
     _entry__tb_write_i64 = 29504
     _entry__trie_get = 28768
 )
@@ -101,7 +101,7 @@ const (
     _size__b64decode = 2832
     _size__j2t_field_vm = 1576
     _size__tb_write_default_or_empty = 1024
-    _size__j2t_write_unset_fields = 864
+    _size__j2t_write_unset_fields = 976
     _size__j2t_find_field_key = 752
     _size__quote = 1728
     _size__tb_skip = 968
@@ -485,14 +485,14 @@ var (
         {10, 32},
         {12, 40},
         {13, 48},
-        {835, 120},
-        {839, 48},
-        {840, 40},
-        {842, 32},
-        {844, 24},
-        {846, 16},
-        {848, 8},
-        {850, 0},
+        {953, 120},
+        {957, 48},
+        {958, 40},
+        {960, 32},
+        {962, 24},
+        {964, 16},
+        {966, 8},
+        {968, 0},
     }
     _pcsp__j2t_find_field_key = [][2]uint32{
         {1, 0},
