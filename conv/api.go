@@ -53,7 +53,14 @@ type Options struct {
 	EnableValueMapping bool
 	// EnableHttpMapping indicates if http mapping (api.query|api.header...) should be enabled
 	EnableHttpMapping bool
+
 	// EnableThriftBase indicates if thrift/base should be recognized and mapping to/from context
+	// NOTICE: To enable this option, user must parse IDL with thrift.Options.EnableThriftBase;
+	// after enable:
+	//   -For j2t: user SHOULD pre-set *base.Base with key conv.CtxKeyThriftReqBase in context,
+	//   and SHOULDN'T pass this field in JSON (Undocumented Behavior)
+	//   -For t2j: user SHOULD pre-set *base.BaseResponse with key conv.CtxKeyThriftRespBase in context,
+	//   and this field WON'T appear in JSON
 	EnableThriftBase bool
 
 	// String2Int64 indicates if string value cane be read as **Int8/Int16/Int32/Int64/Float64**,
