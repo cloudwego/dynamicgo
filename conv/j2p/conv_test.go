@@ -43,10 +43,20 @@ func TestMain(m *testing.M) {
 }
 
 const (
-	exampleIDLPath   = "testdata/idl/example2.proto"
-	exampleJSON      = "testdata/data/example2req.json"
-	exampleProtoPath = "testdata/data/example2_pb.bin"
+	exampleIDLPath      = "testdata/idl/example2.proto"
+	exampleJSON         = "testdata/data/example2req.json"
+	exampleProtoPath    = "testdata/data/example2_pb.bin" // not used
+	basicExampleJSON    = "testdata/data/basic_example.json"
+	basicExampleIDLPath = "testdata/idl/basic_example.proto"
 )
+
+func TestBuildExampleJSONData(t *testing.T) {
+	buildExampleJSONData()
+}
+
+func TestBuildBasicExampleJSONData(t *testing.T) {
+	buildBasicExampleJSONData()
+}
 
 func TestConvJSON2Protobf(t *testing.T) {
 	// buildExampleJSONData()
@@ -85,6 +95,71 @@ func TestConvJSON2Protobf(t *testing.T) {
 	require.Equal(t, exp, act)
 }
 
+func TestConvJSON2Protobf_BasicExample(t *testing.T) {
+	// buildExampleJSONData()
+	desc := getBasicExampleDesc()
+	data := getBasicExampleData()
+	// pdata, _ := ioutil.ReadFile(util_test.MustGitPath(exampleProtoPath))
+	// fmt.Println(pdata)
+	cv := NewBinaryConv(conv.Options{})
+	ctx := context.Background()
+	// get protobuf-encode bytes
+	out, err := cv.Do(ctx, desc, data)
+	require.Nil(t, err)
+	exp := &base.BasicExample{}
+	// unmarshal target struct
+	err = json.Unmarshal(data, exp)
+	require.Nil(t, err)
+	act := &base.BasicExample{}
+	l := 0
+	// fmt.Print(out)
+	dataLen := len(out)
+	// fastRead to get target struct
+	for l < dataLen {
+		id, wtyp, tagLen := goprotowire.ConsumeTag(out)
+		fmt.Println("id", id)
+		fmt.Println("w", wtyp)
+		if tagLen < 0 {
+			t.Fatal("test failed")
+		}
+		l += tagLen
+		out = out[tagLen:]
+		offset, err := act.FastRead(out, int8(wtyp), int32(id))
+		require.Nil(t, err)
+		out = out[offset:]
+		l += offset
+	}
+	require.Nil(t, err)
+	// compare exp and act struct
+	fmt.Println(exp)
+	fmt.Println("----------------")
+	fmt.Println(act)
+	require.Equal(t, exp, act)
+}
+
+func getBasicExampleDesc() *proto.TypeDescriptor {
+	opts := proto.Options{}
+	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
+	svc, err := opts.NewDescriptorFromPath(context.Background(), util_test.MustGitPath(basicExampleIDLPath), includeDirs)
+	if err != nil {
+		panic(err)
+	}
+	res := (*svc).LookupMethodByName("ExampleMethod").Input()
+
+	if res == nil {
+		panic("can't find Target MessageDescriptor")
+	}
+	return res
+}
+
+func getBasicExampleData() []byte {
+	out, err := ioutil.ReadFile(util_test.MustGitPath(basicExampleJSON))
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
+
 func getExampleDesc() *proto.TypeDescriptor {
 	opts := proto.Options{}
 	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
@@ -116,11 +191,13 @@ func getExample2Req() *example2.ExampleReq {
 	req.InnerBase2.Bool = true
 	req.InnerBase2.Uint32 = uint32(123)
 	req.InnerBase2.Uint64 = uint64(123)
+	req.InnerBase2.Int32 = int32(123)
+	req.InnerBase2.SInt64 = int64(123)
 	req.InnerBase2.Double = float64(22.3)
 	req.InnerBase2.String_ = "hello_inner"
 	req.InnerBase2.ListInt32 = []int32{12, 13, 14, 15, 16, 17}
 	req.InnerBase2.MapStringString = map[string]string{"m1": "aaa", "m2": "bbb"}
-	req.InnerBase2.SetInt32 = []int32{200, 201, 202, 203, 204, 205}
+	req.InnerBase2.ListSInt64 = []int64{200, 201, 202, 203, 204, 205}
 	req.InnerBase2.Foo = example2.FOO_FOO_A
 	req.InnerBase2.MapInt32String = map[int32]string{1: "aaa", 2: "bbb", 3: "ccc", 4: "ddd"}
 	req.InnerBase2.Binary = []byte{0x1, 0x2, 0x3, 0x4}
@@ -203,6 +280,44 @@ func getExample2Req() *example2.ExampleReq {
 	return req
 }
 
+func getBasicExampleReq() *base.BasicExample {
+	req := new(base.BasicExample)
+	req = &base.BasicExample{
+		Int32:        123,
+		Int64:        123,
+		Uint32:       123,
+		Uint64:       123,
+		Sint32:       123,
+		Sint64:       123,
+		Sfixed32:     123,
+		Sfixed64:     123,
+		Fixed32:      123,
+		Fixed64:      123,
+		Float:        123.123,
+		Double:       123.123,
+		Bool:         true,
+		Str:          "hello world!",
+		Bytes:        []byte{0x1, 0x2, 0x3, 0x4},
+		ListInt32:    []int32{100, 200, 300, 400, 500},
+		ListInt64:    []int64{100, 200, 300, 400, 500},
+		ListUint32:   []uint32{100, 200, 300, 400, 500},
+		ListUint64:   []uint64{100, 200, 300, 400, 500},
+		ListSint32:   []int32{100, 200, 300, 400, 500},
+		ListSint64:   []int64{100, 200, 300, 400, 500},
+		ListSfixed32: []int32{100, 200, 300, 400, 500},
+		ListSfixed64: []int64{100, 200, 300, 400, 500},
+		ListFixed32:  []uint32{100, 200, 300, 400, 500},
+		ListFixed64:  []uint64{100, 200, 300, 400, 500},
+		ListFloat:    []float32{1.1, 2.2, 3.3, 4.4, 5.5},
+		ListDouble:   []float64{1.1, 2.2, 3.3, 4.4, 5.5},
+		ListBool:     []bool{true, false, true, false, true},
+		ListString:   []string{"a1", "b2", "c3", "d4", "e5"},
+		ListBytes:    [][]byte{{0x1, 0x2, 0x3, 0x4}, {0x5, 0x6, 0x7, 0x8}},
+	}
+
+	return req
+}
+
 func buildExampleJSONData() error {
 	req := getExample2Req()
 	data, err := json.Marshal(req)
@@ -221,6 +336,40 @@ func buildExampleJSONData() error {
 	}
 	var file *os.File
 	absoluteExampleJSONPath := util_test.MustGitPath(exampleJSON)
+	if checkExist(absoluteExampleJSONPath) == true {
+		if err = os.Remove(absoluteExampleJSONPath); err != nil {
+			panic("delete protoJSONFile failed")
+		}
+	}
+	file, err = os.Create(absoluteExampleJSONPath)
+	if err != nil {
+		panic("create protoJSONFile failed")
+	}
+	defer file.Close()
+	if _, err := file.WriteString(string(data)); err != nil {
+		panic("write protoJSONData failed")
+	}
+	return nil
+}
+
+func buildBasicExampleJSONData() error {
+	req := getBasicExampleReq()
+	data, err := json.Marshal(req)
+	if err != nil {
+		panic(fmt.Sprintf("buildExampleJSONData failed, err: %v", err.Error()))
+	}
+	checkExist := func(path string) bool {
+		_, err := os.Stat(path)
+		if err != nil {
+			if os.IsExist(err) {
+				return true
+			}
+			return false
+		}
+		return true
+	}
+	var file *os.File
+	absoluteExampleJSONPath := util_test.MustGitPath(basicExampleJSON)
 	if checkExist(absoluteExampleJSONPath) == true {
 		if err = os.Remove(absoluteExampleJSONPath); err != nil {
 			panic("delete protoJSONFile failed")
