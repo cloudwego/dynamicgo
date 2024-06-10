@@ -7,8 +7,8 @@ import (
 )
 
 func TestTreeMarshal(t *testing.T) {
-	desc := getExample2Desc()
-	data := getExample2Data()
+	desc := getExample3Desc()
+	data := getExample3Data()
 	partdesc := getExamplePartialDesc()
 	t.Run("marshalNormal", func(t *testing.T) {
 		v := NewRootValue(desc, data)
@@ -30,6 +30,6 @@ func TestTreeMarshal(t *testing.T) {
 		buf, err := tree.Marshal(opts)
 		require.Nil(t, err)
 		require.Equal(t, len(buf), len(data))
-			
+
 	})
 }
