@@ -9,7 +9,7 @@ package pb3;
 
 import "base.proto";
 
-option go_package = "pb/example2";
+option go_package = "pb/example3";
 
 enum FOO {
     FOO_A = 0;
@@ -20,12 +20,12 @@ message InnerBase2 {
     uint32 Uint32 = 2;
     uint64 Uint64 = 3;
     int32 Int32 = 4;
-    sint64 SInt64 = 5;
+    int64 Int64 = 5;
     double Double = 6;
     string String = 7;
     repeated int32 ListInt32 = 8;
     map<string, string> MapStringString = 9;
-    repeated sint64 ListSInt64 = 10;
+    repeated int32 SetInt32 = 10;
     FOO Foo = 11;
     map<int32, string> MapInt32String = 12;
     bytes Binary = 13;
@@ -38,6 +38,17 @@ message InnerBase2 {
     repeated Base ListBase = 19;
     repeated InnerBase2 ListInnerBase = 18;
     repeated string ListString = 21;
+    sfixed32 Sfixed32 = 22;
+    fixed64  Fixed64 = 23;
+    sint32 Sint32 = 24;
+    sint64 Sint64 = 25;
+    repeated sint64 ListSInt64 = 26;
+    repeated sint32 ListSInt32 = 27;
+    repeated sfixed32 ListSfixed32 = 28;
+    repeated fixed64 ListFixed64 = 29;
+    map<int64, sfixed64> MapInt64Sfixed64 = 30;
+    map<string, fixed32> MapStringFixed32 = 31;
+
     
 
     Base Base = 255;

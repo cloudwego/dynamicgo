@@ -5,7 +5,7 @@ package testservice2
 import (
 	"context"
 	"errors"
-	example2 "github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
+	example3 "github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example3"
 	client "github.com/cloudwego/kitex/client"
 	kitex "github.com/cloudwego/kitex/pkg/serviceinfo"
 	streaming "github.com/cloudwego/kitex/pkg/streaming"
@@ -116,7 +116,7 @@ func NewServiceInfoForStreamClient() *kitex.ServiceInfo {
 
 func newServiceInfo(hasStreaming bool, keepStreamingMethods bool, keepNonStreamingMethods bool) *kitex.ServiceInfo {
 	serviceName := "TestService2"
-	handlerType := (*example2.TestService2)(nil)
+	handlerType := (*example3.TestService2)(nil)
 	methods := map[string]kitex.MethodInfo{}
 	for name, m := range serviceMethods {
 		if m.IsStreaming() && !keepStreamingMethods {
@@ -148,17 +148,17 @@ func exampleMethodHandler(ctx context.Context, handler interface{}, arg, result 
 	switch s := arg.(type) {
 	case *streaming.Args:
 		st := s.Stream
-		req := new(example2.ExampleReq)
+		req := new(example3.ExampleReq)
 		if err := st.RecvMsg(req); err != nil {
 			return err
 		}
-		resp, err := handler.(example2.TestService2).ExampleMethod(ctx, req)
+		resp, err := handler.(example3.TestService2).ExampleMethod(ctx, req)
 		if err != nil {
 			return err
 		}
 		return st.SendMsg(resp)
 	case *ExampleMethodArgs:
-		success, err := handler.(example2.TestService2).ExampleMethod(ctx, s.Req)
+		success, err := handler.(example3.TestService2).ExampleMethod(ctx, s.Req)
 		if err != nil {
 			return err
 		}
@@ -178,12 +178,12 @@ func newExampleMethodResult() interface{} {
 }
 
 type ExampleMethodArgs struct {
-	Req *example2.ExampleReq
+	Req *example3.ExampleReq
 }
 
 func (p *ExampleMethodArgs) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetReq() {
-		p.Req = new(example2.ExampleReq)
+		p.Req = new(example3.ExampleReq)
 	}
 	return p.Req.FastRead(buf, _type, number)
 }
@@ -210,7 +210,7 @@ func (p *ExampleMethodArgs) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *ExampleMethodArgs) Unmarshal(in []byte) error {
-	msg := new(example2.ExampleReq)
+	msg := new(example3.ExampleReq)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -218,9 +218,9 @@ func (p *ExampleMethodArgs) Unmarshal(in []byte) error {
 	return nil
 }
 
-var ExampleMethodArgs_Req_DEFAULT *example2.ExampleReq
+var ExampleMethodArgs_Req_DEFAULT *example3.ExampleReq
 
-func (p *ExampleMethodArgs) GetReq() *example2.ExampleReq {
+func (p *ExampleMethodArgs) GetReq() *example3.ExampleReq {
 	if !p.IsSetReq() {
 		return ExampleMethodArgs_Req_DEFAULT
 	}
@@ -236,14 +236,14 @@ func (p *ExampleMethodArgs) GetFirstArgument() interface{} {
 }
 
 type ExampleMethodResult struct {
-	Success *example2.ExampleResp
+	Success *example3.ExampleResp
 }
 
-var ExampleMethodResult_Success_DEFAULT *example2.ExampleResp
+var ExampleMethodResult_Success_DEFAULT *example3.ExampleResp
 
 func (p *ExampleMethodResult) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetSuccess() {
-		p.Success = new(example2.ExampleResp)
+		p.Success = new(example3.ExampleResp)
 	}
 	return p.Success.FastRead(buf, _type, number)
 }
@@ -270,7 +270,7 @@ func (p *ExampleMethodResult) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *ExampleMethodResult) Unmarshal(in []byte) error {
-	msg := new(example2.ExampleResp)
+	msg := new(example3.ExampleResp)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -278,7 +278,7 @@ func (p *ExampleMethodResult) Unmarshal(in []byte) error {
 	return nil
 }
 
-func (p *ExampleMethodResult) GetSuccess() *example2.ExampleResp {
+func (p *ExampleMethodResult) GetSuccess() *example3.ExampleResp {
 	if !p.IsSetSuccess() {
 		return ExampleMethodResult_Success_DEFAULT
 	}
@@ -286,7 +286,7 @@ func (p *ExampleMethodResult) GetSuccess() *example2.ExampleResp {
 }
 
 func (p *ExampleMethodResult) SetSuccess(x interface{}) {
-	p.Success = x.(*example2.ExampleResp)
+	p.Success = x.(*example3.ExampleResp)
 }
 
 func (p *ExampleMethodResult) IsSetSuccess() bool {
@@ -301,17 +301,17 @@ func examplePartialMethodHandler(ctx context.Context, handler interface{}, arg, 
 	switch s := arg.(type) {
 	case *streaming.Args:
 		st := s.Stream
-		req := new(example2.ExampleReqPartial)
+		req := new(example3.ExampleReqPartial)
 		if err := st.RecvMsg(req); err != nil {
 			return err
 		}
-		resp, err := handler.(example2.TestService2).ExamplePartialMethod(ctx, req)
+		resp, err := handler.(example3.TestService2).ExamplePartialMethod(ctx, req)
 		if err != nil {
 			return err
 		}
 		return st.SendMsg(resp)
 	case *ExamplePartialMethodArgs:
-		success, err := handler.(example2.TestService2).ExamplePartialMethod(ctx, s.Req)
+		success, err := handler.(example3.TestService2).ExamplePartialMethod(ctx, s.Req)
 		if err != nil {
 			return err
 		}
@@ -331,12 +331,12 @@ func newExamplePartialMethodResult() interface{} {
 }
 
 type ExamplePartialMethodArgs struct {
-	Req *example2.ExampleReqPartial
+	Req *example3.ExampleReqPartial
 }
 
 func (p *ExamplePartialMethodArgs) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetReq() {
-		p.Req = new(example2.ExampleReqPartial)
+		p.Req = new(example3.ExampleReqPartial)
 	}
 	return p.Req.FastRead(buf, _type, number)
 }
@@ -363,7 +363,7 @@ func (p *ExamplePartialMethodArgs) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *ExamplePartialMethodArgs) Unmarshal(in []byte) error {
-	msg := new(example2.ExampleReqPartial)
+	msg := new(example3.ExampleReqPartial)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -371,9 +371,9 @@ func (p *ExamplePartialMethodArgs) Unmarshal(in []byte) error {
 	return nil
 }
 
-var ExamplePartialMethodArgs_Req_DEFAULT *example2.ExampleReqPartial
+var ExamplePartialMethodArgs_Req_DEFAULT *example3.ExampleReqPartial
 
-func (p *ExamplePartialMethodArgs) GetReq() *example2.ExampleReqPartial {
+func (p *ExamplePartialMethodArgs) GetReq() *example3.ExampleReqPartial {
 	if !p.IsSetReq() {
 		return ExamplePartialMethodArgs_Req_DEFAULT
 	}
@@ -389,14 +389,14 @@ func (p *ExamplePartialMethodArgs) GetFirstArgument() interface{} {
 }
 
 type ExamplePartialMethodResult struct {
-	Success *example2.A
+	Success *example3.A
 }
 
-var ExamplePartialMethodResult_Success_DEFAULT *example2.A
+var ExamplePartialMethodResult_Success_DEFAULT *example3.A
 
 func (p *ExamplePartialMethodResult) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetSuccess() {
-		p.Success = new(example2.A)
+		p.Success = new(example3.A)
 	}
 	return p.Success.FastRead(buf, _type, number)
 }
@@ -423,7 +423,7 @@ func (p *ExamplePartialMethodResult) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *ExamplePartialMethodResult) Unmarshal(in []byte) error {
-	msg := new(example2.A)
+	msg := new(example3.A)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -431,7 +431,7 @@ func (p *ExamplePartialMethodResult) Unmarshal(in []byte) error {
 	return nil
 }
 
-func (p *ExamplePartialMethodResult) GetSuccess() *example2.A {
+func (p *ExamplePartialMethodResult) GetSuccess() *example3.A {
 	if !p.IsSetSuccess() {
 		return ExamplePartialMethodResult_Success_DEFAULT
 	}
@@ -439,7 +439,7 @@ func (p *ExamplePartialMethodResult) GetSuccess() *example2.A {
 }
 
 func (p *ExamplePartialMethodResult) SetSuccess(x interface{}) {
-	p.Success = x.(*example2.A)
+	p.Success = x.(*example3.A)
 }
 
 func (p *ExamplePartialMethodResult) IsSetSuccess() bool {
@@ -454,17 +454,17 @@ func examplePartialMethod2Handler(ctx context.Context, handler interface{}, arg,
 	switch s := arg.(type) {
 	case *streaming.Args:
 		st := s.Stream
-		req := new(example2.ExampleReqPartial)
+		req := new(example3.ExampleReqPartial)
 		if err := st.RecvMsg(req); err != nil {
 			return err
 		}
-		resp, err := handler.(example2.TestService2).ExamplePartialMethod2(ctx, req)
+		resp, err := handler.(example3.TestService2).ExamplePartialMethod2(ctx, req)
 		if err != nil {
 			return err
 		}
 		return st.SendMsg(resp)
 	case *ExamplePartialMethod2Args:
-		success, err := handler.(example2.TestService2).ExamplePartialMethod2(ctx, s.Req)
+		success, err := handler.(example3.TestService2).ExamplePartialMethod2(ctx, s.Req)
 		if err != nil {
 			return err
 		}
@@ -484,12 +484,12 @@ func newExamplePartialMethod2Result() interface{} {
 }
 
 type ExamplePartialMethod2Args struct {
-	Req *example2.ExampleReqPartial
+	Req *example3.ExampleReqPartial
 }
 
 func (p *ExamplePartialMethod2Args) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetReq() {
-		p.Req = new(example2.ExampleReqPartial)
+		p.Req = new(example3.ExampleReqPartial)
 	}
 	return p.Req.FastRead(buf, _type, number)
 }
@@ -516,7 +516,7 @@ func (p *ExamplePartialMethod2Args) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *ExamplePartialMethod2Args) Unmarshal(in []byte) error {
-	msg := new(example2.ExampleReqPartial)
+	msg := new(example3.ExampleReqPartial)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -524,9 +524,9 @@ func (p *ExamplePartialMethod2Args) Unmarshal(in []byte) error {
 	return nil
 }
 
-var ExamplePartialMethod2Args_Req_DEFAULT *example2.ExampleReqPartial
+var ExamplePartialMethod2Args_Req_DEFAULT *example3.ExampleReqPartial
 
-func (p *ExamplePartialMethod2Args) GetReq() *example2.ExampleReqPartial {
+func (p *ExamplePartialMethod2Args) GetReq() *example3.ExampleReqPartial {
 	if !p.IsSetReq() {
 		return ExamplePartialMethod2Args_Req_DEFAULT
 	}
@@ -542,14 +542,14 @@ func (p *ExamplePartialMethod2Args) GetFirstArgument() interface{} {
 }
 
 type ExamplePartialMethod2Result struct {
-	Success *example2.ExampleRespPartial
+	Success *example3.ExampleRespPartial
 }
 
-var ExamplePartialMethod2Result_Success_DEFAULT *example2.ExampleRespPartial
+var ExamplePartialMethod2Result_Success_DEFAULT *example3.ExampleRespPartial
 
 func (p *ExamplePartialMethod2Result) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetSuccess() {
-		p.Success = new(example2.ExampleRespPartial)
+		p.Success = new(example3.ExampleRespPartial)
 	}
 	return p.Success.FastRead(buf, _type, number)
 }
@@ -576,7 +576,7 @@ func (p *ExamplePartialMethod2Result) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *ExamplePartialMethod2Result) Unmarshal(in []byte) error {
-	msg := new(example2.ExampleRespPartial)
+	msg := new(example3.ExampleRespPartial)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -584,7 +584,7 @@ func (p *ExamplePartialMethod2Result) Unmarshal(in []byte) error {
 	return nil
 }
 
-func (p *ExamplePartialMethod2Result) GetSuccess() *example2.ExampleRespPartial {
+func (p *ExamplePartialMethod2Result) GetSuccess() *example3.ExampleRespPartial {
 	if !p.IsSetSuccess() {
 		return ExamplePartialMethod2Result_Success_DEFAULT
 	}
@@ -592,7 +592,7 @@ func (p *ExamplePartialMethod2Result) GetSuccess() *example2.ExampleRespPartial 
 }
 
 func (p *ExamplePartialMethod2Result) SetSuccess(x interface{}) {
-	p.Success = x.(*example2.ExampleRespPartial)
+	p.Success = x.(*example3.ExampleRespPartial)
 }
 
 func (p *ExamplePartialMethod2Result) IsSetSuccess() bool {
@@ -607,17 +607,17 @@ func exampleSuperMethodHandler(ctx context.Context, handler interface{}, arg, re
 	switch s := arg.(type) {
 	case *streaming.Args:
 		st := s.Stream
-		req := new(example2.ExampleSuper)
+		req := new(example3.ExampleSuper)
 		if err := st.RecvMsg(req); err != nil {
 			return err
 		}
-		resp, err := handler.(example2.TestService2).ExampleSuperMethod(ctx, req)
+		resp, err := handler.(example3.TestService2).ExampleSuperMethod(ctx, req)
 		if err != nil {
 			return err
 		}
 		return st.SendMsg(resp)
 	case *ExampleSuperMethodArgs:
-		success, err := handler.(example2.TestService2).ExampleSuperMethod(ctx, s.Req)
+		success, err := handler.(example3.TestService2).ExampleSuperMethod(ctx, s.Req)
 		if err != nil {
 			return err
 		}
@@ -637,12 +637,12 @@ func newExampleSuperMethodResult() interface{} {
 }
 
 type ExampleSuperMethodArgs struct {
-	Req *example2.ExampleSuper
+	Req *example3.ExampleSuper
 }
 
 func (p *ExampleSuperMethodArgs) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetReq() {
-		p.Req = new(example2.ExampleSuper)
+		p.Req = new(example3.ExampleSuper)
 	}
 	return p.Req.FastRead(buf, _type, number)
 }
@@ -669,7 +669,7 @@ func (p *ExampleSuperMethodArgs) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *ExampleSuperMethodArgs) Unmarshal(in []byte) error {
-	msg := new(example2.ExampleSuper)
+	msg := new(example3.ExampleSuper)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -677,9 +677,9 @@ func (p *ExampleSuperMethodArgs) Unmarshal(in []byte) error {
 	return nil
 }
 
-var ExampleSuperMethodArgs_Req_DEFAULT *example2.ExampleSuper
+var ExampleSuperMethodArgs_Req_DEFAULT *example3.ExampleSuper
 
-func (p *ExampleSuperMethodArgs) GetReq() *example2.ExampleSuper {
+func (p *ExampleSuperMethodArgs) GetReq() *example3.ExampleSuper {
 	if !p.IsSetReq() {
 		return ExampleSuperMethodArgs_Req_DEFAULT
 	}
@@ -695,14 +695,14 @@ func (p *ExampleSuperMethodArgs) GetFirstArgument() interface{} {
 }
 
 type ExampleSuperMethodResult struct {
-	Success *example2.A
+	Success *example3.A
 }
 
-var ExampleSuperMethodResult_Success_DEFAULT *example2.A
+var ExampleSuperMethodResult_Success_DEFAULT *example3.A
 
 func (p *ExampleSuperMethodResult) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetSuccess() {
-		p.Success = new(example2.A)
+		p.Success = new(example3.A)
 	}
 	return p.Success.FastRead(buf, _type, number)
 }
@@ -729,7 +729,7 @@ func (p *ExampleSuperMethodResult) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *ExampleSuperMethodResult) Unmarshal(in []byte) error {
-	msg := new(example2.A)
+	msg := new(example3.A)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -737,7 +737,7 @@ func (p *ExampleSuperMethodResult) Unmarshal(in []byte) error {
 	return nil
 }
 
-func (p *ExampleSuperMethodResult) GetSuccess() *example2.A {
+func (p *ExampleSuperMethodResult) GetSuccess() *example3.A {
 	if !p.IsSetSuccess() {
 		return ExampleSuperMethodResult_Success_DEFAULT
 	}
@@ -745,7 +745,7 @@ func (p *ExampleSuperMethodResult) GetSuccess() *example2.A {
 }
 
 func (p *ExampleSuperMethodResult) SetSuccess(x interface{}) {
-	p.Success = x.(*example2.A)
+	p.Success = x.(*example3.A)
 }
 
 func (p *ExampleSuperMethodResult) IsSetSuccess() bool {
@@ -760,17 +760,17 @@ func int2FloatMethodHandler(ctx context.Context, handler interface{}, arg, resul
 	switch s := arg.(type) {
 	case *streaming.Args:
 		st := s.Stream
-		req := new(example2.ExampleInt2Float)
+		req := new(example3.ExampleInt2Float)
 		if err := st.RecvMsg(req); err != nil {
 			return err
 		}
-		resp, err := handler.(example2.TestService2).Int2FloatMethod(ctx, req)
+		resp, err := handler.(example3.TestService2).Int2FloatMethod(ctx, req)
 		if err != nil {
 			return err
 		}
 		return st.SendMsg(resp)
 	case *Int2FloatMethodArgs:
-		success, err := handler.(example2.TestService2).Int2FloatMethod(ctx, s.Req)
+		success, err := handler.(example3.TestService2).Int2FloatMethod(ctx, s.Req)
 		if err != nil {
 			return err
 		}
@@ -790,12 +790,12 @@ func newInt2FloatMethodResult() interface{} {
 }
 
 type Int2FloatMethodArgs struct {
-	Req *example2.ExampleInt2Float
+	Req *example3.ExampleInt2Float
 }
 
 func (p *Int2FloatMethodArgs) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetReq() {
-		p.Req = new(example2.ExampleInt2Float)
+		p.Req = new(example3.ExampleInt2Float)
 	}
 	return p.Req.FastRead(buf, _type, number)
 }
@@ -822,7 +822,7 @@ func (p *Int2FloatMethodArgs) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *Int2FloatMethodArgs) Unmarshal(in []byte) error {
-	msg := new(example2.ExampleInt2Float)
+	msg := new(example3.ExampleInt2Float)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -830,9 +830,9 @@ func (p *Int2FloatMethodArgs) Unmarshal(in []byte) error {
 	return nil
 }
 
-var Int2FloatMethodArgs_Req_DEFAULT *example2.ExampleInt2Float
+var Int2FloatMethodArgs_Req_DEFAULT *example3.ExampleInt2Float
 
-func (p *Int2FloatMethodArgs) GetReq() *example2.ExampleInt2Float {
+func (p *Int2FloatMethodArgs) GetReq() *example3.ExampleInt2Float {
 	if !p.IsSetReq() {
 		return Int2FloatMethodArgs_Req_DEFAULT
 	}
@@ -848,14 +848,14 @@ func (p *Int2FloatMethodArgs) GetFirstArgument() interface{} {
 }
 
 type Int2FloatMethodResult struct {
-	Success *example2.ExampleInt2Float
+	Success *example3.ExampleInt2Float
 }
 
-var Int2FloatMethodResult_Success_DEFAULT *example2.ExampleInt2Float
+var Int2FloatMethodResult_Success_DEFAULT *example3.ExampleInt2Float
 
 func (p *Int2FloatMethodResult) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetSuccess() {
-		p.Success = new(example2.ExampleInt2Float)
+		p.Success = new(example3.ExampleInt2Float)
 	}
 	return p.Success.FastRead(buf, _type, number)
 }
@@ -882,7 +882,7 @@ func (p *Int2FloatMethodResult) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *Int2FloatMethodResult) Unmarshal(in []byte) error {
-	msg := new(example2.ExampleInt2Float)
+	msg := new(example3.ExampleInt2Float)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -890,7 +890,7 @@ func (p *Int2FloatMethodResult) Unmarshal(in []byte) error {
 	return nil
 }
 
-func (p *Int2FloatMethodResult) GetSuccess() *example2.ExampleInt2Float {
+func (p *Int2FloatMethodResult) GetSuccess() *example3.ExampleInt2Float {
 	if !p.IsSetSuccess() {
 		return Int2FloatMethodResult_Success_DEFAULT
 	}
@@ -898,7 +898,7 @@ func (p *Int2FloatMethodResult) GetSuccess() *example2.ExampleInt2Float {
 }
 
 func (p *Int2FloatMethodResult) SetSuccess(x interface{}) {
-	p.Success = x.(*example2.ExampleInt2Float)
+	p.Success = x.(*example3.ExampleInt2Float)
 }
 
 func (p *Int2FloatMethodResult) IsSetSuccess() bool {
@@ -913,17 +913,17 @@ func fooHandler(ctx context.Context, handler interface{}, arg, result interface{
 	switch s := arg.(type) {
 	case *streaming.Args:
 		st := s.Stream
-		req := new(example2.A)
+		req := new(example3.A)
 		if err := st.RecvMsg(req); err != nil {
 			return err
 		}
-		resp, err := handler.(example2.TestService2).Foo(ctx, req)
+		resp, err := handler.(example3.TestService2).Foo(ctx, req)
 		if err != nil {
 			return err
 		}
 		return st.SendMsg(resp)
 	case *FooArgs:
-		success, err := handler.(example2.TestService2).Foo(ctx, s.Req)
+		success, err := handler.(example3.TestService2).Foo(ctx, s.Req)
 		if err != nil {
 			return err
 		}
@@ -943,12 +943,12 @@ func newFooResult() interface{} {
 }
 
 type FooArgs struct {
-	Req *example2.A
+	Req *example3.A
 }
 
 func (p *FooArgs) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetReq() {
-		p.Req = new(example2.A)
+		p.Req = new(example3.A)
 	}
 	return p.Req.FastRead(buf, _type, number)
 }
@@ -975,7 +975,7 @@ func (p *FooArgs) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *FooArgs) Unmarshal(in []byte) error {
-	msg := new(example2.A)
+	msg := new(example3.A)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -983,9 +983,9 @@ func (p *FooArgs) Unmarshal(in []byte) error {
 	return nil
 }
 
-var FooArgs_Req_DEFAULT *example2.A
+var FooArgs_Req_DEFAULT *example3.A
 
-func (p *FooArgs) GetReq() *example2.A {
+func (p *FooArgs) GetReq() *example3.A {
 	if !p.IsSetReq() {
 		return FooArgs_Req_DEFAULT
 	}
@@ -1001,14 +1001,14 @@ func (p *FooArgs) GetFirstArgument() interface{} {
 }
 
 type FooResult struct {
-	Success *example2.A
+	Success *example3.A
 }
 
-var FooResult_Success_DEFAULT *example2.A
+var FooResult_Success_DEFAULT *example3.A
 
 func (p *FooResult) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetSuccess() {
-		p.Success = new(example2.A)
+		p.Success = new(example3.A)
 	}
 	return p.Success.FastRead(buf, _type, number)
 }
@@ -1035,7 +1035,7 @@ func (p *FooResult) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *FooResult) Unmarshal(in []byte) error {
-	msg := new(example2.A)
+	msg := new(example3.A)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -1043,7 +1043,7 @@ func (p *FooResult) Unmarshal(in []byte) error {
 	return nil
 }
 
-func (p *FooResult) GetSuccess() *example2.A {
+func (p *FooResult) GetSuccess() *example3.A {
 	if !p.IsSetSuccess() {
 		return FooResult_Success_DEFAULT
 	}
@@ -1051,7 +1051,7 @@ func (p *FooResult) GetSuccess() *example2.A {
 }
 
 func (p *FooResult) SetSuccess(x interface{}) {
-	p.Success = x.(*example2.A)
+	p.Success = x.(*example3.A)
 }
 
 func (p *FooResult) IsSetSuccess() bool {
@@ -1066,17 +1066,17 @@ func pingHandler(ctx context.Context, handler interface{}, arg, result interface
 	switch s := arg.(type) {
 	case *streaming.Args:
 		st := s.Stream
-		req := new(example2.A)
+		req := new(example3.A)
 		if err := st.RecvMsg(req); err != nil {
 			return err
 		}
-		resp, err := handler.(example2.TestService2).Ping(ctx, req)
+		resp, err := handler.(example3.TestService2).Ping(ctx, req)
 		if err != nil {
 			return err
 		}
 		return st.SendMsg(resp)
 	case *PingArgs:
-		success, err := handler.(example2.TestService2).Ping(ctx, s.Req)
+		success, err := handler.(example3.TestService2).Ping(ctx, s.Req)
 		if err != nil {
 			return err
 		}
@@ -1096,12 +1096,12 @@ func newPingResult() interface{} {
 }
 
 type PingArgs struct {
-	Req *example2.A
+	Req *example3.A
 }
 
 func (p *PingArgs) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetReq() {
-		p.Req = new(example2.A)
+		p.Req = new(example3.A)
 	}
 	return p.Req.FastRead(buf, _type, number)
 }
@@ -1128,7 +1128,7 @@ func (p *PingArgs) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *PingArgs) Unmarshal(in []byte) error {
-	msg := new(example2.A)
+	msg := new(example3.A)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -1136,9 +1136,9 @@ func (p *PingArgs) Unmarshal(in []byte) error {
 	return nil
 }
 
-var PingArgs_Req_DEFAULT *example2.A
+var PingArgs_Req_DEFAULT *example3.A
 
-func (p *PingArgs) GetReq() *example2.A {
+func (p *PingArgs) GetReq() *example3.A {
 	if !p.IsSetReq() {
 		return PingArgs_Req_DEFAULT
 	}
@@ -1154,14 +1154,14 @@ func (p *PingArgs) GetFirstArgument() interface{} {
 }
 
 type PingResult struct {
-	Success *example2.PingResponse
+	Success *example3.PingResponse
 }
 
-var PingResult_Success_DEFAULT *example2.PingResponse
+var PingResult_Success_DEFAULT *example3.PingResponse
 
 func (p *PingResult) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetSuccess() {
-		p.Success = new(example2.PingResponse)
+		p.Success = new(example3.PingResponse)
 	}
 	return p.Success.FastRead(buf, _type, number)
 }
@@ -1188,7 +1188,7 @@ func (p *PingResult) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *PingResult) Unmarshal(in []byte) error {
-	msg := new(example2.PingResponse)
+	msg := new(example3.PingResponse)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -1196,7 +1196,7 @@ func (p *PingResult) Unmarshal(in []byte) error {
 	return nil
 }
 
-func (p *PingResult) GetSuccess() *example2.PingResponse {
+func (p *PingResult) GetSuccess() *example3.PingResponse {
 	if !p.IsSetSuccess() {
 		return PingResult_Success_DEFAULT
 	}
@@ -1204,7 +1204,7 @@ func (p *PingResult) GetSuccess() *example2.PingResponse {
 }
 
 func (p *PingResult) SetSuccess(x interface{}) {
-	p.Success = x.(*example2.PingResponse)
+	p.Success = x.(*example3.PingResponse)
 }
 
 func (p *PingResult) IsSetSuccess() bool {
@@ -1219,17 +1219,17 @@ func onewayHandler(ctx context.Context, handler interface{}, arg, result interfa
 	switch s := arg.(type) {
 	case *streaming.Args:
 		st := s.Stream
-		req := new(example2.OnewayRequest)
+		req := new(example3.OnewayRequest)
 		if err := st.RecvMsg(req); err != nil {
 			return err
 		}
-		resp, err := handler.(example2.TestService2).Oneway(ctx, req)
+		resp, err := handler.(example3.TestService2).Oneway(ctx, req)
 		if err != nil {
 			return err
 		}
 		return st.SendMsg(resp)
 	case *OnewayArgs:
-		success, err := handler.(example2.TestService2).Oneway(ctx, s.Req)
+		success, err := handler.(example3.TestService2).Oneway(ctx, s.Req)
 		if err != nil {
 			return err
 		}
@@ -1249,12 +1249,12 @@ func newOnewayResult() interface{} {
 }
 
 type OnewayArgs struct {
-	Req *example2.OnewayRequest
+	Req *example3.OnewayRequest
 }
 
 func (p *OnewayArgs) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetReq() {
-		p.Req = new(example2.OnewayRequest)
+		p.Req = new(example3.OnewayRequest)
 	}
 	return p.Req.FastRead(buf, _type, number)
 }
@@ -1281,7 +1281,7 @@ func (p *OnewayArgs) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *OnewayArgs) Unmarshal(in []byte) error {
-	msg := new(example2.OnewayRequest)
+	msg := new(example3.OnewayRequest)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -1289,9 +1289,9 @@ func (p *OnewayArgs) Unmarshal(in []byte) error {
 	return nil
 }
 
-var OnewayArgs_Req_DEFAULT *example2.OnewayRequest
+var OnewayArgs_Req_DEFAULT *example3.OnewayRequest
 
-func (p *OnewayArgs) GetReq() *example2.OnewayRequest {
+func (p *OnewayArgs) GetReq() *example3.OnewayRequest {
 	if !p.IsSetReq() {
 		return OnewayArgs_Req_DEFAULT
 	}
@@ -1307,14 +1307,14 @@ func (p *OnewayArgs) GetFirstArgument() interface{} {
 }
 
 type OnewayResult struct {
-	Success *example2.VoidResponse
+	Success *example3.VoidResponse
 }
 
-var OnewayResult_Success_DEFAULT *example2.VoidResponse
+var OnewayResult_Success_DEFAULT *example3.VoidResponse
 
 func (p *OnewayResult) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetSuccess() {
-		p.Success = new(example2.VoidResponse)
+		p.Success = new(example3.VoidResponse)
 	}
 	return p.Success.FastRead(buf, _type, number)
 }
@@ -1341,7 +1341,7 @@ func (p *OnewayResult) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *OnewayResult) Unmarshal(in []byte) error {
-	msg := new(example2.VoidResponse)
+	msg := new(example3.VoidResponse)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -1349,7 +1349,7 @@ func (p *OnewayResult) Unmarshal(in []byte) error {
 	return nil
 }
 
-func (p *OnewayResult) GetSuccess() *example2.VoidResponse {
+func (p *OnewayResult) GetSuccess() *example3.VoidResponse {
 	if !p.IsSetSuccess() {
 		return OnewayResult_Success_DEFAULT
 	}
@@ -1357,7 +1357,7 @@ func (p *OnewayResult) GetSuccess() *example2.VoidResponse {
 }
 
 func (p *OnewayResult) SetSuccess(x interface{}) {
-	p.Success = x.(*example2.VoidResponse)
+	p.Success = x.(*example3.VoidResponse)
 }
 
 func (p *OnewayResult) IsSetSuccess() bool {
@@ -1372,17 +1372,17 @@ func voidHandler(ctx context.Context, handler interface{}, arg, result interface
 	switch s := arg.(type) {
 	case *streaming.Args:
 		st := s.Stream
-		req := new(example2.VoidRequest)
+		req := new(example3.VoidRequest)
 		if err := st.RecvMsg(req); err != nil {
 			return err
 		}
-		resp, err := handler.(example2.TestService2).Void(ctx, req)
+		resp, err := handler.(example3.TestService2).Void(ctx, req)
 		if err != nil {
 			return err
 		}
 		return st.SendMsg(resp)
 	case *VoidArgs:
-		success, err := handler.(example2.TestService2).Void(ctx, s.Req)
+		success, err := handler.(example3.TestService2).Void(ctx, s.Req)
 		if err != nil {
 			return err
 		}
@@ -1402,12 +1402,12 @@ func newVoidResult() interface{} {
 }
 
 type VoidArgs struct {
-	Req *example2.VoidRequest
+	Req *example3.VoidRequest
 }
 
 func (p *VoidArgs) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetReq() {
-		p.Req = new(example2.VoidRequest)
+		p.Req = new(example3.VoidRequest)
 	}
 	return p.Req.FastRead(buf, _type, number)
 }
@@ -1434,7 +1434,7 @@ func (p *VoidArgs) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *VoidArgs) Unmarshal(in []byte) error {
-	msg := new(example2.VoidRequest)
+	msg := new(example3.VoidRequest)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -1442,9 +1442,9 @@ func (p *VoidArgs) Unmarshal(in []byte) error {
 	return nil
 }
 
-var VoidArgs_Req_DEFAULT *example2.VoidRequest
+var VoidArgs_Req_DEFAULT *example3.VoidRequest
 
-func (p *VoidArgs) GetReq() *example2.VoidRequest {
+func (p *VoidArgs) GetReq() *example3.VoidRequest {
 	if !p.IsSetReq() {
 		return VoidArgs_Req_DEFAULT
 	}
@@ -1460,14 +1460,14 @@ func (p *VoidArgs) GetFirstArgument() interface{} {
 }
 
 type VoidResult struct {
-	Success *example2.VoidResponse
+	Success *example3.VoidResponse
 }
 
-var VoidResult_Success_DEFAULT *example2.VoidResponse
+var VoidResult_Success_DEFAULT *example3.VoidResponse
 
 func (p *VoidResult) FastRead(buf []byte, _type int8, number int32) (n int, err error) {
 	if !p.IsSetSuccess() {
-		p.Success = new(example2.VoidResponse)
+		p.Success = new(example3.VoidResponse)
 	}
 	return p.Success.FastRead(buf, _type, number)
 }
@@ -1494,7 +1494,7 @@ func (p *VoidResult) Marshal(out []byte) ([]byte, error) {
 }
 
 func (p *VoidResult) Unmarshal(in []byte) error {
-	msg := new(example2.VoidResponse)
+	msg := new(example3.VoidResponse)
 	if err := proto.Unmarshal(in, msg); err != nil {
 		return err
 	}
@@ -1502,7 +1502,7 @@ func (p *VoidResult) Unmarshal(in []byte) error {
 	return nil
 }
 
-func (p *VoidResult) GetSuccess() *example2.VoidResponse {
+func (p *VoidResult) GetSuccess() *example3.VoidResponse {
 	if !p.IsSetSuccess() {
 		return VoidResult_Success_DEFAULT
 	}
@@ -1510,7 +1510,7 @@ func (p *VoidResult) GetSuccess() *example2.VoidResponse {
 }
 
 func (p *VoidResult) SetSuccess(x interface{}) {
-	p.Success = x.(*example2.VoidResponse)
+	p.Success = x.(*example3.VoidResponse)
 }
 
 func (p *VoidResult) IsSetSuccess() bool {
@@ -1531,7 +1531,7 @@ func newServiceClient(c client.Client) *kClient {
 	}
 }
 
-func (p *kClient) ExampleMethod(ctx context.Context, Req *example2.ExampleReq) (r *example2.ExampleResp, err error) {
+func (p *kClient) ExampleMethod(ctx context.Context, Req *example3.ExampleReq) (r *example3.ExampleResp, err error) {
 	var _args ExampleMethodArgs
 	_args.Req = Req
 	var _result ExampleMethodResult
@@ -1541,7 +1541,7 @@ func (p *kClient) ExampleMethod(ctx context.Context, Req *example2.ExampleReq) (
 	return _result.GetSuccess(), nil
 }
 
-func (p *kClient) ExamplePartialMethod(ctx context.Context, Req *example2.ExampleReqPartial) (r *example2.A, err error) {
+func (p *kClient) ExamplePartialMethod(ctx context.Context, Req *example3.ExampleReqPartial) (r *example3.A, err error) {
 	var _args ExamplePartialMethodArgs
 	_args.Req = Req
 	var _result ExamplePartialMethodResult
@@ -1551,7 +1551,7 @@ func (p *kClient) ExamplePartialMethod(ctx context.Context, Req *example2.Exampl
 	return _result.GetSuccess(), nil
 }
 
-func (p *kClient) ExamplePartialMethod2(ctx context.Context, Req *example2.ExampleReqPartial) (r *example2.ExampleRespPartial, err error) {
+func (p *kClient) ExamplePartialMethod2(ctx context.Context, Req *example3.ExampleReqPartial) (r *example3.ExampleRespPartial, err error) {
 	var _args ExamplePartialMethod2Args
 	_args.Req = Req
 	var _result ExamplePartialMethod2Result
@@ -1561,7 +1561,7 @@ func (p *kClient) ExamplePartialMethod2(ctx context.Context, Req *example2.Examp
 	return _result.GetSuccess(), nil
 }
 
-func (p *kClient) ExampleSuperMethod(ctx context.Context, Req *example2.ExampleSuper) (r *example2.A, err error) {
+func (p *kClient) ExampleSuperMethod(ctx context.Context, Req *example3.ExampleSuper) (r *example3.A, err error) {
 	var _args ExampleSuperMethodArgs
 	_args.Req = Req
 	var _result ExampleSuperMethodResult
@@ -1571,7 +1571,7 @@ func (p *kClient) ExampleSuperMethod(ctx context.Context, Req *example2.ExampleS
 	return _result.GetSuccess(), nil
 }
 
-func (p *kClient) Int2FloatMethod(ctx context.Context, Req *example2.ExampleInt2Float) (r *example2.ExampleInt2Float, err error) {
+func (p *kClient) Int2FloatMethod(ctx context.Context, Req *example3.ExampleInt2Float) (r *example3.ExampleInt2Float, err error) {
 	var _args Int2FloatMethodArgs
 	_args.Req = Req
 	var _result Int2FloatMethodResult
@@ -1581,7 +1581,7 @@ func (p *kClient) Int2FloatMethod(ctx context.Context, Req *example2.ExampleInt2
 	return _result.GetSuccess(), nil
 }
 
-func (p *kClient) Foo(ctx context.Context, Req *example2.A) (r *example2.A, err error) {
+func (p *kClient) Foo(ctx context.Context, Req *example3.A) (r *example3.A, err error) {
 	var _args FooArgs
 	_args.Req = Req
 	var _result FooResult
@@ -1591,7 +1591,7 @@ func (p *kClient) Foo(ctx context.Context, Req *example2.A) (r *example2.A, err 
 	return _result.GetSuccess(), nil
 }
 
-func (p *kClient) Ping(ctx context.Context, Req *example2.A) (r *example2.PingResponse, err error) {
+func (p *kClient) Ping(ctx context.Context, Req *example3.A) (r *example3.PingResponse, err error) {
 	var _args PingArgs
 	_args.Req = Req
 	var _result PingResult
@@ -1601,7 +1601,7 @@ func (p *kClient) Ping(ctx context.Context, Req *example2.A) (r *example2.PingRe
 	return _result.GetSuccess(), nil
 }
 
-func (p *kClient) Oneway(ctx context.Context, Req *example2.OnewayRequest) (r *example2.VoidResponse, err error) {
+func (p *kClient) Oneway(ctx context.Context, Req *example3.OnewayRequest) (r *example3.VoidResponse, err error) {
 	var _args OnewayArgs
 	_args.Req = Req
 	var _result OnewayResult
@@ -1611,7 +1611,7 @@ func (p *kClient) Oneway(ctx context.Context, Req *example2.OnewayRequest) (r *e
 	return _result.GetSuccess(), nil
 }
 
-func (p *kClient) Void(ctx context.Context, Req *example2.VoidRequest) (r *example2.VoidResponse, err error) {
+func (p *kClient) Void(ctx context.Context, Req *example3.VoidRequest) (r *example3.VoidResponse, err error) {
 	var _args VoidArgs
 	_args.Req = Req
 	var _result VoidResult

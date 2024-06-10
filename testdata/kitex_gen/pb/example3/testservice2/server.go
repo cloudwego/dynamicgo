@@ -2,12 +2,12 @@
 package testservice2
 
 import (
-	example2 "github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
+	example3 "github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example3"
 	server "github.com/cloudwego/kitex/server"
 )
 
 // NewServer creates a server.Server with the given handler and options.
-func NewServer(handler example2.TestService2, opts ...server.Option) server.Server {
+func NewServer(handler example3.TestService2, opts ...server.Option) server.Server {
 	var options []server.Option
 
 	options = append(options, opts...)
@@ -19,6 +19,6 @@ func NewServer(handler example2.TestService2, opts ...server.Option) server.Serv
 	return svr
 }
 
-func RegisterService(svr server.Server, handler example2.TestService2, opts ...server.RegisterOption) error {
+func RegisterService(svr server.Server, handler example3.TestService2, opts ...server.RegisterOption) error {
 	return svr.RegisterService(serviceInfo(), handler, opts...)
 }
