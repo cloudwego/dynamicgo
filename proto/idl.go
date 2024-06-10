@@ -149,9 +149,11 @@ func parse(ctx context.Context, fileDesc *desc.FileDescriptor, mode meta.ParseSe
 			}
 
 			sDsc.methods[mtd.GetName()] = &MethodDescriptor{
-				name:   mtd.GetName(),
-				input:  req,
-				output: resp,
+				name:              mtd.GetName(),
+				input:             req,
+				output:            resp,
+				isClientStreaming: mtd.IsClientStreaming(),
+				isServerStreaming: mtd.IsServerStreaming(),
 			}
 
 		}
@@ -168,9 +170,9 @@ func parseMessage(ctx context.Context, msgDesc *desc.MessageDescriptor, cache co
 	var err error
 	fields := msgDesc.GetFields()
 	md := &MessageDescriptor{
-		baseId:    FieldNumber(math.MaxInt32),
-		ids:       FieldNumberMap{},
-		names:     FieldNameMap{},
+		baseId: FieldNumber(math.MaxInt32),
+		ids:    FieldNumberMap{},
+		names:  FieldNameMap{},
 	}
 
 	ty = &TypeDescriptor{

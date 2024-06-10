@@ -24,6 +24,9 @@ func TestProtoFromContent(t *testing.T) {
 
 	service TestService2 {
 		rpc ExampleMethod(A) returns (B);
+		rpc ExampleClientStreamingMethod(stream A) returns (B);
+		rpc ExampleServerStreamingMethod(A) returns (stream B);
+		rpc ExampleBidirectionalStreamingMethod(stream A) returns (stream B);
 	}
 	`
 
@@ -54,6 +57,22 @@ func TestProtoFromContent(t *testing.T) {
 	}
 	fmt.Printf("%#v\n", svc)
 
+	mtdDsc := svc.LookupMethodByName("ExampleMethod")
+	if mtdDsc.isClientStreaming || mtdDsc.isServerStreaming {
+		t.Fatal("must be unary streaming")
+	}
+	mtdDsc = svc.LookupMethodByName("ExampleClientStreamingMethod")
+	if !mtdDsc.IsClientStreaming() || mtdDsc.IsServerStreaming() {
+		t.Fatal("must be client streaming")
+	}
+	mtdDsc = svc.LookupMethodByName("ExampleServerStreamingMethod")
+	if mtdDsc.IsClientStreaming() || !mtdDsc.IsServerStreaming() {
+		t.Fatal("must be server streaming")
+	}
+	mtdDsc = svc.LookupMethodByName("ExampleBidirectionalStreamingMethod")
+	if !mtdDsc.IsClientStreaming() || !mtdDsc.isServerStreaming {
+		t.Fatal("must be bidirectional streaming")
+	}
 }
 
 func TestProtoFromPath(t *testing.T) {
