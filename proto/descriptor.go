@@ -138,9 +138,11 @@ func (m *MessageDescriptor) FieldsCount() int {
 }
 
 type MethodDescriptor struct {
-	name   string
-	input  *TypeDescriptor
-	output *TypeDescriptor
+	name              string
+	input             *TypeDescriptor
+	output            *TypeDescriptor
+	isClientStreaming bool
+	isServerStreaming bool
 }
 
 func (m *MethodDescriptor) Name() string {
@@ -153,6 +155,14 @@ func (m *MethodDescriptor) Input() *TypeDescriptor {
 
 func (m *MethodDescriptor) Output() *TypeDescriptor {
 	return m.output
+}
+
+func (m *MethodDescriptor) IsClientStreaming() bool {
+	return m.isClientStreaming
+}
+
+func (m *MethodDescriptor) IsServerStreaming() bool {
+	return m.isServerStreaming
 }
 
 type ServiceDescriptor struct {
