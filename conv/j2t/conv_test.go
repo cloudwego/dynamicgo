@@ -79,7 +79,6 @@ const (
 	nullerrJSON    = "../../testdata/data/null_err.json"
 )
 
-
 func TestCases(t *testing.T) {
 	var tests = []struct{
 		name string

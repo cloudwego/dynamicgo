@@ -43,7 +43,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 
 	if self.opts.EnableThriftBase {
 		if f := desc.Struct().GetRequestBase(); f != nil {
-			if err := writeRequestBaseToThrift(ctx, buf, f); err != nil {
+			if err := self.writeRequestBaseToThrift(ctx, buf, f); err != nil {
 				return err
 			}
 		}
@@ -172,19 +172,25 @@ BACK:
 	return nil
 }
 
-func writeRequestBaseToThrift(ctx context.Context, buf *[]byte, field *thrift.FieldDescriptor) error {
-	bobj := ctx.Value(conv.CtxKeyThriftReqBase)
-	if bobj != nil {
-		if b, ok := bobj.(*base.Base); ok && b != nil {
-			l := len(*buf)
-			n := b.BLength()
-			rt.GuardSlice(buf, 3+n)
-			*buf = (*buf)[:l+3]
-			thrift.BinaryEncoding{}.EncodeFieldBegin((*buf)[l:l+3], field.Type().Type(), field.ID())
-			l = len(*buf)
-			*buf = (*buf)[:l+n]
-			b.FastWrite((*buf)[l : l+n])
+func (self *BinaryConv)writeRequestBaseToThrift(ctx context.Context, buf *[]byte, field *thrift.FieldDescriptor) error {
+	var b *base.Base
+	if bobj := ctx.Value(conv.CtxKeyThriftReqBase); bobj != nil {
+		if v, ok := bobj.(*base.Base); ok && v != nil {
+			b = v
 		}
+	}
+	if b == nil && self.opts.WriteRequireField && field.Required() == thrift.RequiredRequireness {
+		b = &base.Base{}
+	}
+	if b != nil {
+		l := len(*buf)
+		n := b.BLength()
+		rt.GuardSlice(buf, 3+n)
+		*buf = (*buf)[:l+3]
+		thrift.BinaryEncoding{}.EncodeFieldBegin((*buf)[l:l+3], field.Type().Type(), field.ID())
+		l = len(*buf)
+		*buf = (*buf)[:l+n]
+		b.FastWrite((*buf)[l : l+n])
 	}
 	return nil
 }
@@ -252,6 +258,10 @@ func (self *BinaryConv) handleUnmatchedFields(ctx context.Context, fsm *types.J2
 			if self.opts.DisallowUnknownField {
 				return false, newError(meta.ErrConvert, fmt.Sprintf("unknown field id %d", id), nil)
 			}
+			continue
+		}
+		// NOTICE: base should be handle by writeThriftBase()
+		if f.IsRequestBase() {
 			continue
 		}
 		var val string
