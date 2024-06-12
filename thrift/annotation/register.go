@@ -42,7 +42,8 @@ func init() {
 	thrift.RegisterAnnotation(newValueMappingAnnotation(thrift.MakeAnnoID(thrift.AnnoKindValueMapping, thrift.AnnoScopeField, JSConv)), "api.js_conv")
 
 	// KeyMapping
-	
+	thrift.RegisterAnnotation(newKeyMappingAnnotation(thrift.MakeAnnoID(thrift.AnnoKindKeyMapping, thrift.AnnoScopeField, APIKey)), APIKeyName)
+
 	// AnnotationMapper
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, goTagMapper{}, "go.tag")
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, apiBodyMapper{}, "api.body")
@@ -59,7 +60,7 @@ func init() {
 func InitAGWAnnos() {
 	thrift.RegisterAnnotation(newValueMappingAnnotation(thrift.MakeAnnoID(thrift.AnnoKindValueMapping, thrift.AnnoScopeField, JSConv)), "agw.js_conv")
 	thrift.RegisterAnnotation(newValueMappingAnnotation(thrift.MakeAnnoID(thrift.AnnoKindValueMapping, thrift.AnnoScopeField, BodyDynamic)), "agw.body_dynamic")
-    thrift.RegisterAnnotation(newKeyMappingAnnotation(thrift.MakeAnnoID(thrift.AnnoKindKeyMapping, thrift.AnnoScopeField, APIKey)), "agw.key", APIKeyName)
+	thrift.RegisterAnnotation(newKeyMappingAnnotation(thrift.MakeAnnoID(thrift.AnnoKindKeyMapping, thrift.AnnoScopeField, APIKey)), "agw.key")
 	// thrift.RegisterAnnotation(newKeyMappingAnnotation(thrift.MakeAnnoID(thrift.AnnoKindKeyMapping, thrift.AnnoScopeField, NameCase)), "agw.to_snake", "janus.to_snake", "agw.to_lower_camel_case", "janus.to_lower_camel_case")
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, sourceMapper{}, "janus.source", "agw.source")
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, targetMapper{}, "agw.target", "janus.target")
@@ -74,5 +75,3 @@ func errNotFound(key string, scope string) error {
 func errNotImplemented(msg string) error {
 	return meta.NewError(meta.ErrUnsupportedType, msg, nil)
 }
-
-
