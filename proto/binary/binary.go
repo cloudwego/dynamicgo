@@ -240,22 +240,12 @@ func (p *BinaryProtocol) WriteUint32(value uint32) error {
 
 // Writefixed32
 func (p *BinaryProtocol) WriteFixed32(value uint32) error {
-	// v, err := p.malloc(4)
-	// if err != nil {
-	// 	return err
-	// }
-	// binary.LittleEndian.PutUint32(v, uint32(value))
 	p.Buf = protowire.BinaryEncoder{}.EncodeFixed32(p.Buf, value)
 	return nil
 }
 
 // WriteSfixed32
 func (p *BinaryProtocol) WriteSfixed32(value int32) error {
-	// v, err := p.malloc(4)
-	// if err != nil {
-	// 	return err
-	// }
-	// binary.LittleEndian.PutUint32(v, uint32(value))
 	p.Buf = protowire.BinaryEncoder{}.EncodeSfixed32(p.Buf, value)
 	return nil
 }
@@ -280,44 +270,24 @@ func (p *BinaryProtocol) WriteUint64(value uint64) error {
 
 // Writefixed64
 func (p *BinaryProtocol) WriteFixed64(value uint64) error {
-	// v, err := p.malloc(8)
-	// if err != nil {
-	// 	return err
-	// }
-	// binary.LittleEndian.PutUint64(v, value)
 	p.Buf = protowire.BinaryEncoder{}.EncodeFixed64(p.Buf, value)
 	return nil
 }
 
 // WriteSfixed64
 func (p *BinaryProtocol) WriteSfixed64(value int64) error {
-	// v, err := p.malloc(8)
-	// if err != nil {
-	// 	return err
-	// }
-	// binary.LittleEndian.PutUint64(v, uint64(value))
 	p.Buf = protowire.BinaryEncoder{}.EncodeSfixed64(p.Buf, value)
 	return nil
 }
 
 // WriteFloat
 func (p *BinaryProtocol) WriteFloat(value float32) error {
-	// v, err := p.malloc(4)
-	// if err != nil {
-	// 	return err
-	// }
-	// binary.LittleEndian.PutUint32(v, math.Float32bits(float32(value)))
 	p.Buf = protowire.BinaryEncoder{}.EncodeFloat32(p.Buf, value)
 	return nil
 }
 
 // WriteDouble
 func (p *BinaryProtocol) WriteDouble(value float64) error {
-	// v, err := p.malloc(8)
-	// if err != nil {
-	// 	return err
-	// }
-	// binary.LittleEndian.PutUint64(v, math.Float64bits(value))
 	p.Buf = protowire.BinaryEncoder{}.EncodeDouble(p.Buf, value)
 	return nil
 }
