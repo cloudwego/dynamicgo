@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-	"unsafe"
 
 	"github.com/bytedance/sonic/ast"
 	"github.com/cloudwego/dynamicgo/conv"
@@ -273,32 +272,32 @@ func (self *visitorUserNode) OnInt64(v int64, n json.Number) error {
 
 	switch fieldDesc.Kind() {
 	case proto.Int32Kind:
-		convertData := *(*int32)(unsafe.Pointer(&v))
+		convertData := int32(v)
 		if err = self.p.WriteInt32(convertData); err != nil {
 			return err
 		}
 	case proto.Sint32Kind:
-		convertData := *(*int32)(unsafe.Pointer(&v))
+		convertData := int32(v)
 		if err = self.p.WriteSint32(convertData); err != nil {
 			return err
 		}
 	case proto.Sfixed32Kind:
-		convertData := *(*int32)(unsafe.Pointer(&v))
+		convertData := int32(v)
 		if err = self.p.WriteSfixed32(convertData); err != nil {
 			return err
 		}
 	case proto.Fixed32Kind:
-		convertData := *(*uint32)(unsafe.Pointer(&v))
+		convertData := uint32(v)
 		if err = self.p.WriteFixed32(convertData); err != nil {
 			return err
 		}
 	case proto.Uint32Kind:
-		convertData := *(*uint32)(unsafe.Pointer(&v))
+		convertData := uint32(v)
 		if err = self.p.WriteUint32(convertData); err != nil {
 			return err
 		}
 	case proto.Uint64Kind:
-		convertData := *(*uint64)(unsafe.Pointer(&v))
+		convertData := uint64(v)
 		if err = self.p.WriteUint64(convertData); err != nil {
 			return err
 		}
@@ -315,16 +314,19 @@ func (self *visitorUserNode) OnInt64(v int64, n json.Number) error {
 			return err
 		}
 	case proto.Fixed64Kind:
-		if err = self.p.WriteFixed64(uint64(v)); err != nil {
+		convertData := uint64(v)
+		if err = self.p.WriteFixed64(convertData); err != nil {
 			return err
 		}
 	// cast int2float, int2double
 	case proto.FloatKind:
-		if err = self.p.WriteFloat(float32(v)); err != nil {
+		convertData := float32(v)
+		if err = self.p.WriteFloat(convertData); err != nil {
 			return err
 		}
 	case proto.DoubleKind:
-		if err = self.p.WriteDouble(float64(v)); err != nil {
+		convertData := float64(v)
+		if err = self.p.WriteDouble(convertData); err != nil {
 			return err
 		}
 
@@ -360,7 +362,6 @@ func (self *visitorUserNode) OnFloat64(v float64, n json.Number) error {
 
 	switch fieldDesc.Kind() {
 	case proto.FloatKind:
-		// convertData := *(*float32)(unsafe.Pointer(&v))
 		convertData := float32(v)
 		if err = self.p.WriteFloat(convertData); err != nil {
 			return err
