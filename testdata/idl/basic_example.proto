@@ -33,6 +33,26 @@ message BasicExample {
     repeated bool ListBool = 28;
     repeated string ListString = 29;
     repeated bytes ListBytes = 30;
+    map<int64, sint32> MapInt64SINT32 = 31;
+    map<int64, sfixed32> MapInt64Sfixed32 = 32;
+    map<int64, fixed32> MapInt64Fixed32 = 33;
+    map<int64, uint32> MapInt64Uint32 = 34;
+    map<int64, double> MapInt64Double = 35;
+    map<int64, bool> MapInt64Bool = 36;
+    map<int64, string> MapInt64String = 37;
+    map<int64, bytes> MapInt64Bytes = 38;
+    map<int64, float> MapInt64Float = 39;
+    map<int64, int32> MapInt64Int32 = 40;
+    map<string, sint64> MapstringSINT64 = 41;
+    map<string, sfixed64> MapstringSfixed64 = 42;
+    map<string, fixed64> MapstringFixed64 = 43;
+    map<string, uint64> MapstringUint64 = 44;
+    map<string, double> MapstringDouble = 45;
+    map<string, bool> MapstringBool = 46;
+    map<string, string> MapstringString = 47;
+    map<string, bytes> MapstringBytes = 48;
+    map<string, float> MapstringFloat = 49;
+    map<string, int64> MapstringInt64 = 50;
 }
 
 // Test that RPC services work.

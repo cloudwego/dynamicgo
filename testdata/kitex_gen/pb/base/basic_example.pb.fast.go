@@ -164,6 +164,106 @@ func (x *BasicExample) FastRead(buf []byte, _type int8, number int32) (offset in
 		if err != nil {
 			goto ReadFieldError
 		}
+	case 31:
+		offset, err = x.fastReadField31(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 32:
+		offset, err = x.fastReadField32(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 33:
+		offset, err = x.fastReadField33(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 34:
+		offset, err = x.fastReadField34(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 35:
+		offset, err = x.fastReadField35(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 36:
+		offset, err = x.fastReadField36(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 37:
+		offset, err = x.fastReadField37(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 38:
+		offset, err = x.fastReadField38(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 39:
+		offset, err = x.fastReadField39(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 40:
+		offset, err = x.fastReadField40(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 41:
+		offset, err = x.fastReadField41(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 42:
+		offset, err = x.fastReadField42(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 43:
+		offset, err = x.fastReadField43(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 44:
+		offset, err = x.fastReadField44(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 45:
+		offset, err = x.fastReadField45(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 46:
+		offset, err = x.fastReadField46(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 47:
+		offset, err = x.fastReadField47(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 48:
+		offset, err = x.fastReadField48(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 49:
+		offset, err = x.fastReadField49(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
+	case 50:
+		offset, err = x.fastReadField50(buf, _type)
+		if err != nil {
+			goto ReadFieldError
+		}
 	default:
 		offset, err = fastpb.Skip(buf, _type, number)
 		if err != nil {
@@ -454,6 +554,446 @@ func (x *BasicExample) fastReadField30(buf []byte, _type int8) (offset int, err 
 	return offset, err
 }
 
+func (x *BasicExample) fastReadField31(buf []byte, _type int8) (offset int, err error) {
+	if x.MapInt64SINT32 == nil {
+		x.MapInt64SINT32 = make(map[int64]int32)
+	}
+	var key int64
+	var value int32
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadInt64(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadSint32(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapInt64SINT32[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField32(buf []byte, _type int8) (offset int, err error) {
+	if x.MapInt64Sfixed32 == nil {
+		x.MapInt64Sfixed32 = make(map[int64]int32)
+	}
+	var key int64
+	var value int32
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadInt64(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadSfixed32(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapInt64Sfixed32[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField33(buf []byte, _type int8) (offset int, err error) {
+	if x.MapInt64Fixed32 == nil {
+		x.MapInt64Fixed32 = make(map[int64]uint32)
+	}
+	var key int64
+	var value uint32
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadInt64(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadFixed32(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapInt64Fixed32[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField34(buf []byte, _type int8) (offset int, err error) {
+	if x.MapInt64Uint32 == nil {
+		x.MapInt64Uint32 = make(map[int64]uint32)
+	}
+	var key int64
+	var value uint32
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadInt64(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadUint32(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapInt64Uint32[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField35(buf []byte, _type int8) (offset int, err error) {
+	if x.MapInt64Double == nil {
+		x.MapInt64Double = make(map[int64]float64)
+	}
+	var key int64
+	var value float64
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadInt64(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadDouble(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapInt64Double[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField36(buf []byte, _type int8) (offset int, err error) {
+	if x.MapInt64Bool == nil {
+		x.MapInt64Bool = make(map[int64]bool)
+	}
+	var key int64
+	var value bool
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadInt64(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadBool(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapInt64Bool[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField37(buf []byte, _type int8) (offset int, err error) {
+	if x.MapInt64String == nil {
+		x.MapInt64String = make(map[int64]string)
+	}
+	var key int64
+	var value string
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadInt64(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadString(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapInt64String[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField38(buf []byte, _type int8) (offset int, err error) {
+	if x.MapInt64Bytes == nil {
+		x.MapInt64Bytes = make(map[int64][]byte)
+	}
+	var key int64
+	var value []byte
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadInt64(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadBytes(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapInt64Bytes[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField39(buf []byte, _type int8) (offset int, err error) {
+	if x.MapInt64Float == nil {
+		x.MapInt64Float = make(map[int64]float32)
+	}
+	var key int64
+	var value float32
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadInt64(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadFloat(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapInt64Float[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField40(buf []byte, _type int8) (offset int, err error) {
+	if x.MapInt64Int32 == nil {
+		x.MapInt64Int32 = make(map[int64]int32)
+	}
+	var key int64
+	var value int32
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadInt64(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadInt32(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapInt64Int32[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField41(buf []byte, _type int8) (offset int, err error) {
+	if x.MapstringSINT64 == nil {
+		x.MapstringSINT64 = make(map[string]int64)
+	}
+	var key string
+	var value int64
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadString(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadSint64(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapstringSINT64[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField42(buf []byte, _type int8) (offset int, err error) {
+	if x.MapstringSfixed64 == nil {
+		x.MapstringSfixed64 = make(map[string]int64)
+	}
+	var key string
+	var value int64
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadString(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadSfixed64(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapstringSfixed64[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField43(buf []byte, _type int8) (offset int, err error) {
+	if x.MapstringFixed64 == nil {
+		x.MapstringFixed64 = make(map[string]uint64)
+	}
+	var key string
+	var value uint64
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadString(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadFixed64(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapstringFixed64[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField44(buf []byte, _type int8) (offset int, err error) {
+	if x.MapstringUint64 == nil {
+		x.MapstringUint64 = make(map[string]uint64)
+	}
+	var key string
+	var value uint64
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadString(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadUint64(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapstringUint64[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField45(buf []byte, _type int8) (offset int, err error) {
+	if x.MapstringDouble == nil {
+		x.MapstringDouble = make(map[string]float64)
+	}
+	var key string
+	var value float64
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadString(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadDouble(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapstringDouble[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField46(buf []byte, _type int8) (offset int, err error) {
+	if x.MapstringBool == nil {
+		x.MapstringBool = make(map[string]bool)
+	}
+	var key string
+	var value bool
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadString(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadBool(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapstringBool[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField47(buf []byte, _type int8) (offset int, err error) {
+	if x.MapstringString == nil {
+		x.MapstringString = make(map[string]string)
+	}
+	var key string
+	var value string
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadString(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadString(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapstringString[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField48(buf []byte, _type int8) (offset int, err error) {
+	if x.MapstringBytes == nil {
+		x.MapstringBytes = make(map[string][]byte)
+	}
+	var key string
+	var value []byte
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadString(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadBytes(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapstringBytes[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField49(buf []byte, _type int8) (offset int, err error) {
+	if x.MapstringFloat == nil {
+		x.MapstringFloat = make(map[string]float32)
+	}
+	var key string
+	var value float32
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadString(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadFloat(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapstringFloat[key] = value
+	return offset, nil
+}
+
+func (x *BasicExample) fastReadField50(buf []byte, _type int8) (offset int, err error) {
+	if x.MapstringInt64 == nil {
+		x.MapstringInt64 = make(map[string]int64)
+	}
+	var key string
+	var value int64
+	offset, err = fastpb.ReadMapEntry(buf, _type,
+		func(buf []byte, _type int8) (offset int, err error) {
+			key, offset, err = fastpb.ReadString(buf, _type)
+			return offset, err
+		},
+		func(buf []byte, _type int8) (offset int, err error) {
+			value, offset, err = fastpb.ReadInt64(buf, _type)
+			return offset, err
+		})
+	if err != nil {
+		return offset, err
+	}
+	x.MapstringInt64[key] = value
+	return offset, nil
+}
+
 func (x *BasicExample) FastWrite(buf []byte) (offset int) {
 	if x == nil {
 		return offset
@@ -488,6 +1028,26 @@ func (x *BasicExample) FastWrite(buf []byte) (offset int) {
 	offset += x.fastWriteField28(buf[offset:])
 	offset += x.fastWriteField29(buf[offset:])
 	offset += x.fastWriteField30(buf[offset:])
+	offset += x.fastWriteField31(buf[offset:])
+	offset += x.fastWriteField32(buf[offset:])
+	offset += x.fastWriteField33(buf[offset:])
+	offset += x.fastWriteField34(buf[offset:])
+	offset += x.fastWriteField35(buf[offset:])
+	offset += x.fastWriteField36(buf[offset:])
+	offset += x.fastWriteField37(buf[offset:])
+	offset += x.fastWriteField38(buf[offset:])
+	offset += x.fastWriteField39(buf[offset:])
+	offset += x.fastWriteField40(buf[offset:])
+	offset += x.fastWriteField41(buf[offset:])
+	offset += x.fastWriteField42(buf[offset:])
+	offset += x.fastWriteField43(buf[offset:])
+	offset += x.fastWriteField44(buf[offset:])
+	offset += x.fastWriteField45(buf[offset:])
+	offset += x.fastWriteField46(buf[offset:])
+	offset += x.fastWriteField47(buf[offset:])
+	offset += x.fastWriteField48(buf[offset:])
+	offset += x.fastWriteField49(buf[offset:])
+	offset += x.fastWriteField50(buf[offset:])
 	return offset
 }
 
@@ -800,6 +1360,326 @@ func (x *BasicExample) fastWriteField30(buf []byte) (offset int) {
 	return offset
 }
 
+func (x *BasicExample) fastWriteField31(buf []byte) (offset int) {
+	if x.MapInt64SINT32 == nil {
+		return offset
+	}
+	for k, v := range x.GetMapInt64SINT32() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 31,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteInt64(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteSint32(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField32(buf []byte) (offset int) {
+	if x.MapInt64Sfixed32 == nil {
+		return offset
+	}
+	for k, v := range x.GetMapInt64Sfixed32() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 32,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteInt64(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteSfixed32(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField33(buf []byte) (offset int) {
+	if x.MapInt64Fixed32 == nil {
+		return offset
+	}
+	for k, v := range x.GetMapInt64Fixed32() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 33,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteInt64(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteFixed32(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField34(buf []byte) (offset int) {
+	if x.MapInt64Uint32 == nil {
+		return offset
+	}
+	for k, v := range x.GetMapInt64Uint32() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 34,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteInt64(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteUint32(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField35(buf []byte) (offset int) {
+	if x.MapInt64Double == nil {
+		return offset
+	}
+	for k, v := range x.GetMapInt64Double() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 35,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteInt64(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteDouble(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField36(buf []byte) (offset int) {
+	if x.MapInt64Bool == nil {
+		return offset
+	}
+	for k, v := range x.GetMapInt64Bool() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 36,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteInt64(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteBool(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField37(buf []byte) (offset int) {
+	if x.MapInt64String == nil {
+		return offset
+	}
+	for k, v := range x.GetMapInt64String() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 37,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteInt64(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteString(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField38(buf []byte) (offset int) {
+	if x.MapInt64Bytes == nil {
+		return offset
+	}
+	for k, v := range x.GetMapInt64Bytes() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 38,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteInt64(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteBytes(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField39(buf []byte) (offset int) {
+	if x.MapInt64Float == nil {
+		return offset
+	}
+	for k, v := range x.GetMapInt64Float() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 39,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteInt64(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteFloat(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField40(buf []byte) (offset int) {
+	if x.MapInt64Int32 == nil {
+		return offset
+	}
+	for k, v := range x.GetMapInt64Int32() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 40,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteInt64(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteInt32(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField41(buf []byte) (offset int) {
+	if x.MapstringSINT64 == nil {
+		return offset
+	}
+	for k, v := range x.GetMapstringSINT64() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 41,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteString(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteSint64(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField42(buf []byte) (offset int) {
+	if x.MapstringSfixed64 == nil {
+		return offset
+	}
+	for k, v := range x.GetMapstringSfixed64() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 42,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteString(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteSfixed64(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField43(buf []byte) (offset int) {
+	if x.MapstringFixed64 == nil {
+		return offset
+	}
+	for k, v := range x.GetMapstringFixed64() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 43,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteString(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteFixed64(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField44(buf []byte) (offset int) {
+	if x.MapstringUint64 == nil {
+		return offset
+	}
+	for k, v := range x.GetMapstringUint64() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 44,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteString(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteUint64(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField45(buf []byte) (offset int) {
+	if x.MapstringDouble == nil {
+		return offset
+	}
+	for k, v := range x.GetMapstringDouble() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 45,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteString(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteDouble(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField46(buf []byte) (offset int) {
+	if x.MapstringBool == nil {
+		return offset
+	}
+	for k, v := range x.GetMapstringBool() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 46,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteString(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteBool(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField47(buf []byte) (offset int) {
+	if x.MapstringString == nil {
+		return offset
+	}
+	for k, v := range x.GetMapstringString() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 47,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteString(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteString(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField48(buf []byte) (offset int) {
+	if x.MapstringBytes == nil {
+		return offset
+	}
+	for k, v := range x.GetMapstringBytes() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 48,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteString(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteBytes(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField49(buf []byte) (offset int) {
+	if x.MapstringFloat == nil {
+		return offset
+	}
+	for k, v := range x.GetMapstringFloat() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 49,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteString(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteFloat(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
+func (x *BasicExample) fastWriteField50(buf []byte) (offset int) {
+	if x.MapstringInt64 == nil {
+		return offset
+	}
+	for k, v := range x.GetMapstringInt64() {
+		offset += fastpb.WriteMapEntry(buf[offset:], 50,
+			func(buf []byte, numTagOrKey, numIdxOrVal int32) int {
+				offset := 0
+				offset += fastpb.WriteString(buf[offset:], numTagOrKey, k)
+				offset += fastpb.WriteInt64(buf[offset:], numIdxOrVal, v)
+				return offset
+			})
+	}
+	return offset
+}
+
 func (x *BasicExample) Size() (n int) {
 	if x == nil {
 		return n
@@ -834,6 +1714,26 @@ func (x *BasicExample) Size() (n int) {
 	n += x.sizeField28()
 	n += x.sizeField29()
 	n += x.sizeField30()
+	n += x.sizeField31()
+	n += x.sizeField32()
+	n += x.sizeField33()
+	n += x.sizeField34()
+	n += x.sizeField35()
+	n += x.sizeField36()
+	n += x.sizeField37()
+	n += x.sizeField38()
+	n += x.sizeField39()
+	n += x.sizeField40()
+	n += x.sizeField41()
+	n += x.sizeField42()
+	n += x.sizeField43()
+	n += x.sizeField44()
+	n += x.sizeField45()
+	n += x.sizeField46()
+	n += x.sizeField47()
+	n += x.sizeField48()
+	n += x.sizeField49()
+	n += x.sizeField50()
 	return n
 }
 
@@ -1146,6 +2046,326 @@ func (x *BasicExample) sizeField30() (n int) {
 	return n
 }
 
+func (x *BasicExample) sizeField31() (n int) {
+	if x.MapInt64SINT32 == nil {
+		return n
+	}
+	for k, v := range x.GetMapInt64SINT32() {
+		n += fastpb.SizeMapEntry(31,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeInt64(numTagOrKey, k)
+				n += fastpb.SizeSint32(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField32() (n int) {
+	if x.MapInt64Sfixed32 == nil {
+		return n
+	}
+	for k, v := range x.GetMapInt64Sfixed32() {
+		n += fastpb.SizeMapEntry(32,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeInt64(numTagOrKey, k)
+				n += fastpb.SizeSfixed32(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField33() (n int) {
+	if x.MapInt64Fixed32 == nil {
+		return n
+	}
+	for k, v := range x.GetMapInt64Fixed32() {
+		n += fastpb.SizeMapEntry(33,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeInt64(numTagOrKey, k)
+				n += fastpb.SizeFixed32(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField34() (n int) {
+	if x.MapInt64Uint32 == nil {
+		return n
+	}
+	for k, v := range x.GetMapInt64Uint32() {
+		n += fastpb.SizeMapEntry(34,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeInt64(numTagOrKey, k)
+				n += fastpb.SizeUint32(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField35() (n int) {
+	if x.MapInt64Double == nil {
+		return n
+	}
+	for k, v := range x.GetMapInt64Double() {
+		n += fastpb.SizeMapEntry(35,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeInt64(numTagOrKey, k)
+				n += fastpb.SizeDouble(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField36() (n int) {
+	if x.MapInt64Bool == nil {
+		return n
+	}
+	for k, v := range x.GetMapInt64Bool() {
+		n += fastpb.SizeMapEntry(36,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeInt64(numTagOrKey, k)
+				n += fastpb.SizeBool(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField37() (n int) {
+	if x.MapInt64String == nil {
+		return n
+	}
+	for k, v := range x.GetMapInt64String() {
+		n += fastpb.SizeMapEntry(37,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeInt64(numTagOrKey, k)
+				n += fastpb.SizeString(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField38() (n int) {
+	if x.MapInt64Bytes == nil {
+		return n
+	}
+	for k, v := range x.GetMapInt64Bytes() {
+		n += fastpb.SizeMapEntry(38,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeInt64(numTagOrKey, k)
+				n += fastpb.SizeBytes(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField39() (n int) {
+	if x.MapInt64Float == nil {
+		return n
+	}
+	for k, v := range x.GetMapInt64Float() {
+		n += fastpb.SizeMapEntry(39,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeInt64(numTagOrKey, k)
+				n += fastpb.SizeFloat(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField40() (n int) {
+	if x.MapInt64Int32 == nil {
+		return n
+	}
+	for k, v := range x.GetMapInt64Int32() {
+		n += fastpb.SizeMapEntry(40,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeInt64(numTagOrKey, k)
+				n += fastpb.SizeInt32(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField41() (n int) {
+	if x.MapstringSINT64 == nil {
+		return n
+	}
+	for k, v := range x.GetMapstringSINT64() {
+		n += fastpb.SizeMapEntry(41,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeString(numTagOrKey, k)
+				n += fastpb.SizeSint64(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField42() (n int) {
+	if x.MapstringSfixed64 == nil {
+		return n
+	}
+	for k, v := range x.GetMapstringSfixed64() {
+		n += fastpb.SizeMapEntry(42,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeString(numTagOrKey, k)
+				n += fastpb.SizeSfixed64(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField43() (n int) {
+	if x.MapstringFixed64 == nil {
+		return n
+	}
+	for k, v := range x.GetMapstringFixed64() {
+		n += fastpb.SizeMapEntry(43,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeString(numTagOrKey, k)
+				n += fastpb.SizeFixed64(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField44() (n int) {
+	if x.MapstringUint64 == nil {
+		return n
+	}
+	for k, v := range x.GetMapstringUint64() {
+		n += fastpb.SizeMapEntry(44,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeString(numTagOrKey, k)
+				n += fastpb.SizeUint64(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField45() (n int) {
+	if x.MapstringDouble == nil {
+		return n
+	}
+	for k, v := range x.GetMapstringDouble() {
+		n += fastpb.SizeMapEntry(45,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeString(numTagOrKey, k)
+				n += fastpb.SizeDouble(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField46() (n int) {
+	if x.MapstringBool == nil {
+		return n
+	}
+	for k, v := range x.GetMapstringBool() {
+		n += fastpb.SizeMapEntry(46,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeString(numTagOrKey, k)
+				n += fastpb.SizeBool(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField47() (n int) {
+	if x.MapstringString == nil {
+		return n
+	}
+	for k, v := range x.GetMapstringString() {
+		n += fastpb.SizeMapEntry(47,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeString(numTagOrKey, k)
+				n += fastpb.SizeString(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField48() (n int) {
+	if x.MapstringBytes == nil {
+		return n
+	}
+	for k, v := range x.GetMapstringBytes() {
+		n += fastpb.SizeMapEntry(48,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeString(numTagOrKey, k)
+				n += fastpb.SizeBytes(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField49() (n int) {
+	if x.MapstringFloat == nil {
+		return n
+	}
+	for k, v := range x.GetMapstringFloat() {
+		n += fastpb.SizeMapEntry(49,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeString(numTagOrKey, k)
+				n += fastpb.SizeFloat(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
+func (x *BasicExample) sizeField50() (n int) {
+	if x.MapstringInt64 == nil {
+		return n
+	}
+	for k, v := range x.GetMapstringInt64() {
+		n += fastpb.SizeMapEntry(50,
+			func(numTagOrKey, numIdxOrVal int32) int {
+				n := 0
+				n += fastpb.SizeString(numTagOrKey, k)
+				n += fastpb.SizeInt64(numIdxOrVal, v)
+				return n
+			})
+	}
+	return n
+}
+
 var fieldIDToName_BasicExample = map[int32]string{
 	1:  "Int32",
 	2:  "Int64",
@@ -1177,4 +2397,24 @@ var fieldIDToName_BasicExample = map[int32]string{
 	28: "ListBool",
 	29: "ListString",
 	30: "ListBytes",
+	31: "MapInt64SINT32",
+	32: "MapInt64Sfixed32",
+	33: "MapInt64Fixed32",
+	34: "MapInt64Uint32",
+	35: "MapInt64Double",
+	36: "MapInt64Bool",
+	37: "MapInt64String",
+	38: "MapInt64Bytes",
+	39: "MapInt64Float",
+	40: "MapInt64Int32",
+	41: "MapstringSINT64",
+	42: "MapstringSfixed64",
+	43: "MapstringFixed64",
+	44: "MapstringUint64",
+	45: "MapstringDouble",
+	46: "MapstringBool",
+	47: "MapstringString",
+	48: "MapstringBytes",
+	49: "MapstringFloat",
+	50: "MapstringInt64",
 }
