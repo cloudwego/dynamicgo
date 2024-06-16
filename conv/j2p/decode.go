@@ -433,7 +433,7 @@ func (self *visitorUserNode) OnObjectBegin(capacity int) error {
 // MapKey maybe int32/sint32/uint32/uint64 etc....
 func (self *visitorUserNode) encodeMapKey(key string, t proto.Type) error {
 	switch t {
-	case proto.INT32, proto.SINT32, proto.SFIX32, proto.FIX32:
+	case proto.INT32:
 		t, _ := strconv.ParseInt(key, 10, 32)
 		if err := self.p.WriteInt32(int32(t)); err != nil {
 			return err
