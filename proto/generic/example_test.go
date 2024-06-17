@@ -18,8 +18,8 @@ var opts = &Options{
 }
 
 func ExampleValue_GetByPath(t *testing.T) {
-	desc := getExample2Desc()
-	data := getExample2Data()
+	desc := getExample3Desc()
+	data := getExample3Data()
 	v := NewRootValue(desc, data)
 
 	ps := []Path{NewPathFieldName("InnerBase2"), NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("1b")}
@@ -32,8 +32,8 @@ func ExampleValue_GetByPath(t *testing.T) {
 }
 
 func ExampleValue_GetMany() {
-	desc := getExample2Desc()
-	data := getExample2Data()
+	desc := getExample3Desc()
+	data := getExample3Data()
 	v := NewRootValue(desc, data)
 
 	ps := []PathNode{
@@ -49,8 +49,8 @@ func ExampleValue_GetMany() {
 }
 
 func ExampleValue_SetByPath() {
-	desc := getExample2Desc()
-	data := getExample2Data()
+	desc := getExample3Desc()
+	data := getExample3Data()
 	v := NewRootValue(desc, data)
 
 	p := binary.NewBinaryProtol([]byte{})
@@ -76,10 +76,9 @@ func ExampleValue_SetByPath() {
 }
 
 func ExampleValue_SetMany(t *testing.T) {
-	desc := getExample2Desc()
-	data := getExample2Data()
+	desc := getExample3Desc()
+	data := getExample3Data()
 	root := NewRootValue(desc, data)
-
 
 	exp1 := int32(-1024)
 	n1 := NewNodeInt32(exp1)
@@ -96,14 +95,13 @@ func ExampleValue_SetMany(t *testing.T) {
 	v1 := root.GetByPath(NewPathFieldName("A"))
 	act1, err := v1.Int()
 	fmt.Println(act1) // -1024
-	
 
 	expmin := int32(math.MinInt32)
 	expmax := int32(math.MaxInt32)
 	nmin := NewNodeInt32(expmin)
 	nmax := NewNodeInt32(expmax)
 	PathExampleListInt32 = []Path{NewPathFieldName("InnerBase2"), NewPathFieldId(proto.FieldNumber(8))}
-	
+
 	vv, listInt2root := root.GetByPathWithAddress(PathExampleListInt32...)
 	l2, err := vv.Len()
 	fmt.Println(l2) // 6
@@ -111,7 +109,6 @@ func ExampleValue_SetMany(t *testing.T) {
 		panic(err)
 	}
 
-	
 	path2root := []Path{NewPathFieldName("InnerBase2"), NewPathFieldId(proto.FieldNumber(8)), NewPathIndex(1024)}
 	address2root := append(listInt2root, 0)
 
@@ -125,7 +122,7 @@ func ExampleValue_SetMany(t *testing.T) {
 			Node: nmax,
 		},
 	}, opts, &root, address2root, path2root...)
-	
+
 	if err != nil {
 		panic(err)
 	}
@@ -150,13 +147,13 @@ func ExampleValue_SetMany(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	fmt.Println(ll2) // 8
 }
 
 func ExampleValue_MarshalTo(t *testing.T) {
-	desc := getExample2Desc()
-	data := getExample2Data()
+	desc := getExample3Desc()
+	data := getExample3Data()
 	v := NewRootValue(desc, data)
 
 	partial := getExamplePartialDesc()
@@ -173,15 +170,14 @@ func ExampleValue_MarshalTo(t *testing.T) {
 	fmt.Printf("%#v", partMsg)
 }
 
-
-func ExamplePathNode_Load(* testing.T) {
-	desc := getExample2Desc()
-	data := getExample2Data()
+func ExamplePathNode_Load(*testing.T) {
+	desc := getExample3Desc()
+	data := getExample3Data()
 
 	root := PathNode{
 		Node: NewNode(proto.MESSAGE, data),
 	}
-	
+
 	// load first level children
 	err := root.Load(false, opts, desc)
 	if err != nil {
@@ -196,7 +192,6 @@ func ExamplePathNode_Load(* testing.T) {
 	}
 	fmt.Printf("%#v", root)
 
-
 	// reuse PathNode memory
 	reuse := pathNodePool.Get().(*PathNode)
 	reuse.Node = NewNode(proto.MESSAGE, data)
@@ -210,8 +205,8 @@ func ExamplePathNode_Load(* testing.T) {
 }
 
 func ExampleValue_MarshalAll() {
-	desc := getExample2Desc()
-	data := getExample2Data()
+	desc := getExample3Desc()
+	data := getExample3Data()
 	v := NewRootValue(desc, data)
 	p := PathNode{
 		Node: v.Node,
@@ -234,8 +229,8 @@ func ExampleValue_MarshalAll() {
 }
 
 func ExamplePathNode_MarshalMany(t *testing.T) {
-	desc := getExample2Desc()
-	data := getExample2Data()
+	desc := getExample3Desc()
+	data := getExample3Data()
 
 	v := NewRootValue(desc, data)
 
@@ -249,7 +244,7 @@ func ExamplePathNode_MarshalMany(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	n := PathNode{
 		Path: NewPathFieldId(1), // just used path type for message flag, id is not used
 		Node: v.Node,
@@ -263,5 +258,5 @@ func ExamplePathNode_MarshalMany(t *testing.T) {
 		panic(err)
 	}
 	fmt.Printf("%#v", msg)
-		
+
 }

@@ -161,7 +161,7 @@ func (self *BinaryConv) unmarshalSingular(ctx context.Context, resp http.Respons
 			*out = json.EncodeInt64(*out, int64(v))
 		}
 	case proto.SINT64:
-		v, e := p.ReadInt64()
+		v, e := p.ReadSint64()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Sint64kind error", e)
 		}
@@ -170,6 +170,12 @@ func (self *BinaryConv) unmarshalSingular(ctx context.Context, resp http.Respons
 		v, e := p.ReadUint64()
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Uint64kind error", e)
+		}
+		*out = json.EncodeInt64(*out, int64(v))
+	case proto.FIX64:
+		v, e := p.ReadFixed64()
+		if e != nil {
+			return wrapError(meta.ErrRead, "unmarshal Fixed64kind error", e)
 		}
 		*out = json.EncodeInt64(*out, int64(v))
 	case proto.SFIX64:
@@ -278,6 +284,7 @@ func (self *BinaryConv) unmarshalList(ctx context.Context, resp http.ResponseSet
 		self.unmarshalSingular(ctx, resp, p, out, fd.Elem())
 		for p.Read < len(p.Buf) {
 			elementFieldNumber, _, tagLen, err := p.ConsumeTagWithoutMove()
+
 			if err != nil {
 				return wrapError(meta.ErrRead, "consume list child Tag error", err)
 			}

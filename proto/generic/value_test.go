@@ -14,19 +14,19 @@ import (
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/proto/binary"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/base"
-	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
+	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example3"
 	"github.com/stretchr/testify/require"
 	goprotowire "google.golang.org/protobuf/encoding/protowire"
 	goproto "google.golang.org/protobuf/proto"
 )
 
 const (
-	exampleIDLPath   = "../../testdata/idl/example2.proto"
-	exampleProtoPath = "../../testdata/data/example2_pb.bin"
+	exampleIDLPath   = "../../testdata/idl/example3.proto"
+	exampleProtoPath = "../../testdata/data/example3_pb.bin"
 )
 
 // parse protofile to get MessageDescriptor
-func getExample2Desc() *proto.TypeDescriptor {
+func getExample3Desc() *proto.TypeDescriptor {
 	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
 	svc, err := proto.NewDescritorFromPath(context.Background(), exampleIDLPath, includeDirs)
 	if err != nil {
@@ -54,7 +54,7 @@ func getExamplePartialDesc() *proto.TypeDescriptor {
 	return res
 }
 
-func getExample2Data() []byte {
+func getExample3Data() []byte {
 	out, err := ioutil.ReadFile(exampleProtoPath)
 	if err != nil {
 		panic(err)
@@ -62,11 +62,11 @@ func getExample2Data() []byte {
 	return out
 }
 
-func getExample2Req() *example2.ExampleReq {
-	req := example2.ExampleReq{}
+func getExample3Req() *example3.ExampleReq {
+	req := example3.ExampleReq{}
 	req.Msg = "hello"
 	req.Subfix = math.MaxFloat64
-	req.InnerBase2 = &example2.InnerBase2{}
+	req.InnerBase2 = &example3.InnerBase2{}
 	req.InnerBase2.Bool = true
 	req.InnerBase2.Uint32 = uint32(123)
 	req.InnerBase2.Uint64 = uint64(123)
@@ -75,7 +75,7 @@ func getExample2Req() *example2.ExampleReq {
 	req.InnerBase2.ListInt32 = []int32{12, 13, 14, 15, 16, 17}
 	req.InnerBase2.MapStringString = map[string]string{"m1": "aaa", "m2": "bbb", "m3": "ccc", "m4": "ddd"}
 	req.InnerBase2.SetInt32 = []int32{200, 201, 202, 203, 204, 205}
-	req.InnerBase2.Foo = example2.FOO_FOO_A
+	req.InnerBase2.Foo = example3.FOO_FOO_A
 	req.InnerBase2.MapInt32String = map[int32]string{1: "aaa", 2: "bbb", 3: "ccc", 4: "ddd"}
 	req.InnerBase2.Binary = []byte{0x1, 0x2, 0x3, 0x4}
 	req.InnerBase2.MapUint32String = map[uint32]string{uint32(1): "u32aa", uint32(2): "u32bb", uint32(3): "u32cc", uint32(4): "u32dd"}
@@ -154,12 +154,23 @@ func getExample2Req() *example2.ExampleReq {
 	req.InnerBase2.Base.TrafficEnv.Open = false
 	req.InnerBase2.Base.TrafficEnv.Env = "env"
 	req.InnerBase2.Base.Extra = map[string]string{"1b": "aaa", "2b": "bbb", "3b": "ccc", "4b": "ddd"}
+
+	req.InnerBase2.Sfixed32 = int32(100)
+	req.InnerBase2.Fixed64 = uint64(200)
+	req.InnerBase2.Sint32 = int32(300)
+	req.InnerBase2.Sint64 = int64(400)
+	req.InnerBase2.ListSInt64 = []int64{100, 200, 300}
+	req.InnerBase2.ListSInt32 = []int32{121, 400, 514}
+	req.InnerBase2.ListSfixed32 = []int32{201, 31, 22}
+	req.InnerBase2.ListFixed64 = []uint64{841, 23, 11000}
+	req.InnerBase2.MapInt64Sfixed64 = map[int64]int64{2: 2, 3: 3, 100: -100}
+	req.InnerBase2.MapStringFixed32 = map[string]uint32{"1": 1, "2": 222222}
 	return &req
 }
 
-// build binaryData for example2.proto
+// build binaryData for example3.proto
 func generateBinaryData() error {
-	req := getExample2Req()
+	req := getExample3Req()
 	data, err := goproto.Marshal(req.ProtoReflect().Interface())
 	if err != nil {
 		panic("goproto marshal data failed")
@@ -197,8 +208,8 @@ func TestCreateValue(t *testing.T) {
 
 func TestCount(t *testing.T) {
 	t.Run("Normal", func(t *testing.T) {
-		desc := getExample2Desc()
-		data := getExample2Data()
+		desc := getExample3Desc()
+		data := getExample3Data()
 		fmt.Printf("data len: %d\n", len(data))
 		v := NewRootValue(desc, data)
 		children := make([]PathNode, 0, 4)
@@ -214,7 +225,7 @@ func TestCount(t *testing.T) {
 	// stored unknown node
 	t.Run("Partial", func(t *testing.T) {
 		desc := getExamplePartialDesc()
-		data := getExample2Data()
+		data := getExample3Data()
 		fmt.Printf("data len: %d\n", len(data))
 		v := NewRootValue(desc, data)
 		children := make([]PathNode, 0, 4)
@@ -236,11 +247,11 @@ func countHelper(count *int, ps []PathNode) {
 }
 
 func TestMarshalTo(t *testing.T) {
-	desc := getExample2Desc()
-	data := getExample2Data()
+	desc := getExample3Desc()
+	data := getExample3Data()
 	partial := getExamplePartialDesc()
 
-	exp := example2.ExampleReq{}
+	exp := example3.ExampleReq{}
 	v := NewRootValue(desc, data)
 	dataLen := len(data)
 	l := 0
@@ -265,7 +276,7 @@ func TestMarshalTo(t *testing.T) {
 			opts := &Options{}
 			buf, err := v.MarshalTo(partial, opts)
 			require.Nil(t, err)
-			ep := example2.ExampleReqPartial{}
+			ep := example3.ExampleReqPartial{}
 			bufLen := len(buf)
 
 			l := 0
@@ -295,7 +306,7 @@ func TestMarshalTo(t *testing.T) {
 	})
 
 	t.Run("unknown", func(t *testing.T) {
-		data := getExample2Data()
+		data := getExample3Data()
 		v := NewRootValue(desc, data)
 		exist, err := v.SetByPath(NewNodeString("Insert"), NewPathFieldId(1024))
 		require.False(t, exist)
@@ -306,7 +317,7 @@ func TestMarshalTo(t *testing.T) {
 			opts := &Options{DisallowUnknown: false}
 			buf, err := v.MarshalTo(partial, opts)
 			require.NoError(t, err)
-			ep := example2.ExampleReqPartial{}
+			ep := example3.ExampleReqPartial{}
 			bufLen := len(buf)
 
 			l := 0
@@ -353,9 +364,9 @@ func handlePartialMapStringString2(p map[int]interface{}) {
 }
 
 func TestGet(t *testing.T) {
-	desc := getExample2Desc()
-	data := getExample2Data()
-	exp := example2.ExampleReq{}
+	desc := getExample3Desc()
+	data := getExample3Data()
+	exp := example3.ExampleReq{}
 	v := NewRootValue(desc, data)
 	dataLen := len(data)
 	l := 0
@@ -376,7 +387,7 @@ func TestGet(t *testing.T) {
 		t.Fatal("test failed")
 	}
 
-	req := getExample2Req()
+	req := getExample3Req()
 	t.Run("GetByStr()", func(t *testing.T) {
 		v := v.GetByPath(PathExampleMapStringString...)
 		require.Nil(t, v.Check())
@@ -569,11 +580,102 @@ func TestGet(t *testing.T) {
 		deepEqual(exp11, act11)
 	})
 
+	t.Run("TestGetfixedNumber", func(t *testing.T) {
+		// fixed64
+		exp := req.InnerBase2.Fixed64
+		ve := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Fixed64"))
+		if ve.Error() != "" {
+			t.Fatal(ve.Error())
+		}
+		act, err := ve.Uint()
+		fmt.Println(exp)
+		fmt.Println(act)
+		require.NoError(t, err)
+		require.Equal(t, uint(exp), act)
+
+		// repeated sint64
+		exp1 := req.InnerBase2.ListSInt64[1]
+		v1 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(26), NewPathIndex(1))
+		if v1.Error() != "" {
+			t.Fatal(v1.Error())
+		}
+		act1, err := v1.Int()
+		fmt.Println(exp1)
+		fmt.Println(act1)
+		require.NoError(t, err)
+		require.Equal(t, int(exp1), act1)
+
+		// repeated sint32
+		exp2 := req.InnerBase2.ListSInt32[2]
+		v2 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(27), NewPathIndex(2))
+		if v2.Error() != "" {
+			t.Fatal(v2.Error())
+		}
+		act2, err := v2.Int()
+		fmt.Println(exp2)
+		fmt.Println(act2)
+		require.NoError(t, err)
+		require.Equal(t, int(exp2), act2)
+
+		// repeated sfixed32
+		exp3 := req.InnerBase2.ListSfixed32[0]
+		v3 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldId(28), NewPathIndex(0))
+		if v3.Error() != "" {
+			t.Fatal(v3.Error())
+		}
+		act3, err := v3.Int()
+		fmt.Println(exp3)
+		fmt.Println(act3)
+		require.NoError(t, err)
+		require.Equal(t, int(exp3), act3)
+
+		// repeated fixed64
+		exp4 := req.InnerBase2.ListFixed64[2]
+		v4 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("ListFixed64"), NewPathIndex(2))
+		if v4.Error() != "" {
+			t.Fatal(v4.Error())
+		}
+		act4, err := v4.Uint()
+		fmt.Println(exp4)
+		fmt.Println(act4)
+		require.NoError(t, err)
+		require.Equal(t, uint(exp4), act4)
+
+		// MapInt64Sfixed64
+		exp5 := req.InnerBase2.MapInt64Sfixed64[100]
+		v5 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapInt64Sfixed64"), NewPathIntKey(100))
+		act5, err := v5.int()
+		fmt.Println(exp5)
+		fmt.Println(act5)
+		require.NoError(t, err)
+		require.Equal(t, int(exp5), act5)
+
+		// MapStringFixed32
+		exp6 := req.InnerBase2.MapStringFixed32["2"]
+		v6 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("MapStringFixed32"), NewPathStrKey("2"))
+		act6, err := v6.Uint()
+		fmt.Println(exp6)
+		fmt.Println(act6)
+		require.NoError(t, err)
+		require.Equal(t, uint(exp6), act6)
+
+		// Sfixed32
+		exp7 := req.InnerBase2.Sfixed32
+		v7 := v.GetByPath(NewPathFieldName("InnerBase2"), NewPathFieldName("Sfixed32"))
+		if v7.Error() != "" {
+			t.Fatal(v7.Error())
+		}
+		act7, err := v7.Int()
+		fmt.Println(exp7)
+		fmt.Println(act7)
+		require.NoError(t, err)
+		require.Equal(t, int(exp7), act7)
+	})
 }
 
 func TestSetByPath(t *testing.T) {
-	desc := getExample2Desc()
-	data := getExample2Data()
+	desc := getExample3Desc()
+	data := getExample3Data()
 	v := NewRootValue(desc, data)
 	v2 := NewNode(proto.MESSAGE, data)
 	d2 := desc.Message().ByName("InnerBase2").Message().ByName("Base").Message().ByName("Extra").MapValue()
@@ -706,10 +808,10 @@ func TestSetByPath(t *testing.T) {
 }
 
 func TestUnsetByPath(t *testing.T) {
-	desc := getExample2Desc()
-	data := getExample2Data()
+	desc := getExample3Desc()
+	data := getExample3Data()
 	r := NewRootValue(desc, data)
-	req := getExample2Req()
+	req := getExample3Req()
 	v := r.Fork()
 	err := v.UnsetByPath()
 	require.Nil(t, err)
@@ -906,8 +1008,8 @@ func TestUnsetByPath(t *testing.T) {
 }
 
 func TestSetMany(t *testing.T) {
-	desc := getExample2Desc()
-	data := getExample2Data()
+	desc := getExample3Desc()
+	data := getExample3Data()
 	opts := &Options{
 		UseNativeSkip: true,
 	}
@@ -1011,7 +1113,7 @@ func TestSetMany(t *testing.T) {
 		}, opts, &vRoot, address, pathes...)
 		require.Nil(t, err)
 
-		exp := example2.ExampleReq{}
+		exp := example3.ExampleReq{}
 		// fast read
 		dataLen := vRoot.l
 		data := vRoot.raw()
@@ -1097,7 +1199,7 @@ func TestSetMany(t *testing.T) {
 		}, opts, &vRoot, address2root, path2root...)
 		require.Nil(t, err)
 
-		expx := example2.InnerBase2{}
+		expx := example3.InnerBase2{}
 		// fast read
 		data = inner.raw()
 		byteLen, offset := goprotowire.ConsumeVarint(data)

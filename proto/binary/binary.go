@@ -1,7 +1,6 @@
 package binary
 
 import (
-	"encoding/binary"
 	"errors"
 	"io"
 	"math"
@@ -240,23 +239,15 @@ func (p *BinaryProtocol) WriteUint32(value uint32) error {
 }
 
 // Writefixed32
-func (p *BinaryProtocol) WriteFixed32(value int32) error {
-	v, err := p.malloc(4)
-	if err != nil {
-		return err
-	}
-	binary.LittleEndian.PutUint32(v, uint32(value))
-	return err
+func (p *BinaryProtocol) WriteFixed32(value uint32) error {
+	p.Buf = protowire.BinaryEncoder{}.EncodeFixed32(p.Buf, value)
+	return nil
 }
 
 // WriteSfixed32
 func (p *BinaryProtocol) WriteSfixed32(value int32) error {
-	v, err := p.malloc(4)
-	if err != nil {
-		return err
-	}
-	binary.LittleEndian.PutUint32(v, uint32(value))
-	return err
+	p.Buf = protowire.BinaryEncoder{}.EncodeSfixed32(p.Buf, value)
+	return nil
 }
 
 // WriteInt64
@@ -279,42 +270,26 @@ func (p *BinaryProtocol) WriteUint64(value uint64) error {
 
 // Writefixed64
 func (p *BinaryProtocol) WriteFixed64(value uint64) error {
-	v, err := p.malloc(8)
-	if err != nil {
-		return err
-	}
-	binary.LittleEndian.PutUint64(v, value)
-	return err
+	p.Buf = protowire.BinaryEncoder{}.EncodeFixed64(p.Buf, value)
+	return nil
 }
 
 // WriteSfixed64
 func (p *BinaryProtocol) WriteSfixed64(value int64) error {
-	v, err := p.malloc(8)
-	if err != nil {
-		return err
-	}
-	binary.LittleEndian.PutUint64(v, uint64(value))
-	return err
+	p.Buf = protowire.BinaryEncoder{}.EncodeSfixed64(p.Buf, value)
+	return nil
 }
 
 // WriteFloat
 func (p *BinaryProtocol) WriteFloat(value float32) error {
-	v, err := p.malloc(4)
-	if err != nil {
-		return err
-	}
-	binary.LittleEndian.PutUint32(v, math.Float32bits(float32(value)))
-	return err
+	p.Buf = protowire.BinaryEncoder{}.EncodeFloat32(p.Buf, value)
+	return nil
 }
 
 // WriteDouble
 func (p *BinaryProtocol) WriteDouble(value float64) error {
-	v, err := p.malloc(8)
-	if err != nil {
-		return err
-	}
-	binary.LittleEndian.PutUint64(v, math.Float64bits(value))
-	return err
+	p.Buf = protowire.BinaryEncoder{}.EncodeDouble(p.Buf, value)
+	return nil
 }
 
 // WriteString
@@ -422,7 +397,7 @@ func (p *BinaryProtocol) WriteMap(desc *proto.TypeDescriptor, val interface{}, c
 			p.AppendTag(1, MapKey.WireType())
 			// notice: may have problem, when k is sfixed64/fixed64 or sfixed32/fixed32 there is no need to use varint
 			// we had better add more code to judge the type of k if write fast
-			// p.WriteInt64(int64(k)) 
+			// p.WriteInt64(int64(k))
 			p.WriteBaseTypeWithDesc(MapKey, k, NeedMessageLen, cast, disallowUnknown, useFieldName) // the gerneral way
 			p.AppendTag(2, MapValue.WireType())
 			p.WriteBaseTypeWithDesc(MapValue, v, NeedMessageLen, cast, disallowUnknown, useFieldName)
@@ -466,7 +441,7 @@ func (p *BinaryProtocol) WriteMessageFields(desc *proto.MessageDescriptor, val i
 					return meta.NewError(meta.ErrWrite, "append field tag failed", nil)
 				}
 			}
-			
+
 			if err := p.WriteAnyWithDesc(f.Type(), v, NeedMessageLen, cast, disallowUnknown, useFieldName); err != nil {
 				return err
 			}
@@ -635,7 +610,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(desc *proto.TypeDescriptor, val i
 				v = int32(vv)
 			}
 		}
-		p.WriteFixed32(v)
+		p.WriteFixed32(uint32(v))
 	case proto.FLOAT:
 		v, ok := val.(float32)
 		if !ok {
@@ -678,7 +653,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(desc *proto.TypeDescriptor, val i
 				}
 			}
 		}
-		p.WriteSfixed64(v)
+		p.WriteFixed64(uint64(v))
 	case proto.DOUBLE:
 		v, ok := val.(float64)
 		if !ok {
@@ -720,7 +695,7 @@ func (p *BinaryProtocol) WriteBaseTypeWithDesc(desc *proto.TypeDescriptor, val i
 		if NeedMessageLen {
 			p.Buf, pos = AppendSpeculativeLength(p.Buf)
 		}
-		
+
 		if useFieldName {
 			val, ok = val.(map[string]interface{})
 		} else {
@@ -895,7 +870,7 @@ func (p *BinaryProtocol) ReadFixed32() (int32, error) {
 
 // ReadSFixed32
 func (p *BinaryProtocol) ReadSfixed32() (int32, error) {
-	value, n := protowire.BinaryDecoder{}.DecodeFixed32((p.Buf)[p.Read:])
+	value, n := protowire.BinaryDecoder{}.DecodeSfixed32((p.Buf)[p.Read:])
 	if n < 0 {
 		return int32(value), errDecodeField
 	}
@@ -1128,7 +1103,7 @@ func (p *BinaryProtocol) ReadMap(desc *proto.TypeDescriptor, copyString bool, di
 //   - LIST/SET will be converted to []interface{}
 //   - MAP will be converted to map[string]interface{} or map[int]interface{} or map[interface{}]interface{}
 //   - MESSAGE will be converted to map[proto.FieldNumber]interface{} or map[string]interface{}
-func (p *BinaryProtocol) ReadAnyWithDesc(desc *proto.TypeDescriptor, hasMessageLen bool ,copyString bool, disallowUnknown bool, useFieldName bool) (interface{}, error) {
+func (p *BinaryProtocol) ReadAnyWithDesc(desc *proto.TypeDescriptor, hasMessageLen bool, copyString bool, disallowUnknown bool, useFieldName bool) (interface{}, error) {
 	switch {
 	case desc.IsList():
 		return p.ReadList(desc, copyString, disallowUnknown, useFieldName)

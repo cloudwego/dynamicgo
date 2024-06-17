@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-	"unsafe"
 
 	"github.com/bytedance/sonic/ast"
 	"github.com/cloudwego/dynamicgo/conv"
@@ -185,18 +184,30 @@ func (self *visitorUserNode) OnBool(v bool) error {
 		self.inskip = false
 		return nil
 	}
+
 	var err error
-	if self.globalFieldDesc == nil {
-		return newError(meta.ErrConvert, "self.globalFieldDescriptor is nil, type Onbool", nil)
+	top := self.stk[self.sp]
+	fieldDesc := self.globalFieldDesc
+	// case PackedList(List bool), get fieldDescriptor from Stack
+	if self.globalFieldDesc == nil && top.typ == arrStkType {
+		fieldDesc = top.state.fieldDesc
 	}
-	// TODO
-	if err = self.p.AppendTagByKind(self.globalFieldDesc.Number(), self.globalFieldDesc.Kind()); err != nil {
-		return err
+
+	// packed list no need to write tag
+	if !fieldDesc.Type().IsList() {
+		if err = self.p.AppendTagByKind(fieldDesc.Number(), fieldDesc.Kind()); err != nil {
+			return err
+		}
 	}
+
 	if err = self.p.WriteBool(v); err != nil {
 		return err
 	}
-	return self.onValueEnd()
+	// globalFieldDesc must belong to MessageDescriptor
+	if self.globalFieldDesc != nil {
+		err = self.onValueEnd()
+	}
+	return err
 }
 
 // Parse stringType/bytesType
@@ -260,19 +271,33 @@ func (self *visitorUserNode) OnInt64(v int64, n json.Number) error {
 	}
 
 	switch fieldDesc.Kind() {
-	case proto.Int32Kind, proto.Sint32Kind, proto.Sfixed32Kind, proto.Fixed32Kind:
-		convertData := *(*int32)(unsafe.Pointer(&v))
-
+	case proto.Int32Kind:
+		convertData := int32(v)
 		if err = self.p.WriteInt32(convertData); err != nil {
 			return err
 		}
+	case proto.Sint32Kind:
+		convertData := int32(v)
+		if err = self.p.WriteSint32(convertData); err != nil {
+			return err
+		}
+	case proto.Sfixed32Kind:
+		convertData := int32(v)
+		if err = self.p.WriteSfixed32(convertData); err != nil {
+			return err
+		}
+	case proto.Fixed32Kind:
+		convertData := uint32(v)
+		if err = self.p.WriteFixed32(convertData); err != nil {
+			return err
+		}
 	case proto.Uint32Kind:
-		convertData := *(*uint32)(unsafe.Pointer(&v))
+		convertData := uint32(v)
 		if err = self.p.WriteUint32(convertData); err != nil {
 			return err
 		}
 	case proto.Uint64Kind:
-		convertData := *(*uint64)(unsafe.Pointer(&v))
+		convertData := uint64(v)
 		if err = self.p.WriteUint64(convertData); err != nil {
 			return err
 		}
@@ -280,12 +305,28 @@ func (self *visitorUserNode) OnInt64(v int64, n json.Number) error {
 		if err = self.p.WriteInt64(v); err != nil {
 			return err
 		}
+	case proto.Sint64Kind:
+		if err = self.p.WriteSint64(v); err != nil {
+			return err
+		}
+	case proto.Sfixed64Kind:
+		if err = self.p.WriteSfixed64(v); err != nil {
+			return err
+		}
+	case proto.Fixed64Kind:
+		convertData := uint64(v)
+		if err = self.p.WriteFixed64(convertData); err != nil {
+			return err
+		}
+	// cast int2float, int2double
 	case proto.FloatKind:
-		if err = self.p.WriteFloat(float32(v)); err != nil {
+		convertData := float32(v)
+		if err = self.p.WriteFloat(convertData); err != nil {
 			return err
 		}
 	case proto.DoubleKind:
-		if err = self.p.WriteDouble(float64(v)); err != nil {
+		convertData := float64(v)
+		if err = self.p.WriteDouble(convertData); err != nil {
 			return err
 		}
 
@@ -311,36 +352,33 @@ func (self *visitorUserNode) OnFloat64(v float64, n json.Number) error {
 	if self.globalFieldDesc == nil && top.typ == arrStkType {
 		fieldDesc = top.state.fieldDesc
 	}
-	switch fieldDesc.Kind() {
-	case proto.FloatKind:
-		convertData := *(*float32)(unsafe.Pointer(&v))
+
+	// packed list no need to write tag
+	if !fieldDesc.Type().IsList() {
 		if err = self.p.AppendTagByKind(fieldDesc.Number(), fieldDesc.Kind()); err != nil {
 			return err
 		}
+	}
+
+	switch fieldDesc.Kind() {
+	case proto.FloatKind:
+		convertData := float32(v)
 		if err = self.p.WriteFloat(convertData); err != nil {
 			return err
 		}
 	case proto.DoubleKind:
-		convertData := *(*float64)(unsafe.Pointer(&v))
-		if err = self.p.AppendTagByKind(fieldDesc.Number(), fieldDesc.Kind()); err != nil {
-			return err
-		}
+		convertData := v
 		if err = self.p.WriteDouble(convertData); err != nil {
 			return err
 		}
+	// cast double2int32, double2int64
 	case proto.Int32Kind:
 		convertData := int32(v)
-		if err = self.p.AppendTagByKind(fieldDesc.Number(), fieldDesc.Kind()); err != nil {
-			return err
-		}
 		if err = self.p.WriteInt32(convertData); err != nil {
 			return err
 		}
 	case proto.Int64Kind:
 		convertData := int64(v)
-		if err = self.p.AppendTagByKind(fieldDesc.Number(), fieldDesc.Kind()); err != nil {
-			return err
-		}
 		if err = self.p.WriteInt64(convertData); err != nil {
 			return err
 		}
@@ -395,7 +433,7 @@ func (self *visitorUserNode) OnObjectBegin(capacity int) error {
 // MapKey maybe int32/sint32/uint32/uint64 etc....
 func (self *visitorUserNode) encodeMapKey(key string, t proto.Type) error {
 	switch t {
-	case proto.INT32, proto.SINT32, proto.SFIX32, proto.FIX32:
+	case proto.INT32:
 		t, _ := strconv.ParseInt(key, 10, 32)
 		if err := self.p.WriteInt32(int32(t)); err != nil {
 			return err
@@ -476,7 +514,7 @@ func (self *visitorUserNode) OnObjectKey(key string) error {
 			// case MapKey, write PairTag、PairLen、MapKeyTag、MapKeyLen、MapKeyData, push MapDesc into stack
 
 			// encode PairTag、PairLen
-			fd := top.state.fieldDesc;
+			fd := top.state.fieldDesc
 			if err := self.p.AppendTag(fd.Number(), proto.BytesType); err != nil {
 				return newError(meta.ErrWrite, fmt.Sprintf("field '%s' encode pair tag faield", fd.Name()), err)
 			}
