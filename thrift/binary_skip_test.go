@@ -1,6 +1,3 @@
-//go:build amd64 && go1.16
-// +build amd64,go1.16
-
 /**
  * Copyright 2023 ByteDance Inc.
  *
@@ -53,7 +50,6 @@ func TestSkip(t *testing.T) {
 	r.NoError(e2)
 	r.Equal(len(data), p.Read)
 }
-
 
 func BenchmarkSkipNoCheck(b *testing.B) {
 	desc := getExampleDesc()
