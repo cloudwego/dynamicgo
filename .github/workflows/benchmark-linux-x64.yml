@@ -6,7 +6,7 @@ jobs:
   build:
     strategy:
       matrix:
-        go-version: [1.18.x]
+        go-version: [1.19.x]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -28,7 +28,7 @@ jobs:
           cd testdata/test
           go test -race -v ./...
 
-      - name: Benchmark sonic
+      - name: Benchmark
         run: |
           cd testdata/test
-          go test -benchmem -run=^$ -bench . 
+          go test -benchmem -run=^$ -bench .
