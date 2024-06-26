@@ -2025,149 +2025,16 @@ func (p *BinaryProtocol) WriteAnyWithDesc(desc *TypeDescriptor, val interface{},
 	}
 }
 
-var typeSize = [256]int{
-	STOP:   -1,
-	VOID:   -1,
-	BOOL:   1,
-	I08:    1,
-	I16:    2,
-	I32:    4,
-	I64:    8,
-	DOUBLE: 8,
-	STRING: -1,
-	STRUCT: -1,
-	MAP:    -1,
-	SET:    -1,
-	LIST:   -1,
-	UTF8:   -1,
-	UTF16:  -1,
-}
-
-// TypeSize returns the size of the given type.
-// -1 means variable size (LIST, SET, MAP, STRING)
-// 0 means unknown type
-func TypeSize(t Type) int {
-	return typeSize[t]
-}
-
-// SkipGo skips over the value for the given type using Go implementation.
-func (p *BinaryProtocol) SkipGo(fieldType Type, maxDepth int) (err error) {
-	if maxDepth <= 0 {
-		return errExceedDepthLimit
-	}
-	switch fieldType {
-	case BOOL:
-		_, err = p.ReadBool()
-		return
-	case BYTE:
-		_, err = p.ReadByte()
-		return
-	case I16:
-		_, err = p.ReadI16()
-		return
-	case I32:
-		_, err = p.ReadI32()
-		return
-	case I64:
-		_, err = p.ReadI64()
-		return
-	case DOUBLE:
-		_, err = p.ReadDouble()
-		return
-	case STRING:
-		_, err = p.ReadString(false)
-		return
-	case STRUCT:
-		// if _, err = p.ReadStructBegin(); err != nil {
-		// 	return err
-		// }
-		for {
-			_, typeId, _, _ := p.ReadFieldBegin()
-			if typeId == STOP {
-				break
-			}
-			//fastpath
-			if n := typeSize[typeId]; n > 0 {
-				p.Read += n
-				if p.Read > len(p.Buf) {
-					return io.EOF
-				}
-				continue
-			}
-			err := p.SkipGo(typeId, maxDepth-1)
-			if err != nil {
-				return err
-			}
-			p.ReadFieldEnd()
-		}
-		return p.ReadStructEnd()
-	case MAP:
-		keyType, valueType, size, err := p.ReadMapBegin()
-		if err != nil {
-			return err
-		}
-		//fastpath
-		if k, v := typeSize[keyType], typeSize[valueType]; k > 0 && v > 0 {
-			p.Read += (k + v) * size
-			if p.Read > len(p.Buf) {
-				return io.EOF
-			}
-		} else {
-			if size > len(p.Buf)-p.Read {
-				return errInvalidDataSize
-			}
-			for i := 0; i < size; i++ {
-				err := p.SkipGo(keyType, maxDepth-1)
-				if err != nil {
-					return err
-				}
-				err = p.SkipGo(valueType, maxDepth-1)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		return p.ReadMapEnd()
-	case SET, LIST:
-		elemType, size, err := p.ReadListBegin()
-		if err != nil {
-			return err
-		}
-		//fastpath
-		if v := typeSize[elemType]; v > 0 {
-			p.Read += v * size
-			if p.Read > len(p.Buf) {
-				return io.EOF
-			}
-		} else {
-			if size > len(p.Buf)-p.Read {
-				return errInvalidDataSize
-			}
-			for i := 0; i < size; i++ {
-				err := p.SkipGo(elemType, maxDepth-1)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		return p.ReadListEnd()
-	default:
-		return
-	}
-}
-
 // next ...
 func (p *BinaryProtocol) next(size int) ([]byte, error) {
 	if size <= 0 {
 		panic(errors.New("invalid size"))
 	}
-
 	l := len(p.Buf)
 	d := p.Read + size
 	if d > l {
 		return nil, io.EOF
 	}
-
 	ret := (p.Buf)[p.Read:d]
 	p.Read = d
 	return ret, nil
