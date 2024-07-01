@@ -153,7 +153,7 @@ func (self *BinaryConv) unmarshalSingular(ctx context.Context, resp http.Respons
 		if e != nil {
 			return wrapError(meta.ErrRead, "unmarshal Int64kind error", e)
 		}
-		if self.opts.String2Int64 {
+		if self.opts.Int642String {
 			*out = append(*out, '"')
 			*out = json.EncodeInt64(*out, int64(v))
 			*out = append(*out, '"')

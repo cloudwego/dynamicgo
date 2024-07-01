@@ -63,10 +63,10 @@ type Options struct {
 	//   and this field WON'T appear in JSON
 	EnableThriftBase bool
 
-	// String2Int64 indicates if string value cane be read as **Int8/Int16/Int32/Int64/Float64**,
+	// String2Int64 indicates if string value can be written as **Int8/Int16/Int32/Int64/Float64**,
 	String2Int64 bool
 
-	// Int642Stringin indicates if a int64 value a **Int64** value can be written as string
+	// Int642String indicates if a **Int64** field can be read as string
 	Int642String bool
 
 	// NoBase64Binary indicates if base64 string should be Encode/Decode as []byte
