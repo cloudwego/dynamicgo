@@ -36,6 +36,8 @@ var (
 	CtxKeyThriftReqBase = &ContextKey{}
 	// CtxKeyConvOptions is the key for Options in context
 	CtxKeyConvOptions = &ContextKey{}
+	// CtxKeyStreaming is the key for streaming in context
+	CtxKeyStreaming = &ContextKey{}
 )
 
 var (
