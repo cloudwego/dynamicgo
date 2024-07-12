@@ -109,6 +109,8 @@ exec:
 ret:
 	types.FreeJ2TStateMachine(fsm)
 	runtime.KeepAlive(desc)
+	runtime.KeepAlive(src)
+	runtime.KeepAlive(buf)
 	return
 }
 
