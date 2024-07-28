@@ -28,3 +28,7 @@ require (
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/bytedance/sonic/loader => /Users/admin/GOPATH/work/sonic/loader
+
+replace github.com/bytedance/sonic => /Users/admin/GOPATH/work/sonic

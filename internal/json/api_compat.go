@@ -22,25 +22,19 @@ import (
 	"strconv"
 	"unicode/utf8"
 	_ "unsafe"
+
+	"github.com/cloudwego/dynamicgo/internal/rt"
 )
 
 func NoQuote(buf *[]byte, val string) {
 	quoteString(buf, val)
 }
 
-var (
-	//go:linkname safeSet encoding/json.safeSet
-	safeSet [utf8.RuneSelf]bool
-
-	//go:linkname hex encoding/json.hex
-	hex string
-)
-
 func quoteString(e *[]byte, s string) {
 	start := 0
 	for i := 0; i < len(s); {
 		if b := s[i]; b < utf8.RuneSelf {
-			if safeSet[b] {
+			if rt.SafeSet[b] {
 				i++
 				continue
 			}
@@ -64,8 +58,8 @@ func quoteString(e *[]byte, s string) {
 				// user-controlled strings are rendered into JSON
 				// and served to some browsers.
 				*e = append(*e, `u00`...)
-				*e = append(*e, hex[b>>4])
-				*e = append(*e, hex[b&0xF])
+				*e = append(*e, rt.Hex[b>>4])
+				*e = append(*e, rt.Hex[b&0xF])
 			}
 			i++
 			start = i
@@ -86,7 +80,7 @@ func quoteString(e *[]byte, s string) {
 				*e = append(*e, s[start:i]...)
 			}
 			*e = append(*e, `\u202`...)
-			*e = append(*e, hex[c&0xF])
+			*e = append(*e, rt.Hex[c&0xF])
 			i += size
 			start = i
 			continue
