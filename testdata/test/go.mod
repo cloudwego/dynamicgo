@@ -15,13 +15,14 @@ require (
 )
 
 require (
-	github.com/bytedance/gopkg v0.0.0-20230728082804-614d0af6619b // indirect
+	github.com/bytedance/gopkg v0.0.0-20240711085056-a03554c296f8 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
 	github.com/choleraehyq/pid v0.0.18 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/configmanager v0.2.2 // indirect
 	github.com/cloudwego/fastpb v0.0.4 // indirect
 	github.com/cloudwego/frugal v0.1.15 // indirect
+	github.com/cloudwego/gopkg v0.0.0-20240725095015-34d5327eebca // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/cloudwego/netpoll v0.6.0 // indirect
 	github.com/cloudwego/thriftgo v0.3.6 // indirect
