@@ -4,8 +4,8 @@ go 1.17
 
 require (
 	github.com/apache/thrift v0.13.0
-	github.com/bytedance/sonic v1.11.8
-	github.com/bytedance/sonic/loader v0.1.1
+	github.com/bytedance/sonic v1.12.0
+	github.com/bytedance/sonic/loader v0.2.0
 	github.com/cloudwego/base64x v0.1.4
 	github.com/cloudwego/fastpb v0.0.4
 	github.com/cloudwego/thriftgo v0.3.6
@@ -28,7 +28,3 @@ require (
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/bytedance/sonic/loader => /Users/admin/GOPATH/work/sonic/loader
-
-replace github.com/bytedance/sonic => /Users/admin/GOPATH/work/sonic
