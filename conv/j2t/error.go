@@ -192,3 +192,22 @@ func locateInput(in []byte, ip int) string {
 	}
 	return je.Locate()
 }
+
+func makePanicMsg(msg interface{}, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, flags uint64, fsm *types.J2TStateMachine, ret uint64) string {
+	var re string 
+	if rt, ok := req.(*http.HTTPRequest); ok {
+		re = fmt.Sprintf("%v", rt)
+	}
+	return fmt.Sprintf(`%v
+Flags: %b
+JSON: %s
+Buf: %v
+<FSM>
+%s
+</FSM>
+Desc: %s
+<Request>
+%s
+</Request>
+Ret: %x`, msg, flags, string(src), *buf, fsm.String(), desc.Name(), re, ret)
+}

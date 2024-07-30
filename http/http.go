@@ -18,6 +18,7 @@ package http
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -89,6 +90,13 @@ type HTTPRequest struct {
 	rawBody []byte
 	Params  Params
 	BodyMap interface{}
+}
+
+func (h *HTTPRequest) String() string {
+	return fmt.Sprintf(`URL: %s
+Headers: %v
+Body: %s
+BodyMap: %v`, h.URL.String(), h.Header, string(h.rawBody), h.BodyMap)
 }
 
 // NewHTTPRequest creates a new HTTPRequest.
