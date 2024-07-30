@@ -21,6 +21,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/cloudwego/gopkg/protocol/thrift/base"
+
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/internal/json"
@@ -28,7 +30,6 @@ import (
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
-	"github.com/cloudwego/dynamicgo/thrift/base"
 )
 
 const (
@@ -73,7 +74,7 @@ func (self *BinaryConv) readResponseBase(ctx context.Context, p *thrift.BinaryPr
 func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, out *[]byte, resp http.ResponseSetter) (err error) {
 	//NOTICE: output buffer must be larger than src buffer
 	rt.GuardSlice(out, len(src)*_GUARD_SLICE_FACTOR)
-	
+
 	var p = thrift.BinaryProtocol{
 		Buf: src,
 	}
@@ -395,7 +396,7 @@ func (self *BinaryConv) handleUnsets(b *thrift.RequiresBitmap, desc *thrift.Stru
 		var ok = false
 		if hms := field.HTTPMappings(); self.opts.EnableHttpMapping && hms != nil {
 			// make a default thrift value
-			p := thrift.BinaryProtocol{Buf: make([]byte, 0, conv.DefaulHttpValueBufferSizeForJSON)};
+			p := thrift.BinaryProtocol{Buf: make([]byte, 0, conv.DefaulHttpValueBufferSizeForJSON)}
 			if err := p.WriteDefaultOrEmpty(field); err != nil {
 				return wrapError(meta.ErrWrite, fmt.Sprintf("encoding field '%s' default value failed", field.Name()), err)
 			}
@@ -517,10 +518,10 @@ func (self *BinaryConv) writeHttpValue(ctx context.Context, resp http.ResponseSe
 	var thriftVal []byte
 	var jsonVal []byte
 	var textVal []byte
-	
+
 	for _, hm := range field.HTTPMappings() {
 		var val []byte
-		enc := hm.Encoding();
+		enc := hm.Encoding()
 
 		if enc == meta.EncodingThriftBinary {
 			// raw encoding, check if raw value is set
@@ -543,10 +544,10 @@ func (self *BinaryConv) writeHttpValue(ctx context.Context, resp http.ResponseSe
 					return false, unwrapError(fmt.Sprintf("reading thrift value of '%s' failed, thrift pos:%d", field.Name(), p.Read), err)
 				}
 				val = tmp
-				textVal = val 
+				textVal = val
 			} else {
 				val = textVal
-			} 
+			}
 		} else if self.opts.UseKitexHttpEncoding {
 			// kitex http encoding fallback
 			if textVal == nil {
@@ -558,7 +559,7 @@ func (self *BinaryConv) writeHttpValue(ctx context.Context, resp http.ResponseSe
 				val = textVal
 			} else {
 				val = textVal
-			} 
+			}
 		} else if enc == meta.EncodingJSON {
 			// for nested type, convert it to a new JSON string
 			if jsonVal == nil {
@@ -572,7 +573,7 @@ func (self *BinaryConv) writeHttpValue(ctx context.Context, resp http.ResponseSe
 			} else {
 				val = jsonVal
 			}
-			
+
 		} else {
 			return false, wrapError(meta.ErrConvert, fmt.Sprintf("unsuported http-value encoding %v of field '%s'", enc, field.Name()), nil)
 		}

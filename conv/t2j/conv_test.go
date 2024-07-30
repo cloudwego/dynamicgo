@@ -31,6 +31,8 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/cloudwego/gopkg/protocol/thrift/base"
+
 	sjson "github.com/bytedance/sonic/ast"
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
@@ -40,7 +42,6 @@ import (
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/example3"
 	"github.com/cloudwego/dynamicgo/thrift"
 	"github.com/cloudwego/dynamicgo/thrift/annotation"
-	"github.com/cloudwego/dynamicgo/thrift/base"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -687,7 +688,7 @@ func TestSimpleArgs(t *testing.T) {
 
 func TestConvThrift2HTTP_KitexApiHeader(t *testing.T) {
 	// annotation.RegisterHttpMaping(annotation.APIHeader, annotation.HttpMapingHandler{Req:annotation.ApiHeaderRequest, Resp:annotation.ApiheaderKitexResponse, Enc:annotation.ApiHeaderKitexEncoding})
-	
+
 	desc := thrift.FnResponse(thrift.GetFnDescFromFile("testdata/idl/example3.thrift", "JSONStringMethod", thrift.Options{}))
 	exp := example3.NewExampleJSONString()
 	eobj := &example3.JSONObject{
@@ -705,7 +706,7 @@ func TestConvThrift2HTTP_KitexApiHeader(t *testing.T) {
 		EnableHttpMapping:      true,
 		WriteHttpValueFallback: true,
 		OmitHttpMappingErrors:  true,
-		UseKitexHttpEncoding: true,
+		UseKitexHttpEncoding:   true,
 	})
 	ctx := context.Background()
 	resp := http.NewHTTPResponse()

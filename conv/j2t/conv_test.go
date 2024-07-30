@@ -35,6 +35,8 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/cloudwego/gopkg/protocol/thrift/base"
+
 	sjson "github.com/bytedance/sonic/ast"
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
@@ -47,7 +49,6 @@ import (
 	"github.com/cloudwego/dynamicgo/testdata/sample"
 	"github.com/cloudwego/dynamicgo/thrift"
 	"github.com/cloudwego/dynamicgo/thrift/annotation"
-	"github.com/cloudwego/dynamicgo/thrift/base"
 	"github.com/stretchr/testify/require"
 )
 
@@ -80,19 +81,18 @@ const (
 )
 
 func TestCases(t *testing.T) {
-	var tests = []struct{
-		name string
-		idl string
+	var tests = []struct {
+		name     string
+		idl      string
 		includes map[string]string
-		js string
-		opt conv.Options
-		want interface{}
-		err error
+		js       string
+		opt      conv.Options
+		want     interface{}
+		err      error
 	}{
 		{
 			name: "int2double_vm",
-			idl: 
-`struct Req {
+			idl: `struct Req {
 	1: optional double body (api.js_conv=""), 
 }
 
@@ -101,16 +101,15 @@ service SVR {
 }	
 `,
 			includes: nil,
-			js: `{"body":"-1"}`,
-			opt: conv.Options{},
+			js:       `{"body":"-1"}`,
+			opt:      conv.Options{},
 			want: map[string]interface{}{
 				"body": float64(-1),
 			},
 		},
 		{
 			name: "int2double",
-			idl: 
-`struct Req {
+			idl: `struct Req {
 	1: optional double body, 
 }
 
@@ -119,8 +118,8 @@ service SVR {
 }	
 `,
 			includes: nil,
-			js: `{"body":-2}`,
-			opt: conv.Options{EnableValueMapping: true},
+			js:       `{"body":-2}`,
+			opt:      conv.Options{EnableValueMapping: true},
 			want: map[string]interface{}{
 				"body": float64(-2),
 			},
@@ -153,7 +152,6 @@ service SVR {
 		})
 	}
 }
-
 
 func TestConvJSON2Thrift(t *testing.T) {
 	desc := getExampleDesc()
