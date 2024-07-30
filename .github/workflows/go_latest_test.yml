@@ -35,6 +35,7 @@ jobs:
           PWD=$(pwd)
           export GOROOT=$PWD/go1.23
           export PATH=$GOROOT/bin:$PATH
+          go version
           go test -race github.com/cloudwego/dynamicgo/thrift
           go test -race github.com/cloudwego/dynamicgo/thrift/annotation
           go test -race github.com/cloudwego/dynamicgo/thrift/generic
