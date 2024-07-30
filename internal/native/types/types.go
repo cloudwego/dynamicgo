@@ -207,11 +207,12 @@ type J2TState struct {
 	Extra    J2TExtra
 }
 
+//go:nocheckptr
 func (s J2TState) String() string {
 	name := ""
 	typ := 0
-	desc := (*tTypeDesc)(unsafe.Pointer(s.TypeDesc))
-	if desc != nil {
+	if s.TypeDesc != 0 {
+		desc := (*tTypeDesc)(unsafe.Pointer(s.TypeDesc))
 		name = desc.name
 		typ = int(desc.ttype)
 	}
