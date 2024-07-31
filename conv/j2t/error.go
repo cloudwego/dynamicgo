@@ -55,7 +55,7 @@ func getJ2TExtraStruct(fsm *types.J2TStateMachine, offset int) (td *thrift.TypeD
 }
 
 func (self BinaryConv) handleError(ctx context.Context, fsm *types.J2TStateMachine, buf *[]byte, src []byte, req http.RequestGetter, ret uint64, top bool) (cont bool, err error) {
-	e := types.ParsingError(ret & ((1 << types.ERR_WRAP_SHIFT_CODE) - 1))
+	e := getErrCode(ret)
 	p := int(ret >> types.ERR_WRAP_SHIFT_CODE)
 
 	switch e {
@@ -131,12 +131,25 @@ func (self BinaryConv) handleError(ctx context.Context, fsm *types.J2TStateMachi
 		}
 	}
 
-	return false, explainNativeError(e, src, p)
+	return false, explainNativeError(ret, src)
 }
 
-func explainNativeError(e types.ParsingError, in []byte, v int) error {
-	ip := v & ((1 << types.ERR_WRAP_SHIFT_POS) - 1)
-	v = v >> types.ERR_WRAP_SHIFT_POS
+func getPos(e uint64) int {
+	return int(e >> types.ERR_WRAP_SHIFT_CODE) & ((1 << types.ERR_WRAP_SHIFT_POS) - 1)
+}
+
+func getErrCode(e uint64) types.ParsingError {
+	return types.ParsingError(e & ((1 << types.ERR_WRAP_SHIFT_CODE) - 1))
+}
+
+func getValue(e uint64) int {
+	return int(e >> (types.ERR_WRAP_SHIFT_CODE + types.ERR_WRAP_SHIFT_POS))
+}
+
+func explainNativeError(ret uint64, in []byte) error {
+	ip := getPos(ret)
+	v := getValue(ret)
+	e := getErrCode(ret)
 	switch e {
 	case types.ERR_INVALID_CHAR:
 		ch, st := v>>types.ERR_WRAP_SHIFT_CODE, v&((1<<types.ERR_WRAP_SHIFT_CODE)-1)
@@ -178,4 +191,23 @@ func locateInput(in []byte, ip int) string {
 		Src: string(in),
 	}
 	return je.Locate()
+}
+
+func makePanicMsg(msg interface{}, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, flags uint64, fsm *types.J2TStateMachine, ret uint64) string {
+	var re string 
+	if rt, ok := req.(*http.HTTPRequest); ok {
+		re = fmt.Sprintf("%v", rt)
+	}
+	return fmt.Sprintf(`%v
+Flags: %b
+JSON: %s
+Buf: %v
+<FSM>
+%s
+</FSM>
+Desc: %s
+<Request>
+%s
+</Request>
+Ret: %x`, msg, flags, string(src), *buf, fsm.String(), desc.Name(), re, ret)
 }

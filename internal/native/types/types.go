@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"sync"
 	"unsafe"
-
 )
 
 const (
@@ -174,6 +173,10 @@ type JsonState struct {
 	Dcap int
 }
 
+func (s JsonState) String() string {
+	return fmt.Sprintf(`{Vt: %d, Dv: %f, Iv: %d, Ep: %d}`, s.Vt, s.Dv, s.Iv, s.Ep)
+}
+
 type StateMachine struct {
 	Sp int
 	Vt [MAX_RECURSE]int64
@@ -203,6 +206,27 @@ type J2TState struct {
 	TypeDesc uintptr
 	Extra    J2TExtra
 }
+
+//go:nocheckptr
+func (s J2TState) String() string {
+	name := ""
+	typ := 0
+	if s.TypeDesc != 0 {
+		desc := (*tTypeDesc)(unsafe.Pointer(s.TypeDesc))
+		name = desc.name
+		typ = int(desc.ttype)
+	}
+	return fmt.Sprintf("{State: %x, JsonPos: %d, TypeDesc: %s(%d), Extra:%v}", s.State, s.JsonPos, name, typ, s.Extra)
+}
+
+type tTypeDesc struct
+{
+    ttype uint8;
+    name string;
+    key *tTypeDesc;
+    elem *tTypeDesc;
+    st unsafe.Pointer;
+};
 
 func (self *J2TState) TdPointer() uintptr {
 	return uintptr(self.TypeDesc)
@@ -253,6 +277,31 @@ type J2TStateMachine struct {
 	SM              StateMachine
 	FieldCache      []int32
 	FieldValueCache FieldValue
+}
+
+func (fsm *J2TStateMachine) String() string {
+	var vt1 *J2TState
+	if fsm.SP > 0 {
+		vt1 = &fsm.VT[fsm.SP-1]
+	}
+	var vt2 *J2TState
+	if fsm.SP > 1 {
+		vt2 = &fsm.VT[fsm.SP-2]
+	}
+	var svt int64
+	if fsm.SM.Sp > 0 {
+		svt = fsm.SM.Vt[fsm.SM.Sp-1]
+	}
+	return fmt.Sprintf(`SP: %d
+JsonState: %v
+VT[SP-1]: %v
+VT[SP-2]: %v
+SM.SP: %d
+SM.VT[SP-1]: %x
+ReqsCache: %v
+KeyCache: %s
+FieldCache: %v
+FieldValue: %#v`, fsm.SP, fsm.JT, vt1, vt2, fsm.SM.Sp, svt, fsm.ReqsCache, fsm.KeyCache, fsm.FieldCache, fsm.FieldValueCache)
 }
 
 type FieldValue struct {

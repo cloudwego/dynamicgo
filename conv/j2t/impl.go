@@ -91,22 +91,29 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 }
 
 func (self *BinaryConv) doNative(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool) (err error) {
-	jp := rt.Mem2Str(src)
 	fsm := types.NewJ2TStateMachine()
+	var ret uint64
+	defer func() {
+		if msg := recover(); msg != nil {
+			panic(makePanicMsg(msg, src, desc, buf, req, self.flags, fsm, ret))
+		}
+	}()
+
+	jp := rt.Mem2Str(src)
 	fsm.Init(0, unsafe.Pointer(desc))
 
 exec:
-	ret := native.J2T_FSM(fsm, buf, &jp, self.flags)
+	ret = native.J2T_FSM(fsm, buf, &jp, self.flags)
 	if ret != 0 {
 		cont, e := self.handleError(ctx, fsm, buf, src, req, ret, top)
 		if cont && e == nil {
 			goto exec
 		}
 		err = e
-		goto ret
+		goto final
 	}
 
-ret:
+final:
 	types.FreeJ2TStateMachine(fsm)
 	runtime.KeepAlive(desc)
 	runtime.KeepAlive(src)

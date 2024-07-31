@@ -171,6 +171,32 @@ func TestConvJSON2Thrift(t *testing.T) {
 	require.Equal(t, exp, act)
 }
 
+func TestPanicRecover(t *testing.T) {
+	desc := getExampleDesc()
+	data := getExampleData()
+	exp := example3.NewExampleReq()
+	err := json.Unmarshal(data, exp)
+	require.Nil(t, err)
+	req := getExampleReq(exp, true, data)
+	cv := NewBinaryConv(conv.Options{
+		EnableHttpMapping: true,
+	})
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
+	buf := make([]byte, 0, 1)
+	mock := MockConv{
+		panic:2,
+	}
+	defer func() {
+		if v := recover(); v == nil {
+			t.Fatal("not panic")
+		} else {
+			t.Log(v)
+		}
+	}()
+	_ = mock.do(&cv, ctx, data, desc, &buf, req, true)
+}
+
 func TestConvHTTP2Thrift(t *testing.T) {
 	desc := getExampleDesc()
 	data := getExampleData()
@@ -683,7 +709,6 @@ func TestError(t *testing.T) {
 			sp:        types.MAX_RECURSE + 1,
 			reqsCache: 1,
 			keyCache:  1,
-			dcap:      800,
 		}
 		err := mock.do(&cv, ctx, src, desc, &buf, nil, true)
 		require.Error(t, err)
@@ -724,8 +749,8 @@ type MockConv struct {
 	sp        int
 	reqsCache int
 	keyCache  int
-	dcap      int
-	fc        int
+	fieldCache        int
+	panic     int 
 }
 
 func (mock *MockConv) Do(self *BinaryConv, ctx context.Context, desc *thrift.TypeDescriptor, jbytes []byte) (tbytes []byte, err error) {
@@ -759,26 +784,46 @@ func (mock *MockConv) Do(self *BinaryConv, ctx context.Context, desc *thrift.Typ
 func (mock MockConv) do(self *BinaryConv, ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool) (err error) {
 	flags := toFlags(self.opts)
 	jp := rt.Mem2Str(src)
-	tmp := make([]byte, 0, mock.dcap)
-	fsm := &types.J2TStateMachine{
-		SP: mock.sp,
-		JT: types.JsonState{
-			Dbuf: *(**byte)(unsafe.Pointer(&tmp)),
-			Dcap: mock.dcap,
-		},
-		ReqsCache:  make([]byte, 0, mock.reqsCache),
-		KeyCache:   make([]byte, 0, mock.keyCache),
-		SM:         types.StateMachine{},
-		VT:         [types.MAX_RECURSE]types.J2TState{},
-		FieldCache: make([]int32, 0, mock.fc),
+	// tmp := make([]byte, 0, mock.dcap)
+	fsm := types.NewJ2TStateMachine()
+	if mock.reqsCache != 0 {
+		fsm.ReqsCache = make([]byte, 0, mock.reqsCache)
 	}
+	if mock.keyCache != 0 {
+		fsm.KeyCache = make([]byte, 0, mock.keyCache)
+	}
+	if mock.fieldCache != 0 {
+		fsm.FieldCache = make([]int32, 0, mock.fieldCache)
+	}
+	// fsm := &types.J2TStateMachine{
+	// 	SP: mock.sp,
+	// 	JT: types.JsonState{
+	// 		Dbuf: *(**byte)(unsafe.Pointer(&tmp)),
+	// 		Dcap: mock.dcap,
+	// 	},
+	// 	ReqsCache:  make([]byte, 0, mock.reqsCache),
+	// 	KeyCache:   make([]byte, 0, mock.keyCache),
+	// 	SM:         types.StateMachine{},
+	// 	VT:         [types.MAX_RECURSE]types.J2TState{},
+	// 	FieldCache: make([]int32, 0, mock.fc),
+	// }
 	fsm.Init(0, unsafe.Pointer(desc))
 	if mock.sp != 0 {
 		fsm.SP = mock.sp
 	}
+	var ret uint64
+	defer func() {
+		if msg := recover(); msg != nil {
+			panic(makePanicMsg(msg, src, desc, buf, req, self.flags, fsm, ret))
+		}
+	}()
 
 exec:
-	ret := native.J2T_FSM(fsm, buf, &jp, flags)
+    mock.panic -= 1
+	if mock.panic == 0 {
+		panic("test!")
+	}
+	ret = native.J2T_FSM(fsm, buf, &jp, flags)
 	if ret != 0 {
 		cont, e := self.handleError(ctx, fsm, buf, src, req, ret, top)
 		if cont && e == nil {
@@ -807,7 +852,6 @@ func TestStateMachineOOM(t *testing.T) {
 		sp:        0,
 		reqsCache: 1,
 		keyCache:  1,
-		dcap:      800,
 	}
 	err := mock.do(&cv, ctx, src, desc, &buf, nil, true)
 	require.Nil(t, err)
@@ -844,8 +888,7 @@ func TestStateMachineOOM(t *testing.T) {
 			sp:        1,
 			reqsCache: 1,
 			keyCache:  1,
-			dcap:      800,
-			fc:        0,
+			fieldCache:        0,
 		}
 		cv := NewBinaryConv(conv.Options{
 			EnableHttpMapping:            true,

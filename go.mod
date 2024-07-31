@@ -4,8 +4,8 @@ go 1.17
 
 require (
 	github.com/apache/thrift v0.13.0
-	github.com/bytedance/sonic v1.11.8
-	github.com/bytedance/sonic/loader v0.1.1
+	github.com/bytedance/sonic v1.12.0
+	github.com/bytedance/sonic/loader v0.2.0
 	github.com/cloudwego/base64x v0.1.4
 	github.com/cloudwego/fastpb v0.0.4
 	github.com/cloudwego/thriftgo v0.3.6
@@ -25,6 +25,7 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
 	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

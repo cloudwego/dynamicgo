@@ -7,6 +7,9 @@ Dynamic-Go for Thrift protocol: [introduction.md](introduction.md).
 Dynamic-Go for Protobuf protocol: [introduction.md](./proto/INTRODUCTION.md)
 
 ## Usage
+
+[![GoDoc](https://godoc.org/github.com/cloudwego/dynamicgo?status.svg)](https://pkg.go.dev/github.com/cloudwego/dynamicgo?tab=doc)
+
 ### thrift
 Thrift IDL parser and message operators. It can parse thrift IDL in runtime and handle thrift data in generic way.
 [DOC](thrift/README.md)

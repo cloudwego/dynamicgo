@@ -1,0 +1,48 @@
+name: Go Latest
+
+on: push
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [arm, X64]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Clear repository
+        run: sudo rm -fr $GITHUB_WORKSPACE && mkdir $GITHUB_WORKSPACE
+
+      - uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.22.4
+
+      - uses: actions/cache@v2
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: build go
+        run: sh ./scripts/go_latest.sh go1.23
+        continue-on-error: true
+
+      - name: test
+        run: |
+          PWD=$(pwd)
+          export GOROOT=$PWD/go1.23
+          export PATH=$GOROOT/bin:$PATH
+          go version
+          go test -race github.com/cloudwego/dynamicgo/thrift
+          go test -race github.com/cloudwego/dynamicgo/thrift/annotation
+          go test -race github.com/cloudwego/dynamicgo/thrift/generic
+          go test -race github.com/cloudwego/dynamicgo/conv/t2j
+          go test -race github.com/cloudwego/dynamicgo/http
+          go test -race github.com/cloudwego/dynamicgo/internal/json
+          go test -race github.com/cloudwego/dynamicgo/conv/j2p
+          go test -race github.com/cloudwego/dynamicgo/conv/p2j
+          go test -race github.com/cloudwego/dynamicgo/proto/generic
+
