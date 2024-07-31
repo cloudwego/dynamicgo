@@ -25,6 +25,10 @@ const (
 	exampleProtoPath = "../../testdata/data/example3_pb.bin"
 )
 
+func init() {
+	generateBinaryData() // for generating exampleProtoPath
+}
+
 // parse protofile to get MessageDescriptor
 func getExample3Desc() *proto.TypeDescriptor {
 	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.

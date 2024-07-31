@@ -28,18 +28,12 @@ import (
 	"sync"
 	"testing"
 
-	athrift "github.com/apache/thrift/lib/go/thrift"
 	"github.com/bytedance/sonic"
 	json "github.com/bytedance/sonic/ast"
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/conv/j2t"
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/baseline"
-	"github.com/cloudwego/kitex/pkg/generic"
-	"github.com/cloudwego/kitex/pkg/generic/descriptor"
-	gthrift "github.com/cloudwego/kitex/pkg/generic/thrift"
-	"github.com/cloudwego/kitex/pkg/remote"
-	bthrift "github.com/cloudwego/kitex/pkg/remote/codec/thrift"
 	"github.com/stretchr/testify/require"
 )
 
@@ -682,58 +676,6 @@ func TestHTTP2Thrift_Nesting_Parallel(t *testing.T) {
 
 const BufferSize = 4096
 
-func BenchmarkJSON2Thrift_KitexGeneric(b *testing.B) {
-	p, err := generic.NewThriftFileProvider(idlPath)
-	if err != nil {
-		b.Fatal(err)
-	}
-	svcDsc := <-p.Provide()
-
-	b.Run("small", func(b *testing.B) {
-		var _args generic.Args
-		_args.Method = "SimpleMethod"
-		_args.Request = simpleJSON
-		codec, err := gthrift.NewWriteJSON(svcDsc, "SimpleMethod", true)
-		if err != nil {
-			b.Fatal(err)
-		}
-		var mm = athrift.NewTMemoryBuffer()
-		bc := athrift.NewTBinaryProtocol(mm, false, true)
-		if err := codec.Write(context.Background(), bc, simpleJSON, nil); err != nil {
-			b.Fatal(err)
-		}
-
-		b.SetBytes(int64(len(mm.Bytes())))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			mm.Reset()
-			_ = codec.Write(context.Background(), bc, simpleJSON, nil)
-		}
-	})
-
-	b.Run("medium", func(b *testing.B) {
-		var _args generic.Args
-		_args.Method = "NestingMethod"
-		_args.Request = nestingJSON
-		codec, err := gthrift.NewWriteJSON(svcDsc, "NestingMethod", true)
-		if err != nil {
-			b.Fatal(err)
-		}
-		var mm = athrift.NewTMemoryBuffer()
-		bc := athrift.NewTBinaryProtocol(mm, false, true)
-		if err := codec.Write(context.Background(), bc, nestingJSON, nil); err != nil {
-			b.Fatal(err)
-		}
-
-		b.SetBytes(int64(len(mm.Bytes())))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			mm.Reset()
-			_ = codec.Write(context.Background(), bc, nestingJSON, nil)
-		}
-	})
-}
-
 func BenchmarkJSON2Thrift_SonicAndKitex(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		v := baseline.NewSimple()
@@ -893,91 +835,3 @@ func BenchmarkHTTP2Thrift_DynamicGo_Raw(b *testing.B) {
 // 	req.Body["Byte"] = int8(req.Body["Byte"].(int64))
 
 // }
-
-func BenchmarkHTTP2Thrift_KitexGeneric(b *testing.B) {
-	p, err := generic.NewThriftFileProvider(idlPath)
-	if err != nil {
-		b.Fatal(err)
-	}
-	svcDsc := <-p.Provide()
-	svcDsc.Functions["NestingMethod"].Request.Struct.FieldsByName["req"].Type.Struct.FieldsByName["Double"].HTTPMapping = nil
-
-	b.Run("small", func(b *testing.B) {
-		codec := gthrift.NewWriteHTTPRequest(svcDsc)
-		req := &descriptor.HTTPRequest{}
-		req.Request, err = stdh.NewRequest("POST", "/simple", nil)
-		if err != nil {
-			b.Fatal(err)
-		}
-		jc := sonic.Config{
-			UseInt64: true,
-		}.Froze()
-		if err := jc.UnmarshalFromString(simpleJSON, &req.Body); err != nil {
-			b.Fatal(err)
-		}
-		req.Body["I32Field"] = int32(req.Body["I32Field"].(int64))
-		req.Body["ByteField"] = int8(req.Body["ByteField"].(int64))
-
-		buf := remote.NewWriterBuffer(BufferSize)
-		bc := bthrift.NewBinaryProtocol(buf)
-		if err := codec.Write(context.Background(), bc, req, gthrift.NewBase()); err != nil {
-			b.Fatal(err)
-		}
-		out, _ := buf.Bytes()
-		exp := baseline.NewSimple()
-		if _, err := exp.FastRead(out); err != nil {
-			b.Fatal(err)
-		}
-
-		b.SetBytes(int64(len(out)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			buf := remote.NewWriterBuffer(BufferSize)
-			bc := bthrift.NewBinaryProtocol(buf)
-			if err = codec.Write(context.Background(), bc, req, gthrift.NewBase()); err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
-
-	// b.Run("medium", func(b *testing.B) {
-	// 	codec := gthrift.NewWriteHTTPRequest(svcDsc)
-	// 	jc := sonic.Config{
-	// 		UseInt64: true,
-	// 	}.Froze()
-	// 	var body map[string]interface{}
-	// 	if err := jc.UnmarshalFromString(nestingJSON, &body); err != nil {
-	// 		b.Fatal(err)
-	// 	}
-	// 	req := &descriptor.HTTPRequest{
-	// 		Header:  map[string][]string{},
-	// 		Query:   map[string][]string{},
-	// 		Cookies: map[string]string{},
-	// 	}
-	// 	req.Body = body
-	// 	getKitexHttpRequest(req)
-	// 	req.Method = "POST"
-	// 	req.Path = "/nesting"
-
-	// 	buf := remote.NewWriterBuffer(BufferSize)
-	// 	bc := bthrift.NewBinaryProtocol(buf)
-	// 	if err := codec.Write(context.Background(), bc, req, gthrift.NewBase()); err != nil {
-	// 		b.Fatal(err)
-	// 	}
-	// 	out, _ := buf.Bytes()
-	// 	exp := baseline.NewNesting()
-	// 	if _, err := exp.FastRead(out); err != nil {
-	// 		b.Fatal(err)
-	// 	}
-
-	// 	b.SetBytes(int64(len(out)))
-	// 	b.ResetTimer()
-	// 	for i := 0; i < b.N; i++ {
-	// 		buf := remote.NewWriterBuffer(BufferSize)
-	// 		bc := bthrift.NewBinaryProtocol(buf)
-	// 		if err = codec.Write(context.Background(), bc, req, gthrift.NewBase()); err != nil {
-	// 			b.Fatal(err)
-	// 		}
-	// 	}
-	// })
-}

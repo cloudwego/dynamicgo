@@ -27,7 +27,7 @@ func GetEmptyInnerBase3() *example3.InnerBase {
 	return &example3.InnerBase{
 		ListInt32:          []int32{},
 		MapStringString:    map[string]string{},
-		SetInt32_:          []int32{},
+		SetInt32:           []int32{},
 		MapInt32String:     map[int32]string{},
 		Binary:             []byte{},
 		MapInt8String:      map[int8]string{},
@@ -50,7 +50,7 @@ func GetInnerBase3() *example3.InnerBase {
 	in.Double = math.MaxFloat64
 	in.String_ = "hello"
 	in.ListInt32 = []int32{math.MinInt32, 0, math.MaxInt32}
-	in.SetInt32_ = []int32{math.MinInt32, 0, math.MaxInt32}
+	in.SetInt32 = []int32{math.MinInt32, 0, math.MaxInt32}
 	in.MapStringString = map[string]string{"a": "A", "c": "C", "b": "B"}
 	in.Foo = 1
 	in.MapInt8String = map[int8]string{1: "A", 2: "B", 3: "C"}

@@ -327,7 +327,7 @@ func TestGet(t *testing.T) {
 		require.Nil(t, err)
 		require.Equal(t, exp.InnerBase.MapStringString["b"], (mp1))
 		sp := a.Field(10)
-		checkHelper(t, exp.InnerBase.SetInt32_, sp.Node, "List")
+		checkHelper(t, exp.InnerBase.SetInt32, sp.Node, "List")
 		i, err := a.Field(11).Int()
 		require.Nil(t, err)
 		require.Equal(t, int64(exp.InnerBase.Foo), int64(i))
