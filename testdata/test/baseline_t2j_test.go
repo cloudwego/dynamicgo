@@ -18,7 +18,6 @@
 package test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	ejson "encoding/json"
@@ -32,8 +31,6 @@ import (
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/baseline"
 	"github.com/cloudwego/dynamicgo/thrift"
-	"github.com/cloudwego/kitex/pkg/generic"
-	gthrift "github.com/cloudwego/kitex/pkg/generic/thrift"
 	"github.com/stretchr/testify/require"
 )
 
@@ -260,7 +257,7 @@ func TestThrift2HTTP(t *testing.T) {
 		ls, err := json.Marshal(data.ListI64)
 		require.NoError(t, err)
 		data.ListI64 = nil
-		
+
 		require.Equal(t, data, v)
 		require.Equal(t, dstr, resp.Header.Get("String"))
 		require.Equal(t, int(di32), resp.StatusCode)
@@ -359,7 +356,7 @@ func TestThrift2HTTP_Parallel(t *testing.T) {
 				ls, err := json.Marshal(data.ListI64)
 				require.NoError(t, err)
 				data.ListI64 = nil
-				
+
 				require.Equal(t, data, v)
 				require.Equal(t, dstr, resp.Header.Get("String"))
 				require.Equal(t, int(di32), resp.StatusCode)
@@ -431,66 +428,6 @@ func wrapKitexGenericResponsePayload(in []byte) []byte {
 	p.WriteFieldEnd()
 	p.WriteStructEnd()
 	return p.Buf
-}
-
-func BenchmarkThrift2JSON_KitexGeneric(b *testing.B) {
-	p, err := generic.NewThriftFileProvider(idlPath)
-	if err != nil {
-		b.Fatal(err)
-	}
-	svcDsc := <-p.Provide()
-
-	b.Run("small", func(b *testing.B) {
-		codec := gthrift.NewReadJSON(svcDsc, false)
-		data := getSimpleValue()
-		in := make([]byte, data.BLength())
-		if err := data.FastWriteNocopy(in, nil); err <= 0 {
-			b.Fatal(err)
-		}
-		in = wrapKitexGenericRequestPayload(in)
-		var mm = athrift.NewStreamTransportR(bytes.NewBuffer(in))
-		bc := athrift.NewTBinaryProtocol(mm, false, false)
-		v, err := codec.Read(context.Background(), "SimpleMethod", bc)
-		if err != nil {
-			b.Fatal(err)
-		}
-		_ = v
-		// spew.Printf("%#+v\n", v)
-
-		b.SetBytes(int64(len(in)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			var mm = athrift.NewStreamTransportR(bytes.NewBuffer(in))
-			bc := athrift.NewTBinaryProtocol(mm, false, false)
-			_, _ = codec.Read(context.Background(), "SimpleMethod", bc)
-		}
-	})
-
-	b.Run("medium", func(b *testing.B) {
-		codec := gthrift.NewReadJSON(svcDsc, false)
-		data := getNestingValue()
-		in := make([]byte, data.BLength())
-		if err := data.FastWriteNocopy(in, nil); err <= 0 {
-			b.Fatal(err)
-		}
-		in = wrapKitexGenericRequestPayload(in)
-		mm := athrift.NewStreamTransportR(bytes.NewBuffer(in))
-		bc := athrift.NewTBinaryProtocol(mm, false, false)
-		v, err := codec.Read(context.Background(), "NestingMethod", bc)
-		if err != nil {
-			b.Fatal(err)
-		}
-		_ = v
-		// spew.Printf("%#+v\n", v)
-
-		b.SetBytes(int64(len(in)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			mm = athrift.NewStreamTransportR(bytes.NewBuffer(in))
-			bc = athrift.NewTBinaryProtocol(mm, false, false)
-			_, _ = codec.Read(context.Background(), "NestingMethod", bc)
-		}
-	})
 }
 
 func BenchmarkThrift2JSON_SonicAndKitex(b *testing.B) {
@@ -644,66 +581,6 @@ func BenchmarkThrift2HTTP_DynamicGo(t *testing.B) {
 		t.ResetTimer()
 		for i := 0; i < t.N; i++ {
 			_, err = cv.Do(ctx, desc, in)
-		}
-	})
-}
-
-func BenchmarkThrift2HTTP_KitexGeneric(b *testing.B) {
-	p, err := generic.NewThriftFileProvider(idlPath)
-	if err != nil {
-		b.Fatal(err)
-	}
-	svcDsc := <-p.Provide()
-
-	b.Run("small/http+value_mapping", func(b *testing.B) {
-		codec := gthrift.NewReadHTTPResponse(svcDsc)
-		data := getSimpleValue()
-		in := make([]byte, data.BLength())
-		if err := data.FastWriteNocopy(in, nil); err <= 0 {
-			b.Fatal(err)
-		}
-		in = wrapKitexGenericResponsePayload(in)
-		var mm = athrift.NewStreamTransportR(bytes.NewBuffer(in))
-		bc := athrift.NewTBinaryProtocol(mm, false, false)
-		v, err := codec.Read(context.Background(), "SimpleMethod", bc)
-		if err != nil {
-			b.Fatal(err)
-		}
-		_ = v
-		// spew.Printf("%#+v\n", v)
-
-		b.SetBytes(int64(len(in)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			var mm = athrift.NewStreamTransportR(bytes.NewBuffer(in))
-			bc := athrift.NewTBinaryProtocol(mm, false, false)
-			_, _ = codec.Read(context.Background(), "SimpleMethod", bc)
-		}
-	})
-
-	b.Run("medium/http+value_mapping", func(b *testing.B) {
-		codec := gthrift.NewReadHTTPResponse(svcDsc)
-		data := getNestingValue()
-		in := make([]byte, data.BLength())
-		if err := data.FastWriteNocopy(in, nil); err <= 0 {
-			b.Fatal(err)
-		}
-		in = wrapKitexGenericResponsePayload(in)
-		mm := athrift.NewStreamTransportR(bytes.NewBuffer(in))
-		bc := athrift.NewTBinaryProtocol(mm, false, false)
-		v, err := codec.Read(context.Background(), "NestingMethod", bc)
-		if err != nil {
-			b.Fatal(err)
-		}
-		_ = v
-		// spew.Printf("%#+v\n", v)
-
-		b.SetBytes(int64(len(in)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			mm = athrift.NewStreamTransportR(bytes.NewBuffer(in))
-			bc = athrift.NewTBinaryProtocol(mm, false, false)
-			_, _ = codec.Read(context.Background(), "NestingMethod", bc)
 		}
 	})
 }

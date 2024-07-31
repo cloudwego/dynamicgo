@@ -5,8 +5,8 @@ go 1.19
 require (
 	github.com/apache/thrift v0.20.0
 	github.com/bytedance/sonic v1.12.0
-	github.com/cloudwego/dynamicgo v0.2.6
-	github.com/cloudwego/kitex v0.9.3-rc2
+	github.com/cloudwego/dynamicgo v0.2.9
+	github.com/cloudwego/kitex v0.10.4-0.20240731031152-e2ff8eeacaed
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/json-iterator/go v1.1.12
 	github.com/stretchr/testify v1.9.0
@@ -15,16 +15,17 @@ require (
 )
 
 require (
-	github.com/bytedance/gopkg v0.0.0-20230728082804-614d0af6619b // indirect
+	github.com/bytedance/gopkg v0.0.0-20240711085056-a03554c296f8 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
-	github.com/choleraehyq/pid v0.0.18 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/configmanager v0.2.2 // indirect
 	github.com/cloudwego/fastpb v0.0.4 // indirect
 	github.com/cloudwego/frugal v0.1.15 // indirect
+	github.com/cloudwego/gopkg v0.0.0-20240731030152-5e0df5ad4e40 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
-	github.com/cloudwego/netpoll v0.6.0 // indirect
-	github.com/cloudwego/thriftgo v0.3.6 // indirect
+	github.com/cloudwego/netpoll v0.6.3 // indirect
+	github.com/cloudwego/runtimex v0.1.0 // indirect
+	github.com/cloudwego/thriftgo v0.3.15 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/pprof v0.0.0-20220608213341-c488b8fa1db3 // indirect
