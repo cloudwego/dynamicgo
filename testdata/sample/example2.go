@@ -54,7 +54,7 @@ func GetExample2Req() *example2.ExampleReq {
 	obj.InnerBase.Double = math.MaxFloat64
 	obj.InnerBase.String_ = "你好"
 	obj.InnerBase.ListInt32 = []int32{math.MinInt32, 0, math.MaxInt32}
-	obj.InnerBase.SetInt32_ = []int32{math.MinInt32, 0, math.MaxInt32}
+	obj.InnerBase.SetInt32 = []int32{math.MinInt32, 0, math.MaxInt32}
 	obj.InnerBase.MapStringString = map[string]string{"a": "A", "c": "C", "b": "B"}
 	obj.InnerBase.Foo = 1
 	obj.InnerBase.MapInt8String = map[int8]string{1: "A", 2: "B", 3: "C"}

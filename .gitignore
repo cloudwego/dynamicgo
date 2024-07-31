@@ -5,3 +5,8 @@ output
 *.dSYM
 *.profile
 *.txt
+
+
+# testdata/data/basic_example_pb.bin
+# testdata/data/basic_example_pb.bin
+*.bin

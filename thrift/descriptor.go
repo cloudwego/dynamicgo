@@ -19,7 +19,6 @@ package thrift
 import (
 	"fmt"
 
-	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/thriftgo/parser"
 )
@@ -112,16 +111,6 @@ func (p Type) IsInt() bool {
 // IsComplex tells if the type is one of STRUCT, MAP, SET, LIST
 func (p Type) IsComplex() bool {
 	return p == STRUCT || p == MAP || p == SET || p == LIST
-}
-
-// ToThriftTType converts Type to apache/thrift.TType
-func (p Type) ToThriftTType() thrift.TType {
-	return thrift.TType(p)
-}
-
-// FromThriftTType converts apache/thrift.TType to Type
-func FromThriftTType(t thrift.TType) Type {
-	return Type(t)
 }
 
 // TypeDescriptor is the runtime descriptor of a thrift type

@@ -1,5 +1,3 @@
-include "example.thrift"
-
 namespace go ref
 
 enum FOO {

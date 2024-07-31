@@ -314,9 +314,9 @@ func TestInt2String(t *testing.T) {
 	desc := getExampleInt2Float()
 	exp := example3.NewExampleInt2Float()
 	exp.Int32 = 1
-	exp.Int64 = 2
 	exp.Float64 = 3.14
-	exp.String_ = "hello"
+	exp.String_ = "hello" // json:"中文"
+	exp.Int64 = 2
 	exp.Subfix = 0.92653
 	ctx := context.Background()
 	in := make([]byte, exp.BLength())
@@ -324,17 +324,17 @@ func TestInt2String(t *testing.T) {
 
 	out, err := cv.Do(ctx, desc, in)
 	require.NoError(t, err)
-	require.Equal(t, `{"Int32":"1","Float64":"3.14","Int64":2,"Subfix":0.92653,"中文":"hello"}`, string(out))
+	require.Equal(t, `{"Int32":"1","Float64":"3.14","中文":"hello","Int64":2,"Subfix":0.92653}`, string(out))
 
 	cv.opts.EnableValueMapping = false
 	out, err = cv.Do(ctx, desc, in)
 	require.NoError(t, err)
-	require.Equal(t, (`{"Int32":1,"Float64":3.14,"Int64":2,"Subfix":0.92653,"中文":"hello"}`), string(out))
+	require.Equal(t, (`{"Int32":1,"Float64":3.14,"中文":"hello","Int64":2,"Subfix":0.92653}`), string(out))
 
 	cv.opts.Int642String = true
 	out, err = cv.Do(ctx, desc, in)
 	require.NoError(t, err)
-	require.Equal(t, (`{"Int32":1,"Float64":3.14,"Int64":"2","Subfix":0.92653,"中文":"hello"}`), string(out))
+	require.Equal(t, (`{"Int32":1,"Float64":3.14,"中文":"hello","Int64":"2","Subfix":0.92653}`), string(out))
 }
 
 func TestHttpMappingFallback(t *testing.T) {
@@ -687,7 +687,7 @@ func TestSimpleArgs(t *testing.T) {
 
 func TestConvThrift2HTTP_KitexApiHeader(t *testing.T) {
 	// annotation.RegisterHttpMaping(annotation.APIHeader, annotation.HttpMapingHandler{Req:annotation.ApiHeaderRequest, Resp:annotation.ApiheaderKitexResponse, Enc:annotation.ApiHeaderKitexEncoding})
-	
+
 	desc := thrift.FnResponse(thrift.GetFnDescFromFile("testdata/idl/example3.thrift", "JSONStringMethod", thrift.Options{}))
 	exp := example3.NewExampleJSONString()
 	eobj := &example3.JSONObject{
@@ -705,7 +705,7 @@ func TestConvThrift2HTTP_KitexApiHeader(t *testing.T) {
 		EnableHttpMapping:      true,
 		WriteHttpValueFallback: true,
 		OmitHttpMappingErrors:  true,
-		UseKitexHttpEncoding: true,
+		UseKitexHttpEncoding:   true,
 	})
 	ctx := context.Background()
 	resp := http.NewHTTPResponse()
