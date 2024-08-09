@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"path/filepath"
 	"testing"
 
 	"github.com/cloudwego/thriftgo/parser"
@@ -301,6 +302,25 @@ func TestOptionPutNameSpaceToAnnotation(t *testing.T) {
 	}
 	require.NotNil(t, ns)
 	require.Equal(t, ns.Values, []string{"py", "py.base", "go", "go.base"})
+}
+
+func TestOptionPutThriftFilenameToAnnotation(t *testing.T) {
+	path := filepath.Join("..", "testdata", "idl", "example.thrift")
+	opt := Options{PutThriftFilenameToAnnotation: true}
+	descriptor, err := opt.NewDescritorFromPath(context.Background(), path)
+	require.NoError(t, err)
+	method, err := descriptor.LookupFunctionByMethod("ExampleMethod")
+	require.NoError(t, err)
+	req := method.Request().Struct().Fields()[0].Type()
+	annos := req.Struct().Annotations()
+	var filename *parser.Annotation
+	for i, a := range annos {
+		if a.Key == FilenameAnnotationKey {
+			filename = &annos[i]
+			break
+		}
+	}
+	require.Equal(t, filename.Values, []string{path})
 }
 
 func TestNewFunctionDescriptorFromContent_absPath(t *testing.T) {

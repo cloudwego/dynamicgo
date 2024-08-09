@@ -83,6 +83,14 @@ type Options struct {
 	//      `namespace go base` will got ["go", "base"]
 	// NOTICE: at present, only StructDescriptor.Annotations() can get this
 	PutNameSpaceToAnnotation bool
+
+	// PutThriftFilenameToAnnotation indicates to extract the filename of one type
+	// and put it on the type's annotation. The annotion format is:
+	//   - Key: "thrift.filename" (== FilenameAnnotationKey)
+	//   - Values: pairs of Language and Name. for example:
+	//      `// path := /a/b/c.thrift` will got ["/a/b/c.thrift"]
+	// NOTICE: at present, only StructDescriptor.Annotations() can get this
+	PutThriftFilenameToAnnotation bool
 }
 
 // NewDefaultOptions creates a default Options.
@@ -557,6 +565,10 @@ func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache c
 		oannos := copyAnnotationValues(st.Annotations)
 		if opts.PutNameSpaceToAnnotation {
 			oannos = append(oannos, extractNameSpaceToAnnos(tree))
+		}
+
+		if opts.PutThriftFilenameToAnnotation {
+			oannos = append(oannos, extractThriftFilePathToAnnos(tree))
 		}
 
 		// inject previous annotations
