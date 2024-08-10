@@ -204,9 +204,13 @@ func (p BinaryProtocol) UnwrapBody() (string, TMessageType, int32, FieldID, []by
 		return name, rTyp, seqID, 0, nil, err
 	}
 	// read the success struct
-	_, _, structID, err := p.ReadFieldBegin()
+	_, typeId, structID, err := p.ReadFieldBegin()
 	if err != nil {
 		return name, rTyp, seqID, structID, nil, err
+	}
+	//empty response
+	if typeId == STOP {
+		return name, rTyp, seqID, structID, []byte{}, nil
 	}
 	// there's alway a struct stop by success struct
 	if p.Read > len(p.Buf)-1 {

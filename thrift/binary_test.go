@@ -171,3 +171,25 @@ func TestBinaryProtocol_WriteAny_ReadAny(t *testing.T) {
 		})
 	}
 }
+
+func TestBinaryUnwrap(t *testing.T) {
+	b := BinaryProtocol{
+		Buf:  nil,
+		Read: 0,
+	}
+	var i32 int32 = -2147418110
+	var methodName = "DummyNew"
+	b.WriteI32(i32)
+	b.WriteString(methodName)
+	b.WriteI32(1)
+	b.WriteByte(byte(STOP))
+
+	name, rType, _, _, bs, err := UnwrapBinaryMessage(b.Buf)
+
+	require.Equal(t, bs, []byte{})
+	require.Equal(t, name, methodName)
+	require.Equal(t, rType, REPLY)
+	var nilErr error
+	require.Equal(t, err, nilErr)
+
+}
