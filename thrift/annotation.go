@@ -440,6 +440,17 @@ func extractNameSpaceToAnnos(ast *parser.Thrift) parser.Annotation {
 	return ret
 }
 
+// FilenameAnnotationKey is used for Option.PutThriftFilenameToAnnotation
+const FilenameAnnotationKey = "thrift.filename"
+
+func extractThriftFilePathToAnnos(ast *parser.Thrift) parser.Annotation {
+	ret := parser.Annotation{
+		Key: FilenameAnnotationKey,
+	}
+	ret.Values = append(ret.Values, ast.GetFilename())
+	return ret
+}
+
 // injectAnnotation injects next annotation by appending.
 // NOTICE: the next annotation will be appended to the end of the current annotation.
 func injectAnnotations(origin *[]*parser.Annotation, next []parser.Annotation) error {
