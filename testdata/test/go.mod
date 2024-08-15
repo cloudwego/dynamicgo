@@ -4,14 +4,14 @@ go 1.19
 
 require (
 	github.com/apache/thrift v0.20.0
-	github.com/bytedance/sonic v1.12.0
-	github.com/cloudwego/dynamicgo v0.2.9
+	github.com/bytedance/sonic v1.12.1
+	github.com/cloudwego/dynamicgo v0.3.0
 	github.com/cloudwego/kitex v0.10.4-0.20240731031152-e2ff8eeacaed
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/json-iterator/go v1.1.12
 	github.com/stretchr/testify v1.9.0
 	github.com/thrift-iterator/go v0.0.0-20190402154806-9b5a67519118
-	google.golang.org/protobuf v1.28.1
+	google.golang.org/protobuf v1.34.2
 )
 
 require (
@@ -21,7 +21,7 @@ require (
 	github.com/cloudwego/configmanager v0.2.2 // indirect
 	github.com/cloudwego/fastpb v0.0.4 // indirect
 	github.com/cloudwego/frugal v0.1.15 // indirect
-	github.com/cloudwego/gopkg v0.0.0-20240731030152-5e0df5ad4e40 // indirect
+	github.com/cloudwego/gopkg v0.1.0 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/cloudwego/netpoll v0.6.3 // indirect
 	github.com/cloudwego/runtimex v0.1.0 // indirect
