@@ -15,7 +15,7 @@ require (
 	github.com/jhump/protoreflect v1.8.2
 	github.com/klauspost/cpuid/v2 v2.2.4
 	github.com/stretchr/testify v1.9.0
-	google.golang.org/protobuf v1.34.2
+	google.golang.org/protobuf v1.28.1
 )
 
 require (

@@ -11,7 +11,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/stretchr/testify v1.9.0
 	github.com/thrift-iterator/go v0.0.0-20190402154806-9b5a67519118
-	google.golang.org/protobuf v1.34.2
+	google.golang.org/protobuf v1.28.1
 )
 
 require (
