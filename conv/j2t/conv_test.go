@@ -80,19 +80,18 @@ const (
 )
 
 func TestCases(t *testing.T) {
-	var tests = []struct{
-		name string
-		idl string
+	var tests = []struct {
+		name     string
+		idl      string
 		includes map[string]string
-		js string
-		opt conv.Options
-		want interface{}
-		err error
+		js       string
+		opt      conv.Options
+		want     interface{}
+		err      error
 	}{
 		{
 			name: "int2double_vm",
-			idl: 
-`struct Req {
+			idl: `struct Req {
 	1: optional double body (api.js_conv=""), 
 }
 
@@ -101,16 +100,15 @@ service SVR {
 }	
 `,
 			includes: nil,
-			js: `{"body":"-1"}`,
-			opt: conv.Options{},
+			js:       `{"body":"-1"}`,
+			opt:      conv.Options{},
 			want: map[string]interface{}{
 				"body": float64(-1),
 			},
 		},
 		{
 			name: "int2double",
-			idl: 
-`struct Req {
+			idl: `struct Req {
 	1: optional double body, 
 }
 
@@ -119,8 +117,8 @@ service SVR {
 }	
 `,
 			includes: nil,
-			js: `{"body":-2}`,
-			opt: conv.Options{EnableValueMapping: true},
+			js:       `{"body":-2}`,
+			opt:      conv.Options{EnableValueMapping: true},
 			want: map[string]interface{}{
 				"body": float64(-2),
 			},
@@ -154,7 +152,6 @@ service SVR {
 	}
 }
 
-
 func TestConvJSON2Thrift(t *testing.T) {
 	desc := getExampleDesc()
 	data := getExampleData()
@@ -185,7 +182,7 @@ func TestPanicRecover(t *testing.T) {
 	ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, req)
 	buf := make([]byte, 0, 1)
 	mock := MockConv{
-		panic:2,
+		panic: 2,
 	}
 	defer func() {
 		if v := recover(); v == nil {
@@ -746,11 +743,11 @@ func TestFloat2Int(t *testing.T) {
 }
 
 type MockConv struct {
-	sp        int
-	reqsCache int
-	keyCache  int
-	fieldCache        int
-	panic     int 
+	sp         int
+	reqsCache  int
+	keyCache   int
+	fieldCache int
+	panic      int
 }
 
 func (mock *MockConv) Do(self *BinaryConv, ctx context.Context, desc *thrift.TypeDescriptor, jbytes []byte) (tbytes []byte, err error) {
@@ -819,7 +816,7 @@ func (mock MockConv) do(self *BinaryConv, ctx context.Context, src []byte, desc 
 	}()
 
 exec:
-    mock.panic -= 1
+	mock.panic -= 1
 	if mock.panic == 0 {
 		panic("test!")
 	}
@@ -885,10 +882,10 @@ func TestStateMachineOOM(t *testing.T) {
 		require.Nil(t, err)
 		exp.RawUri = req.GetUri()
 		mock := MockConv{
-			sp:        1,
-			reqsCache: 1,
-			keyCache:  1,
-			fieldCache:        0,
+			sp:         1,
+			reqsCache:  1,
+			keyCache:   1,
+			fieldCache: 0,
 		}
 		cv := NewBinaryConv(conv.Options{
 			EnableHttpMapping:            true,
@@ -940,9 +937,6 @@ func TestThriftRequestBase(t *testing.T) {
 	b.Caller = "caller"
 	b.Extra = map[string]string{
 		"key": "value",
-	}
-	b.TrafficEnv = &base.TrafficEnv{
-		Env: "env",
 	}
 	ctx = context.WithValue(ctx, conv.CtxKeyThriftReqBase, b)
 	app, err := json.Marshal(b)
