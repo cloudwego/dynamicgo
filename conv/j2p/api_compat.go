@@ -1,5 +1,5 @@
-//go:build !amd64 || !go1.16
-// +build !amd64 !go1.16
+//go:build !amd64 || !go1.16 || go1.24
+// +build !amd64 !go1.16 go1.24
 
 // Copyright 2023 CloudWeGo Authors.
 //
@@ -17,7 +17,7 @@
 
 package j2p
 
-import 	"encoding/base64"
+import "encoding/base64"
 
 func decodeBase64(src string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(src)

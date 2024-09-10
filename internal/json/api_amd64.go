@@ -1,5 +1,5 @@
-//go:build amd64 && go1.16
-// +build amd64,go1.16
+//go:build amd64 && go1.16 && !go1.24
+// +build amd64,go1.16,!go1.24
 
 // Copyright 2023 CloudWeGo Authors.
 //
@@ -27,11 +27,11 @@ import (
 	"github.com/cloudwego/dynamicgo/internal/rt"
 )
 
-
 var typeByte = rt.UnpackEface(byte(0)).Type
 
-//go:nocheckptr
 // NoQuote only escape inner '\' and '"' of one string, but it does add quotes besides string.
+//
+//go:nocheckptr
 func NoQuote(buf *[]byte, val string) {
 	sp := rt.IndexChar(val, 0)
 	nb := len(val)
