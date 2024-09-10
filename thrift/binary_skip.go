@@ -50,11 +50,6 @@ func TypeSize(t Type) int {
 
 // Skip skips over the value for the given type.
 func (p *BinaryProtocol) Skip(fieldType Type, useNative bool) (err error) {
-	if false {
-		// TODO: rm the skip native in the future, no longer use.
-		// The pure go implementation is better than c
-		return p.SkipNative(fieldType, MaxSkipDepth)
-	}
 	return p.SkipGo(fieldType, MaxSkipDepth)
 }
 
