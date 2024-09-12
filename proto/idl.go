@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"math"
+	"unsafe"
 
+	"github.com/cloudwego/dynamicgo/internal/util"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/desc/protoparse"
@@ -171,8 +173,8 @@ func parseMessage(ctx context.Context, msgDesc *desc.MessageDescriptor, cache co
 	fields := msgDesc.GetFields()
 	md := &MessageDescriptor{
 		baseId: FieldNumber(math.MaxInt32),
-		ids:    FieldNumberMap{},
-		names:  FieldNameMap{},
+		ids:    util.FieldIDMap{},
+		names:  util.FieldNameMap{},
 	}
 
 	ty = &TypeDescriptor{
@@ -249,9 +251,9 @@ func parseMessage(ctx context.Context, msgDesc *desc.MessageDescriptor, cache co
 
 		// add fieldDescriptor to MessageDescriptor
 		// md.ids[FieldNumber(id)] = fieldDesc
-		md.ids.Set(FieldNumber(id), fieldDesc)
-		md.names.Set(name, fieldDesc)
-		md.names.Set(jsonName, fieldDesc)
+		md.ids.Set(int32(id), unsafe.Pointer(fieldDesc))
+		md.names.Set(name, unsafe.Pointer(fieldDesc))
+		md.names.Set(jsonName, unsafe.Pointer(fieldDesc))
 	}
 	md.names.Build()
 
