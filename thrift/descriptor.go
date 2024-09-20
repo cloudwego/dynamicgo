@@ -18,8 +18,10 @@ package thrift
 
 import (
 	"fmt"
+	"unsafe"
 
 	"github.com/cloudwego/dynamicgo/http"
+	"github.com/cloudwego/dynamicgo/internal/util"
 	"github.com/cloudwego/thriftgo/parser"
 )
 
@@ -166,8 +168,8 @@ func (d TypeDescriptor) Struct() *StructDescriptor {
 type StructDescriptor struct {
 	baseID      FieldID
 	name        string
-	ids         FieldIDMap
-	names       FieldNameMap
+	ids         util.FieldIDMap
+	names       util.FieldNameMap
 	requires    RequiresBitmap
 	hmFields    []*FieldDescriptor
 	annotations []parser.Annotation
@@ -212,12 +214,13 @@ func (s StructDescriptor) Name() string {
 
 // Len returns the number of fields in the struct
 func (s StructDescriptor) Len() int {
-	return len(s.ids.all)
+	return len(s.ids.All())
 }
 
 // Fields returns all fields in the struct
 func (s StructDescriptor) Fields() []*FieldDescriptor {
-	return s.ids.All()
+	ret := s.ids.All()
+	return *(*[]*FieldDescriptor)(unsafe.Pointer(&ret))
 }
 
 // Fields returns requireness bitmap in the struct.
@@ -232,7 +235,7 @@ func (s StructDescriptor) Annotations() []parser.Annotation {
 
 // FieldById finds the field by field id
 func (s StructDescriptor) FieldById(id FieldID) *FieldDescriptor {
-	return s.ids.Get(id)
+	return (*FieldDescriptor)(s.ids.Get(int32(id)))
 }
 
 // FieldByName finds the field by key
@@ -240,7 +243,7 @@ func (s StructDescriptor) FieldById(id FieldID) *FieldDescriptor {
 // NOTICE: Options.MapFieldWay can influence the behavior of this method.
 // ep: if Options.MapFieldWay is MapFieldWayName, then field names should be used as key.
 func (s StructDescriptor) FieldByKey(k string) (field *FieldDescriptor) {
-	return s.names.Get(k)
+	return (*FieldDescriptor)(s.names.Get(k))
 }
 
 // FieldID is used to identify a field in a struct

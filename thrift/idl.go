@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/internal/json"
@@ -76,7 +77,7 @@ type Options struct {
 	//   2. it is on the top layer of the root struct of one function.
 	EnableThriftBase bool
 
-	// PutNameSpaceToAnnotation indicates to extract the name-space of one type 
+	// PutNameSpaceToAnnotation indicates to extract the name-space of one type
 	// and put it on the type's annotation. The annotion format is:
 	//   - Key: "thrift.name_space" (== NameSpaceAnnotationKey)
 	//   - Values: pairs of Language and Name. for example:
@@ -382,8 +383,8 @@ func addFunction(ctx context.Context, fn *parser.Function, tree *parser.Thrift, 
 			typ: STRUCT,
 			struc: &StructDescriptor{
 				baseID:   FieldID(math.MaxUint16),
-				ids:      FieldIDMap{},
-				names:    FieldNameMap{},
+				ids:      util.FieldIDMap{},
+				names:    util.FieldNameMap{},
 				requires: make(RequiresBitmap, 1),
 			},
 		}
@@ -393,7 +394,7 @@ func addFunction(ctx context.Context, fn *parser.Function, tree *parser.Thrift, 
 			return err
 		}
 		if reqType.Type() == STRUCT {
-			for _, f := range reqType.Struct().names.all {
+			for _, f := range reqType.Struct().names.All() {
 				x := (*FieldDescriptor)(f.Val)
 				if x.isRequestBase {
 					hasRequestBase = true
@@ -406,8 +407,8 @@ func addFunction(ctx context.Context, fn *parser.Function, tree *parser.Thrift, 
 			id:   FieldID(reqAst.ID),
 			typ:  reqType,
 		}
-		req.Struct().ids.Set(FieldID(reqAst.ID), reqField)
-		req.Struct().names.Set(reqAst.Name, reqField)
+		req.Struct().ids.Set(int32(reqAst.ID), unsafe.Pointer(reqField))
+		req.Struct().names.Set(reqAst.Name, unsafe.Pointer(reqField))
 		req.Struct().names.Build()
 	}
 
@@ -418,8 +419,8 @@ func addFunction(ctx context.Context, fn *parser.Function, tree *parser.Thrift, 
 			typ: STRUCT,
 			struc: &StructDescriptor{
 				baseID:   FieldID(math.MaxUint16),
-				ids:      FieldIDMap{},
-				names:    FieldNameMap{},
+				ids:      util.FieldIDMap{},
+				names:    util.FieldNameMap{},
 				requires: make(RequiresBitmap, 1),
 			},
 		}
@@ -430,9 +431,9 @@ func addFunction(ctx context.Context, fn *parser.Function, tree *parser.Thrift, 
 		respField := &FieldDescriptor{
 			typ: respType,
 		}
-		resp.Struct().ids.Set(0, respField)
+		resp.Struct().ids.Set(0, unsafe.Pointer(respField))
 		// response has no name or id
-		resp.Struct().names.Set("", respField)
+		resp.Struct().names.Set("", unsafe.Pointer(respField))
 
 		// parse exceptions
 		if len(fn.Throws) > 0 {
@@ -449,8 +450,8 @@ func addFunction(ctx context.Context, fn *parser.Function, tree *parser.Thrift, 
 				// isException: true,
 				typ: exceptionType,
 			}
-			resp.Struct().ids.Set(FieldID(exp.ID), exceptionField)
-			resp.Struct().names.Set(exp.Name, exceptionField)
+			resp.Struct().ids.Set(int32(exp.ID), unsafe.Pointer(exceptionField))
+			resp.Struct().names.Set(exp.Name, unsafe.Pointer(exceptionField))
 		}
 		resp.Struct().names.Build()
 	}
@@ -581,8 +582,8 @@ func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache c
 			struc: &StructDescriptor{
 				baseID:      FieldID(math.MaxUint16),
 				name:        typeName,
-				ids:         FieldIDMap{},
-				names:       FieldNameMap{},
+				ids:         util.FieldIDMap{},
+				names:       util.FieldNameMap{},
 				requires:    make(RequiresBitmap, len(st.Fields)),
 				annotations: oannos,
 			},
@@ -677,18 +678,19 @@ func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache c
 				dv, _ := makeDefaultValue(_f.typ, field.Default, tree)
 				_f.defaultValue = dv
 			}
+			fp := unsafe.Pointer(_f)
 			// set field id
-			ty.Struct().ids.Set(FieldID(field.ID), _f)
+			ty.Struct().ids.Set(int32(field.ID), fp)
 			// set field requireness
 			convertRequireness(field.Requiredness, ty.struc, _f, fopts)
 			// set field key
 			if fopts.MapFieldWay == meta.MapFieldUseAlias {
-				ty.Struct().names.Set(_f.alias, _f)
+				ty.Struct().names.Set(_f.alias, fp)
 			} else if fopts.MapFieldWay == meta.MapFieldUseFieldName {
-				ty.Struct().names.Set(_f.name, _f)
+				ty.Struct().names.Set(_f.name, fp)
 			} else {
-				ty.Struct().names.Set(_f.alias, _f)
-				ty.Struct().names.Set(_f.name, _f)
+				ty.Struct().names.Set(_f.alias, fp)
+				ty.Struct().names.Set(_f.name, fp)
 			}
 
 		}

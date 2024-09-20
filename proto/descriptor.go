@@ -1,5 +1,7 @@
 package proto
 
+import "github.com/cloudwego/dynamicgo/internal/util"
+
 type TypeDescriptor struct {
 	baseId FieldNumber // for LIST/MAP to write field tag by baseId
 	typ    Type
@@ -113,8 +115,8 @@ func (f *FieldDescriptor) IsList() bool {
 type MessageDescriptor struct {
 	baseId FieldNumber
 	name   string
-	ids    FieldNumberMap
-	names  FieldNameMap // store name and jsonName for FieldDescriptor
+	ids    util.FieldIDMap
+	names  util.FieldNameMap // store name and jsonName for FieldDescriptor
 }
 
 func (m *MessageDescriptor) Name() string {
@@ -122,15 +124,15 @@ func (m *MessageDescriptor) Name() string {
 }
 
 func (m *MessageDescriptor) ByJSONName(name string) *FieldDescriptor {
-	return m.names.Get(name)
+	return (*FieldDescriptor)(m.names.Get(name))
 }
 
 func (m *MessageDescriptor) ByName(name string) *FieldDescriptor {
-	return m.names.Get(name)
+	return (*FieldDescriptor)(m.names.Get(name))
 }
 
 func (m *MessageDescriptor) ByNumber(id FieldNumber) *FieldDescriptor {
-	return m.ids.Get(id)
+	return (*FieldDescriptor)(m.ids.Get(int32(id)))
 }
 
 func (m *MessageDescriptor) FieldsCount() int {
