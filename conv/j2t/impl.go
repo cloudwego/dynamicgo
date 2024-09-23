@@ -125,8 +125,8 @@ func isJsonString(val string) bool {
 	if len(val) < 2 {
 		return false
 	}
-	
-	c := json.SkipBlank(val, 0) 
+
+	c := json.SkipBlank(val, 0)
 	if c < 0 {
 		return false
 	}
@@ -171,7 +171,7 @@ func (self *BinaryConv) writeStringValue(ctx context.Context, buf *[]byte, f *th
 			if err := self.doNative(ctx, rt.Str2Mem(val), f.Type(), &p.Buf, req, false); err != nil {
 				return newError(meta.ErrConvert, fmt.Sprintf("failed to convert value of field '%s'", f.Name()), err)
 			}
-		// try text encoding, see thrift.EncodeText
+			// try text encoding, see thrift.EncodeText
 		} else {
 			return newError(meta.ErrConvert, fmt.Sprintf("unsupported http-mapping encoding %v for '%s'", enc, f.Name()), nil)
 		}
@@ -181,7 +181,7 @@ BACK:
 	return nil
 }
 
-func (self *BinaryConv)writeRequestBaseToThrift(ctx context.Context, buf *[]byte, field *thrift.FieldDescriptor) error {
+func (self *BinaryConv) writeRequestBaseToThrift(ctx context.Context, buf *[]byte, field *thrift.FieldDescriptor) error {
 	var b *base.Base
 	if bobj := ctx.Value(conv.CtxKeyThriftReqBase); bobj != nil {
 		if v, ok := bobj.(*base.Base); ok && v != nil {
