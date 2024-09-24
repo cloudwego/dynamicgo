@@ -1552,3 +1552,19 @@ func TestSimpleArgs(t *testing.T) {
 		require.Equal(t, exp, out)
 	})
 }
+
+func TestEmptyStruct(t *testing.T) {
+	desc, err := thrift.NewDescritorFromContent(context.Background(), "a/b/main.thrift", `
+struct Req {}
+
+service Svc {
+	void Method(1: Req req)
+}
+	`, nil, true)
+	require.NoError(t, err)
+	reqDesc := desc.Functions()["Method"].Request().Struct().FieldById(1).Type()
+	cv := NewBinaryConv(conv.Options{})
+	out, err := cv.Do(context.Background(), reqDesc, []byte(`{"UNKNOWN":1}`))
+	require.NoError(t, err)
+	fmt.Printf("%+v", out)
+}

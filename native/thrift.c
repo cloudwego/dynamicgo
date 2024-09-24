@@ -462,11 +462,15 @@ tFieldDesc *j2t_find_field_key(const GoString *key, const tStructDesc *st)
         xprintf("hash field:%x\n", ret);
         return ret;
     }
-    else
+    else if (st->names.trie != NULL)
     {
         tFieldDesc *ret = (tFieldDesc *)trie_get(st->names.trie, key);
         xprintf("trie field:%x\n", ret);
         return ret;
+    }
+    else
+    {
+        return NULL;
     }
 }
 
