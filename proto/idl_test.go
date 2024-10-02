@@ -3,6 +3,7 @@ package proto
 import (
 	"context"
 	"fmt"
+	"github.com/cloudwego/dynamicgo/meta"
 	"testing"
 )
 
@@ -81,6 +82,28 @@ func TestProtoFromPath(t *testing.T) {
 	svc, err := opts.NewDescriptorFromPath(context.Background(), "example2.proto", importDirs...)
 	if err != nil {
 		t.Fatal(err)
+	}
+	fmt.Printf("%#v\n", svc)
+}
+
+func TestIsCombinedServices(t *testing.T) {
+	opts := Options{}
+	importDirs := []string{"../testdata/idl/"}
+	svc, err := opts.NewDescriptorFromPath(context.Background(), "example2.proto", importDirs...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if svc.IsCombinedServices() {
+		t.Fatal("must not be a combined service")
+	}
+
+	opts.ParseServiceMode = meta.CombineServices
+	svc, err = opts.NewDescriptorFromPath(context.Background(), "example2.proto", importDirs...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !svc.IsCombinedServices() {
+		t.Fatal("must be a combined service")
 	}
 	fmt.Printf("%#v\n", svc)
 }
