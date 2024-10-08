@@ -3,8 +3,9 @@ package proto
 import (
 	"context"
 	"fmt"
-	"github.com/cloudwego/dynamicgo/meta"
 	"testing"
+
+	"github.com/cloudwego/dynamicgo/meta"
 )
 
 func TestProtoFromContent(t *testing.T) {
