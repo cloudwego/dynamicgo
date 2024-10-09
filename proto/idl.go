@@ -132,6 +132,7 @@ func parse(ctx context.Context, fileDesc *desc.FileDescriptor, mode meta.ParseSe
 		sDsc.serviceName = svcs[0].GetName()
 	case meta.CombineServices:
 		sDsc.serviceName = "CombinedService"
+		sDsc.isCombinedServices = true
 	}
 
 	for _, svc := range svcs {

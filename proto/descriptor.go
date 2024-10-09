@@ -168,8 +168,9 @@ func (m *MethodDescriptor) IsServerStreaming() bool {
 }
 
 type ServiceDescriptor struct {
-	serviceName string
-	methods     map[string]*MethodDescriptor
+	serviceName        string
+	methods            map[string]*MethodDescriptor
+	isCombinedServices bool
 }
 
 func (s *ServiceDescriptor) Name() string {
@@ -182,4 +183,8 @@ func (s *ServiceDescriptor) Methods() map[string]*MethodDescriptor {
 
 func (s *ServiceDescriptor) LookupMethodByName(name string) *MethodDescriptor {
 	return s.methods[name]
+}
+
+func (s *ServiceDescriptor) IsCombinedServices() bool {
+	return s.isCombinedServices
 }
