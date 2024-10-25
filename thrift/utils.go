@@ -140,13 +140,13 @@ func (b RequiresBitmap) CheckRequires(desc *StructDescriptor, writeDefault bool,
 	return nil
 }
 
-// CheckRequires scan every bit of the bitmap. When a bit is marked, it will:
+// HandleRequires scan every bit of the bitmap. When a bit is marked, it will:
 //   - if the corresponding field is required-requireness and writeRquired is true, it will call handler to handle this field, otherwise report error
 //   - if the corresponding is default-requireness and writeDefault is true, it will call handler to handle this field
 //   - if the corresponding is optional-requireness and writeOptional is true, it will call handler to handle this field
 //
 //go:nocheckptr
-func (b RequiresBitmap) HandleRequires(desc *StructDescriptor, writeRquired bool, writeDefault bool, writeOptional bool, handler func(field *FieldDescriptor) error) error {
+func (b RequiresBitmap) HandleRequires(desc *StructDescriptor, writeRequired bool, writeDefault bool, writeOptional bool, handler func(field *FieldDescriptor) error) error {
 	// handle bitmap first
 	n := len(b)
 	s := (*rt.GoSlice)(unsafe.Pointer(&b)).Ptr
@@ -156,10 +156,10 @@ func (b RequiresBitmap) HandleRequires(desc *StructDescriptor, writeRquired bool
 		for j := 0; v != 0 && j < int64BitSize; j++ {
 			if v%2 == 1 {
 				f := desc.FieldById(FieldID(i*int64BitSize + j))
-				if f.Required() == RequiredRequireness && !writeRquired {
+				if f.Required() == RequiredRequireness && !writeRequired {
 					return errMissRequiredField(f, desc)
 				}
-				if (f.Required() == DefaultRequireness && !writeDefault) || (f.Required() == OptionalRequireness && !writeOptional) {
+				if (f.Required() == DefaultRequireness && !writeDefault) || (f.Required() == OptionalRequireness && !writeOptional && f.DefaultValue() == nil) {
 					v >>= 1
 					continue
 				}
