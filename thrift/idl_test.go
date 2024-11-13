@@ -402,3 +402,38 @@ func TestNewFunctionDescriptorFromPath(t *testing.T) {
 	require.NotNil(t, p.Functions()["ExampleMethod"])
 	require.Nil(t, p.Functions()["Ping"])
 }
+
+func TestStreamingFunctionDescriptorFromContent(t *testing.T) {
+	path := "a/b/main.thrift"
+	content := `
+	namespace go thrift
+	
+	struct Request {
+		1: required string message,
+	}
+	
+	struct Response {
+		1: required string message,
+	}
+	
+	service TestService {
+		Response Echo (1: Request req) (streaming.mode="bidirectional"),
+		Response EchoClient (1: Request req) (streaming.mode="client"),
+		Response EchoServer (1: Request req) (streaming.mode="server"),
+		Response EchoUnary (1: Request req) (streaming.mode="unary"), // not recommended
+		Response EchoBizException (1: Request req) (streaming.mode="client"),
+	
+		Response EchoPingPong (1: Request req), // KitexThrift, non-streaming
+	}
+	`
+	dsc, err := NewDescritorFromContent(context.Background(), path, content, nil, false)
+	require.Nil(t, err)
+	require.Equal(t, true, dsc.Functions()["Echo"].IsClientStreaming())
+	require.Equal(t, true, dsc.Functions()["EchoServer"].IsServerStreaming())
+	require.Equal(t, false, dsc.Functions()["EchoUnary"].IsClientStreaming())
+	require.Equal(t, true, dsc.Functions()["EchoBizException"].IsClientStreaming())
+	require.Equal(t, false, dsc.Functions()["EchoClient"].StructWrappedRequest().IsWrapped())
+	require.Equal(t, "Request", dsc.Functions()["EchoClient"].Request().Struct().Name())
+	require.Equal(t, true, dsc.Functions()["EchoUnary"].StructWrappedRequest().IsWrapped())
+	require.Equal(t, "", dsc.Functions()["EchoUnary"].Request().Struct().Name())
+}

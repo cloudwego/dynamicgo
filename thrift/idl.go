@@ -27,6 +27,8 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/cloudwego/thriftgo/generator/golang/streaming"
+
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/internal/json"
 	"github.com/cloudwego/dynamicgo/internal/rt"
@@ -371,102 +373,136 @@ func addFunction(ctx context.Context, fn *parser.Function, tree *parser.Thrift, 
 
 	}
 
+	st, err := streaming.ParseStreaming(fn)
+	if err != nil {
+		return err
+	}
+	isStreaming := st.ClientStreaming || st.ServerStreaming
+
 	var hasRequestBase bool
-	var req *TypeDescriptor
-	var resp *TypeDescriptor
+	var req *StructWrappedTypeDescriptor
+	var resp *StructWrappedTypeDescriptor
 
 	// parse request field
 	if opts.ParseFunctionMode != meta.ParseResponseOnly {
-		// WARN: only support single argument
-		reqAst := fn.Arguments[0]
-		req = &TypeDescriptor{
-			typ: STRUCT,
-			struc: &StructDescriptor{
-				baseID:   FieldID(math.MaxUint16),
-				ids:      util.FieldIDMap{},
-				names:    util.FieldNameMap{},
-				requires: make(RequiresBitmap, 1),
-			},
-		}
-
-		reqType, err := parseType(ctx, reqAst.Type, tree, structsCache, 0, opts, nextAnns, Request)
+		req, hasRequestBase, err = parseRequest(ctx, isStreaming, fn, tree, structsCache, nextAnns, opts)
 		if err != nil {
 			return err
 		}
-		if reqType.Type() == STRUCT {
-			for _, f := range reqType.Struct().names.All() {
-				x := (*FieldDescriptor)(f.Val)
-				if x.isRequestBase {
-					hasRequestBase = true
-					break
-				}
-			}
-		}
-		reqField := &FieldDescriptor{
-			name: reqAst.Name,
-			id:   FieldID(reqAst.ID),
-			typ:  reqType,
-		}
-		req.Struct().ids.Set(int32(reqAst.ID), unsafe.Pointer(reqField))
-		req.Struct().names.Set(reqAst.Name, unsafe.Pointer(reqField))
-		req.Struct().names.Build()
 	}
 
 	// parse response filed
 	if opts.ParseFunctionMode != meta.ParseRequestOnly {
-		respAst := fn.FunctionType
-		resp = &TypeDescriptor{
-			typ: STRUCT,
-			struc: &StructDescriptor{
-				baseID:   FieldID(math.MaxUint16),
-				ids:      util.FieldIDMap{},
-				names:    util.FieldNameMap{},
-				requires: make(RequiresBitmap, 1),
-			},
-		}
-		respType, err := parseType(ctx, respAst, tree, structsCache, 0, opts, nextAnns, Response)
+		resp, err = parseResponse(ctx, isStreaming, fn, tree, structsCache, nextAnns, opts)
 		if err != nil {
 			return err
 		}
-		respField := &FieldDescriptor{
-			typ: respType,
-		}
-		resp.Struct().ids.Set(0, unsafe.Pointer(respField))
-		// response has no name or id
-		resp.Struct().names.Set("", unsafe.Pointer(respField))
-
-		// parse exceptions
-		if len(fn.Throws) > 0 {
-			// only support single exception
-			exp := fn.Throws[0]
-			exceptionType, err := parseType(ctx, exp.Type, tree, structsCache, 0, opts, nextAnns, Exception)
-			if err != nil {
-				return err
-			}
-			exceptionField := &FieldDescriptor{
-				name:  exp.Name,
-				alias: exp.Name,
-				id:    FieldID(exp.ID),
-				// isException: true,
-				typ: exceptionType,
-			}
-			resp.Struct().ids.Set(int32(exp.ID), unsafe.Pointer(exceptionField))
-			resp.Struct().names.Set(exp.Name, unsafe.Pointer(exceptionField))
-		}
-		resp.Struct().names.Build()
 	}
 
 	fnDsc := &FunctionDescriptor{
-		name:           fn.Name,
-		oneway:         fn.Oneway,
-		request:        req,
-		response:       resp,
-		hasRequestBase: hasRequestBase,
-		endpoints:      enpdoints,
-		annotations:    annos,
+		name:              fn.Name,
+		oneway:            fn.Oneway,
+		request:           req,
+		response:          resp,
+		hasRequestBase:    hasRequestBase,
+		endpoints:         enpdoints,
+		annotations:       annos,
+		isClientStreaming: st.ClientStreaming,
+		isServerStreaming: st.ServerStreaming,
 	}
 	sDsc.functions[fn.Name] = fnDsc
 	return nil
+}
+
+func parseRequest(ctx context.Context, isStreaming bool, fn *parser.Function, tree *parser.Thrift, structsCache compilingCache, nextAnns []parser.Annotation, opts Options) (req *StructWrappedTypeDescriptor, hasRequestBase bool, err error) {
+	// WARN: only support single argument
+	reqAst := fn.Arguments[0]
+	reqType, err := parseType(ctx, reqAst.Type, tree, structsCache, 0, opts, nextAnns, Request)
+	if err != nil {
+		return nil, hasRequestBase, err
+	}
+	if reqType.Type() == STRUCT {
+		for _, f := range reqType.Struct().names.All() {
+			x := (*FieldDescriptor)(f.Val)
+			if x.isRequestBase {
+				hasRequestBase = true
+				break
+			}
+		}
+	}
+
+	if isStreaming {
+		return &StructWrappedTypeDescriptor{tyDsc: reqType, isWrapped: false}, hasRequestBase, nil
+	}
+
+	// wrap with a struct
+	wrappedTyDsc := &TypeDescriptor{
+		typ: STRUCT,
+		struc: &StructDescriptor{
+			baseID:   FieldID(math.MaxUint16),
+			ids:      util.FieldIDMap{},
+			names:    util.FieldNameMap{},
+			requires: make(RequiresBitmap, 1),
+		},
+	}
+	reqField := &FieldDescriptor{
+		name: reqAst.Name,
+		id:   FieldID(reqAst.ID),
+		typ:  reqType,
+	}
+	wrappedTyDsc.Struct().ids.Set(int32(reqAst.ID), unsafe.Pointer(reqField))
+	wrappedTyDsc.Struct().names.Set(reqAst.Name, unsafe.Pointer(reqField))
+	wrappedTyDsc.Struct().names.Build()
+	return &StructWrappedTypeDescriptor{tyDsc: wrappedTyDsc, isWrapped: true}, hasRequestBase, nil
+}
+
+func parseResponse(ctx context.Context, isStreaming bool, fn *parser.Function, tree *parser.Thrift, structsCache compilingCache, nextAnns []parser.Annotation, opts Options) (resp *StructWrappedTypeDescriptor, err error) {
+	respAst := fn.FunctionType
+	respType, err := parseType(ctx, respAst, tree, structsCache, 0, opts, nextAnns, Response)
+	if err != nil {
+		return nil, err
+	}
+
+	if isStreaming {
+		return &StructWrappedTypeDescriptor{tyDsc: respType, isWrapped: false}, nil
+	}
+
+	wrappedResp := &TypeDescriptor{
+		typ: STRUCT,
+		struc: &StructDescriptor{
+			baseID:   FieldID(math.MaxUint16),
+			ids:      util.FieldIDMap{},
+			names:    util.FieldNameMap{},
+			requires: make(RequiresBitmap, 1),
+		},
+	}
+	respField := &FieldDescriptor{
+		typ: respType,
+	}
+	wrappedResp.Struct().ids.Set(0, unsafe.Pointer(respField))
+	// response has no name or id
+	wrappedResp.Struct().names.Set("", unsafe.Pointer(respField))
+
+	// parse exceptions
+	if len(fn.Throws) > 0 {
+		// only support single exception
+		exp := fn.Throws[0]
+		exceptionType, err := parseType(ctx, exp.Type, tree, structsCache, 0, opts, nextAnns, Exception)
+		if err != nil {
+			return nil, err
+		}
+		exceptionField := &FieldDescriptor{
+			name:  exp.Name,
+			alias: exp.Name,
+			id:    FieldID(exp.ID),
+			// isException: true,
+			typ: exceptionType,
+		}
+		wrappedResp.Struct().ids.Set(int32(exp.ID), unsafe.Pointer(exceptionField))
+		wrappedResp.Struct().names.Set(exp.Name, unsafe.Pointer(exceptionField))
+	}
+	wrappedResp.Struct().names.Build()
+	return &StructWrappedTypeDescriptor{tyDsc: wrappedResp, isWrapped: true}, nil
 }
 
 // reuse builtin types

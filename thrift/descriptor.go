@@ -331,13 +331,15 @@ func (f FieldDescriptor) DefaultValue() *DefaultValue {
 
 // FunctionDescriptor idl function descriptor
 type FunctionDescriptor struct {
-	oneway         bool
-	hasRequestBase bool
-	request        *TypeDescriptor
-	response       *TypeDescriptor
-	name           string
-	endpoints      []http.Endpoint
-	annotations    []parser.Annotation
+	oneway            bool
+	hasRequestBase    bool
+	request           *StructWrappedTypeDescriptor
+	response          *StructWrappedTypeDescriptor
+	name              string
+	endpoints         []http.Endpoint
+	annotations       []parser.Annotation
+	isClientStreaming bool
+	isServerStreaming bool
 }
 
 // Name returns the name of the function
@@ -358,12 +360,20 @@ func (f FunctionDescriptor) HasRequestBase() bool {
 // Request returns the request type descriptor of the function
 // The request arguements is mapped with arguement id and name
 func (f FunctionDescriptor) Request() *TypeDescriptor {
-	return f.request
+	return f.request.tyDsc
 }
 
 // Response returns the response type descriptor of the function
 // The response arguements is mapped with arguement id
 func (f FunctionDescriptor) Response() *TypeDescriptor {
+	return f.response.tyDsc
+}
+
+func (f FunctionDescriptor) StructWrappedRequest() *StructWrappedTypeDescriptor {
+	return f.request
+}
+
+func (f FunctionDescriptor) StructWrappedResponse() *StructWrappedTypeDescriptor {
 	return f.response
 }
 
@@ -375,6 +385,29 @@ func (f FunctionDescriptor) Endpoints() []http.Endpoint {
 // Annotations returns the annotations of the function
 func (f FunctionDescriptor) Annotations() []parser.Annotation {
 	return f.annotations
+}
+
+// IsClientStreaming returns if the function is client streaming
+func (f FunctionDescriptor) IsClientStreaming() bool {
+	return f.isClientStreaming
+}
+
+// IsServerStreaming returns if the function is server streaming
+func (f FunctionDescriptor) IsServerStreaming() bool {
+	return f.isServerStreaming
+}
+
+type StructWrappedTypeDescriptor struct {
+	tyDsc     *TypeDescriptor
+	isWrapped bool
+}
+
+func (s *StructWrappedTypeDescriptor) TypeDescriptor() *TypeDescriptor {
+	return s.tyDsc
+}
+
+func (s *StructWrappedTypeDescriptor) IsWrapped() bool {
+	return s.isWrapped
 }
 
 // ServiceDescriptor is the runtime descriptor of a service
