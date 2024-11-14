@@ -428,12 +428,12 @@ func TestStreamingFunctionDescriptorFromContent(t *testing.T) {
 	`
 	dsc, err := NewDescritorFromContent(context.Background(), path, content, nil, false)
 	require.Nil(t, err)
-	require.Equal(t, true, dsc.Functions()["Echo"].IsClientStreaming())
-	require.Equal(t, true, dsc.Functions()["EchoServer"].IsServerStreaming())
-	require.Equal(t, false, dsc.Functions()["EchoUnary"].IsClientStreaming())
-	require.Equal(t, true, dsc.Functions()["EchoBizException"].IsClientStreaming())
+	require.Equal(t, true, dsc.Functions()["Echo"].IsWithoutWrapping())
 	require.Equal(t, true, dsc.Functions()["EchoClient"].IsWithoutWrapping())
-	require.Equal(t, "Request", dsc.Functions()["EchoClient"].Request().Struct().Name())
+	require.Equal(t, true, dsc.Functions()["EchoServer"].IsWithoutWrapping())
 	require.Equal(t, false, dsc.Functions()["EchoUnary"].IsWithoutWrapping())
+	require.Equal(t, true, dsc.Functions()["EchoBizException"].IsWithoutWrapping())
+	require.Equal(t, false, dsc.Functions()["EchoPingPong"].IsWithoutWrapping())
+	require.Equal(t, "Request", dsc.Functions()["EchoClient"].Request().Struct().Name())
 	require.Equal(t, "", dsc.Functions()["EchoUnary"].Request().Struct().Name())
 }

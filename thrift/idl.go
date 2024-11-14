@@ -407,8 +407,7 @@ func addFunction(ctx context.Context, fn *parser.Function, tree *parser.Thrift, 
 		hasRequestBase:    hasRequestBase,
 		endpoints:         enpdoints,
 		annotations:       annos,
-		isClientStreaming: st.ClientStreaming,
-		isServerStreaming: st.ServerStreaming,
+		isWithoutWrapping: isStreaming,
 	}
 	sDsc.functions[fn.Name] = fnDsc
 	return nil

@@ -338,8 +338,7 @@ type FunctionDescriptor struct {
 	name              string
 	endpoints         []http.Endpoint
 	annotations       []parser.Annotation
-	isClientStreaming bool
-	isServerStreaming bool
+	isWithoutWrapping bool
 }
 
 // Name returns the name of the function
@@ -379,19 +378,9 @@ func (f FunctionDescriptor) Annotations() []parser.Annotation {
 	return f.annotations
 }
 
-// IsClientStreaming returns if the function is client streaming
-func (f FunctionDescriptor) IsClientStreaming() bool {
-	return f.isClientStreaming
-}
-
-// IsServerStreaming returns if the function is server streaming
-func (f FunctionDescriptor) IsServerStreaming() bool {
-	return f.isServerStreaming
-}
-
 // IsWithoutWrapping returns if the request and response are not wrapped in struct
 func (f FunctionDescriptor) IsWithoutWrapping() bool {
-	return f.isClientStreaming || f.isServerStreaming
+	return f.isWithoutWrapping
 }
 
 // ServiceDescriptor is the runtime descriptor of a service
