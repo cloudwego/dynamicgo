@@ -432,8 +432,8 @@ func TestStreamingFunctionDescriptorFromContent(t *testing.T) {
 	require.Equal(t, true, dsc.Functions()["EchoServer"].IsServerStreaming())
 	require.Equal(t, false, dsc.Functions()["EchoUnary"].IsClientStreaming())
 	require.Equal(t, true, dsc.Functions()["EchoBizException"].IsClientStreaming())
-	require.Equal(t, false, dsc.Functions()["EchoClient"].StructWrappedRequest().IsWrapped())
+	require.Equal(t, true, dsc.Functions()["EchoClient"].IsWithoutWrapping())
 	require.Equal(t, "Request", dsc.Functions()["EchoClient"].Request().Struct().Name())
-	require.Equal(t, true, dsc.Functions()["EchoUnary"].StructWrappedRequest().IsWrapped())
+	require.Equal(t, false, dsc.Functions()["EchoUnary"].IsWithoutWrapping())
 	require.Equal(t, "", dsc.Functions()["EchoUnary"].Request().Struct().Name())
 }

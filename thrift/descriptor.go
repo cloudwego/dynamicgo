@@ -333,8 +333,8 @@ func (f FieldDescriptor) DefaultValue() *DefaultValue {
 type FunctionDescriptor struct {
 	oneway            bool
 	hasRequestBase    bool
-	request           *StructWrappedTypeDescriptor
-	response          *StructWrappedTypeDescriptor
+	request           *TypeDescriptor
+	response          *TypeDescriptor
 	name              string
 	endpoints         []http.Endpoint
 	annotations       []parser.Annotation
@@ -360,20 +360,12 @@ func (f FunctionDescriptor) HasRequestBase() bool {
 // Request returns the request type descriptor of the function
 // The request arguements is mapped with arguement id and name
 func (f FunctionDescriptor) Request() *TypeDescriptor {
-	return f.request.tyDsc
+	return f.request
 }
 
 // Response returns the response type descriptor of the function
 // The response arguements is mapped with arguement id
 func (f FunctionDescriptor) Response() *TypeDescriptor {
-	return f.response.tyDsc
-}
-
-func (f FunctionDescriptor) StructWrappedRequest() *StructWrappedTypeDescriptor {
-	return f.request
-}
-
-func (f FunctionDescriptor) StructWrappedResponse() *StructWrappedTypeDescriptor {
 	return f.response
 }
 
@@ -397,17 +389,9 @@ func (f FunctionDescriptor) IsServerStreaming() bool {
 	return f.isServerStreaming
 }
 
-type StructWrappedTypeDescriptor struct {
-	tyDsc     *TypeDescriptor
-	isWrapped bool
-}
-
-func (s *StructWrappedTypeDescriptor) TypeDescriptor() *TypeDescriptor {
-	return s.tyDsc
-}
-
-func (s *StructWrappedTypeDescriptor) IsWrapped() bool {
-	return s.isWrapped
+// IsWithoutWrapping returns if the request and response are not wrapped in struct
+func (f FunctionDescriptor) IsWithoutWrapping() bool {
+	return f.isClientStreaming || f.isServerStreaming
 }
 
 // ServiceDescriptor is the runtime descriptor of a service

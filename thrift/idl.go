@@ -380,8 +380,8 @@ func addFunction(ctx context.Context, fn *parser.Function, tree *parser.Thrift, 
 	isStreaming := st.ClientStreaming || st.ServerStreaming
 
 	var hasRequestBase bool
-	var req *StructWrappedTypeDescriptor
-	var resp *StructWrappedTypeDescriptor
+	var req *TypeDescriptor
+	var resp *TypeDescriptor
 
 	// parse request field
 	if opts.ParseFunctionMode != meta.ParseResponseOnly {
@@ -414,7 +414,7 @@ func addFunction(ctx context.Context, fn *parser.Function, tree *parser.Thrift, 
 	return nil
 }
 
-func parseRequest(ctx context.Context, isStreaming bool, fn *parser.Function, tree *parser.Thrift, structsCache compilingCache, nextAnns []parser.Annotation, opts Options) (req *StructWrappedTypeDescriptor, hasRequestBase bool, err error) {
+func parseRequest(ctx context.Context, isStreaming bool, fn *parser.Function, tree *parser.Thrift, structsCache compilingCache, nextAnns []parser.Annotation, opts Options) (req *TypeDescriptor, hasRequestBase bool, err error) {
 	// WARN: only support single argument
 	reqAst := fn.Arguments[0]
 	reqType, err := parseType(ctx, reqAst.Type, tree, structsCache, 0, opts, nextAnns, Request)
@@ -432,7 +432,7 @@ func parseRequest(ctx context.Context, isStreaming bool, fn *parser.Function, tr
 	}
 
 	if isStreaming {
-		return &StructWrappedTypeDescriptor{tyDsc: reqType, isWrapped: false}, hasRequestBase, nil
+		return reqType, hasRequestBase, nil
 	}
 
 	// wrap with a struct
@@ -453,10 +453,10 @@ func parseRequest(ctx context.Context, isStreaming bool, fn *parser.Function, tr
 	wrappedTyDsc.Struct().ids.Set(int32(reqAst.ID), unsafe.Pointer(reqField))
 	wrappedTyDsc.Struct().names.Set(reqAst.Name, unsafe.Pointer(reqField))
 	wrappedTyDsc.Struct().names.Build()
-	return &StructWrappedTypeDescriptor{tyDsc: wrappedTyDsc, isWrapped: true}, hasRequestBase, nil
+	return wrappedTyDsc, hasRequestBase, nil
 }
 
-func parseResponse(ctx context.Context, isStreaming bool, fn *parser.Function, tree *parser.Thrift, structsCache compilingCache, nextAnns []parser.Annotation, opts Options) (resp *StructWrappedTypeDescriptor, err error) {
+func parseResponse(ctx context.Context, isStreaming bool, fn *parser.Function, tree *parser.Thrift, structsCache compilingCache, nextAnns []parser.Annotation, opts Options) (resp *TypeDescriptor, err error) {
 	respAst := fn.FunctionType
 	respType, err := parseType(ctx, respAst, tree, structsCache, 0, opts, nextAnns, Response)
 	if err != nil {
@@ -464,7 +464,7 @@ func parseResponse(ctx context.Context, isStreaming bool, fn *parser.Function, t
 	}
 
 	if isStreaming {
-		return &StructWrappedTypeDescriptor{tyDsc: respType, isWrapped: false}, nil
+		return respType, nil
 	}
 
 	wrappedResp := &TypeDescriptor{
@@ -502,7 +502,7 @@ func parseResponse(ctx context.Context, isStreaming bool, fn *parser.Function, t
 		wrappedResp.Struct().names.Set(exp.Name, unsafe.Pointer(exceptionField))
 	}
 	wrappedResp.Struct().names.Build()
-	return &StructWrappedTypeDescriptor{tyDsc: wrappedResp, isWrapped: true}, nil
+	return wrappedResp, nil
 }
 
 // reuse builtin types
