@@ -331,13 +331,14 @@ func (f FieldDescriptor) DefaultValue() *DefaultValue {
 
 // FunctionDescriptor idl function descriptor
 type FunctionDescriptor struct {
-	oneway         bool
-	hasRequestBase bool
-	request        *TypeDescriptor
-	response       *TypeDescriptor
-	name           string
-	endpoints      []http.Endpoint
-	annotations    []parser.Annotation
+	oneway            bool
+	hasRequestBase    bool
+	request           *TypeDescriptor
+	response          *TypeDescriptor
+	name              string
+	endpoints         []http.Endpoint
+	annotations       []parser.Annotation
+	isWithoutWrapping bool
 }
 
 // Name returns the name of the function
@@ -375,6 +376,11 @@ func (f FunctionDescriptor) Endpoints() []http.Endpoint {
 // Annotations returns the annotations of the function
 func (f FunctionDescriptor) Annotations() []parser.Annotation {
 	return f.annotations
+}
+
+// IsWithoutWrapping returns if the request and response are not wrapped in struct
+func (f FunctionDescriptor) IsWithoutWrapping() bool {
+	return f.isWithoutWrapping
 }
 
 // ServiceDescriptor is the runtime descriptor of a service
