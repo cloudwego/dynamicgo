@@ -14,13 +14,14 @@ import (
 	"time"
 
 	"github.com/bytedance/sonic/ast"
+	"github.com/stretchr/testify/require"
+	goprotowire "google.golang.org/protobuf/encoding/protowire"
+
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/internal/util_test"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/base"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
-	"github.com/stretchr/testify/require"
-	goprotowire "google.golang.org/protobuf/encoding/protowire"
 )
 
 var (
