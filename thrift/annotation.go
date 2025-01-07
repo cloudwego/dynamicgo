@@ -469,4 +469,6 @@ func injectAnnotations(origin *[]*parser.Annotation, next []parser.Annotation) e
 var (
 	ctxIsBodyRoot    = "isBodyRoot"
 	CtxKeyIsBodyRoot = &ctxIsBodyRoot
+	ctxIsRequest     = "isRequest"
+	CtxKeyIsRequest  = &ctxIsRequest
 )
