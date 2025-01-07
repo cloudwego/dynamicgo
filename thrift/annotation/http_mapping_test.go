@@ -36,6 +36,18 @@ func GetDescFromContent(content string, method string) (*thrift.FunctionDescript
 	return p.Functions()[method], nil
 }
 
+func GetDescFromContentWithOptions(content string, method string, opts thrift.Options) (*thrift.FunctionDescriptor, error) {
+	path := "a/b/main.thrift"
+	includes := map[string]string{
+		path: content,
+	}
+	p, err := opts.NewDescritorFromContent(context.Background(), path, content, includes, true)
+	if err != nil {
+		return nil, err
+	}
+	return p.Functions()[method], nil
+}
+
 func TestAPIQuery(t *testing.T) {
 	fn, err := GetDescFromContent(`
 	namespace go kitex.test.server
@@ -81,7 +93,7 @@ func TestAPIRawUri(t *testing.T) {
 }
 
 func TestAPIBody(t *testing.T) {
-	fn, err := GetDescFromContent(`
+	fn, err := GetDescFromContentWithOptions(`
 	namespace go kitex.test.server
 	struct Base {
 		1: required Base2 f1
@@ -95,7 +107,9 @@ func TestAPIBody(t *testing.T) {
 	service InboxService {
 		string ExampleMethod(1: Base req)
 	}
-	`, "ExampleMethod")
+	`, "ExampleMethod", thrift.Options{
+		ApiBodyFastPath: true,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
