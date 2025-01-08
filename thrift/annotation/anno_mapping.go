@@ -71,13 +71,13 @@ func (m apiBodyMapper) Map(ctx context.Context, anns []parser.Annotation, desc i
 		if len(ann.Values) != 1 {
 			return nil, nil, errors.New("api.body must have a value")
 		}
-		ret = append(ret, parser.Annotation{
-			Key:    APIKeyName,
-			Values: []string{ann.Values[0]},
-		})
 		isRoot := ctx.Value(thrift.CtxKeyIsBodyRoot)
-		// special fast-path: if the field is at body root, we don't need to add api.body
-		if isRoot != nil && isRoot.(bool) {
+		// special fast-path: if the field is at body root, we don't need to add api.body to call GetMapBody()
+		if opts.ApiBodyFastPath && isRoot != nil && isRoot.(bool) {
+			ret = append(ret, parser.Annotation{
+				Key:    APIKeyName,
+				Values: []string{ann.Values[0]},
+			})
 			continue
 		} else {
 			ret = append(ret, parser.Annotation{

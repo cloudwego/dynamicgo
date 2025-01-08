@@ -49,7 +49,7 @@ struct ExampleReq {
 }
 
 struct ExampleResp {
-    1: string Msg (api.body = "msg"),
+    1: string Msg (api.key = "msg"),
     2: optional double Cookie (api.cookie = "cookie"),
     3: required i32 Status (api.http_code = "status"),
     4: optional bool Header (api.header = "heeader"),

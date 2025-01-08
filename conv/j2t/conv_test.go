@@ -552,29 +552,51 @@ func TestNullJSON2Thrift(t *testing.T) {
 }
 
 func TestApiBody(t *testing.T) {
-	desc := getExampleDescByName("ApiBodyMethod", true, thrift.Options{})
-	data := []byte(`{"code":1024,"InnerCode":{}}`)
-	cv := NewBinaryConv(conv.Options{
-		EnableHttpMapping:            true,
-		WriteDefaultField:            true,
-		ReadHttpValueFallback:        true,
-		TracebackRequredOrRootFields: true,
+	t.Run("http", func(t *testing.T) {
+		desc := getExampleDescByName("ApiBodyMethod", true, thrift.Options{
+			ApiBodyFastPath: true,
+		})
+		data := []byte(`{"code":1024,"Code":2048,"InnerCode":{}}`)
+		cv := NewBinaryConv(conv.Options{
+			EnableHttpMapping:            true,
+			WriteDefaultField:            true,
+			ReadHttpValueFallback:        true,
+			TracebackRequredOrRootFields: true,
+		})
+		ctx := context.Background()
+		req, err := stdh.NewRequest("POST", "http://localhost:8888/root", bytes.NewBuffer(data))
+		require.Nil(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		r, _ := http.NewHTTPRequestFromStdReq(req)
+		ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, r)
+		out, err := cv.Do(ctx, desc, data)
+		require.Nil(t, err)
+		act := example3.NewExampleApiBody()
+		_, err = act.FastRead(out)
+		require.Nil(t, err)
+		require.Equal(t, int64(1024), act.Code)
+		require.Equal(t, int16(1024), act.Code2)
+		require.Equal(t, int64(1024), act.InnerCode.C1)
+		require.Equal(t, int16(0), act.InnerCode.C2)
 	})
-	ctx := context.Background()
-	req, err := stdh.NewRequest("POST", "http://localhost:8888/root", bytes.NewBuffer(data))
-	require.Nil(t, err)
-	req.Header.Set("Content-Type", "application/json")
-	r, err := http.NewHTTPRequestFromStdReq(req)
-	ctx = context.WithValue(ctx, conv.CtxKeyHTTPRequest, r)
-	out, err := cv.Do(ctx, desc, data)
-	require.Nil(t, err)
-	act := example3.NewExampleApiBody()
-	_, err = act.FastRead(out)
-	require.Nil(t, err)
-	require.Equal(t, int64(1024), act.Code)
-	require.Equal(t, int16(1024), act.Code2)
-	require.Equal(t, int64(1024), act.InnerCode.C1)
-	require.Equal(t, int16(0), act.InnerCode.C2)
+	t.Run("not http", func(t *testing.T) {
+		desc := getExampleDescByName("ApiBodyMethod", true, thrift.Options{
+			ApiBodyFastPath: false,
+		})
+		data := []byte(`{"code":1024,"Code":2048,"InnerCode":{"C1":1,"code":2}}`)
+		cv := NewBinaryConv(conv.Options{
+			WriteDefaultField: true,
+		})
+		out, err := cv.Do(context.Background(), desc, data)
+		require.Nil(t, err)
+		act := example3.NewExampleApiBody()
+		_, err = act.FastRead(out)
+		require.Nil(t, err)
+		require.Equal(t, int64(2048), act.Code)
+		require.Equal(t, int16(1024), act.Code2)
+		require.Equal(t, int64(1), act.InnerCode.C1)
+		require.Equal(t, int16(2), act.InnerCode.C2)
+	})
 }
 
 func TestError(t *testing.T) {

@@ -94,6 +94,9 @@ type Options struct {
 	//      `// path := /a/b/c.thrift` will got ["/a/b/c.thrift"]
 	// NOTICE: at present, only StructDescriptor.Annotations() can get this
 	PutThriftFilenameToAnnotation bool
+
+	// ApiBodyFastPath indicates `api.body` will change alias-name of root field, which can avoid search http-body on them
+	ApiBodyFastPath bool
 }
 
 // NewDefaultOptions creates a default Options.
