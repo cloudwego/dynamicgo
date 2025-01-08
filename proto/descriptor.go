@@ -171,6 +171,7 @@ type ServiceDescriptor struct {
 	serviceName        string
 	methods            map[string]*MethodDescriptor
 	isCombinedServices bool
+	packageName        string
 }
 
 func (s *ServiceDescriptor) Name() string {
@@ -187,4 +188,8 @@ func (s *ServiceDescriptor) LookupMethodByName(name string) *MethodDescriptor {
 
 func (s *ServiceDescriptor) IsCombinedServices() bool {
 	return s.isCombinedServices
+}
+
+func (s *ServiceDescriptor) PackageName() string {
+	return s.packageName
 }

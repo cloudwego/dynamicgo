@@ -6,10 +6,11 @@ import (
 	"math"
 	"unsafe"
 
-	"github.com/cloudwego/dynamicgo/internal/util"
-	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/desc/protoparse"
+
+	"github.com/cloudwego/dynamicgo/internal/util"
+	"github.com/cloudwego/dynamicgo/meta"
 )
 
 type compilingInstance struct {
@@ -118,7 +119,8 @@ func parse(ctx context.Context, fileDesc *desc.FileDescriptor, mode meta.ParseSe
 	}
 
 	sDsc := &ServiceDescriptor{
-		methods: map[string]*MethodDescriptor{},
+		methods:     map[string]*MethodDescriptor{},
+		packageName: fileDesc.GetPackage(),
 	}
 
 	structsCache := compilingCache{}

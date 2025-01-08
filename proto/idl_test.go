@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/cloudwego/dynamicgo/meta"
 )
 
@@ -107,4 +109,12 @@ func TestIsCombinedServices(t *testing.T) {
 		t.Fatal("must be a combined service")
 	}
 	fmt.Printf("%#v\n", svc)
+}
+
+func TestParsePackageName(t *testing.T) {
+	opts := Options{}
+	importDirs := []string{"../testdata/idl/"}
+	svc, err := opts.NewDescriptorFromPath(context.Background(), "basic_example.proto", importDirs...)
+	require.Nil(t, err, err)
+	require.Equal(t, "pb3", svc.PackageName(), svc.PackageName())
 }
