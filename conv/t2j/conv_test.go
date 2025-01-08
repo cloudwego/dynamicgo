@@ -285,6 +285,28 @@ func TestAGWBodyDynamic(t *testing.T) {
 	require.Equal(t, (`{"Int64":1,"Xjson":"{\"b\":1}"}`), string(out))
 }
 
+func TestAPIBody(t *testing.T) {
+	cv := NewBinaryConv(conv.Options{
+		EnableValueMapping: true,
+	})
+	desc := GetDescByName("ApiBodyMethod", false)
+	exp := example3.NewExampleApiBody()
+	exp.Code = 1
+	exp.Code2 = 2
+	exp.InnerCode = new(example3.InnerCode)
+	exp.InnerCode.C1 = 31
+	exp.InnerCode.C2 = 32
+	exp.InnerCode.C3 = []*example3.InnerCode{
+		{C1: 41, C2: 42},
+	}
+	ctx := context.Background()
+	in := make([]byte, exp.BLength())
+	_ = exp.FastWriteNocopy(in, nil)
+	out, err := cv.Do(ctx, desc, in)
+	require.NoError(t, err)
+	require.Equal(t, `{"Code":1,"code":2,"InnerCode":{"C1":31,"code":32,"C3":[{"C1":41,"code":42,"C3":[]}]}}`, string(out))
+}
+
 func TestException(t *testing.T) {
 	cv := NewBinaryConv(conv.Options{
 		ConvertException: true,

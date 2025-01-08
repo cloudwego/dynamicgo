@@ -11,7 +11,7 @@ struct GetFavoriteReq {
     255: required Favorite Base,
 }
 struct GetFavoriteResp {
-    1: required Favorite Favorite (api.body="favorite"),
+    1: required Favorite Favorite (api.key="favorite"),
     255: required base.BaseResp BaseResp,
 }
 
