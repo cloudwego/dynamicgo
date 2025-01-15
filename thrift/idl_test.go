@@ -437,3 +437,41 @@ func TestStreamingFunctionDescriptorFromContent(t *testing.T) {
 	require.Equal(t, "Request", dsc.Functions()["EchoClient"].Request().Struct().Name())
 	require.Equal(t, "", dsc.Functions()["EchoUnary"].Request().Struct().Name())
 }
+
+func TestParseWithServiceName(t *testing.T) {
+	path := "a/b/main.thrift"
+	content := `
+	namespace go thrift
+	
+	struct Request {
+		1: required string message,
+	}
+	
+	struct Response {
+		1: required string message,
+	}
+	
+	service Service1 {
+		Response Test(1: Request req)
+	}
+
+	service Service2 {
+		Response Test(1: Request req)
+	}
+
+	service Service3 {
+		Response Test(1: Request req)
+	}
+	`
+
+	opts := Options{ServiceName: "Service2"}
+	p, err := opts.NewDescritorFromContent(context.Background(), path, content, nil, false)
+	require.Nil(t, err)
+	require.Equal(t, p.Name(), "Service2")
+
+	opts = Options{ServiceName: "UnknownService"}
+	p, err = opts.NewDescritorFromContent(context.Background(), path, content, nil, false)
+	require.NotNil(t, err)
+	require.Nil(t, p)
+	require.Equal(t, err.Error(), "the idl service name UnknownService is not in the idl. Please check your idl")
+}
