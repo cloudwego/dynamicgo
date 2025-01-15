@@ -52,6 +52,9 @@ type Options struct {
 	// ParseServiceMode indicates how to parse service.
 	ParseServiceMode meta.ParseServiceMode
 
+	// ServiceName indicates which idl service to be parsed.
+	ServiceName string
+
 	// MapFieldWay indicates StructDescriptor.FieldByKey() uses alias to map field.
 	// By default, we use alias to map, and alias always equals to field name if not given.
 	MapFieldWay meta.MapFieldWay
@@ -247,15 +250,26 @@ func parse(ctx context.Context, tree *parser.Thrift, mode meta.ParseServiceMode,
 
 	// support one service
 	svcs := tree.Services
-	switch mode {
-	case meta.LastServiceOnly:
-		svcs = svcs[len(svcs)-1:]
-		sDsc.name = svcs[len(svcs)-1].Name
-	case meta.FirstServiceOnly:
-		svcs = svcs[:1]
-		sDsc.name = svcs[0].Name
-	case meta.CombineServices:
-		sDsc.name = "CombinedServices"
+
+	// if an idl service name is specified, it takes precedence over parse mode
+	if opts.ServiceName != "" {
+		var err error
+		svcs, err = getTargetService(svcs, opts.ServiceName)
+		if err != nil {
+			return nil, err
+		}
+		sDsc.name = opts.ServiceName
+	} else {
+		switch mode {
+		case meta.LastServiceOnly:
+			svcs = svcs[len(svcs)-1:]
+			sDsc.name = svcs[len(svcs)-1].Name
+		case meta.FirstServiceOnly:
+			svcs = svcs[:1]
+			sDsc.name = svcs[0].Name
+		case meta.CombineServices:
+			sDsc.name = "CombinedServices"
+		}
 	}
 
 	for _, svc := range svcs {
@@ -287,6 +301,15 @@ func parse(ctx context.Context, tree *parser.Thrift, mode meta.ParseServiceMode,
 
 	}
 	return sDsc, nil
+}
+
+func getTargetService(svcs []*parser.Service, serviceName string) ([]*parser.Service, error) {
+	for _, svc := range svcs {
+		if svc.Name == serviceName {
+			return []*parser.Service{svc}, nil
+		}
+	}
+	return nil, fmt.Errorf("the idl service name %s is not in the idl. Please check your idl", serviceName)
 }
 
 type funcTreePair struct {
