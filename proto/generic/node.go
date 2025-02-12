@@ -112,16 +112,19 @@ func (self *Node) replace(o Node, n Node) error {
 	// 1. self's slice before the target node
 	// 2. target node's slice
 	// 3. self's slice after the target node
-	s1 := uintptr(o.v) + uintptr(o.l)
 	l0 := int(uintptr(o.v) - uintptr(self.v))
 	l1 := len(pat)
-	l2 := int(uintptr(self.v) + uintptr(self.l) - uintptr(s1))
+	l2 := int(self.offset() - uintptr(o.offset()))
 
 	// copy three slices into new buffer
 	buf := make([]byte, l0+l1+l2)
-	copy(buf[:l0], rt.BytesFrom(self.v, l0, l0))
+	if l0 > 0 {
+		copy(buf[:l0], rt.BytesFrom(self.v, l0, l0))
+	}
 	copy(buf[l0:l0+l1], pat)
-	copy(buf[l0+l1:l0+l1+l2], rt.BytesFrom(rt.AddPtr(o.v, uintptr(o.l)), l2, l2))
+	if l2 > 0 {
+		copy(buf[l0+l1:l0+l1+l2], rt.BytesFrom(rt.AddPtr(o.v, uintptr(o.l)), l2, l2))
+	}
 
 	// replace self's entire buffer
 	self.v = rt.GetBytePtr(buf)
@@ -181,20 +184,23 @@ func (self *Node) replaceMany(ps *pnSlice) error {
 
 	// sequentially set new values into buffer according to sorted pathes
 	buf = make([]byte, 0, self.l)
-	last := uintptr(0)
+	offset := int(0)
 	for i := 0; i < len(ps.a); i++ {
-		lastLen := rt.PtrOffset(uintptr(ps.a[i].Node.v), last)
-		// copy last slice from original buffer
-		buf = append(buf, rt.BytesFrom(rt.AddPtr(self.v, last), lastLen, lastLen)...)
+		// copy (a[i-1]tail, a[i]head) into buffer
+		if offset < self.l {
+			lastp := rt.AddPtr(self.v, uintptr(offset))
+			lastLen := rt.PtrOffset(uintptr(ps.a[i].Node.v), uintptr(lastp))
+			buf = append(buf, rt.BytesFrom(lastp, lastLen, lastLen)...)
+		}
 		// copy new value's buffer into buffer
 		buf = append(buf, ps.b[i].Node.raw()...)
 		// update last index
-		last = ps.a[i].offset()
+		offset = rt.PtrOffset(ps.a[i].offset(), uintptr(self.v))
 	}
-	if tail := self.offset(); uintptr(last) < uintptr(tail) {
+	if offset < self.l {
 		// copy last slice from original buffer
-		l := rt.PtrOffset(tail, last)
-		buf = append(buf, rt.BytesFrom(rt.AddPtr(self.v, last), l, l)...)
+		l := self.l - offset
+		buf = append(buf, rt.BytesFrom(rt.AddPtr(self.v, uintptr(offset)), l, l)...)
 	}
 
 	self.v = rt.GetBytePtr(buf)
