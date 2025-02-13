@@ -93,7 +93,7 @@ func (self *BinaryConv) doRecurse(ctx context.Context, s string, jp int, desc *t
 
 		case types.V_STRING:
 			var str string
-			if v.Ep >= int64(ret) {
+			if v.Ep >= 0 && v.Ep < int64(ret) {
 				str, err = strconv.Unquote(s[v.Iv-1 : ret])
 				if err != nil {
 					return
