@@ -68,6 +68,52 @@ final:
 	return
 }
 
+func (self *BinaryConv) handleUnmatchedFields(ctx context.Context, fsm *types.J2TStateMachine, desc *thrift.StructDescriptor, buf *[]byte, pos int, req http.RequestGetter, top bool) (bool, error) {
+	if req == nil {
+		return false, newError(meta.ErrInvalidParam, "http request is nil", nil)
+	}
+
+	// write unmatched fields
+	for _, id := range fsm.FieldCache {
+		f := desc.FieldById(thrift.FieldID(id))
+		if f == nil {
+			if self.opts.DisallowUnknownField {
+				return false, newError(meta.ErrConvert, fmt.Sprintf("unknown field id %d", id), nil)
+			}
+			continue
+		}
+		// NOTICE: base should be handle by writeThriftBase()
+		if f.IsRequestBase() {
+			continue
+		}
+		// try write field
+		var val string
+		var enc meta.Encoding
+		if self.opts.TracebackRequredOrRootFields && (top || f.Required() == thrift.RequiredRequireness) {
+			// try get value from http
+			val, _, enc = tryGetValueFromHttp(req, f.Alias())
+		}
+		if err := self.writeStringValue(ctx, buf, f, val, enc, req); err != nil {
+			return false, err
+		}
+	}
+
+	// write STRUCT end
+	*buf = append(*buf, byte(thrift.STOP))
+
+	// clear field cache
+	fsm.FieldCache = fsm.FieldCache[:0]
+	// drop current J2T state
+	fsm.SP--
+	if fsm.SP > 0 {
+		// NOTICE: if j2t_exec haven't finished, we should set current position to next json
+		fsm.SetPos(pos)
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
 func (self *BinaryConv) handleValueMapping(ctx context.Context, fsm *types.J2TStateMachine, desc *thrift.StructDescriptor, buf *[]byte, pos int, src []byte) (bool, error) {
 	p := thrift.BinaryProtocol{}
 	p.Buf = *buf

@@ -23,7 +23,6 @@ import (
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/internal/json"
-	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
@@ -62,9 +61,9 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 			// since this case it always for top-level fields,
 			// we should only check opts.BackTraceRequireOrTopField to decide whether to traceback
 			err := reqs.HandleRequires(st, self.opts.ReadHttpValueFallback, self.opts.ReadHttpValueFallback, self.opts.ReadHttpValueFallback, func(f *thrift.FieldDescriptor) error {
-				// try write field
-				if err := self.tryWriteValueRecursive(ctx, req, f, buf, true); err != nil {
-					return newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' http value", f.Name()), err)
+				val, _, enc := tryGetValueFromHttp(req, f.Alias())
+				if err := self.writeStringValue(ctx, buf, f, val, enc, req); err != nil {
+					return err
 				}
 				return nil
 			})
@@ -221,46 +220,6 @@ func (self *BinaryConv) writeHttpRequestToThrift(ctx context.Context, req http.R
 	return
 }
 
-func (self *BinaryConv) handleUnmatchedFields(ctx context.Context, fsm *types.J2TStateMachine, desc *thrift.StructDescriptor, buf *[]byte, pos int, req http.RequestGetter, top bool) (bool, error) {
-	if req == nil {
-		return false, newError(meta.ErrInvalidParam, "http request is nil", nil)
-	}
-
-	// write unmatched fields
-	for _, id := range fsm.FieldCache {
-		f := desc.FieldById(thrift.FieldID(id))
-		if f == nil {
-			if self.opts.DisallowUnknownField {
-				return false, newError(meta.ErrConvert, fmt.Sprintf("unknown field id %d", id), nil)
-			}
-			continue
-		}
-		// NOTICE: base should be handle by writeThriftBase()
-		if f.IsRequestBase() {
-			continue
-		}
-		// try write field
-		if err := self.tryWriteValueRecursive(ctx, req, f, buf, self.opts.TracebackRequredOrRootFields && (top || f.Required() == thrift.RequiredRequireness)); err != nil {
-			return false, newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' http value", f.Name()), err)
-		}
-	}
-
-	// write STRUCT end
-	*buf = append(*buf, byte(thrift.STOP))
-
-	// clear field cache
-	fsm.FieldCache = fsm.FieldCache[:0]
-	// drop current J2T state
-	fsm.SP--
-	if fsm.SP > 0 {
-		// NOTICE: if j2t_exec haven't finished, we should set current position to next json
-		fsm.SetPos(pos)
-		return true, nil
-	} else {
-		return false, nil
-	}
-}
-
 // searching sequence: url -> [post] -> query -> header -> [body root]
 func tryGetValueFromHttp(req http.RequestGetter, key string) (string, bool, meta.Encoding) {
 	if req == nil {
@@ -284,29 +243,25 @@ func tryGetValueFromHttp(req http.RequestGetter, key string) (string, bool, meta
 	return "", false, meta.EncodingText
 }
 
-func (self *BinaryConv) tryWriteValueRecursive(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor, buf *[]byte, tryHttp bool) error {
-	fmt.Printf("try write field: %s\n", field.Name())
+func (self *BinaryConv) tryWriteValueRecursive(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor, p *thrift.BinaryProtocol, tryHttp bool) error {
 	typ := field.Type()
 	if typ.Type() == thrift.STRUCT && len(field.HTTPMappings()) == 0 {
 		// recursively http-mapping struct fields, if it has no http-mapping
 		for _, f := range typ.Struct().Fields() {
-			fmt.Printf("try write struct %s field: %s\n", typ.Name(), f.Name())
-			if err := self.tryWriteValueRecursive(ctx, req, f, buf, tryHttp); err != nil {
+			if err := self.tryWriteValueRecursive(ctx, req, f, p, tryHttp); err != nil {
 				return newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' value", f.Name()), err)
 			}
 		}
-		p := thrift.BinaryProtocol{Buf: *buf}
 		if err := p.WriteStructEnd(); err != nil {
 			return newError(meta.ErrWrite, fmt.Sprintf("failed to write struct end of field '%s'", field.Name()), err)
 		}
-		*buf = p.Buf
 	} else {
 		var val string
 		var enc = meta.EncodingText
 		if tryHttp {
 			val, _, enc = tryGetValueFromHttp(req, field.Alias())
 		}
-		if err := self.writeStringValue(ctx, buf, field, val, enc, req); err != nil {
+		if err := self.writeStringValue(ctx, &p.Buf, field, val, enc, req); err != nil {
 			return newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' http value", field.Name()), err)
 		}
 	}

@@ -369,6 +369,9 @@ func TestWriteDefault(t *testing.T) {
 	act := example3.NewExampleReq()
 	_, err = act.FastRead(out)
 	require.Nil(t, err)
+	// ej, err := json.Marshal(exp)
+	// sj, err := json.Marshal(act)
+	// require.Equal(t, string(ej), string(sj))
 	require.Equal(t, exp, act)
 }
 

@@ -36,6 +36,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/cloudwego/dynamicgo/internal/json"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
@@ -106,8 +107,37 @@ func (m agwBodyDynamic) Write(ctx context.Context, p *thrift.BinaryProtocol, fie
 
 type apiJSConv struct{}
 
-func (m apiJSConv) Write(ctx context.Context, p *thrift.BinaryProtocol, field *thrift.FieldDescriptor, in []byte) error {
-	return errNotImplemented("apiJSConv not support writing")
+func (m apiJSConv) Write(ctx context.Context, p *thrift.BinaryProtocol, field *thrift.FieldDescriptor, in []byte) (err error) {
+	var val = rt.Mem2Str(in)
+	t := field.Type().Type()
+	if len(in) >= 2 && in[0] == '"' && in[len(in)-1] == '"' {
+		val, err = strconv.Unquote(val)
+		if err != nil {
+			return err
+		}
+		if t != thrift.STRING && val == "" {
+			val = "0"
+		}
+	}
+
+	switch t {
+	case thrift.I08, thrift.I16, thrift.I32, thrift.I64:
+		iv, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			return err
+		}
+		return p.WriteInt(t, int(iv))
+	case thrift.DOUBLE:
+		dv, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			return err
+		}
+		return p.WriteDouble(dv)
+	case thrift.STRING:
+		return p.WriteString(val)
+	default:
+		return fmt.Errorf("unsupported type: %v", t)
+	}
 }
 
 func (m apiJSConv) Read(ctx context.Context, p *thrift.BinaryProtocol, field *thrift.FieldDescriptor, out *[]byte) error {
