@@ -80,7 +80,9 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 	// special case for unquoted json string
 	if desc.Type() == thrift.STRING && src[0] != '"' {
 		buf := make([]byte, 0, len(src)+2)
+		println("before", string(src))
 		src = json.EncodeString(buf, rt.Mem2Str(src))
+		println("after", string(src))
 	}
 
 	return self.doImpl(ctx, src, desc, buf, req, true)
