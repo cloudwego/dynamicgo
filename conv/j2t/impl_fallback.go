@@ -21,17 +21,19 @@ package j2t
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"strconv"
 
-	"code.byted.org/middleware/dynamicgo/json"
 	"github.com/cloudwego/dynamicgo/http"
+	"github.com/cloudwego/dynamicgo/internal/json"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
+	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
 )
 
-func (self *BinaryConv) doConv(ctx context.Context, src string, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool) (err error) {
-	return self.doGo(ctx, src, desc, buf, req, top)
+func (self *BinaryConv) doImpl(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool) (err error) {
+	return self.doGo(ctx, rt.Mem2Str(src), desc, buf, req, top)
 }
 
 func (self *BinaryConv) doGo(ctx context.Context, src string, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool) (err error) {
@@ -43,7 +45,7 @@ func (self *BinaryConv) doGo(ctx context.Context, src string, desc *thrift.TypeD
 	ret, err := self.doRecurse(ctx, src, 0, desc, &p, req, depth)
 	*buf = p.Buf
 	if err != nil {
-		return unwrapError(locateInput(src, ret), err)
+		return newError(meta.ErrConvert, locateInput([]byte(src), ret), err)
 	}
 	return nil
 }
@@ -342,10 +344,11 @@ func (self *BinaryConv) doRecurse(ctx context.Context, s string, jp int, desc *t
 					if err := bm.HandleRequires(desc.Struct(), self.opts.WriteRequireField || traceback, self.opts.WriteDefaultField || traceback, self.opts.WriteOptionalField || traceback, func(f *thrift.FieldDescriptor) error {
 						// special case: traceback http values for root of required fields
 						var val string
+						var enc meta.Encoding
 						if self.opts.TracebackRequredOrRootFields && (depth == 0 || f.Required() == thrift.RequiredRequireness) {
-							val, _ = tryGetValueFromHttp(req, f.Alias())
+							val, _, enc = tryGetValueFromHttp(req, f.Alias())
 						}
-						return self.writeStringValue(ctx, &p.Buf, f, val, meta.EncodingJSON, req)
+						return self.writeStringValue(ctx, &p.Buf, f, val, enc, req)
 					}); err != nil {
 						return ret, err
 					}
@@ -366,4 +369,21 @@ func (self *BinaryConv) doRecurse(ctx context.Context, s string, jp int, desc *t
 	}
 
 	return
+}
+
+func (self *BinaryConv) handleValueMapping(ctx context.Context, src string, start int, f *thrift.FieldDescriptor, p *thrift.BinaryProtocol, end int) error {
+	// write field tag
+	if err := p.WriteFieldBegin(f.Name(), f.Type().Type(), f.ID()); err != nil {
+		return newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' tag", f.Name()), err)
+	}
+	// truncate src to value
+	if int(start) >= len(src) || int(end) < 0 {
+		return newError(meta.ErrConvert, "invalid value-mapping position", nil)
+	}
+	jdata := rt.Str2Mem(src[start:end])
+	// call ValueMapping interface
+	if err := f.ValueMapping().Write(ctx, p, f, jdata); err != nil {
+		return newError(meta.ErrConvert, fmt.Sprintf("failed to convert field '%s' value", f.Name()), err)
+	}
+	return nil
 }

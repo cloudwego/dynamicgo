@@ -20,76 +20,21 @@ package j2t
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"runtime"
 	"unsafe"
 
-	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
-	"github.com/cloudwego/dynamicgo/internal/json"
 	"github.com/cloudwego/dynamicgo/internal/native"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
-	"github.com/cloudwego/dynamicgo/thrift/base"
 )
 
-const (
-	_GUARD_SLICE_FACTOR = 1
-)
-
-func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter) error {
-	//NOTICE: output buffer must be larger than src buffer
-	rt.GuardSlice(buf, len(src)*_GUARD_SLICE_FACTOR)
-
-	if self.opts.EnableThriftBase {
-		if f := desc.Struct().GetRequestBase(); f != nil {
-			if err := self.writeRequestBaseToThrift(ctx, buf, f); err != nil {
-				return err
-			}
-		}
-	}
-
-	if len(src) == 0 {
-		// empty body
-		if self.opts.EnableHttpMapping && req != nil {
-			st := desc.Struct()
-			var reqs = thrift.NewRequiresBitmap()
-			st.Requires().CopyTo(reqs)
-			// check if any http-mapping exists
-			if desc.Struct().HttpMappingFields() != nil {
-				if err := self.writeHttpRequestToThrift(ctx, req, st, *reqs, buf, true, true); err != nil {
-					return err
-				}
-			}
-			// check if any required field exists, if have, traceback on http
-			// since this case it always for top-level fields,
-			// we should only check opts.BackTraceRequireOrTopField to decide whether to traceback
-			err := reqs.HandleRequires(st, self.opts.ReadHttpValueFallback, self.opts.ReadHttpValueFallback, self.opts.ReadHttpValueFallback, func(f *thrift.FieldDescriptor) error {
-				// try write field
-				if err := self.tryWriteValueRecursive(ctx, req, f, buf, true); err != nil {
-					return newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' http value", f.Name()), err)
-				}
-				return nil
-			})
-			if err != nil {
-				return newError(meta.ErrWrite, "failed to write required field", err)
-			}
-			thrift.FreeRequiresBitmap(reqs)
-		}
-		// since there is no json data, we should add struct end into buf and return
-		*buf = append(*buf, byte(thrift.STOP))
-		return nil
-	}
-
-	// special case for unquoted json string
-	if desc.Type() == thrift.STRING && src[0] != '"' {
-		buf := make([]byte, 0, len(src)+2)
-		src = json.EncodeString(buf, rt.Mem2Str(src))
-	}
-
-	return self.doNative(ctx, src, desc, buf, req, true)
+func (self *BinaryConv) doImpl(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool) (err error) {
+	return self.doNative(ctx, src, desc, buf, req, top)
 }
 
 func (self *BinaryConv) doNative(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool) (err error) {
@@ -121,232 +66,6 @@ final:
 	runtime.KeepAlive(src)
 	runtime.KeepAlive(buf)
 	return
-}
-
-func isJsonString(val string) bool {
-	if len(val) < 2 {
-		return false
-	}
-
-	c := json.SkipBlank(val, 0)
-	if c < 0 {
-		return false
-	}
-	s := val[c]
-	e := val[len(val)-1] //FIXME: may need exist blank
-	return (s == '{' && e == '}') || (s == '[' && e == ']') || (s == '"' && e == '"')
-}
-
-func (self *BinaryConv) writeStringValue(ctx context.Context, buf *[]byte, f *thrift.FieldDescriptor, val string, enc meta.Encoding, req http.RequestGetter) error {
-	p := thrift.BinaryProtocol{Buf: *buf}
-	if val == "" {
-		if !self.opts.WriteRequireField && f.Required() == thrift.RequiredRequireness {
-			// requred field not found, return error
-			return newError(meta.ErrMissRequiredField, fmt.Sprintf("required field '%s' not found", f.Name()), nil)
-		}
-		if !self.opts.WriteOptionalField && f.Required() == thrift.OptionalRequireness {
-			return nil
-		}
-		if !self.opts.WriteDefaultField && f.Required() == thrift.DefaultRequireness {
-			return nil
-		}
-		if err := p.WriteFieldBegin(f.Name(), f.Type().Type(), f.ID()); err != nil {
-			return newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' tag", f.Name()), err)
-		}
-		if err := p.WriteDefaultOrEmpty(f); err != nil {
-			return newError(meta.ErrWrite, fmt.Sprintf("failed to write empty value of field '%s'", f.Name()), err)
-		}
-	} else {
-		if err := p.WriteFieldBegin(f.Name(), f.Type().Type(), f.ID()); err != nil {
-			return newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' tag", f.Name()), err)
-		}
-		// not http-encoded value, write directly into buf
-		if enc == meta.EncodingThriftBinary {
-			p.Buf = append(p.Buf, val...)
-			goto BACK
-		} else if enc == meta.EncodingText || !f.Type().Type().IsComplex() || !isJsonString(val) {
-			if err := p.WriteStringWithDesc(val, f.Type(), self.opts.DisallowUnknownField, !self.opts.NoBase64Binary); err != nil {
-				return newError(meta.ErrConvert, fmt.Sprintf("failed to write field '%s' value", f.Name()), err)
-			}
-		} else if enc == meta.EncodingJSON {
-			// for nested type, we regard it as a json string and convert it directly
-			if err := self.doNative(ctx, rt.Str2Mem(val), f.Type(), &p.Buf, req, false); err != nil {
-				return newError(meta.ErrConvert, fmt.Sprintf("failed to convert value of field '%s'", f.Name()), err)
-			}
-			// try text encoding, see thrift.EncodeText
-		} else {
-			return newError(meta.ErrConvert, fmt.Sprintf("unsupported http-mapping encoding %v for '%s'", enc, f.Name()), nil)
-		}
-	}
-BACK:
-	*buf = p.Buf
-	return nil
-}
-
-func (self *BinaryConv) writeRequestBaseToThrift(ctx context.Context, buf *[]byte, field *thrift.FieldDescriptor) error {
-	var b *base.Base
-	if bobj := ctx.Value(conv.CtxKeyThriftReqBase); bobj != nil {
-		if v, ok := bobj.(*base.Base); ok && v != nil {
-			b = v
-		}
-	}
-	if b == nil && self.opts.WriteRequireField && field.Required() == thrift.RequiredRequireness {
-		b = &base.Base{}
-	}
-	if b != nil {
-		l := len(*buf)
-		n := b.BLength()
-		rt.GuardSlice(buf, 3+n)
-		*buf = (*buf)[:l+3]
-		thrift.BinaryEncoding{}.EncodeFieldBegin((*buf)[l:l+3], field.Type().Type(), field.ID())
-		l = len(*buf)
-		*buf = (*buf)[:l+n]
-		b.FastWrite((*buf)[l : l+n])
-	}
-	return nil
-}
-
-func (self *BinaryConv) writeHttpRequestToThrift(ctx context.Context, req http.RequestGetter, desc *thrift.StructDescriptor, reqs thrift.RequiresBitmap, buf *[]byte, nobody bool, top bool) (err error) {
-	if req == nil {
-		return newError(meta.ErrInvalidParam, "http request is nil", nil)
-	}
-	fs := desc.HttpMappingFields()
-	for _, f := range fs {
-		var ok bool
-		var val string
-		var httpEnc meta.Encoding
-		// loop http mapping until first non-null value
-		for _, hm := range f.HTTPMappings() {
-			v, err := hm.Request(ctx, req, f)
-			if err == nil {
-				httpEnc = hm.Encoding()
-				ok = true
-				val = v
-				break
-			}
-		}
-		if !ok {
-			// no json body, check if return error
-			if nobody {
-				if f.Required() == thrift.RequiredRequireness && !self.opts.WriteRequireField {
-					return newError(meta.ErrNotFound, fmt.Sprintf("not found http value of field %d:'%s'", f.ID(), f.Name()), nil)
-				}
-				if !self.opts.WriteDefaultField && f.Required() == thrift.DefaultRequireness {
-					continue
-				}
-				if !self.opts.WriteOptionalField && f.Required() == thrift.OptionalRequireness {
-					continue
-				}
-			} else {
-				// NOTICE: if no value found, tracebak on current json layeer to find value
-				// it must be a top level field or required field
-				if self.opts.ReadHttpValueFallback {
-					reqs.Set(f.ID(), thrift.RequiredRequireness)
-					continue
-				}
-			}
-		}
-
-		reqs.Set(f.ID(), thrift.OptionalRequireness)
-		if err := self.writeStringValue(ctx, buf, f, val, httpEnc, req); err != nil {
-			return err
-		}
-	}
-
-	// p.Recycle()
-	return
-}
-
-func (self *BinaryConv) handleUnmatchedFields(ctx context.Context, fsm *types.J2TStateMachine, desc *thrift.StructDescriptor, buf *[]byte, pos int, req http.RequestGetter, top bool) (bool, error) {
-	if req == nil {
-		return false, newError(meta.ErrInvalidParam, "http request is nil", nil)
-	}
-
-	// write unmatched fields
-	for _, id := range fsm.FieldCache {
-		f := desc.FieldById(thrift.FieldID(id))
-		if f == nil {
-			if self.opts.DisallowUnknownField {
-				return false, newError(meta.ErrConvert, fmt.Sprintf("unknown field id %d", id), nil)
-			}
-			continue
-		}
-		// NOTICE: base should be handle by writeThriftBase()
-		if f.IsRequestBase() {
-			continue
-		}
-		// try write field
-		if err := self.tryWriteValueRecursive(ctx, req, f, buf, self.opts.TracebackRequredOrRootFields && (top || f.Required() == thrift.RequiredRequireness)); err != nil {
-			return false, newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' http value", f.Name()), err)
-		}
-	}
-
-	// write STRUCT end
-	*buf = append(*buf, byte(thrift.STOP))
-
-	// clear field cache
-	fsm.FieldCache = fsm.FieldCache[:0]
-	// drop current J2T state
-	fsm.SP--
-	if fsm.SP > 0 {
-		// NOTICE: if j2t_exec haven't finished, we should set current position to next json
-		fsm.SetPos(pos)
-		return true, nil
-	} else {
-		return false, nil
-	}
-}
-
-// searching sequence: url -> [post] -> query -> header -> [body root]
-func tryGetValueFromHttp(req http.RequestGetter, key string) (string, bool, meta.Encoding) {
-	if req == nil {
-		return "", false, meta.EncodingText
-	}
-	if v := req.GetParam(key); v != "" {
-		return v, true, meta.EncodingJSON
-	}
-	if v := req.GetQuery(key); v != "" {
-		return v, true, meta.EncodingJSON
-	}
-	if v := req.GetHeader(key); v != "" {
-		return v, true, meta.EncodingJSON
-	}
-	if v := req.GetCookie(key); v != "" {
-		return v, true, meta.EncodingJSON
-	}
-	if v := req.GetMapBody(key); v != "" {
-		return v, true, meta.EncodingJSON
-	}
-	return "", false, meta.EncodingText
-}
-
-func (self *BinaryConv) tryWriteValueRecursive(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor, buf *[]byte, tryHttp bool) error {
-	fmt.Printf("try write field: %s\n", field.Name())
-	typ := field.Type()
-	if typ.Type() == thrift.STRUCT && len(field.HTTPMappings()) == 0 {
-		// recursively http-mapping struct fields, if it has no http-mapping
-		for _, f := range typ.Struct().Fields() {
-			fmt.Printf("try write struct %s field: %s\n", typ.Name(), f.Name())
-			if err := self.tryWriteValueRecursive(ctx, req, f, buf, tryHttp); err != nil {
-				return newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' value", f.Name()), err)
-			}
-		}
-		p := thrift.BinaryProtocol{Buf: *buf}
-		if err := p.WriteStructEnd(); err != nil {
-			return newError(meta.ErrWrite, fmt.Sprintf("failed to write struct end of field '%s'", field.Name()), err)
-		}
-		*buf = p.Buf
-	} else {
-		var val string
-		var enc = meta.EncodingText
-		if tryHttp {
-			val, _, enc = tryGetValueFromHttp(req, field.Alias())
-		}
-		if err := self.writeStringValue(ctx, buf, field, val, enc, req); err != nil {
-			return newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' http value", field.Name()), err)
-		}
-	}
-	return nil
 }
 
 func (self *BinaryConv) handleValueMapping(ctx context.Context, fsm *types.J2TStateMachine, desc *thrift.StructDescriptor, buf *[]byte, pos int, src []byte) (bool, error) {
@@ -385,5 +104,149 @@ func (self *BinaryConv) handleValueMapping(ctx context.Context, fsm *types.J2TSt
 		return true, nil
 	} else {
 		return false, nil
+	}
+}
+
+//go:nocheckptr
+func getJ2TExtraStruct(fsm *types.J2TStateMachine, offset int) (td *thrift.TypeDescriptor, reqs thrift.RequiresBitmap) {
+	state := fsm.At(offset - 1)
+	if state == nil {
+		return nil, thrift.RequiresBitmap{}
+	}
+	td = (*thrift.TypeDescriptor)(unsafe.Pointer(state.TdPointer()))
+	je := (*_J2TExtra_STRUCT)(unsafe.Pointer(&state.Extra))
+	v := rt.Str2Mem(je.reqs)
+	reqs = *(*thrift.RequiresBitmap)(unsafe.Pointer(&v))
+	return
+}
+
+func (self BinaryConv) handleError(ctx context.Context, fsm *types.J2TStateMachine, buf *[]byte, src []byte, req http.RequestGetter, ret uint64, top bool) (cont bool, err error) {
+	e := getErrCode(ret)
+	p := int(ret >> types.ERR_WRAP_SHIFT_CODE)
+
+	switch e {
+	case types.ERR_HTTP_MAPPING:
+		{
+			desc, reqs := getJ2TExtraStruct(fsm, fsm.SP)
+			if desc == nil {
+				return false, newError(meta.ErrConvert, "invalid json input", nil)
+			}
+			if desc.Type() != thrift.STRUCT {
+				return false, newError(meta.ErrConvert, "invalid descriptor while http mapping", nil)
+			}
+			return true, self.writeHttpRequestToThrift(ctx, req, desc.Struct(), reqs, buf, false, top)
+		}
+	case types.ERR_HTTP_MAPPING_END:
+		{
+			desc, _ := getJ2TExtraStruct(fsm, fsm.SP)
+			if desc == nil {
+				return false, newError(meta.ErrConvert, "invalid json input", nil)
+			}
+			if desc.Type() != thrift.STRUCT {
+				return false, newError(meta.ErrConvert, "invalid descriptor while http mapping", nil)
+			}
+			if len(fsm.FieldCache) == 0 {
+				return false, newError(meta.ErrConvert, "invalid FSM field-cache length", nil)
+			}
+			return self.handleUnmatchedFields(ctx, fsm, desc.Struct(), buf, p, req, top)
+		}
+	case types.ERR_OOM_BM:
+		{
+			fsm.GrowReqCache(p)
+			return true, nil
+		}
+	case types.ERR_OOM_KEY:
+		{
+			fsm.GrowKeyCache(p)
+			return true, nil
+		}
+	case types.ERR_OOM_BUF:
+		{
+			c := cap(*buf)
+			c += c >> 1
+			if c < cap(*buf)+p {
+				c = cap(*buf) + p*2
+			}
+			tmp := make([]byte, len(*buf), c)
+			copy(tmp, *buf)
+			*buf = tmp
+			return true, nil
+		}
+	case types.ERR_OOM_FIELD:
+		{
+			fsm.GrowFieldCache(types.J2T_FIELD_CACHE_SIZE)
+			fsm.SetPos(p)
+			return true, nil
+		}
+	// case types.ERR_OOM_FVAL:
+	// 	{
+	// 		fsm.GrowFieldValueCache(types.J2T_FIELD_CACHE_SIZE)
+	// 		fsm.SetPos(p)
+	// 		return true, nil
+	// 	}
+	case types.ERR_VALUE_MAPPING_END:
+		{
+			desc, _ := getJ2TExtraStruct(fsm, fsm.SP-1)
+			if desc == nil {
+				return false, newError(meta.ErrConvert, "invalid json input", nil)
+			}
+			if desc.Type() != thrift.STRUCT {
+				return false, newError(meta.ErrConvert, "invalid descriptor while value mapping", nil)
+			}
+			return self.handleValueMapping(ctx, fsm, desc.Struct(), buf, p, src)
+		}
+	}
+
+	return false, explainNativeError(ret, src)
+}
+
+func getPos(e uint64) int {
+	return int(e>>types.ERR_WRAP_SHIFT_CODE) & ((1 << types.ERR_WRAP_SHIFT_POS) - 1)
+}
+
+func getErrCode(e uint64) types.ParsingError {
+	return types.ParsingError(e & ((1 << types.ERR_WRAP_SHIFT_CODE) - 1))
+}
+
+func getValue(e uint64) int {
+	return int(e >> (types.ERR_WRAP_SHIFT_CODE + types.ERR_WRAP_SHIFT_POS))
+}
+
+func explainNativeError(ret uint64, in []byte) error {
+	ip := getPos(ret)
+	v := getValue(ret)
+	e := getErrCode(ret)
+	switch e {
+	case types.ERR_INVALID_CHAR:
+		ch, st := v>>types.ERR_WRAP_SHIFT_CODE, v&((1<<types.ERR_WRAP_SHIFT_CODE)-1)
+		return newError(meta.ErrRead, fmt.Sprintf("invalid char '%c' for state %s, near %d of %s", byte(ch), types.J2T_STATE(st), ip, locateInput(in, ip)), e)
+	case types.ERR_INVALID_NUMBER_FMT:
+		return newError(meta.ErrConvert, fmt.Sprintf("unexpected number type %d, near %d of %s", types.ValueType(v), ip, locateInput(in, ip)), e)
+	case types.ERR_UNSUPPORT_THRIFT_TYPE:
+		t := thrift.Type(v)
+		return newError(meta.ErrUnsupportedType, fmt.Sprintf("unsupported thrift type %s, near %d of %s", t, ip, locateInput(in, ip)), nil)
+	case types.ERR_UNSUPPORT_VM_TYPE:
+		t := thrift.AnnoID(v)
+		return newError(meta.ErrUnsupportedType, fmt.Sprintf("unsupported value-mapping type %d, near %d of %q", t, ip, locateInput(in, ip)), nil)
+	case types.ERR_DISMATCH_TYPE:
+		exp, act := v>>types.ERR_WRAP_SHIFT_CODE, v&((1<<types.ERR_WRAP_SHIFT_CODE)-1)
+		return newError(meta.ErrDismatchType, fmt.Sprintf("expect type %s but got type %d, near %d of %s", thrift.Type(exp), act, ip, locateInput(in, ip)), nil)
+	case types.ERR_NULL_REQUIRED:
+		id := thrift.FieldID(v)
+		return newError(meta.ErrMissRequiredField, fmt.Sprintf("missing required field %d, near %d of %s", id, ip, locateInput(in, ip)), nil)
+	case types.ERR_UNKNOWN_FIELD:
+		n := ip - v - 1
+		if n < 0 {
+			n = 0
+		}
+		key := in[n : ip-1]
+		return newError(meta.ErrUnknownField, fmt.Sprintf("unknown field '%s', near %d of %s", string(key), ip, locateInput(in, ip)), nil)
+	case types.ERR_RECURSE_EXCEED_MAX:
+		return newError(meta.ErrStackOverflow, fmt.Sprintf("stack %d overflow, near %d of %s", v, ip, locateInput(in, ip)), nil)
+	case types.ERR_DECODE_BASE64:
+		berr := base64.CorruptInputError(v)
+		return newError(meta.ErrRead, fmt.Sprintf("decode base64 error: %v, near %d of %s", berr, ip, locateInput(in, ip)), nil)
+	default:
+		return newError(meta.ErrConvert, fmt.Sprintf("native error %q, value %d, near %d of %s", types.ParsingError(e).Message(), v, ip, locateInput(in, ip)), nil)
 	}
 }
