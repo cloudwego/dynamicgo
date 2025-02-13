@@ -280,18 +280,23 @@ func (self *BinaryConv) doRecurse(ctx context.Context, s string, jp int, desc *t
 						key = s[v.Iv : ret-1]
 					}
 
+					if jp, nt = json.Peek(s, ret); nt != json.Colon {
+						return ret, errSyntax(s, ret)
+					} else {
+						ret = jp + 1
+					}
+
 					ft := desc.Struct().FieldByKey(key)
 					if ft == nil {
 						if self.opts.DisallowUnknownField {
 							return ret, newError(meta.ErrUnknownField, key, nil)
 						}
-						continue
-					}
-
-					if jp, nt = json.Peek(s, ret); nt != json.Colon {
-						return ret, errSyntax(s, ret)
-					} else {
-						ret = jp + 1
+						jp, _ = json.SkipValue(s, ret)
+						if jp < 0 {
+							return ret, errSyntax(s, jp)
+						}
+						ret = jp
+						goto OBJECT_NEXT
 					}
 
 					if self.opts.EnableHttpMapping && len(ft.HTTPMappings()) > 0 && !bm.IsSet(ft.ID()) {
@@ -333,6 +338,7 @@ func (self *BinaryConv) doRecurse(ctx context.Context, s string, jp int, desc *t
 						bm.Set(ft.ID(), thrift.OptionalRequireness)
 					}
 
+				OBJECT_NEXT:
 					jp, nt = json.Peek(s, ret)
 					ret = jp + 1
 				}

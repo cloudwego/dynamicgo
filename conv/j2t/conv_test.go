@@ -349,12 +349,17 @@ func getNullErrData() []byte {
 	return out
 }
 
+var recursivelyWrite = false
+
 func TestWriteDefault(t *testing.T) {
 	desc := getExampleDesc()
 	data := []byte(`{"Path":"<>"}`)
 	exp := example3.NewExampleReq()
+	if recursivelyWrite {
+		exp.InnerBase = sample.GetEmptyInnerBase3()
+	}
 	data2 := []byte(`{"Path":"<>","Base":{}}`)
-	exp.InnerBase = sample.GetEmptyInnerBase3()
+	exp.InnerBase = &example3.InnerBase{}
 	err := json.Unmarshal(data2, exp)
 	require.Nil(t, err)
 	req := getExampleReq(exp, false, data)
@@ -369,9 +374,6 @@ func TestWriteDefault(t *testing.T) {
 	act := example3.NewExampleReq()
 	_, err = act.FastRead(out)
 	require.Nil(t, err)
-	// ej, err := json.Marshal(exp)
-	// sj, err := json.Marshal(act)
-	// require.Equal(t, string(ej), string(sj))
 	require.Equal(t, exp, act)
 }
 
@@ -396,7 +398,10 @@ func TestWriteRequired(t *testing.T) {
 	})
 	t.Run("http-mapping", func(t *testing.T) {
 		exp := example3.NewExampleReq()
-		exp.InnerBase = sample.GetEmptyInnerBase3()
+		exp.InnerBase = &example3.InnerBase{}
+		if recursivelyWrite {
+			exp.InnerBase = sample.GetEmptyInnerBase3()
+		}
 		data2 := []byte(`{"Path":"","Base":{}}`)
 		err := json.Unmarshal(data2, exp)
 		require.Nil(t, err)

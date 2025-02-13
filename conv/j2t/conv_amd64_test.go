@@ -41,6 +41,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func init() {
+	recursivelyWrite = true
+}
+
 func TestError(t *testing.T) {
 	desc := getExampleDesc()
 
