@@ -355,11 +355,12 @@ func TestWriteDefault(t *testing.T) {
 	desc := getExampleDesc()
 	data := []byte(`{"Path":"<>"}`)
 	exp := example3.NewExampleReq()
+	exp.InnerBase = &example3.InnerBase{}
+	println(recursivelyWrite)
 	if recursivelyWrite {
 		exp.InnerBase = sample.GetEmptyInnerBase3()
 	}
 	data2 := []byte(`{"Path":"<>","Base":{}}`)
-	exp.InnerBase = &example3.InnerBase{}
 	err := json.Unmarshal(data2, exp)
 	require.Nil(t, err)
 	req := getExampleReq(exp, false, data)
