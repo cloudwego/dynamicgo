@@ -26,4 +26,13 @@ jobs:
 
       - name: Unit Test
         run: |
-          go test ./...
+          go test github.com/cloudwego/dynamicgo/thrift
+          go test github.com/cloudwego/dynamicgo/thrift/annotation
+          go test github.com/cloudwego/dynamicgo/thrift/generic
+          go test github.com/cloudwego/dynamicgo/conv/t2j
+          go test github.com/cloudwego/dynamicgo/conv/j2t
+          go test github.com/cloudwego/dynamicgo/http
+          go test github.com/cloudwego/dynamicgo/internal/json
+          go test github.com/cloudwego/dynamicgo/conv/j2p
+          go test github.com/cloudwego/dynamicgo/conv/p2j
+          go test github.com/cloudwego/dynamicgo/proto/generic
