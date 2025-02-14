@@ -93,6 +93,17 @@ func IndexChar(src string, index int) unsafe.Pointer {
 	return unsafe.Pointer(uintptr((*GoString)(unsafe.Pointer(&src)).Ptr) + uintptr(index))
 }
 
+func IndexCharUint(src string, index int) uintptr {
+	// if slice.Ptr == nil || slice.Cap == 0 {
+	// 	return nil
+	// }
+	return uintptr((*GoString)(unsafe.Pointer(&src)).Ptr) + uintptr(index)
+}
+
+func StrBoundary(src string) uintptr {
+	return uintptr((*GoString)(unsafe.Pointer(&src)).Ptr) + uintptr(len(src))
+}
+
 func GuardSlice(buf *[]byte, n int) {
 	c := cap(*buf)
 	l := len(*buf)

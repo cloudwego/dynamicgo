@@ -64,6 +64,9 @@ func decodeFalse(src string, pos int) (ret int) {
 
 func decodeString(src string, pos int) (ret int, v string) {
 	ret, ep := skipString(src, pos)
+	if ret < 0 {
+		return ret, ""
+	}
 	if ep == -1 {
 		(*rt.GoString)(unsafe.Pointer(&v)).Ptr = rt.IndexChar(src, pos+1)
 		(*rt.GoString)(unsafe.Pointer(&v)).Len = ret - pos - 2
@@ -98,9 +101,9 @@ func isDigit(c byte) bool {
 }
 
 func decodeInt64(src string, pos int) (ret int, v int64, err error) {
-	sp := uintptr(rt.IndexChar(src, pos))
+	sp := rt.IndexCharUint(src, pos)
 	ss := uintptr(sp)
-	se := uintptr(rt.IndexChar(src, len(src)))
+	se := rt.StrBoundary(src)
 	if uintptr(sp) >= se {
 		return -int(types.ERR_EOF), 0, nil
 	}
@@ -147,9 +150,9 @@ func isNumberChars(c byte) bool {
 }
 
 func decodeFloat64(src string, pos int) (ret int, v float64, err error) {
-	sp := uintptr(rt.IndexChar(src, pos))
+	sp := rt.IndexCharUint(src, pos)
 	ss := uintptr(sp)
-	se := uintptr(rt.IndexChar(src, len(src)))
+	se := rt.StrBoundary(src)
 	if uintptr(sp) >= se {
 		return -int(types.ERR_EOF), 0, nil
 	}
@@ -291,8 +294,8 @@ func DecodeValue(src string, pos int) (ret int, v types.JsonState) {
 }
 
 func skipNumber(src string, pos int) (ret int) {
-	sp := uintptr(rt.IndexChar(src, pos))
-	se := uintptr(rt.IndexChar(src, len(src)))
+	sp := rt.IndexCharUint(src, pos)
+	se := rt.StrBoundary(src)
 	if uintptr(sp) >= se {
 		return -int(types.ERR_EOF)
 	}
@@ -359,8 +362,8 @@ func skipString(src string, pos int) (ret int, ep int) {
 		return -int(types.ERR_EOF), -1
 	}
 
-	sp := uintptr(rt.IndexChar(src, pos))
-	se := uintptr(rt.IndexChar(src, len(src)))
+	sp := rt.IndexCharUint(src, pos)
+	se := rt.StrBoundary(src)
 
 	if *(*byte)(unsafe.Pointer(sp)) != '"' {
 		return -int(types.ERR_INVALID_CHAR), -1
@@ -396,8 +399,8 @@ func skipPair(src string, pos int, lchar byte, rchar byte) (ret int) {
 		return -int(types.ERR_EOF)
 	}
 
-	sp := uintptr(rt.IndexChar(src, pos))
-	se := uintptr(rt.IndexChar(src, len(src)))
+	sp := rt.IndexCharUint(src, pos)
+	se := rt.StrBoundary(src)
 
 	if *(*byte)(unsafe.Pointer(sp)) != lchar {
 		return -int(types.ERR_INVALID_CHAR)
