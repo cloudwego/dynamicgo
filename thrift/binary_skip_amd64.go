@@ -1,4 +1,4 @@
-//go:build amd64
+//go:build amd64 && !go1.24
 
 /**
  * Copyright 2023 cloudwego Inc.
