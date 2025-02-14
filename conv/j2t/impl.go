@@ -53,7 +53,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 			st.Requires().CopyTo(reqs)
 			// check if any http-mapping exists
 			if desc.Struct().HttpMappingFields() != nil {
-				if err := self.writeHttpRequestToThrift(ctx, req, st, *reqs, buf, true, true); err != nil {
+				if err := self.handleHttpMappings(ctx, req, st, *reqs, buf, true, true); err != nil {
 					return err
 				}
 			}
@@ -171,57 +171,6 @@ func (self *BinaryConv) writeRequestBaseToThrift(ctx context.Context, buf *[]byt
 	return nil
 }
 
-func (self *BinaryConv) writeHttpRequestToThrift(ctx context.Context, req http.RequestGetter, desc *thrift.StructDescriptor, reqs thrift.RequiresBitmap, buf *[]byte, nobody bool, top bool) (err error) {
-	if req == nil {
-		return newError(meta.ErrInvalidParam, "http request is nil", nil)
-	}
-	fs := desc.HttpMappingFields()
-	for _, f := range fs {
-		var ok bool
-		var val string
-		var httpEnc meta.Encoding
-		// loop http mapping until first non-null value
-		for _, hm := range f.HTTPMappings() {
-			v, err := hm.Request(ctx, req, f)
-			if err == nil {
-				httpEnc = hm.Encoding()
-				ok = true
-				val = v
-				break
-			}
-		}
-		if !ok {
-			// no json body, check if return error
-			if nobody {
-				if f.Required() == thrift.RequiredRequireness && !self.opts.WriteRequireField {
-					return newError(meta.ErrNotFound, fmt.Sprintf("not found http value of field %d:'%s'", f.ID(), f.Name()), nil)
-				}
-				if !self.opts.WriteDefaultField && f.Required() == thrift.DefaultRequireness {
-					continue
-				}
-				if !self.opts.WriteOptionalField && f.Required() == thrift.OptionalRequireness {
-					continue
-				}
-			} else {
-				// NOTICE: if no value found, tracebak on current json layeer to find value
-				// it must be a top level field or required field
-				if self.opts.ReadHttpValueFallback {
-					reqs.Set(f.ID(), thrift.RequiredRequireness)
-					continue
-				}
-			}
-		}
-
-		reqs.Set(f.ID(), thrift.OptionalRequireness)
-		if err := self.writeStringValue(ctx, buf, f, val, httpEnc, req); err != nil {
-			return err
-		}
-	}
-
-	// p.Recycle()
-	return
-}
-
 // searching sequence: url -> [post] -> query -> header -> [body root]
 func tryGetValueFromHttp(req http.RequestGetter, key string) (string, bool, meta.Encoding) {
 	if req == nil {
@@ -304,7 +253,7 @@ func (self *BinaryConv) handleHttpMappings(ctx context.Context, req http.Request
 			} else {
 				// NOTICE: if no value found, tracebak on current json layeer to find value
 				// it must be a top level field or required field
-				if self.opts.TracebackRequredOrRootFields && (top || f.Required() == thrift.RequiredRequireness) {
+				if self.opts.ReadHttpValueFallback {
 					reqs.Set(f.ID(), thrift.RequiredRequireness)
 					continue
 				}

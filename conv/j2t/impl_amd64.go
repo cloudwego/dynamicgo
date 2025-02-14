@@ -180,7 +180,7 @@ func (self BinaryConv) handleError(ctx context.Context, fsm *types.J2TStateMachi
 			if desc.Type() != thrift.STRUCT {
 				return false, newError(meta.ErrConvert, "invalid descriptor while http mapping", nil)
 			}
-			return true, self.writeHttpRequestToThrift(ctx, req, desc.Struct(), reqs, buf, false, top)
+			return true, self.handleHttpMappings(ctx, req, desc.Struct(), reqs, buf, false, top)
 		}
 	case types.ERR_HTTP_MAPPING_END:
 		{

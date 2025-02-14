@@ -45,7 +45,7 @@ func (self *BinaryConv) doGo(ctx context.Context, src string, desc *thrift.TypeD
 	ret, err := self.doRecurse(ctx, src, 0, desc, &p, req, depth)
 	*buf = p.Buf
 	if err != nil {
-		return newError(meta.ErrConvert, locateInput([]byte(src), ret), err)
+		return unwrapError(locateInput([]byte(src), ret), err)
 	}
 	return nil
 }

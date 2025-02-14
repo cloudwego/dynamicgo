@@ -41,10 +41,18 @@ func errSyntax(s string, r int) error {
 	}
 }
 
+func unwrapError(msg string, err error) error {
+	if v, ok := err.(meta.Error); ok {
+		return newError(v.Code, msg, err)
+	} else {
+		return newError(meta.ErrConvert, msg, err)
+	}
+}
+
 //go:noinline
 func newError(code meta.ErrCode, msg string, err error) error {
-	// return meta.NewError(meta.NewErrorCode(code, meta.JSON2THRIFT), msg, err)
-	panic(meta.NewError(meta.NewErrorCode(code, meta.JSON2THRIFT), msg, err).Error())
+	return meta.NewError(meta.NewErrorCode(code, meta.JSON2THRIFT), msg, err)
+	// panic(meta.NewError(meta.NewErrorCode(code, meta.JSON2THRIFT), msg, err).Error())
 }
 
 type _J2TExtra_STRUCT struct {
