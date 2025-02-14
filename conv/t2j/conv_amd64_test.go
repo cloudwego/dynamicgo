@@ -1,5 +1,4 @@
-//go:build amd64 && go1.16
-// +build amd64,go1.16
+//go:build amd64 && go1.24
 
 /**
  * Copyright 2023 CloudWeGo Authors.
@@ -35,8 +34,8 @@ func TestConvThrift2HTTP(t *testing.T) {
 	expJSON := getExmaple3JSON()
 	cv := NewBinaryConv(conv.Options{
 		// MapRecurseDepth:    conv.DefaultMaxDepth,
-		EnableValueMapping: true,
-		EnableHttpMapping:  true,
+		EnableValueMapping:    true,
+		EnableHttpMapping:     true,
 		OmitHttpMappingErrors: true,
 	})
 	in := getExample3Data()
