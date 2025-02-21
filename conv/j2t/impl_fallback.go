@@ -190,7 +190,7 @@ func (self *BinaryConv) doRecurse(ctx context.Context, s string, jp int, desc *t
 					ret = jp
 
 					var key string
-					if v.Ep >= int64(ret) {
+					if v.Ep >= 0 && v.Ep < int64(ret) {
 						key, err = strconv.Unquote(s[v.Iv-1 : ret])
 						if err != nil {
 							return
@@ -271,7 +271,7 @@ func (self *BinaryConv) doRecurse(ctx context.Context, s string, jp int, desc *t
 					ret = jp
 
 					var key string
-					if v.Ep >= int64(ret) {
+					if v.Ep >= 0 && v.Ep < int64(ret) {
 						key, err = strconv.Unquote(s[v.Iv-1 : ret])
 						if err != nil {
 							return
