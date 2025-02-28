@@ -209,13 +209,14 @@ func parseIDLContent(path, content string, includes map[string]string, isAbsIncl
 func refIncludes(tree *parser.Thrift, path string, done map[string]*parser.Thrift, includes map[string]*parser.Thrift, isAbsIncludePath bool) error {
 	done[path] = tree
 	for _, i := range tree.Includes {
-		ps := []string{i.Path}
+		var ps []string
 		if isAbsIncludePath {
 			p := absPath(tree.Filename, i.Path)
 			if p != i.Path {
 				ps = append(ps, p)
 			}
 		}
+		ps = append(ps, i.Path)
 
 		for _, p := range ps {
 			// check cycle reference
