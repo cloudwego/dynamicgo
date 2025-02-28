@@ -50,6 +50,14 @@ func TestThriftContentWithAbsIncludePath(t *testing.T) {
 		t.Fatal(err)
 	}
 	fmt.Printf("%#v\n", p)
+
+	delete(includes, "a/b/x.thrift")
+	includes["x.thrift"] = "namespace go kitex.test.server"
+	p, err = NewDescritorFromContent(context.Background(), path, content, includes, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Printf("%#v\n", p)
 }
 
 func TestBitmap(t *testing.T) {
