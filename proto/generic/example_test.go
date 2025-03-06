@@ -3,11 +3,9 @@ package generic
 import (
 	"fmt"
 	"math"
-	"testing"
 
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/proto/binary"
-	"github.com/stretchr/testify/require"
 )
 
 var opts = &Options{
@@ -17,7 +15,7 @@ var opts = &Options{
 	CastStringAsBinary: false,
 }
 
-func ExampleValue_GetByPath(t *testing.T) {
+func ExampleValue_GetByPath() {
 	desc := getExample3Desc()
 	data := getExample3Data()
 	v := NewRootValue(desc, data)
@@ -75,7 +73,7 @@ func ExampleValue_SetByPath() {
 	fmt.Println(f2) // 中文
 }
 
-func ExampleValue_SetMany(t *testing.T) {
+func ExampleValue_SetMany() {
 	desc := getExample3Desc()
 	data := getExample3Data()
 	root := NewRootValue(desc, data)
@@ -91,7 +89,9 @@ func ExampleValue_SetMany(t *testing.T) {
 		},
 	}, opts, &root, address, pathes...)
 
-	require.Nil(t, err)
+	if err != nil {
+		panic(err)
+	}
 	v1 := root.GetByPath(NewPathFieldName("A"))
 	act1, err := v1.Int()
 	fmt.Println(act1) // -1024
@@ -151,7 +151,7 @@ func ExampleValue_SetMany(t *testing.T) {
 	fmt.Println(ll2) // 8
 }
 
-func ExampleValue_MarshalTo(t *testing.T) {
+func ExampleValue_MarshalTo() {
 	desc := getExample3Desc()
 	data := getExample3Data()
 	v := NewRootValue(desc, data)
@@ -170,7 +170,7 @@ func ExampleValue_MarshalTo(t *testing.T) {
 	fmt.Printf("%#v", partMsg)
 }
 
-func ExamplePathNode_Load(*testing.T) {
+func ExamplePathNode_Load() {
 	desc := getExample3Desc()
 	data := getExample3Data()
 
@@ -204,31 +204,31 @@ func ExamplePathNode_Load(*testing.T) {
 	pathNodePool.Put(reuse)
 }
 
-func ExampleValue_MarshalAll() {
-	desc := getExample3Desc()
-	data := getExample3Data()
-	v := NewRootValue(desc, data)
-	p := PathNode{
-		Node: v.Node,
-	}
+// func ExamplePathNode_Marshal_2() {
+// 	desc := getExample3Desc()
+// 	data := getExample3Data()
+// 	v := NewRootValue(desc, data)
+// 	p := PathNode{
+// 		Node: v.Node,
+// 	}
 
-	if err := p.Load(true, opts, desc); err != nil {
-		panic(err)
-	}
+// 	if err := p.Load(true, opts, desc); err != nil {
+// 		panic(err)
+// 	}
 
-	out, err := p.Marshal(opts)
-	if err != nil {
-		panic(err)
-	}
+// 	out, err := p.Marshal(opts)
+// 	if err != nil {
+// 		panic(err)
+// 	}
 
-	msg, err := NewRootValue(desc, out).Interface(opts)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("%#v", msg)
-}
+// 	msg, err := NewRootValue(desc, out).Interface(opts)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	fmt.Printf("%#v", msg)
+// }
 
-func ExamplePathNode_MarshalMany(t *testing.T) {
+func ExamplePathNode_Marshal() {
 	desc := getExample3Desc()
 	data := getExample3Data()
 

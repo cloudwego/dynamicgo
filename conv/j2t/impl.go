@@ -19,14 +19,10 @@ package j2t
 import (
 	"context"
 	"fmt"
-	"runtime"
-	"unsafe"
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/internal/json"
-	"github.com/cloudwego/dynamicgo/internal/native"
-	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
@@ -57,7 +53,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 			st.Requires().CopyTo(reqs)
 			// check if any http-mapping exists
 			if desc.Struct().HttpMappingFields() != nil {
-				if err := self.writeHttpRequestToThrift(ctx, req, st, *reqs, buf, true, true); err != nil {
+				if err := self.handleHttpMappings(ctx, req, st, *reqs, buf, true, true); err != nil {
 					return err
 				}
 			}
@@ -87,38 +83,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 		src = json.EncodeString(buf, rt.Mem2Str(src))
 	}
 
-	return self.doNative(ctx, src, desc, buf, req, true)
-}
-
-func (self *BinaryConv) doNative(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool) (err error) {
-	fsm := types.NewJ2TStateMachine()
-	var ret uint64
-	defer func() {
-		if msg := recover(); msg != nil {
-			panic(makePanicMsg(msg, src, desc, buf, req, self.flags, fsm, ret))
-		}
-	}()
-
-	jp := rt.Mem2Str(src)
-	fsm.Init(0, unsafe.Pointer(desc))
-
-exec:
-	ret = native.J2T_FSM(fsm, buf, &jp, self.flags)
-	if ret != 0 {
-		cont, e := self.handleError(ctx, fsm, buf, src, req, ret, top)
-		if cont && e == nil {
-			goto exec
-		}
-		err = e
-		goto final
-	}
-
-final:
-	types.FreeJ2TStateMachine(fsm)
-	runtime.KeepAlive(desc)
-	runtime.KeepAlive(src)
-	runtime.KeepAlive(buf)
-	return
+	return self.doImpl(ctx, src, desc, buf, req, true)
 }
 
 func isJsonString(val string) bool {
@@ -168,7 +133,7 @@ func (self *BinaryConv) writeStringValue(ctx context.Context, buf *[]byte, f *th
 			}
 		} else if enc == meta.EncodingJSON {
 			// for nested type, we regard it as a json string and convert it directly
-			if err := self.doNative(ctx, rt.Str2Mem(val), f.Type(), &p.Buf, req, false); err != nil {
+			if err := self.doImpl(ctx, rt.Str2Mem(val), f.Type(), &p.Buf, req, false); err != nil {
 				return newError(meta.ErrConvert, fmt.Sprintf("failed to convert value of field '%s'", f.Name()), err)
 			}
 			// try text encoding, see thrift.EncodeText
@@ -204,7 +169,55 @@ func (self *BinaryConv) writeRequestBaseToThrift(ctx context.Context, buf *[]byt
 	return nil
 }
 
-func (self *BinaryConv) writeHttpRequestToThrift(ctx context.Context, req http.RequestGetter, desc *thrift.StructDescriptor, reqs thrift.RequiresBitmap, buf *[]byte, nobody bool, top bool) (err error) {
+// searching sequence: url -> [post] -> query -> header -> [body root]
+func tryGetValueFromHttp(req http.RequestGetter, key string) (string, bool, meta.Encoding) {
+	if req == nil {
+		return "", false, meta.EncodingText
+	}
+	if v := req.GetParam(key); v != "" {
+		return v, true, meta.EncodingJSON
+	}
+	if v := req.GetQuery(key); v != "" {
+		return v, true, meta.EncodingJSON
+	}
+	if v := req.GetHeader(key); v != "" {
+		return v, true, meta.EncodingJSON
+	}
+	if v := req.GetCookie(key); v != "" {
+		return v, true, meta.EncodingJSON
+	}
+	if v := req.GetMapBody(key); v != "" {
+		return v, true, meta.EncodingJSON
+	}
+	return "", false, meta.EncodingText
+}
+
+func (self *BinaryConv) tryWriteValueRecursive(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor, p *thrift.BinaryProtocol, tryHttp bool) error {
+	typ := field.Type()
+	if typ.Type() == thrift.STRUCT && len(field.HTTPMappings()) == 0 {
+		// recursively http-mapping struct fields, if it has no http-mapping
+		for _, f := range typ.Struct().Fields() {
+			if err := self.tryWriteValueRecursive(ctx, req, f, p, tryHttp); err != nil {
+				return newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' value", f.Name()), err)
+			}
+		}
+		if err := p.WriteStructEnd(); err != nil {
+			return newError(meta.ErrWrite, fmt.Sprintf("failed to write struct end of field '%s'", field.Name()), err)
+		}
+	} else {
+		var val string
+		var enc = meta.EncodingText
+		if tryHttp {
+			val, _, enc = tryGetValueFromHttp(req, field.Alias())
+		}
+		if err := self.writeStringValue(ctx, &p.Buf, field, val, enc, req); err != nil {
+			return newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' http value", field.Name()), err)
+		}
+	}
+	return nil
+}
+
+func (self *BinaryConv) handleHttpMappings(ctx context.Context, req http.RequestGetter, desc *thrift.StructDescriptor, reqs thrift.RequiresBitmap, buf *[]byte, nobody bool, top bool) (err error) {
 	if req == nil {
 		return newError(meta.ErrInvalidParam, "http request is nil", nil)
 	}
@@ -253,111 +266,4 @@ func (self *BinaryConv) writeHttpRequestToThrift(ctx context.Context, req http.R
 
 	// p.Recycle()
 	return
-}
-
-func (self *BinaryConv) handleUnmatchedFields(ctx context.Context, fsm *types.J2TStateMachine, desc *thrift.StructDescriptor, buf *[]byte, pos int, req http.RequestGetter, top bool) (bool, error) {
-	if req == nil {
-		return false, newError(meta.ErrInvalidParam, "http request is nil", nil)
-	}
-
-	// write unmatched fields
-	for _, id := range fsm.FieldCache {
-		f := desc.FieldById(thrift.FieldID(id))
-		if f == nil {
-			if self.opts.DisallowUnknownField {
-				return false, newError(meta.ErrConvert, fmt.Sprintf("unknown field id %d", id), nil)
-			}
-			continue
-		}
-		// NOTICE: base should be handle by writeThriftBase()
-		if f.IsRequestBase() {
-			continue
-		}
-		var val string
-		var enc = meta.EncodingText
-		if self.opts.TracebackRequredOrRootFields && (top || f.Required() == thrift.RequiredRequireness) {
-			// try get value from http
-			val, _, enc = tryGetValueFromHttp(req, f.Alias())
-		}
-		if err := self.writeStringValue(ctx, buf, f, val, enc, req); err != nil {
-			return false, err
-		}
-	}
-
-	// write STRUCT end
-	*buf = append(*buf, byte(thrift.STOP))
-
-	// clear field cache
-	fsm.FieldCache = fsm.FieldCache[:0]
-	// drop current J2T state
-	fsm.SP--
-	if fsm.SP > 0 {
-		// NOTICE: if j2t_exec haven't finished, we should set current position to next json
-		fsm.SetPos(pos)
-		return true, nil
-	} else {
-		return false, nil
-	}
-}
-
-// searching sequence: url -> [post] -> query -> header -> [body root]
-func tryGetValueFromHttp(req http.RequestGetter, key string) (string, bool, meta.Encoding) {
-	if req == nil {
-		return "", false, meta.EncodingText
-	}
-	if v := req.GetParam(key); v != "" {
-		return v, true, meta.EncodingJSON
-	}
-	if v := req.GetQuery(key); v != "" {
-		return v, true, meta.EncodingJSON
-	}
-	if v := req.GetHeader(key); v != "" {
-		return v, true, meta.EncodingJSON
-	}
-	if v := req.GetCookie(key); v != "" {
-		return v, true, meta.EncodingJSON
-	}
-	if v := req.GetMapBody(key); v != "" {
-		return v, true, meta.EncodingJSON
-	}
-	return "", false, meta.EncodingText
-}
-
-func (self *BinaryConv) handleValueMapping(ctx context.Context, fsm *types.J2TStateMachine, desc *thrift.StructDescriptor, buf *[]byte, pos int, src []byte) (bool, error) {
-	p := thrift.BinaryProtocol{}
-	p.Buf = *buf
-
-	// write unmatched fields
-	fv := fsm.FieldValueCache
-	f := desc.FieldById(thrift.FieldID(fv.FieldID))
-	if f == nil {
-		return false, newError(meta.ErrConvert, fmt.Sprintf("unknown field id %d for value-mapping", fv.FieldID), nil)
-	}
-	// write field tag
-	if err := p.WriteFieldBegin(f.Name(), f.Type().Type(), f.ID()); err != nil {
-		return false, newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' tag", f.Name()), err)
-	}
-	// truncate src to value
-	if int(fv.ValEnd) >= len(src) || int(fv.ValBegin) < 0 {
-		return false, newError(meta.ErrConvert, "invalid value-mapping position", nil)
-	}
-	jdata := src[fv.ValBegin:fv.ValEnd]
-	// call ValueMapping interface
-	if err := f.ValueMapping().Write(ctx, &p, f, jdata); err != nil {
-		return false, newError(meta.ErrConvert, fmt.Sprintf("failed to convert field '%s' value", f.Name()), err)
-	}
-
-	*buf = p.Buf
-	// clear field cache
-	// fsm.FieldValueCache = fsm.FieldValueCache[:0]
-
-	// drop current J2T state
-	fsm.SP--
-	if fsm.SP > 0 {
-		// NOTICE: if j2t_exec haven't finished, we should set current position to next json
-		fsm.SetPos(pos)
-		return true, nil
-	} else {
-		return false, nil
-	}
 }

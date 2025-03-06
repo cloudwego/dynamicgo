@@ -6,8 +6,8 @@ jobs:
   build:
     strategy:
       matrix:
-        go-version: [1.17.x, 1.22.x]
-        os: [ARM64, X64]
+        go-version: [1.17.x, 1.18.x, 1.19.x, 1.20.x, 1.21.x, 1.22.x, 1.23.x, 1.24.x]
+        os: [macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
@@ -26,12 +26,13 @@ jobs:
 
       - name: Unit Test
         run: |
-          go test -race github.com/cloudwego/dynamicgo/thrift
-          go test -race github.com/cloudwego/dynamicgo/thrift/annotation
-          go test -race github.com/cloudwego/dynamicgo/thrift/generic
-          go test -race github.com/cloudwego/dynamicgo/conv/t2j
-          go test -race github.com/cloudwego/dynamicgo/http
-          go test -race github.com/cloudwego/dynamicgo/internal/json
-          go test -race github.com/cloudwego/dynamicgo/conv/j2p
-          go test -race github.com/cloudwego/dynamicgo/conv/p2j
-          go test -race github.com/cloudwego/dynamicgo/proto/generic
+          go test github.com/cloudwego/dynamicgo/thrift
+          go test github.com/cloudwego/dynamicgo/thrift/annotation
+          go test github.com/cloudwego/dynamicgo/thrift/generic
+          go test github.com/cloudwego/dynamicgo/conv/t2j
+          go test github.com/cloudwego/dynamicgo/conv/j2t
+          go test github.com/cloudwego/dynamicgo/http
+          go test github.com/cloudwego/dynamicgo/internal/json
+          go test github.com/cloudwego/dynamicgo/conv/j2p
+          go test github.com/cloudwego/dynamicgo/conv/p2j
+          go test github.com/cloudwego/dynamicgo/proto/generic

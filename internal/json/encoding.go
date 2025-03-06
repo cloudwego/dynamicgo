@@ -70,13 +70,12 @@ func EncodeString(buf []byte, val string) []byte {
 	return buf
 }
 
-
 func EncodeInt64(buf []byte, val int64) []byte {
 	i64toa(&buf, val)
 	return buf
 }
 
-func EncodeFloat64(buf []byte, val float64) ([]byte) {
+func EncodeFloat64(buf []byte, val float64) []byte {
 	f64toa(&buf, val)
 	return buf
 }
@@ -125,8 +124,8 @@ const _blankCharsMask = (1 << ' ') | (1 << '\t') | (1 << '\r') | (1 << '\n')
 
 //go:nocheckptr
 func SkipBlank(src string, pos int) int {
-	se := uintptr(rt.IndexChar(src, len(src)))
-	sp := uintptr(rt.IndexChar(src, pos))
+	se := rt.StrBoundary(src)
+	sp := rt.IndexCharUint(src, pos)
 
 	for sp < se {
 		if !IsSpace(*(*byte)(unsafe.Pointer(sp))) {
@@ -138,5 +137,5 @@ func SkipBlank(src string, pos int) int {
 		return -int(types.ERR_EOF)
 	}
 	runtime.KeepAlive(src)
-	return int(sp - uintptr(rt.IndexChar(src, 0)))
+	return int(sp - rt.IndexCharUint(src, 0))
 }

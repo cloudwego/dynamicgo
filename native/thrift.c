@@ -205,17 +205,6 @@ uint64_t tb_write_default_or_empty(GoSlice *buf, const tFieldDesc *field, long p
         return 0;
     case TTYPE_STRUCT:
         tb_write_struct_begin(buf);
-        tFieldDesc **f = desc->st->ids.buf_all;
-        size_t l = desc->st->ids.len_all;
-        for (int i = 0; i < l; i++)
-        {
-            if (f[i]->required == REQ_OPTIONAL)
-            {
-                continue;
-            }
-            J2T_ZERO(tb_write_field_begin(buf, f[i]->type->type, f[i]->ID));
-            J2T_ZERO(tb_write_default_or_empty(buf, f[i], p));
-        }
         J2T_ZERO(tb_write_struct_end(buf));
         return 0;
     default:
