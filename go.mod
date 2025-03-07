@@ -3,9 +3,9 @@ module github.com/cloudwego/dynamicgo
 go 1.17
 
 require (
-	github.com/bytedance/sonic v1.12.0
-	github.com/bytedance/sonic/loader v0.2.0
-	github.com/cloudwego/base64x v0.1.4
+	github.com/bytedance/sonic v1.13.0
+	github.com/bytedance/sonic/loader v0.2.2
+	github.com/cloudwego/base64x v0.1.5
 	github.com/cloudwego/fastpb v0.0.4
 	github.com/cloudwego/gopkg v0.0.0-20240731030152-5e0df5ad4e40
 	github.com/cloudwego/thriftgo v0.3.6
@@ -20,7 +20,6 @@ require (
 
 require (
 	github.com/bytedance/gopkg v0.0.0-20240711085056-a03554c296f8 // indirect
-	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect

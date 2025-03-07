@@ -6,22 +6,15 @@ jobs:
   build:
     strategy:
       matrix:
-        go-version: [1.23.x]
-    runs-on: [macos-latest, ubuntu-latest]
+        go-version: [1.24.x]
+    runs-on: [ARM64, ubuntu-latest]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
-
-      - uses: actions/cache@v2
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
 
       - name: Unit Test
         run: |
