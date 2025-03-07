@@ -3,8 +3,8 @@ module github.com/cloudwego/dynamicgo
 go 1.17
 
 require (
-	github.com/bytedance/sonic v1.13.0
-	github.com/bytedance/sonic/loader v0.2.2
+	github.com/bytedance/sonic v1.13.1-0.20250307115841-035787ca9778
+	github.com/bytedance/sonic/loader v0.2.4
 	github.com/cloudwego/base64x v0.1.5
 	github.com/cloudwego/fastpb v0.0.4
 	github.com/cloudwego/gopkg v0.0.0-20240731030152-5e0df5ad4e40
