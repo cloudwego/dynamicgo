@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/apache/thrift v0.20.0
-	github.com/bytedance/sonic v1.13.1-0.20250307115841-035787ca9778
+	github.com/bytedance/sonic v1.13.1
 	github.com/cloudwego/dynamicgo v0.2.9
 	github.com/cloudwego/kitex v0.10.4-0.20240731031152-e2ff8eeacaed
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc

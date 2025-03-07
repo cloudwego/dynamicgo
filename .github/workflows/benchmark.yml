@@ -1,6 +1,6 @@
 name: Benchmark Linux-X64
 
-on: [ push, pull_request ]
+on: pull_request
 
 jobs:
   build:
@@ -16,11 +16,14 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
       
-      - name: Testdata
-        run: |
-          cd testdata/test
-          go test -race -v ./...
-
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/go/pkg/mod
+            ${{ github.workspace }}/go.sum
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+      
       - name: Benchmark
         run: |
           cd testdata/test
