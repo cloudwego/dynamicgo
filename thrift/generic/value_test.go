@@ -478,6 +478,18 @@ func TestMarshalTo(t *testing.T) {
 			_, err := v.MarshalTo(partial, opts)
 			require.Error(t, err)
 		})
+		t.Run("Replace Node", func(t *testing.T) {
+			n.ReplaceByPath(func(n Node) Node {
+				if n.Type() == thrift.STRING {
+					return NewNodeString("Replaced")
+				}
+				return n
+			}, NewPathFieldId(1024))
+
+			s, e := n.GetByPath(NewPathFieldId(1024)).String()
+			require.NoError(t, e)
+			require.Equal(t, "Replaced", s)
+		})
 	})
 
 	// t.Run("ByName", func(t *testing.T) {
