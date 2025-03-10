@@ -1,4 +1,4 @@
-//go:build !amd64 || go1.24
+//go:build !amd64 || go1.25
 
 /**
  * Copyright 2025 ByteDance Inc.
@@ -28,6 +28,7 @@ import (
 	"github.com/cloudwego/dynamicgo/internal/json"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
+	_ "github.com/cloudwego/dynamicgo/internal/warning"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
 )
