@@ -159,9 +159,9 @@ func NewDescritorFromContent(ctx context.Context, path, content string, includes
 // NewDescritorFromContent creates a ServiceDescriptor from a thrift content and its includes, which uses the default options.
 // path is the main thrift file path, content is the main thrift file content.
 // includes is the thrift file content map, and its keys are specific including thrift file path.
-// isAbsIncludePath indicates whether these keys of includes are absolute path. If true, the include path will be joined with the main thrift file path.
+// isAbsIncludePath argument has become obsolete. Regardless of whether its value is true or false, both absolute path and relative path will be searched.
 func (opts Options) NewDescritorFromContent(ctx context.Context, path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error) {
-	tree, err := parseIDLContent(path, content, includes, isAbsIncludePath)
+	tree, err := parseIDLContent(path, content, includes)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func (opts Options) NewDescritorFromContent(ctx context.Context, path, content s
 
 // NewDescritorFromContentWithMethod creates a ServiceDescriptor from a thrift content and its includes, but only parse specific methods.
 func (opts Options) NewDescriptorFromContentWithMethod(ctx context.Context, path, content string, includes map[string]string, isAbsIncludePath bool, methods ...string) (*ServiceDescriptor, error) {
-	tree, err := parseIDLContent(path, content, includes, isAbsIncludePath)
+	tree, err := parseIDLContent(path, content, includes)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,7 @@ func (opts Options) NewDescriptorFromContentWithMethod(ctx context.Context, path
 	return svc, nil
 }
 
-func parseIDLContent(path, content string, includes map[string]string, isAbsIncludePath bool) (*parser.Thrift, error) {
+func parseIDLContent(path, content string, includes map[string]string) (*parser.Thrift, error) {
 	tree, err := parser.ParseString(path, content)
 	if err != nil {
 		return nil, err
@@ -200,42 +200,34 @@ func parseIDLContent(path, content string, includes map[string]string, isAbsIncl
 	}
 
 	done := map[string]*parser.Thrift{path: tree}
-	if err := refIncludes(tree, path, done, _includes, isAbsIncludePath); err != nil {
+	if err := refIncludes(tree, path, done, _includes); err != nil {
 		return nil, err
 	}
 	return tree, nil
 }
 
-func refIncludes(tree *parser.Thrift, path string, done map[string]*parser.Thrift, includes map[string]*parser.Thrift, isAbsIncludePath bool) error {
+func refIncludes(tree *parser.Thrift, path string, done map[string]*parser.Thrift, includes map[string]*parser.Thrift) error {
 	done[path] = tree
 	for _, i := range tree.Includes {
-		ps := make([]string, 0, 2)
-		if isAbsIncludePath {
-			p := absPath(tree.Filename, i.Path)
-			if p != i.Path {
-				ps = append(ps, p)
-			}
-		}
-		ps = append(ps, i.Path)
+		paths := []string{absPath(tree.Filename, i.Path), i.Path}
 
-		for _, p := range ps {
+		for _, p := range paths {
 			// check cycle reference
 			if t := done[p]; t != nil {
 				i.Reference = t
-				continue
+				break
 			}
 
-			ref, ok := includes[p]
-			if !ok {
-				if !isAbsIncludePath {
-					return fmt.Errorf("miss include path: %s for file: %s", p, tree.Filename)
+			if ref, ok := includes[p]; ok {
+				if err := refIncludes(ref, p, done, includes); err != nil {
+					return err
 				}
-				continue
+				i.Reference = ref
 			}
-			if err := refIncludes(ref, p, done, includes, isAbsIncludePath); err != nil {
-				return err
-			}
-			i.Reference = ref
+		}
+
+		if i.Reference == nil {
+			return fmt.Errorf("miss include path: %s for file: %s", i.Path, tree.Filename)
 		}
 	}
 	return nil
