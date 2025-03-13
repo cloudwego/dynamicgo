@@ -440,16 +440,6 @@ func writeDefaultOrEmpty(field *thrift.FieldDescriptor, out *[]byte) (err error)
 		*out = json.EncodeEmptyObject(*out)
 	case thrift.STRUCT:
 		*out = json.EncodeObjectBegin(*out)
-		for i, field := range field.Type().Struct().Fields() {
-			if i != 0 {
-				*out = json.EncodeObjectComma(*out)
-			}
-			*out = json.EncodeString(*out, field.Alias())
-			*out = json.EncodeObjectColon(*out)
-			if err := writeDefaultOrEmpty(field, out); err != nil {
-				return err
-			}
-		}
 		*out = json.EncodeObjectEnd(*out)
 	default:
 		return wrapError(meta.ErrUnsupportedType, fmt.Sprintf("unknown descriptor type %s", t), nil)
