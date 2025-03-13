@@ -440,7 +440,6 @@ func TestWriteEmpty(t *testing.T) {
 	assert.Equal(t, &kbase.BaseResp{
 		StatusMessage: "",
 		StatusCode:    0,
-		Extra:         map[string]string{},
 	}, act.BaseResp)
 }
 
