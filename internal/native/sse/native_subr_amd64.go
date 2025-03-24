@@ -9,12 +9,12 @@ import (
 
 const (
     _entry__f64toa = 464
-    _entry__format_significand = 46480
+    _entry__format_significand = 46560
     _entry__format_integer = 3648
     _entry__hm_get = 27760
     _entry__i64toa = 4080
     _entry__u64toa = 4352
-    _entry__j2t_fsm_exec = 40368
+    _entry__j2t_fsm_exec = 40400
     _entry__advance_ns = 13344
     _entry__fsm_exec = 20000
     _entry__advance_string = 15488
@@ -26,8 +26,8 @@ const (
     _entry__atof_eisel_lemire64 = 11216
     _entry__atof_native = 12672
     _entry__decimal_to_f64 = 11616
-    _entry__left_shift = 46960
-    _entry__right_shift = 47504
+    _entry__left_shift = 47040
+    _entry__right_shift = 47584
     _entry__j2t_string = 34832
     _entry__unquote = 7568
     _entry__unhex16_is = 9728
@@ -40,7 +40,7 @@ const (
     _entry__j2t_key = 38432
     _entry__j2t_find_field_key = 36592
     _entry__quote = 5840
-    _entry__tb_skip = 45424
+    _entry__tb_skip = 45504
     _entry__tb_write_i64 = 29408
     _entry__trie_get = 28640
 )
@@ -90,7 +90,7 @@ const (
     _size__hm_get = 544
     _size__i64toa = 272
     _size__u64toa = 1440
-    _size__j2t_fsm_exec = 4536
+    _size__j2t_fsm_exec = 4580
     _size__advance_ns = 608
     _size__fsm_exec = 1336
     _size__advance_string = 944
@@ -113,7 +113,7 @@ const (
     _size__tb_write_string = 608
     _size__tb_write_default_or_empty = 900
     _size__j2t_write_unset_fields = 656
-    _size__j2t_key = 1904
+    _size__j2t_key = 1936
     _size__j2t_find_field_key = 384
     _size__quote = 1712
     _size__tb_skip = 972
@@ -211,28 +211,28 @@ var (
         {193, 216},
         {194, 224},
         {201, 232},
-        {678, 184},
-        {711, 192},
-        {713, 200},
-        {722, 208},
-        {730, 216},
-        {731, 224},
-        {738, 232},
-        {897, 184},
-        {914, 192},
-        {920, 200},
-        {1541, 184},
-        {1562, 192},
-        {1569, 200},
-        {3460, 184},
-        {3467, 48},
-        {3468, 40},
-        {3470, 32},
-        {3472, 24},
-        {3474, 16},
-        {3476, 8},
-        {3477, 0},
-        {4536, 184},
+        {697, 184},
+        {730, 192},
+        {732, 200},
+        {741, 208},
+        {749, 216},
+        {750, 224},
+        {757, 232},
+        {916, 184},
+        {933, 192},
+        {939, 200},
+        {1560, 184},
+        {1581, 192},
+        {1588, 200},
+        {3476, 184},
+        {3483, 48},
+        {3484, 40},
+        {3486, 32},
+        {3488, 24},
+        {3490, 16},
+        {3492, 8},
+        {3493, 0},
+        {4580, 184},
     }
     _pcsp__advance_ns = [][2]uint32{
         {1, 0},
@@ -596,15 +596,15 @@ var (
         {10, 32},
         {12, 40},
         {13, 48},
-        {1666, 104},
-        {1670, 48},
-        {1671, 40},
-        {1673, 32},
-        {1675, 24},
-        {1677, 16},
-        {1679, 8},
-        {1680, 0},
-        {1904, 104},
+        {1117, 104},
+        {1121, 48},
+        {1122, 40},
+        {1124, 32},
+        {1126, 24},
+        {1128, 16},
+        {1130, 8},
+        {1131, 0},
+        {1930, 104},
     }
     _pcsp__j2t_find_field_key = [][2]uint32{
         {1, 0},

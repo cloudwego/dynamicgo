@@ -675,7 +675,7 @@ uint64_t j2t_key(J2TStateMachine *self, GoSlice *buf, const GoString *src, long 
         J2T_ZERO(j2t_map_key(buf, sp, kn, dc->key, &self->jt, *p));
         if (obj0)
         {
-            self->vt[self->sp].ex.ec.size = 0;
+            vt->ex.ec.size = 0;
             J2T_PUSH(self, J2T_ELEM, *p, dc->elem);
         }
         else
@@ -688,7 +688,7 @@ uint64_t j2t_key(J2TStateMachine *self, GoSlice *buf, const GoString *src, long 
     J2TExtra *pex;
     if (obj0)
     {
-        pex = &self->vt[self->sp].ex;
+        pex = &vt->ex;
     }
     else
     {
@@ -698,7 +698,7 @@ uint64_t j2t_key(J2TStateMachine *self, GoSlice *buf, const GoString *src, long 
     GoString tmp_str = (GoString){.buf = sp, .len = kn};
     tFieldDesc *f = j2t_find_field_key(&tmp_str, dc->st);
 
-    if (f == NULL || f->is_request_base && (flag & F_NO_WRITE_BASE))
+    if (f == NULL || (f->is_request_base && (flag & F_NO_WRITE_BASE)))
     {
         xprintf("[J2T_KEY] skipping field %s\n", &tmp_str);
         // disallow unknown field
@@ -916,7 +916,7 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
                 xprintf("[J2T_OBJ_0] start\n");
                 // set parent state
                 vt->st = J2T_OBJ;
-                J2T_STORE_NEXT(j2t_key(self, buf, src, p, dc, flag, true, &unwindPos, &lastField, vt, ch));
+                J2T_STORE(j2t_key(self, buf, src, p, dc, flag, true, &unwindPos, &lastField, vt, ch));
                 continue;
             }
             }
@@ -1008,7 +1008,7 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
         {
             xprintf("[J2T_KEY] 0\n");
             J2T_CHAR('"', J2T_KEY);
-            J2T_STORE_NEXT(j2t_key(self, buf, src, p, dc, flag, false, &unwindPos, &lastField, vt, ch));
+            J2T_STORE(j2t_key(self, buf, src, p, dc, flag, false, &unwindPos, &lastField, vt, ch));
             continue;
         }
 
