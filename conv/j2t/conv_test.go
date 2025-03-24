@@ -34,10 +34,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bytedance/sonic/ast"
 	sjson "github.com/bytedance/sonic/ast"
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/meta"
+	ebase "github.com/cloudwego/dynamicgo/testdata/kitex_gen/base"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/example3"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/null"
 	"github.com/cloudwego/dynamicgo/testdata/sample"
@@ -1259,4 +1261,65 @@ service Svc {
 	out, err := cv.Do(context.Background(), reqDesc, []byte(`{"UNKNOWN":1}`))
 	require.NoError(t, err)
 	fmt.Printf("%+v", out)
+}
+
+func TestMergeBase(t *testing.T) {
+	opts := thrift.Options{
+		EnableThriftBase: true,
+	}
+	svc, err := opts.NewDescritorFromPath(context.Background(), exampleIDLPath)
+	if err != nil {
+		panic(err)
+	}
+	desc := svc.Functions()["ExampleMethod"].Request().Struct().FieldById(1).Type()
+	data := getExampleData()
+	cv := NewBinaryConv(conv.Options{
+		EnableThriftBase: true,
+		MergeBaseFunc:    mergeBase,
+	})
+	root := ast.NewRaw(string(data))
+	root.Set("Base", ast.NewRaw(`{"LogID":"2","Client":"2","Extra":{"a":"2","c":"2"}}`))
+	js, err := root.MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data = js
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, conv.CtxKeyThriftReqBase, &base.Base{
+		LogID: "1",
+		Extra: map[string]string{"a": "1", "b": "1"},
+	})
+	out, err := cv.Do(ctx, desc, data)
+	require.Nil(t, err)
+	exp := example3.NewExampleReq()
+	err = json.Unmarshal(data, exp)
+	require.Nil(t, err)
+	exp.Base = &ebase.Base{
+		LogID:  "1",
+		Client: "",
+		Extra:  map[string]string{"a": "1", "b": "1", "c": "2"},
+	}
+	act := example3.NewExampleReq()
+	_, err = act.FastRead(out)
+	require.Nil(t, err)
+	require.Equal(t, exp, act)
+}
+
+// MergeBase merge `to` into `from`
+func mergeBase(from base.Base, to base.Base) base.Base {
+	from.LogID = to.LogID
+	from.Caller = to.Caller
+	from.Addr = to.Addr
+	from.Client = to.Client
+	from.TrafficEnv = to.TrafficEnv
+	if to.Extra != nil {
+		if from.Extra == nil {
+			from.Extra = to.Extra
+		} else {
+			for k, v := range to.Extra {
+				from.Extra[k] = v
+			}
+		}
+	}
+	return from
 }

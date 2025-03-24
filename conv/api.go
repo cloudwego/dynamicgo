@@ -18,6 +18,8 @@ package conv
 
 import (
 	"sync"
+
+	"github.com/cloudwego/dynamicgo/thrift/base"
 )
 
 // ContextKey is the key type for context arguments
@@ -106,6 +108,9 @@ type Options struct {
 
 	// UseKitexHttpEncoding indicating using kitex's text encoding to output complex http values
 	UseKitexHttpEncoding bool
+
+	// MergeCtxBaseToJSONBase indicates that it should merge ctx `base.Base` into json base
+	MergeBaseFunc func(jsonBase base.Base, ctxBase base.Base) base.Base
 }
 
 var bufPool = sync.Pool{

@@ -661,95 +661,102 @@ uint64_t j2t_field_vm(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
     }
 }
 
-#define j2t_key(obj0)                                                                                                \
-    do                                                                                                               \
-    {                                                                                                                \
-        const char *sp;                                                                                              \
-        size_t kn;                                                                                                   \
-        J2T_STORE(j2t_read_key(self, src, p, &sp, &kn));                                                             \
-        if (dc->type == TTYPE_MAP)                                                                                   \
-        {                                                                                                            \
-            unwindPos = buf->len;                                                                                    \
-            J2T_STORE(j2t_map_key(buf, sp, kn, dc->key, &self->jt, *p));                                             \
-            if (obj0)                                                                                                \
-            {                                                                                                        \
-                vt->ex.ec.size = 0;                                                                                  \
-                J2T_PUSH(self, J2T_ELEM, *p, dc->elem);                                                              \
-            }                                                                                                        \
-            else                                                                                                     \
-            {                                                                                                        \
-                J2T_REPL(self, J2T_ELEM, *p, dc->elem);                                                              \
-            }                                                                                                        \
-        }                                                                                                            \
-        else                                                                                                         \
-        {                                                                                                            \
-            J2TExtra *pex;                                                                                           \
-            if (obj0)                                                                                                \
-            {                                                                                                        \
-                pex = &vt->ex;                                                                                       \
-            }                                                                                                        \
-            else                                                                                                     \
-            {                                                                                                        \
-                pex = &self->vt[self->sp - 2].ex;                                                                    \
-            }                                                                                                        \
-            GoString tmp_str = (GoString){.buf = sp, .len = kn};                                                     \
-            tFieldDesc *f = j2t_find_field_key(&tmp_str, dc->st);                                                    \
-            if (f == NULL)                                                                                           \
-            {                                                                                                        \
-                xprintf("[J2T_KEY] unknown field %s\n", &tmp_str);                                                   \
-                if ((flag & F_ALLOW_UNKNOWN) == 0)                                                                   \
-                {                                                                                                    \
-                    WRAP_ERR(ERR_UNKNOWN_FIELD, kn);                                                                 \
-                }                                                                                                    \
-                if (obj0)                                                                                            \
-                {                                                                                                    \
-                    J2T_PUSH(self, J2T_ELEM | STATE_SKIP, *p, NULL);                                                 \
-                }                                                                                                    \
-                else                                                                                                 \
-                {                                                                                                    \
-                    J2T_REPL(self, J2T_ELEM | STATE_SKIP, *p, NULL);                                                 \
-                }                                                                                                    \
-            }                                                                                                        \
-            else                                                                                                     \
-            {                                                                                                        \
-                if unlikely ((flag & F_ENABLE_HM) && (f->http_mappings.len != 0) && !bm_is_set(pex->es.reqs, f->ID)) \
-                {                                                                                                    \
-                    xprintf("[J2T_KEY] skip field %s\n", &tmp_str);                                                  \
-                    if (obj0)                                                                                        \
-                    {                                                                                                \
-                        J2T_PUSH(self, J2T_ELEM | STATE_SKIP, *p, f->type);                                          \
-                    }                                                                                                \
-                    else                                                                                             \
-                    {                                                                                                \
-                        J2T_REPL(self, J2T_ELEM | STATE_SKIP, *p, f->type);                                          \
-                    }                                                                                                \
-                }                                                                                                    \
-                else                                                                                                 \
-                {                                                                                                    \
-                    J2TExtra ex = {};                                                                                \
-                    ex.ef.f = f;                                                                                     \
-                    uint64_t vm = STATE_VM;                                                                          \
-                    if ((flag & F_ENABLE_VM) == 0 || f->vm == VM_NONE)                                               \
-                    {                                                                                                \
-                        vm = STATE_FIELD;                                                                            \
-                        unwindPos = buf->len;                                                                        \
-                        lastField = f;                                                                               \
-                        J2T_STORE(tb_write_field_begin(buf, f->type->type, f->ID));                                  \
-                    }                                                                                                \
-                    xprintf("[J2T_KEY] vm: %d\n", vm);                                                               \
-                    if (obj0)                                                                                        \
-                    {                                                                                                \
-                        J2T_PUSH_EX(self, J2T_ELEM | vm, *p, f->type, ex);                                           \
-                    }                                                                                                \
-                    else                                                                                             \
-                    {                                                                                                \
-                        J2T_REPL_EX(self, J2T_ELEM | vm, *p, f->type, ex);                                           \
-                    }                                                                                                \
-                }                                                                                                    \
-                bm_set_req(pex->es.reqs, f->ID, REQ_OPTIONAL);                                                       \
-            }                                                                                                        \
-        }                                                                                                            \
-    } while (0)
+uint64_t j2t_key(J2TStateMachine *self, GoSlice *buf, const GoString *src, long *p,
+                 const tTypeDesc *dc, uint64_t flag, bool obj0,
+                 size_t *unwindPos, tFieldDesc **lastField, J2TState *vt, const char ch)
+{
+    const char *sp;
+    size_t kn;
+    J2T_ZERO(j2t_read_key(self, src, p, &sp, &kn));
+
+    if (dc->type == TTYPE_MAP)
+    {
+        *unwindPos = buf->len;
+        J2T_ZERO(j2t_map_key(buf, sp, kn, dc->key, &self->jt, *p));
+        if (obj0)
+        {
+            self->vt[self->sp].ex.ec.size = 0;
+            J2T_PUSH(self, J2T_ELEM, *p, dc->elem);
+        }
+        else
+        {
+            J2T_REPL(self, J2T_ELEM, *p, dc->elem);
+        }
+        return 0;
+    }
+
+    J2TExtra *pex;
+    if (obj0)
+    {
+        pex = &self->vt[self->sp].ex;
+    }
+    else
+    {
+        pex = &self->vt[self->sp - 2].ex;
+    }
+
+    GoString tmp_str = (GoString){.buf = sp, .len = kn};
+    tFieldDesc *f = j2t_find_field_key(&tmp_str, dc->st);
+
+    if (f == NULL || f->is_request_base && (flag & F_NO_WRITE_BASE))
+    {
+        xprintf("[J2T_KEY] skipping field %s\n", &tmp_str);
+        // disallow unknown field
+        if (f == NULL && (flag & F_ALLOW_UNKNOWN) == 0)
+        {
+            WRAP_ERR(ERR_UNKNOWN_FIELD, kn);
+        }
+        // skip writing `Base` field
+        if (obj0)
+        {
+            J2T_PUSH(self, J2T_ELEM | STATE_SKIP, *p, NULL);
+        }
+        else
+        {
+            J2T_REPL(self, J2T_ELEM | STATE_SKIP, *p, NULL);
+        }
+        return 0;
+    }
+
+    if (unlikely((flag & F_ENABLE_HM) && (f->http_mappings.len != 0) && !bm_is_set(pex->es.reqs, f->ID)))
+    {
+        xprintf("[J2T_KEY] skip field %s\n", &tmp_str);
+        if (obj0)
+        {
+            J2T_PUSH(self, J2T_ELEM | STATE_SKIP, *p, f->type);
+        }
+        else
+        {
+            J2T_REPL(self, J2T_ELEM | STATE_SKIP, *p, f->type);
+        }
+        return 0;
+    }
+
+    J2TExtra ex = {};
+    ex.ef.f = f;
+    uint64_t vm = STATE_VM;
+
+    if ((flag & F_ENABLE_VM) == 0 || f->vm == VM_NONE)
+    {
+        vm = STATE_FIELD;
+        *unwindPos = buf->len;
+        *lastField = f;
+        J2T_ZERO(tb_write_field_begin(buf, f->type->type, f->ID));
+    }
+
+    xprintf("[J2T_KEY] vm: %d\n", vm);
+    if (obj0)
+    {
+        J2T_PUSH_EX(self, J2T_ELEM | vm, *p, f->type, ex);
+    }
+    else
+    {
+        J2T_REPL_EX(self, J2T_ELEM | vm, *p, f->type, ex);
+    }
+
+    bm_set_req(pex->es.reqs, f->ID, REQ_OPTIONAL);
+    return 0;
+}
 
 uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, uint64_t flag)
 {
@@ -909,7 +916,7 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
                 xprintf("[J2T_OBJ_0] start\n");
                 // set parent state
                 vt->st = J2T_OBJ;
-                j2t_key(true);
+                J2T_STORE_NEXT(j2t_key(self, buf, src, p, dc, flag, true, &unwindPos, &lastField, vt, ch));
                 continue;
             }
             }
@@ -1001,7 +1008,7 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
         {
             xprintf("[J2T_KEY] 0\n");
             J2T_CHAR('"', J2T_KEY);
-            j2t_key(false);
+            J2T_STORE_NEXT(j2t_key(self, buf, src, p, dc, flag, false, &unwindPos, &lastField, vt, ch));
             continue;
         }
 
