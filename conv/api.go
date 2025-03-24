@@ -109,7 +109,8 @@ type Options struct {
 	// UseKitexHttpEncoding indicating using kitex's text encoding to output complex http values
 	UseKitexHttpEncoding bool
 
-	// MergeCtxBaseToJSONBase indicates that it should merge ctx `base.Base` into json base
+	// MergeBaseFunc is used to merge ctx's `base.Base` with json's
+	// If not set, json's base is prior to ctx's base
 	MergeBaseFunc func(jsonBase base.Base, ctxBase base.Base) base.Base
 }
 
