@@ -88,6 +88,7 @@ const (
 	F_NO_BASE64      = 1 << 6
 	F_WRITE_OPTIONAL = 1 << 7
 	F_TRACE_BACK     = 1 << 8
+	F_NO_WRITE_BASE  = 1 << 9
 )
 
 const (
@@ -219,14 +220,13 @@ func (s J2TState) String() string {
 	return fmt.Sprintf("{State: %x, JsonPos: %d, TypeDesc: %s(%d), Extra:%v}", s.State, s.JsonPos, name, typ, s.Extra)
 }
 
-type tTypeDesc struct
-{
-    ttype uint8;
-    name string;
-    key *tTypeDesc;
-    elem *tTypeDesc;
-    st unsafe.Pointer;
-};
+type tTypeDesc struct {
+	ttype uint8
+	name  string
+	key   *tTypeDesc
+	elem  *tTypeDesc
+	st    unsafe.Pointer
+}
 
 func (self *J2TState) TdPointer() uintptr {
 	return uintptr(self.TypeDesc)

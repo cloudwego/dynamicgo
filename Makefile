@@ -31,7 +31,7 @@ CFLAGS_avx		:= -msse -mno-sse4 -mavx -mpclmul -mno-avx2 -mstack-alignment=0 -DUS
 CFLAGS_avx2		:= -msse -mno-sse4 -mavx -mpclmul -mavx2 -mstack-alignment=0 -DUSE_AVX=1 -DUSE_AVX2=1 
 CFLAGS_sse		:= -msse -mno-sse4 -mno-avx -mno-avx2 -mpclmul
 
-CC_amd64		:= clang
+CC_amd64		:= clang14
 ASM2ASM_amd64	:= tools/asm2asm/asm2asm.py
 
 CFLAGS			:= -mno-red-zone
