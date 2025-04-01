@@ -33,16 +33,16 @@ import (
 	"github.com/cloudwego/dynamicgo/thrift"
 )
 
-func (self *BinaryConv) doImpl(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool) (err error) {
-	return self.doNative(ctx, src, desc, buf, req, top)
+func (self *BinaryConv) doImpl(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool, flags uint64) (err error) {
+	return self.doNative(ctx, src, desc, buf, req, top, flags)
 }
 
-func (self *BinaryConv) doNative(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool) (err error) {
+func (self *BinaryConv) doNative(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool, flags uint64) (err error) {
 	fsm := types.NewJ2TStateMachine()
 	var ret uint64
 	defer func() {
 		if msg := recover(); msg != nil {
-			panic(makePanicMsg(msg, src, desc, buf, req, self.flags, fsm, ret))
+			panic(makePanicMsg(msg, src, desc, buf, req, flags, fsm, ret))
 		}
 	}()
 
@@ -50,9 +50,9 @@ func (self *BinaryConv) doNative(ctx context.Context, src []byte, desc *thrift.T
 	fsm.Init(0, unsafe.Pointer(desc))
 
 exec:
-	ret = native.J2T_FSM(fsm, buf, &jp, self.flags)
+	ret = native.J2T_FSM(fsm, buf, &jp, flags)
 	if ret != 0 {
-		cont, e := self.handleError(ctx, fsm, buf, src, req, ret, top)
+		cont, e := self.handleError(ctx, fsm, buf, src, req, ret, top, flags)
 		if cont && e == nil {
 			goto exec
 		}
@@ -68,7 +68,7 @@ final:
 	return
 }
 
-func (self *BinaryConv) handleUnmatchedFields(ctx context.Context, fsm *types.J2TStateMachine, desc *thrift.StructDescriptor, buf *[]byte, pos int, req http.RequestGetter, top bool) (bool, error) {
+func (self *BinaryConv) handleUnmatchedFields(ctx context.Context, fsm *types.J2TStateMachine, desc *thrift.StructDescriptor, buf *[]byte, pos int, req http.RequestGetter, top bool, flags uint64) (bool, error) {
 	if req == nil {
 		return false, newError(meta.ErrInvalidParam, "http request is nil", nil)
 	}
@@ -93,7 +93,7 @@ func (self *BinaryConv) handleUnmatchedFields(ctx context.Context, fsm *types.J2
 			// try get value from http
 			val, _, enc = tryGetValueFromHttp(req, f.Alias())
 		}
-		if err := self.writeStringValue(ctx, buf, f, val, enc, req); err != nil {
+		if err := self.writeStringValue(ctx, buf, f, val, enc, req, flags); err != nil {
 			return false, err
 		}
 	}
@@ -166,7 +166,7 @@ func getJ2TExtraStruct(fsm *types.J2TStateMachine, offset int) (td *thrift.TypeD
 	return
 }
 
-func (self BinaryConv) handleError(ctx context.Context, fsm *types.J2TStateMachine, buf *[]byte, src []byte, req http.RequestGetter, ret uint64, top bool) (cont bool, err error) {
+func (self BinaryConv) handleError(ctx context.Context, fsm *types.J2TStateMachine, buf *[]byte, src []byte, req http.RequestGetter, ret uint64, top bool, flags uint64) (cont bool, err error) {
 	e := getErrCode(ret)
 	p := int(ret >> types.ERR_WRAP_SHIFT_CODE)
 
@@ -180,7 +180,7 @@ func (self BinaryConv) handleError(ctx context.Context, fsm *types.J2TStateMachi
 			if desc.Type() != thrift.STRUCT {
 				return false, newError(meta.ErrConvert, "invalid descriptor while http mapping", nil)
 			}
-			return true, self.handleHttpMappings(ctx, req, desc.Struct(), reqs, buf, false, top)
+			return true, self.handleHttpMappings(ctx, req, desc.Struct(), reqs, buf, false, top, flags)
 		}
 	case types.ERR_HTTP_MAPPING_END:
 		{
@@ -194,7 +194,7 @@ func (self BinaryConv) handleError(ctx context.Context, fsm *types.J2TStateMachi
 			if len(fsm.FieldCache) == 0 {
 				return false, newError(meta.ErrConvert, "invalid FSM field-cache length", nil)
 			}
-			return self.handleUnmatchedFields(ctx, fsm, desc.Struct(), buf, p, req, top)
+			return self.handleUnmatchedFields(ctx, fsm, desc.Struct(), buf, p, req, top, flags)
 		}
 	case types.ERR_OOM_BM:
 		{

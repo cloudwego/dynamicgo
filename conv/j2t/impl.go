@@ -20,9 +20,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/bytedance/sonic"
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/internal/json"
+	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
@@ -34,12 +36,14 @@ const (
 )
 
 func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter) error {
+	flags := toFlags(self.opts)
+
 	//NOTICE: output buffer must be larger than src buffer
 	rt.GuardSlice(buf, len(src)*_GUARD_SLICE_FACTOR)
 
 	if self.opts.EnableThriftBase {
 		if f := desc.Struct().GetRequestBase(); f != nil {
-			if err := self.writeRequestBaseToThrift(ctx, buf, f); err != nil {
+			if err := self.writeRequestBaseToThrift(ctx, buf, f, &src, self.opts.MergeBaseFunc, &flags); err != nil {
 				return err
 			}
 		}
@@ -53,7 +57,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 			st.Requires().CopyTo(reqs)
 			// check if any http-mapping exists
 			if desc.Struct().HttpMappingFields() != nil {
-				if err := self.handleHttpMappings(ctx, req, st, *reqs, buf, true, true); err != nil {
+				if err := self.handleHttpMappings(ctx, req, st, *reqs, buf, true, true, flags); err != nil {
 					return err
 				}
 			}
@@ -62,7 +66,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 			// we should only check opts.BackTraceRequireOrTopField to decide whether to traceback
 			err := reqs.HandleRequires(st, self.opts.ReadHttpValueFallback, self.opts.ReadHttpValueFallback, self.opts.ReadHttpValueFallback, func(f *thrift.FieldDescriptor) error {
 				val, _, enc := tryGetValueFromHttp(req, f.Alias())
-				if err := self.writeStringValue(ctx, buf, f, val, enc, req); err != nil {
+				if err := self.writeStringValue(ctx, buf, f, val, enc, req, flags); err != nil {
 					return err
 				}
 				return nil
@@ -83,7 +87,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 		src = json.EncodeString(buf, rt.Mem2Str(src))
 	}
 
-	return self.doImpl(ctx, src, desc, buf, req, true)
+	return self.doImpl(ctx, src, desc, buf, req, true, flags)
 }
 
 func isJsonString(val string) bool {
@@ -100,7 +104,7 @@ func isJsonString(val string) bool {
 	return (s == '{' && e == '}') || (s == '[' && e == ']') || (s == '"' && e == '"')
 }
 
-func (self *BinaryConv) writeStringValue(ctx context.Context, buf *[]byte, f *thrift.FieldDescriptor, val string, enc meta.Encoding, req http.RequestGetter) error {
+func (self *BinaryConv) writeStringValue(ctx context.Context, buf *[]byte, f *thrift.FieldDescriptor, val string, enc meta.Encoding, req http.RequestGetter, flags uint64) error {
 	p := thrift.BinaryProtocol{Buf: *buf}
 	if val == "" {
 		if !self.opts.WriteRequireField && f.Required() == thrift.RequiredRequireness {
@@ -133,7 +137,7 @@ func (self *BinaryConv) writeStringValue(ctx context.Context, buf *[]byte, f *th
 			}
 		} else if enc == meta.EncodingJSON {
 			// for nested type, we regard it as a json string and convert it directly
-			if err := self.doImpl(ctx, rt.Str2Mem(val), f.Type(), &p.Buf, req, false); err != nil {
+			if err := self.doImpl(ctx, rt.Str2Mem(val), f.Type(), &p.Buf, req, false, flags); err != nil {
 				return newError(meta.ErrConvert, fmt.Sprintf("failed to convert value of field '%s'", f.Name()), err)
 			}
 			// try text encoding, see thrift.EncodeText
@@ -146,26 +150,45 @@ BACK:
 	return nil
 }
 
-func (self *BinaryConv) writeRequestBaseToThrift(ctx context.Context, buf *[]byte, field *thrift.FieldDescriptor) error {
-	var b *base.Base
-	if bobj := ctx.Value(conv.CtxKeyThriftReqBase); bobj != nil {
-		if v, ok := bobj.(*base.Base); ok && v != nil {
-			b = v
+type MergeBaseFunc = func(jsonBase base.Base, ctxBase base.Base) base.Base
+
+func (self *BinaryConv) writeRequestBaseToThrift(ctx context.Context, buf *[]byte, field *thrift.FieldDescriptor, src *[]byte, fn MergeBaseFunc, flags *uint64) error {
+	bobj := ctx.Value(conv.CtxKeyThriftReqBase)
+	if bobj == nil {
+		return nil
+	}
+	b, ok := bobj.(*base.Base)
+	if !ok || b == nil {
+		return nil
+	}
+	// NOTICE: check if there is a `Base` in JSON, if true, merge it with b
+	if src != nil && fn != nil {
+		json := rt.Mem2Str(*src)
+		// get `Base` from json
+		n, err := sonic.GetFromString(json, field.Alias())
+		if err != nil {
+			goto WRITE_BASE
 		}
+		js, _ := n.Raw()
+		var bb base.Base
+		if err := sonic.UnmarshalString(js, &bb); err == nil {
+			// merge with b
+			*b = fn(bb, *b)
+		}
+		// unset json
+		// for performance, just notify j2t implementation that there is no need writting `Base` in JSON
+		*flags |= types.F_NO_WRITE_BASE
 	}
-	if b == nil && self.opts.WriteRequireField && field.Required() == thrift.RequiredRequireness {
-		b = &base.Base{}
-	}
-	if b != nil {
-		l := len(*buf)
-		n := b.BLength()
-		rt.GuardSlice(buf, 3+n)
-		*buf = (*buf)[:l+3]
-		thrift.BinaryEncoding{}.EncodeFieldBegin((*buf)[l:l+3], field.Type().Type(), field.ID())
-		l = len(*buf)
-		*buf = (*buf)[:l+n]
-		b.FastWrite((*buf)[l : l+n])
-	}
+WRITE_BASE:
+	// write `Base` into buf
+	l := len(*buf)
+	n := b.BLength()
+	rt.GuardSlice(buf, 3+n)
+	*buf = (*buf)[:l+3]
+	thrift.BinaryEncoding{}.EncodeFieldBegin((*buf)[l:l+3], field.Type().Type(), field.ID())
+	l = len(*buf)
+	*buf = (*buf)[:l+n]
+	b.FastWrite((*buf)[l : l+n])
 	return nil
 }
 
@@ -192,12 +215,12 @@ func tryGetValueFromHttp(req http.RequestGetter, key string) (string, bool, meta
 	return "", false, meta.EncodingText
 }
 
-func (self *BinaryConv) tryWriteValueRecursive(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor, p *thrift.BinaryProtocol, tryHttp bool) error {
+func (self *BinaryConv) tryWriteValueRecursive(ctx context.Context, req http.RequestGetter, field *thrift.FieldDescriptor, p *thrift.BinaryProtocol, tryHttp bool, flags uint64) error {
 	typ := field.Type()
 	if typ.Type() == thrift.STRUCT && len(field.HTTPMappings()) == 0 {
 		// recursively http-mapping struct fields, if it has no http-mapping
 		for _, f := range typ.Struct().Fields() {
-			if err := self.tryWriteValueRecursive(ctx, req, f, p, tryHttp); err != nil {
+			if err := self.tryWriteValueRecursive(ctx, req, f, p, tryHttp, flags); err != nil {
 				return newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' value", f.Name()), err)
 			}
 		}
@@ -210,14 +233,14 @@ func (self *BinaryConv) tryWriteValueRecursive(ctx context.Context, req http.Req
 		if tryHttp {
 			val, _, enc = tryGetValueFromHttp(req, field.Alias())
 		}
-		if err := self.writeStringValue(ctx, &p.Buf, field, val, enc, req); err != nil {
+		if err := self.writeStringValue(ctx, &p.Buf, field, val, enc, req, flags); err != nil {
 			return newError(meta.ErrWrite, fmt.Sprintf("failed to write field '%s' http value", field.Name()), err)
 		}
 	}
 	return nil
 }
 
-func (self *BinaryConv) handleHttpMappings(ctx context.Context, req http.RequestGetter, desc *thrift.StructDescriptor, reqs thrift.RequiresBitmap, buf *[]byte, nobody bool, top bool) (err error) {
+func (self *BinaryConv) handleHttpMappings(ctx context.Context, req http.RequestGetter, desc *thrift.StructDescriptor, reqs thrift.RequiresBitmap, buf *[]byte, nobody bool, top bool, flags uint64) (err error) {
 	if req == nil {
 		return newError(meta.ErrInvalidParam, "http request is nil", nil)
 	}
@@ -259,7 +282,7 @@ func (self *BinaryConv) handleHttpMappings(ctx context.Context, req http.Request
 		}
 
 		reqs.Set(f.ID(), thrift.OptionalRequireness)
-		if err := self.writeStringValue(ctx, buf, f, val, httpEnc, req); err != nil {
+		if err := self.writeStringValue(ctx, buf, f, val, httpEnc, req, flags); err != nil {
 			return err
 		}
 	}

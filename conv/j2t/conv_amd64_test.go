@@ -248,7 +248,7 @@ func (mock MockConv) do(self *BinaryConv, ctx context.Context, src []byte, desc 
 	var ret uint64
 	defer func() {
 		if msg := recover(); msg != nil {
-			panic(makePanicMsg(msg, src, desc, buf, req, self.flags, fsm, ret))
+			panic(makePanicMsg(msg, src, desc, buf, req, flags, fsm, ret))
 		}
 	}()
 
@@ -259,7 +259,7 @@ exec:
 	}
 	ret = native.J2T_FSM(fsm, buf, &jp, flags)
 	if ret != 0 {
-		cont, e := self.handleError(ctx, fsm, buf, src, req, ret, top)
+		cont, e := self.handleError(ctx, fsm, buf, src, req, ret, top, flags)
 		if cont && e == nil {
 			goto exec
 		}
