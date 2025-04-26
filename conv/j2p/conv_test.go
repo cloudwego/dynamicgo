@@ -13,14 +13,16 @@ import (
 	"testing"
 	"time"
 
+	goprotowire "google.golang.org/protobuf/encoding/protowire"
+
 	"github.com/bytedance/sonic/ast"
 	"github.com/stretchr/testify/require"
-	goprotowire "google.golang.org/protobuf/encoding/protowire"
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/internal/util_test"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/base"
+	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
 )
 
@@ -49,6 +51,7 @@ const (
 	exampleProtoPath    = "testdata/data/example2_pb.bin" // not used
 	basicExampleJSON    = "testdata/data/basic_example.json"
 	basicExampleIDLPath = "testdata/idl/basic_example.proto"
+	exampleEmptyIDLPath = "testdata/idl/empty_example.proto"
 )
 
 func TestBuildExampleJSONData(t *testing.T) {
@@ -606,5 +609,193 @@ func TestFloat2Int(t *testing.T) {
 		}
 		require.Nil(t, err)
 		require.Equal(t, exp.Float64, float64(math.MaxInt64))
+	})
+}
+
+func getEmptyExampleDesc() *proto.TypeDescriptor {
+	opts := proto.Options{}
+	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
+	svc, err := opts.NewDescriptorFromPath(context.Background(), util_test.MustGitPath(exampleEmptyIDLPath), includeDirs)
+	if err != nil {
+		panic(err)
+	}
+	res := (*svc).LookupMethodByName("EmptyListMethodTest").Input()
+
+	if res == nil {
+		panic("can't find Target MessageDescriptor")
+	}
+	return res
+}
+
+func TestEmptyList(t *testing.T) {
+	t.Run("empty unpacked list field with string", func(t *testing.T) {
+		desc := getEmptyExampleDesc()
+		data := []byte(`{"Msg": "msg", "Query": [], "Header": false, "Code": 0}`)
+		cv := NewBinaryConv(conv.Options{})
+		ctx := context.Background()
+		out, err := cv.Do(ctx, desc, data)
+		require.NoError(t, err)
+		exp := example.ExampleEmptyReq{}
+		l := 0
+		// fmt.Print(out)
+		dataLen := len(out)
+		// fastRead to get target struct
+		for l < dataLen {
+			id, wtyp, tagLen := goprotowire.ConsumeTag(out)
+			if tagLen < 0 {
+				t.Fatal("test failed")
+			}
+			l += tagLen
+			out = out[tagLen:]
+			offset, err := exp.FastRead(out, int8(wtyp), int32(id))
+			require.Nil(t, err)
+			out = out[offset:]
+			l += offset
+		}
+		require.Nil(t, err)
+		exceptMsg := "msg"
+		require.Equal(t, exp, example.ExampleEmptyReq{
+			Msg:    &exceptMsg,
+			Header: false,
+			Code:   0,
+		})
+	})
+
+	t.Run("empty packed list field with int", func(t *testing.T) {
+		desc := getEmptyExampleDesc()
+		data := []byte(`{"Msg": "msg", "Query": ["xxx","123"], "Header": false, "Code": 0, "QueryInt": [], "QueryDouble": []}`)
+		cv := NewBinaryConv(conv.Options{})
+		ctx := context.Background()
+		out, err := cv.Do(ctx, desc, data)
+		require.NoError(t, err)
+		exp := example.ExampleEmptyReq{}
+		l := 0
+		// fmt.Print(out)
+		dataLen := len(out)
+		// fastRead to get target struct
+		for l < dataLen {
+			id, wtyp, tagLen := goprotowire.ConsumeTag(out)
+			if tagLen < 0 {
+				t.Fatal("test failed")
+			}
+			l += tagLen
+			out = out[tagLen:]
+			offset, err := exp.FastRead(out, int8(wtyp), int32(id))
+			require.Nil(t, err)
+			out = out[offset:]
+			l += offset
+		}
+		require.Nil(t, err)
+		exceptMsg := "msg"
+		require.Equal(t, exp, example.ExampleEmptyReq{
+			Msg:    &exceptMsg,
+			Header: false,
+			Code:   0,
+			Query:  []string{"xxx", "123"},
+		})
+	})
+
+	t.Run("empty packed list field with double", func(t *testing.T) {
+		desc := getEmptyExampleDesc()
+		data := []byte(`{"Msg": "msg", "Query": ["a","b"], "Header": false, "Code": 0, "QueryInt": [1,2,3], "QueryDouble": []}`)
+		cv := NewBinaryConv(conv.Options{})
+		ctx := context.Background()
+		out, err := cv.Do(ctx, desc, data)
+		require.NoError(t, err)
+		exp := example.ExampleEmptyReq{}
+		l := 0
+		// fmt.Print(out)
+		dataLen := len(out)
+		// fastRead to get target struct
+		for l < dataLen {
+			id, wtyp, tagLen := goprotowire.ConsumeTag(out)
+			if tagLen < 0 {
+				t.Fatal("test failed")
+			}
+			l += tagLen
+			out = out[tagLen:]
+			offset, err := exp.FastRead(out, int8(wtyp), int32(id))
+			require.Nil(t, err)
+			out = out[offset:]
+			l += offset
+		}
+		require.Nil(t, err)
+		exceptMsg := "msg"
+		require.Equal(t, exp, example.ExampleEmptyReq{
+			Msg:      &exceptMsg,
+			Header:   false,
+			Code:     0,
+			Query:    []string{"a", "b"},
+			QueryInt: []int32{1, 2, 3},
+		})
+	})
+
+	t.Run("full list", func(t *testing.T) {
+		desc := getEmptyExampleDesc()
+		data := []byte(`{"Msg": "msg", "Query": ["aaa","bbb"], "Header": false, "Code": 0, "QueryInt": [1,2,3], "QueryDouble": [1.1,2.2,3.3]}`)
+		cv := NewBinaryConv(conv.Options{})
+		ctx := context.Background()
+		out, err := cv.Do(ctx, desc, data)
+		require.NoError(t, err)
+		exp := example.ExampleEmptyReq{}
+		l := 0
+		// fmt.Print(out)
+		dataLen := len(out)
+		// fastRead to get target struct
+		for l < dataLen {
+			id, wtyp, tagLen := goprotowire.ConsumeTag(out)
+			if tagLen < 0 {
+				t.Fatal("test failed")
+			}
+			l += tagLen
+			out = out[tagLen:]
+			offset, err := exp.FastRead(out, int8(wtyp), int32(id))
+			require.Nil(t, err)
+			out = out[offset:]
+			l += offset
+		}
+		require.Nil(t, err)
+		exceptMsg := "msg"
+		require.Equal(t, exp, example.ExampleEmptyReq{
+			Msg:         &exceptMsg,
+			Header:      false,
+			Code:        0,
+			Query:       []string{"aaa", "bbb"},
+			QueryInt:    []int32{1, 2, 3},
+			QueryDouble: []float64{1.1, 2.2, 3.3},
+		})
+	})
+
+	t.Run("empty list field inner struct", func(t *testing.T) {
+		desc := getExampleDesc()
+		data := []byte(`{"Msg":"hello","InnerBase2":{"Uint32":1,"ListInt32":[]}}`)
+		cv := NewBinaryConv(conv.Options{})
+		ctx := context.Background()
+		out, err := cv.Do(ctx, desc, data)
+		require.NoError(t, err)
+		exp := example2.ExampleReq{}
+		l := 0
+		// fmt.Print(out)
+		dataLen := len(out)
+		// fastRead to get target struct
+		for l < dataLen {
+			id, wtyp, tagLen := goprotowire.ConsumeTag(out)
+			if tagLen < 0 {
+				t.Fatal("test failed")
+			}
+			l += tagLen
+			out = out[tagLen:]
+			offset, err := exp.FastRead(out, int8(wtyp), int32(id))
+			require.Nil(t, err)
+			out = out[offset:]
+			l += offset
+		}
+		require.Nil(t, err)
+		require.Equal(t, exp, example2.ExampleReq{
+			Msg: "hello",
+			InnerBase2: &example2.InnerBase2{
+				Uint32: 1,
+			},
+		})
 	})
 }

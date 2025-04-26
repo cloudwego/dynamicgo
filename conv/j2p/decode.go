@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/bytedance/sonic/ast"
+
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/internal/rt"
 	"github.com/cloudwego/dynamicgo/meta"
@@ -593,9 +594,28 @@ func (self *visitorUserNode) OnArrayEnd() error {
 	top = &self.stk[self.sp]
 	// case PackedList
 	if (top.state.lenPos != -1) && top.state.fieldDesc.Type().IsPacked() {
-		self.p.Buf = binary.FinishSpeculativeLength(self.p.Buf, top.state.lenPos)
+		// check empty list
+		isEmpty := binary.IsEmptyLength(self.p.Buf, top.state.lenPos)
+		if isEmpty {
+			// rool back before lenPos
+			self.p.Buf = self.p.Buf[:top.state.lenPos]
+			// roll back before prewrited list tag
+			sizeTag := binary.SizeTag(self.globalFieldDesc.Number(), proto.BytesType)
+			self.p.Buf = self.p.Buf[:len(self.p.Buf)-sizeTag]
+		} else {
+			self.p.Buf = binary.FinishSpeculativeLength(self.p.Buf, top.state.lenPos)
+		}
 	}
-	return self.onValueEnd()
+
+	// stk pop until top.typ is not arrStkType
+	err := self.onValueEnd()
+	for self.sp > 0 && self.stk[self.sp].typ == arrStkType {
+		err = self.onValueEnd()
+		if err != nil {
+			return err
+		}
+	}
+	return err
 }
 
 // After parsing one JSON field, maybe basicType(string/int/float/bool/bytes) or complexType(message/map/list)

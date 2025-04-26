@@ -190,6 +190,16 @@ func AppendSpeculativeLength(b []byte) ([]byte, int) {
 	return b, pos
 }
 
+func IsEmptyLength(b []byte, pos int) bool {
+	mlen := len(b) - pos - speculativeLength
+	return mlen == 0
+}
+
+func SizeTag(num proto.FieldNumber, typ proto.WireType) int {
+	tag := uint64(num)<<3 | uint64(typ&7)
+	return protowire.SizeVarint(tag)
+}
+
 func FinishSpeculativeLength(b []byte, pos int) []byte {
 	mlen := len(b) - pos - speculativeLength
 	msiz := protowire.SizeVarint(uint64(mlen))
