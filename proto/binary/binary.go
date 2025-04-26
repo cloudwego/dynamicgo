@@ -181,6 +181,16 @@ func (p *BinaryProtocol) ConsumeTagWithoutMove() (proto.FieldNumber, proto.WireT
 	return num, typ, n, nil
 }
 
+func IsEmptyLength(b []byte, pos int) bool {
+	mlen := len(b) - pos - speculativeLength
+	return mlen == 0
+}
+
+func SizeTag(num proto.FieldNumber, typ proto.WireType) int {
+	tag := uint64(num)<<3 | uint64(typ&7)
+	return protowire.SizeVarint(tag)
+}
+
 // When encoding length-prefixed fields, we speculatively set aside some number of bytes
 // for the length, encode the data, and then encode the length (shifting the data if necessary
 // to make room).
