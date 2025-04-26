@@ -1,0 +1,27 @@
+syntax = "proto3";
+package pb3;
+option go_package = "pb/example";
+
+message ExampleEmptyReq {
+    string Msg = 1;
+    double Cookie = 2;
+    string Path = 3;
+    repeated string Query = 4;
+    bool Header = 5;
+    int64 Code = 6;
+    repeated int32 QueryInt = 7;
+    repeated double QueryDouble = 8;
+}
+
+message ExampleEmptyResp {
+    string Msg = 1;
+    double Cookie = 2;
+    int32 Status = 3;
+    bool Header = 4;
+    int64 Code = 5;
+    double Subfix = 6;
+}
+
+service TestEmptyService {
+    rpc EmptyListMethodTest(ExampleEmptyReq) returns (ExampleEmptyResp);
+}
