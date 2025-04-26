@@ -29,6 +29,7 @@
 #define F_NO_BASE64 (1ull << 6)
 #define F_WRITE_OPTIONAL (1ull << 7)
 #define F_TRACE_BACK (1ull << 8)
+#define F_NO_WRITE_BASE (1ull << 9)
 
 #define THRIFT_VERSION_MASK 0xffff0000ul
 #define THRIFT_VERSION_1 0x80010000ul
@@ -209,8 +210,8 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
 #define J2T_OBJ_0 6
 #define J2T_VM 16
 
-#define J2T_ST(st) ((st)&0xfffful)
-#define J2T_EX(st) ((st)&0xffff0000ul)
+#define J2T_ST(st) ((st) & 0xfffful)
+#define J2T_EX(st) ((st) & 0xffff0000ul)
 
 #define STATE_FIELD (1ull << 16)
 #define STATE_SKIP (1ull << 17)

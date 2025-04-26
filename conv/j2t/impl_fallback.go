@@ -1,4 +1,4 @@
-//go:build !amd64 || go1.24
+//go:build !amd64 || go1.25
 
 /**
  * Copyright 2025 ByteDance Inc.
@@ -28,21 +28,22 @@ import (
 	"github.com/cloudwego/dynamicgo/internal/json"
 	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
+	_ "github.com/cloudwego/dynamicgo/internal/warning"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
 )
 
-func (self *BinaryConv) doImpl(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool) (err error) {
-	return self.doGo(ctx, rt.Mem2Str(src), desc, buf, req, top)
+func (self *BinaryConv) doImpl(ctx context.Context, src []byte, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool, flags uint64) (err error) {
+	return self.doGo(ctx, rt.Mem2Str(src), desc, buf, req, top, flags)
 }
 
-func (self *BinaryConv) doGo(ctx context.Context, src string, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool) (err error) {
+func (self *BinaryConv) doGo(ctx context.Context, src string, desc *thrift.TypeDescriptor, buf *[]byte, req http.RequestGetter, top bool, flags uint64) (err error) {
 	p := thrift.BinaryProtocol{Buf: *buf}
 	depth := 0
 	if !top {
 		depth = 1
 	}
-	ret, err := self.doRecurse(ctx, src, 0, desc, &p, req, depth)
+	ret, err := self.doRecurse(ctx, src, 0, desc, &p, req, depth, flags)
 	*buf = p.Buf
 	if err != nil {
 		return unwrapError(locateInput([]byte(src), ret), err)
@@ -50,7 +51,7 @@ func (self *BinaryConv) doGo(ctx context.Context, src string, desc *thrift.TypeD
 	return nil
 }
 
-func (self *BinaryConv) doRecurse(ctx context.Context, s string, jp int, desc *thrift.TypeDescriptor, p *thrift.BinaryProtocol, req http.RequestGetter, depth int) (ret int, err error) {
+func (self *BinaryConv) doRecurse(ctx context.Context, s string, jp int, desc *thrift.TypeDescriptor, p *thrift.BinaryProtocol, req http.RequestGetter, depth int, flags uint64) (ret int, err error) {
 	n := len(s)
 	ret = jp
 
@@ -150,7 +151,7 @@ func (self *BinaryConv) doRecurse(ctx context.Context, s string, jp int, desc *t
 
 			nt = json.Comma
 			for nt == json.Comma {
-				jp, err := self.doRecurse(ctx, s, ret, et, p, req, depth+1)
+				jp, err := self.doRecurse(ctx, s, ret, et, p, req, depth+1, flags)
 				if err != nil && err != errNull {
 					return jp, err
 				}
@@ -222,7 +223,7 @@ func (self *BinaryConv) doRecurse(ctx context.Context, s string, jp int, desc *t
 						ret = jp + 1
 					}
 
-					jp, err := self.doRecurse(ctx, s, ret, et, p, req, depth+1)
+					jp, err := self.doRecurse(ctx, s, ret, et, p, req, depth+1, flags)
 					if err != nil && err != errNull {
 						return jp, err
 					}
@@ -251,7 +252,7 @@ func (self *BinaryConv) doRecurse(ctx context.Context, s string, jp int, desc *t
 
 				// do http-mapping if any
 				if self.opts.EnableHttpMapping {
-					if err := self.handleHttpMappings(ctx, req, desc.Struct(), *bm, &p.Buf, false, depth == 0); err != nil {
+					if err := self.handleHttpMappings(ctx, req, desc.Struct(), *bm, &p.Buf, false, depth == 0, flags); err != nil {
 						return ret, err
 					}
 				}
@@ -287,10 +288,12 @@ func (self *BinaryConv) doRecurse(ctx context.Context, s string, jp int, desc *t
 					}
 
 					ft := desc.Struct().FieldByKey(key)
-					if ft == nil {
-						if self.opts.DisallowUnknownField {
+					if ft == nil || ft.IsRequestBase() && (flags&types.F_NO_WRITE_BASE != 0) {
+						// disallow unknown field
+						if ft == nil && self.opts.DisallowUnknownField {
 							return ret, newError(meta.ErrUnknownField, key, nil)
 						}
+						// skip writing `Base` field
 						jp, _ = json.SkipValue(s, ret)
 						if jp < 0 {
 							return ret, errSyntax(s, jp)
@@ -324,7 +327,7 @@ func (self *BinaryConv) doRecurse(ctx context.Context, s string, jp int, desc *t
 						ks := len(p.Buf)
 						p.WriteFieldBegin(key, ft.Type().Type(), ft.ID())
 
-						jp, err := self.doRecurse(ctx, s, ret, ft.Type(), p, req, depth+1)
+						jp, err := self.doRecurse(ctx, s, ret, ft.Type(), p, req, depth+1, flags)
 						if err != nil && err != errNull {
 							return jp, err
 						}
@@ -354,7 +357,7 @@ func (self *BinaryConv) doRecurse(ctx context.Context, s string, jp int, desc *t
 						if self.opts.TracebackRequredOrRootFields && (depth == 0 || f.Required() == thrift.RequiredRequireness) {
 							val, _, enc = tryGetValueFromHttp(req, f.Alias())
 						}
-						return self.writeStringValue(ctx, &p.Buf, f, val, enc, req)
+						return self.writeStringValue(ctx, &p.Buf, f, val, enc, req, flags)
 					}); err != nil {
 						return ret, err
 					}

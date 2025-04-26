@@ -1152,3 +1152,27 @@ func (self Node) Children(out *[]PathNode, recurse bool, opts *Options) (err err
 	}
 	return err
 }
+
+// ReplaceByPath replaces the sub node at the given path with the result of the given function.
+func (self *Node) ReplaceByPath(f func(Node) Node, path ...Path) (exist bool, err error) {
+	if len(path) == 0 {
+		*self = f(*self)
+		return true, nil
+	}
+	if err := self.Check(); err != nil {
+		return false, err
+	}
+	// search source node by path
+	var v = self.GetByPath(path...)
+	if v.IsError() {
+		return false, v
+	} else {
+		exist = true
+	}
+	sub := f(v)
+	if sub.IsError() {
+		return true, sub
+	}
+	err = self.replace(v, sub)
+	return
+}

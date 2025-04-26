@@ -29,30 +29,27 @@ import (
 
 // BinaryConv is a converter from json to thrift binary
 type BinaryConv struct {
-	opts  conv.Options
-	flags uint64
+	opts conv.Options
 }
 
 // NewBinaryConv returns a new BinaryConv
 func NewBinaryConv(opts conv.Options) BinaryConv {
 	return BinaryConv{
-		opts:  opts,
-		flags: toFlags(opts),
+		opts: opts,
 	}
 }
 
 // SetOptions sets options
 func (self *BinaryConv) SetOptions(opts conv.Options) {
 	self.opts = opts
-	self.flags = toFlags(self.opts)
 }
 
 // Do converts json bytes (jbytes) to thrift binary (tbytes)
 //
 // desc is the thrift type descriptor of the thrift binary, usually it the request STRUCT type
 // ctx is the context, which can be used to pass arguments as below:
-//     - conv.CtxKeyHTTPRequest: http.RequestGetter as http request
-//     - conv.CtxKeyThriftRespBase: thrift.Base as base metadata of thrift response
+//   - conv.CtxKeyHTTPRequest: http.RequestGetter as http request
+//   - conv.CtxKeyThriftRespBase: thrift.Base as base metadata of thrift response
 func (self *BinaryConv) Do(ctx context.Context, desc *thrift.TypeDescriptor, jbytes []byte) (tbytes []byte, err error) {
 	buf := conv.NewBytes()
 
