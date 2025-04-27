@@ -214,35 +214,38 @@ type AnnotationMapper interface {
 	Map(ctx context.Context, ann []parser.Annotation, desc interface{}, opt Options) (cur []parser.Annotation, next []parser.Annotation, err error)
 }
 
-var annotationMapper = map[string]map[AnnoScope]AnnotationMapper{}
+// var annotationMapper = map[string]map[AnnoScope]AnnotationMapper{}
+var annotationMapper sync.Map
 
 // RegisterAnnotationMapper register a annotation mapper on specific scope
 func RegisterAnnotationMapper(scope AnnoScope, mapper AnnotationMapper, keys ...string) {
 	for _, key := range keys {
-		m := annotationMapper[key]
+		m, _ := annotationMapper.Load(key)
 		if m == nil {
-			m = make(map[AnnoScope]AnnotationMapper)
-			annotationMapper[key] = m
+			m = new(sync.Map)
+			annotationMapper.Store(key, m)
 		}
-		m[scope] = mapper
+		m.(*sync.Map).Store(scope, mapper)
 	}
 }
 
 func FindAnnotationMapper(key string, scope AnnoScope) AnnotationMapper {
-	m := annotationMapper[key]
+	m, _ := annotationMapper.Load(key)
 	if m == nil {
 		return nil
 	}
-	return m[scope]
+	x, _ := m.(*sync.Map).Load(scope)
+	if x == nil {
+		return nil
+	}
+	return x.(AnnotationMapper)
 }
 
 func RemoveAnnotationMapper(scope AnnoScope, keys ...string) {
 	for _, key := range keys {
-		m := annotationMapper[key]
+		m, _ := annotationMapper.Load(key)
 		if m != nil {
-			if _, ok := m[scope]; ok {
-				delete(m, scope)
-			}
+			m.(*sync.Map).Delete(scope)
 		}
 	}
 }
