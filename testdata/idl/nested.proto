@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package pb3;
+option go_package = "pb/example";
+
+message Item {
+	repeated string ids = 1;
+}
+
+message NestedExampleReq {
+	repeated Item items = 1;
+}
+
+message NestedExampleResp {
+	repeated Item items = 1;
+}
+
+service Service {
+	rpc Example(NestedExampleReq) returns (NestedExampleResp);
+}
