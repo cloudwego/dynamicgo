@@ -64,7 +64,7 @@ typedef uint8_t ttype;
 
 typedef uint16_t vm_em;
 #define VM_NONE 0
-#define VM_JSCONV 101 // NOTICE: must be same with internal/native/types.VM_JSCONV
+#define VM_JSCONV 101 // NOTICE: must be same with internal/types.VM_JSCONV
 #define VM_INLINE_MAX 255
 
 typedef struct tTypeDesc tTypeDesc;

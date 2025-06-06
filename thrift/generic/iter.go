@@ -19,7 +19,7 @@ package generic
 import (
 	"fmt"
 
-	"github.com/cloudwego/dynamicgo/internal/native/types"
+	"github.com/cloudwego/dynamicgo/internal/types"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
 )
@@ -87,7 +87,7 @@ func (it *structIterator) Next(useNative bool) (id thrift.FieldID, typ thrift.Ty
 	}
 	typ = thrift.Type(typeId)
 	start = it.p.Read
-	err = it.p.Skip(typeId, useNative)
+	err = it.p.SkipType(typeId)
 	if err != nil {
 		it.Err = meta.NewError(meta.ErrRead, "", err)
 		return
@@ -124,7 +124,7 @@ func (it listIterator) Pos() int {
 
 func (it *listIterator) Next(useNative bool) (start int, end int) {
 	start = it.p.Read
-	err := it.p.Skip(it.et, useNative)
+	err := it.p.SkipType(it.et)
 	if err != nil {
 		it.Err = meta.NewError(meta.ErrRead, "", err)
 		return
@@ -159,13 +159,13 @@ func (it *mapIterator) NextBin(useNative bool) (keyStart int, keyBin []byte, sta
 	keyStart = it.p.Read
 	var err error
 	ks := it.p.Read
-	if err = it.p.Skip(it.kt, useNative); err != nil {
+	if err = it.p.SkipType(it.kt); err != nil {
 		it.Err = meta.NewError(meta.ErrRead, "", err)
 		return
 	}
 	keyBin = it.p.Buf[ks:it.p.Read]
 	start = it.p.Read
-	err = it.p.Skip(it.et, useNative)
+	err = it.p.SkipType(it.et)
 	if err != nil {
 		it.Err = meta.NewError(meta.ErrRead, "", err)
 		return
@@ -189,8 +189,8 @@ func (it *mapIterator) NextStr(useNative bool) (keyStart int, keyString string, 
 		return
 	}
 	start = it.p.Read
-	err = it.p.Skip(it.et,
-		 useNative)
+	err = it.p.SkipType(it.et)
+
 	if err != nil {
 		it.Err = meta.NewError(meta.ErrRead, "", err)
 		return
@@ -235,8 +235,7 @@ func (it *mapIterator) NextInt(useNative bool) (keyStart int, keyInt int, start 
 		it.Err = wrapError(meta.ErrUnsupportedType, "MapIterator.nextInt: key type is not int", nil)
 	}
 	start = it.p.Read
-	if err := it.p.Skip(it.et,
-		 useNative); err != nil {
+	if err := it.p.SkipType(it.et); err != nil {
 		it.Err = meta.NewError(meta.ErrRead, "", err)
 		return
 	}
@@ -255,7 +254,7 @@ func (self Value) Foreach(handler func(path Path, val Value) bool, opts *Options
 			return it.Err
 		}
 		for it.HasNext() {
-			id, typ, start, end := it.Next(opts.UseNativeSkip)
+			id, typ, start, end := it.Next(false)
 			if it.Err != nil {
 				return it.Err
 			}
@@ -287,7 +286,7 @@ func (self Value) Foreach(handler func(path Path, val Value) bool, opts *Options
 		}
 		et := self.Desc.Elem()
 		for i := 0; it.HasNext(); i++ {
-			start, end := it.Next(opts.UseNativeSkip)
+			start, end := it.Next(false)
 			if it.Err != nil {
 				return it.Err
 			}
@@ -312,7 +311,7 @@ func (self Value) Foreach(handler func(path Path, val Value) bool, opts *Options
 		}
 		if kt.Type() == thrift.STRING {
 			for i := 0; it.HasNext(); i++ {
-				_, keyString, start, end := it.NextStr(opts.UseNativeSkip)
+				_, keyString, start, end := it.NextStr(false)
 				if it.Err != nil {
 					return it.Err
 				}
@@ -324,7 +323,7 @@ func (self Value) Foreach(handler func(path Path, val Value) bool, opts *Options
 			}
 		} else if kt.Type().IsInt() {
 			for i := 0; it.HasNext(); i++ {
-				_, keyInt, start, end := it.NextInt(opts.UseNativeSkip)
+				_, keyInt, start, end := it.NextInt(false)
 				if it.Err != nil {
 					return it.Err
 				}
@@ -336,7 +335,7 @@ func (self Value) Foreach(handler func(path Path, val Value) bool, opts *Options
 			}
 		} else {
 			for i := 0; it.HasNext(); i++ {
-				_, keyBin, start, end := it.NextBin(opts.UseNativeSkip)
+				_, keyBin, start, end := it.NextBin(false)
 				if it.Err != nil {
 					return it.Err
 				}
@@ -373,12 +372,12 @@ func (self Value) ForeachKV(handler func(key Value, val Value) bool, opts *Optio
 		}
 		for i := 0; i < size; i++ {
 			ks := p.Read
-			if err := p.Skip(kt, opts.UseNativeSkip); err != nil {
+			if err := p.SkipType(kt); err != nil {
 				return errNode(meta.ErrRead, "", nil)
 			}
 			key := self.slice(ks, p.Read, kd)
 			es := p.Read
-			if err := p.Skip(et, opts.UseNativeSkip); err != nil {
+			if err := p.SkipType(et); err != nil {
 				return errNode(meta.ErrRead, "", nil)
 			}
 			val := self.slice(es, p.Read, ed)
@@ -402,7 +401,7 @@ func (self Node) Foreach(handler func(path Path, node Node) bool, opts *Options)
 			return it.Err
 		}
 		for it.HasNext() {
-			id, typ, start, end := it.Next(opts.UseNativeSkip)
+			id, typ, start, end := it.Next(false)
 			if it.Err != nil {
 				return it.Err
 			}
@@ -419,7 +418,7 @@ func (self Node) Foreach(handler func(path Path, node Node) bool, opts *Options)
 			return it.Err
 		}
 		for i := 0; it.HasNext(); i++ {
-			start, end := it.Next(opts.UseNativeSkip)
+			start, end := it.Next(false)
 			if it.Err != nil {
 				return it.Err
 			}
@@ -437,7 +436,7 @@ func (self Node) Foreach(handler func(path Path, node Node) bool, opts *Options)
 		kt := self.kt
 		if kt == thrift.STRING {
 			for i := 0; it.HasNext(); i++ {
-				_, keyString, start, end := it.NextStr(opts.UseNativeSkip)
+				_, keyString, start, end := it.NextStr(false)
 				if it.Err != nil {
 					return it.Err
 				}
@@ -449,7 +448,7 @@ func (self Node) Foreach(handler func(path Path, node Node) bool, opts *Options)
 			}
 		} else if kt.IsInt() {
 			for i := 0; it.HasNext(); i++ {
-				_, keyInt, start, end := it.NextInt(opts.UseNativeSkip)
+				_, keyInt, start, end := it.NextInt(false)
 				if it.Err != nil {
 					return it.Err
 				}
@@ -461,7 +460,7 @@ func (self Node) Foreach(handler func(path Path, node Node) bool, opts *Options)
 			}
 		} else {
 			for i := 0; it.HasNext(); i++ {
-				_, keyBin, start, end := it.NextBin(opts.UseNativeSkip)
+				_, keyBin, start, end := it.NextBin(false)
 				if it.Err != nil {
 					return it.Err
 				}
@@ -487,12 +486,12 @@ func (self Node) ForeachKV(handler func(key Node, val Node) bool, opts *Options)
 		}
 		for i := 0; i < size; i++ {
 			ks := p.Read
-			if err := p.Skip(kt, opts.UseNativeSkip); err != nil {
+			if err := p.SkipType(kt); err != nil {
 				return errNode(meta.ErrRead, "", nil)
 			}
 			key := self.slice(ks, p.Read, kt)
 			es := p.Read
-			if err := p.Skip(et, opts.UseNativeSkip); err != nil {
+			if err := p.SkipType(et); err != nil {
 				return errNode(meta.ErrRead, "", nil)
 			}
 			val := self.slice(es, p.Read, et)

@@ -1145,7 +1145,7 @@ func (p *BinaryProtocol) ReadAnyWithDesc(desc *TypeDescriptor, byteAsUint8 bool,
 				if disallowUnknonw {
 					return nil, errUnknonwField
 				}
-				if err := p.Skip(typ, false); err != nil {
+				if err := p.SkipType(typ); err != nil {
 					return nil, err
 				}
 				continue

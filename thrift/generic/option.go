@@ -23,9 +23,8 @@ const (
 )
 
 var (
-	// UseNativeSkipForGet indicates to use native.Skip (instead of go.Skip) method to skip thrift value
-	// This only works for single-value searching API like GetByInt()/GetByRaw()/GetByStr()/Field()/Index()/GetByPath() methods.
-	// WARN: this will promote performance when thrift value to be skipped is large, but may decrease preformance when thrift value is small.
+	// UseNativeSkipForGet ...
+	// Deprecated: NOT IN USE, remove in the future
 	UseNativeSkipForGet = false
 
 	// DefaultNodeSliceCap is the default capacity of a Node or NodePath slice
@@ -44,8 +43,8 @@ type Options struct {
 	// NoCheckRequireNess indicates not to check requiredness when writing.
 	NotCheckRequireNess bool
 
-	// UseNativeSkip indicates to use native.Skip (instead of go.Skip) method to skip thrift value
-	//  WARNING: this will promote performance when thrift value to be skipped is large, but may decrease preformance when thrift value is small.
+	// UseNativeSkip ...
+	// Deprecated: NOT IN USE, remove in the future
 	UseNativeSkip bool
 
 	// MapStructById indicates to use FieldId instead of int as map key instead of when call Node.Interface() on STRUCT type.

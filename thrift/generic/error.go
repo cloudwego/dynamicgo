@@ -97,7 +97,7 @@ func errPathNode(code meta.ErrCode, msg string, err error) *PathNode {
 	// panic(code.Behavior())
 	e := meta.NewError(meta.NewErrorCode(code, meta.THRIFT), msg, err).(meta.Error)
 	return &PathNode{
-			Node: Node{
+		Node: Node{
 			t: thrift.ERROR,
 			l: int(code),
 			v: unsafe.Pointer(&e),

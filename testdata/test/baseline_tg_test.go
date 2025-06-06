@@ -226,27 +226,16 @@ func BenchmarkThriftSkip(b *testing.B) {
 			b.Fatal(ret)
 		}
 		p := thrift.NewBinaryProtocol(data)
-		err := p.SkipNative(desc.Type(), 512)
+		err := p.SkipType(desc.Type())
 		require.Nil(b, err)
 		require.Equal(b, len(data), p.Read)
 
-		b.Run("native", func(b *testing.B) {
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				p.Read = 0
-				_ = p.SkipNative(desc.Type(), 512)
-			}
-		})
-
-		b.Run("go", func(b *testing.B) {
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				p.Read = 0
-				_ = p.SkipGo(desc.Type(), 512)
-			}
-		})
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			p.Read = 0
+			_ = p.SkipType(desc.Type())
+		}
 	})
 
 	b.Run("medium", func(b *testing.B) {
@@ -258,27 +247,16 @@ func BenchmarkThriftSkip(b *testing.B) {
 			b.Fatal(ret)
 		}
 		p := thrift.NewBinaryProtocol(data)
-		err := p.SkipNative(desc.Type(), 512)
+		err := p.SkipType(desc.Type())
 		require.Nil(b, err)
 		require.Equal(b, len(data), p.Read)
 
-		b.Run("native", func(b *testing.B) {
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				p.Read = 0
-				_ = p.SkipNative(desc.Type(), 512)
-			}
-		})
-
-		b.Run("go", func(b *testing.B) {
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				p.Read = 0
-				_ = p.SkipGo(desc.Type(), 512)
-			}
-		})
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			p.Read = 0
+			_ = p.SkipType(desc.Type())
+		}
 	})
 }
 
@@ -295,27 +273,11 @@ func BenchmarkThriftGetOne(b *testing.B) {
 		vv := v.GetByPath(generic.NewPathFieldId(6))
 		require.Nil(b, vv.Check())
 
-		b.Run("native", func(b *testing.B) {
-			old := generic.UseNativeSkipForGet
-			generic.UseNativeSkipForGet = true
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_ = v.GetByPath(generic.NewPathFieldId(6))
-			}
-			generic.UseNativeSkipForGet = old
-		})
-
-		b.Run("go", func(b *testing.B) {
-			old := generic.UseNativeSkipForGet
-			generic.UseNativeSkipForGet = false
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_ = v.GetByPath(generic.NewPathFieldId(6))
-			}
-			generic.UseNativeSkipForGet = old
-		})
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = v.GetByPath(generic.NewPathFieldId(6))
+		}
 	})
 
 	b.Run("medium", func(b *testing.B) {
@@ -330,27 +292,11 @@ func BenchmarkThriftGetOne(b *testing.B) {
 		vv := v.GetByPath(generic.NewPathFieldId(15), generic.NewPathStrKey("15"), generic.NewPathFieldId(6))
 		require.Nil(b, vv.Check())
 
-		b.Run("native", func(b *testing.B) {
-			old := generic.UseNativeSkipForGet
-			generic.UseNativeSkipForGet = true
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_ = v.GetByPath(generic.NewPathFieldId(15), generic.NewPathStrKey("15"), generic.NewPathFieldId(6))
-			}
-			generic.UseNativeSkipForGet = old
-		})
-
-		b.Run("go", func(b *testing.B) {
-			old := generic.UseNativeSkipForGet
-			generic.UseNativeSkipForGet = false
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_ = v.GetByPath(generic.NewPathFieldId(15), generic.NewPathStrKey("15"), generic.NewPathFieldId(6))
-			}
-			generic.UseNativeSkipForGet = old
-		})
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = v.GetByPath(generic.NewPathFieldId(15), generic.NewPathStrKey("15"), generic.NewPathFieldId(6))
+		}
 	})
 }
 
@@ -375,24 +321,12 @@ func BenchmarkThriftGetMany(b *testing.B) {
 		err := v.GetMany(ps, &opts)
 		require.Nil(b, err)
 
-		b.Run("native", func(b *testing.B) {
-			opts.UseNativeSkip = true
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_ = v.GetMany(ps, &opts)
-			}
-			opts.UseNativeSkip = false
-		})
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = v.GetMany(ps, &opts)
+		}
 
-		b.Run("go", func(b *testing.B) {
-			opts.UseNativeSkip = false
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_ = v.GetMany(ps, &opts)
-			}
-		})
 	})
 
 	b.Run("medium", func(b *testing.B) {
@@ -415,24 +349,11 @@ func BenchmarkThriftGetMany(b *testing.B) {
 		err := v.GetMany(ps, &opts)
 		require.Nil(b, err)
 
-		b.Run("native", func(b *testing.B) {
-			opts.UseNativeSkip = true
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_ = v.GetMany(ps, &opts)
-			}
-			opts.UseNativeSkip = false
-		})
-
-		b.Run("go", func(b *testing.B) {
-			opts.UseNativeSkip = false
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_ = v.GetMany(ps, &opts)
-			}
-		})
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = v.GetMany(ps, &opts)
+		}
 	})
 }
 
@@ -522,30 +443,16 @@ func BenchmarkThriftGetAll_New(b *testing.B) {
 		}
 		v := generic.NewValue(desc, data)
 		out := []generic.PathNode{}
-		require.Nil(b, v.Children(&out, false, &generic.Options{UseNativeSkip: true}))
+		require.Nil(b, v.Children(&out, false, &generic.Options{}))
 
-		b.Run("native", func(b *testing.B) {
-			opts := &generic.Options{UseNativeSkip: true}
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				out := []generic.PathNode{}
-				_ = v.Children(&out, true, opts)
-			}
-		})
+		opts := &generic.Options{}
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			out := []generic.PathNode{}
+			_ = v.Children(&out, true, opts)
+		}
 
-		b.Run("go", func(b *testing.B) {
-			opts := &generic.Options{
-				UseNativeSkip: false,
-				// OnlyScanStruct: true,
-			}
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				out := []generic.PathNode{}
-				_ = v.Children(&out, true, opts)
-			}
-		})
 	})
 
 	b.Run("medium", func(b *testing.B) {
@@ -558,27 +465,16 @@ func BenchmarkThriftGetAll_New(b *testing.B) {
 		}
 		v := generic.NewValue(desc, data)
 		out := make([]generic.PathNode, 0, 16)
-		require.Nil(b, v.Children(&out, false, &generic.Options{UseNativeSkip: true}))
+		require.Nil(b, v.Children(&out, false, &generic.Options{}))
 
-		b.Run("native", func(b *testing.B) {
-			opts := &generic.Options{UseNativeSkip: true}
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				out := []generic.PathNode{}
-				_ = v.Children(&out, true, opts)
-			}
-		})
+		opts := &generic.Options{}
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			out := []generic.PathNode{}
+			_ = v.Children(&out, true, opts)
+		}
 
-		b.Run("go", func(b *testing.B) {
-			opts := &generic.Options{UseNativeSkip: false}
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				out := []generic.PathNode{}
-				_ = v.Children(&out, true, opts)
-			}
-		})
 	})
 }
 
@@ -594,28 +490,23 @@ func BenchmarkThriftGetAll_ReuseMemory(b *testing.B) {
 		v := generic.NewValue(desc, data)
 		r := generic.NewPathNode()
 		r.Node = v.Node
-		require.Nil(b, r.Load(true, &generic.Options{UseNativeSkip: true}))
+		require.Nil(b, r.Load(true, &generic.Options{}))
 		r.ResetAll()
 		generic.FreePathNode(r)
 
-		b.Run("native", func(b *testing.B) {
-			opts := &generic.Options{UseNativeSkip: true}
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				r := generic.NewPathNode()
-				r.Node = v.Node
-				_ = r.Load(true, opts)
-				r.ResetAll()
-				generic.FreePathNode(r)
-			}
-		})
+		opts := &generic.Options{}
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			r := generic.NewPathNode()
+			r.Node = v.Node
+			_ = r.Load(true, opts)
+			r.ResetAll()
+			generic.FreePathNode(r)
+		}
 
-		b.Run("go", func(b *testing.B) {
-			opts := &generic.Options{
-				UseNativeSkip: false,
-				// OnlyScanStruct: true,
-			}
+		b.Run("normal", func(b *testing.B) {
+			opts := &generic.Options{}
 			b.SetBytes(int64(len(data)))
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
@@ -626,26 +517,8 @@ func BenchmarkThriftGetAll_ReuseMemory(b *testing.B) {
 				generic.FreePathNode(r)
 			}
 		})
-		b.Run("not_scan_parent/native", func(b *testing.B) {
+		b.Run("not_scan_parent", func(b *testing.B) {
 			opts := &generic.Options{
-				// OnlyScanStruct: true,
-				UseNativeSkip:     true,
-				NotScanParentNode: true,
-			}
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				r := generic.NewPathNode()
-				r.Node = v.Node
-				_ = r.Load(true, opts)
-				r.ResetAll()
-				generic.FreePathNode(r)
-			}
-		})
-		b.Run("not_scan_parent/go", func(b *testing.B) {
-			opts := &generic.Options{
-				// OnlyScanStruct: true,
-				UseNativeSkip:     false,
 				NotScanParentNode: true,
 			}
 			b.SetBytes(int64(len(data)))
@@ -671,12 +544,12 @@ func BenchmarkThriftGetAll_ReuseMemory(b *testing.B) {
 		v := generic.NewValue(desc, data)
 		r := generic.NewPathNode()
 		r.Node = v.Node
-		require.Nil(b, r.Load(true, &generic.Options{UseNativeSkip: true}))
+		require.Nil(b, r.Load(true, &generic.Options{}))
 		r.ResetAll()
 		generic.FreePathNode(r)
 
-		b.Run("native", func(b *testing.B) {
-			opts := &generic.Options{UseNativeSkip: true}
+		b.Run("normal", func(b *testing.B) {
+			opts := &generic.Options{}
 			b.SetBytes(int64(len(data)))
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
@@ -688,39 +561,8 @@ func BenchmarkThriftGetAll_ReuseMemory(b *testing.B) {
 			}
 		})
 
-		b.Run("go", func(b *testing.B) {
-			opts := &generic.Options{UseNativeSkip: false}
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				r := generic.NewPathNode()
-				r.Node = v.Node
-				_ = r.Load(true, opts)
-				r.ResetAll()
-				generic.FreePathNode(r)
-			}
-		})
-
-		b.Run("not_scan_parent/native", func(b *testing.B) {
+		b.Run("not_scan_parent", func(b *testing.B) {
 			opts := &generic.Options{
-				// OnlyScanStruct: true,
-				UseNativeSkip:     true,
-				NotScanParentNode: true,
-			}
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				r := generic.NewPathNode()
-				r.Node = v.Node
-				_ = r.Load(true, opts)
-				r.ResetAll()
-				generic.FreePathNode(r)
-			}
-		})
-		b.Run("not_scan_parent/go", func(b *testing.B) {
-			opts := &generic.Options{
-				// OnlyScanStruct: true,
-				UseNativeSkip:     false,
 				NotScanParentNode: true,
 			}
 			b.SetBytes(int64(len(data)))
@@ -810,27 +652,11 @@ func BenchmarkThriftSetOne(b *testing.B) {
 		nn := v.GetByPath(generic.NewPathFieldId(6))
 		require.Equal(b, n.Raw(), nn.Raw())
 
-		b.Run("native", func(b *testing.B) {
-			old := generic.UseNativeSkipForGet
-			generic.UseNativeSkipForGet = true
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_, _ = v.SetByPath(n, generic.NewPathFieldId(6))
-			}
-			generic.UseNativeSkipForGet = old
-		})
-
-		b.Run("go", func(b *testing.B) {
-			old := generic.UseNativeSkipForGet
-			generic.UseNativeSkipForGet = false
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_, _ = v.SetByPath(n, generic.NewPathFieldId(6))
-			}
-			generic.UseNativeSkipForGet = old
-		})
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = v.SetByPath(n, generic.NewPathFieldId(6))
+		}
 	})
 
 	b.Run("medium", func(b *testing.B) {
@@ -850,27 +676,11 @@ func BenchmarkThriftSetOne(b *testing.B) {
 		nn := v.GetByPath(generic.NewPathFieldId(15), generic.NewPathStrKey("15"), generic.NewPathFieldId(6))
 		require.Equal(b, n.Raw(), nn.Raw())
 
-		b.Run("native", func(b *testing.B) {
-			old := generic.UseNativeSkipForGet
-			generic.UseNativeSkipForGet = true
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_, _ = v.SetByPath(n, generic.NewPathFieldId(15), generic.NewPathStrKey("15"), generic.NewPathFieldId(6))
-			}
-			generic.UseNativeSkipForGet = old
-		})
-
-		b.Run("go", func(b *testing.B) {
-			old := generic.UseNativeSkipForGet
-			generic.UseNativeSkipForGet = false
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_, _ = v.SetByPath(n, generic.NewPathFieldId(15), generic.NewPathStrKey("15"), generic.NewPathFieldId(6))
-			}
-			generic.UseNativeSkipForGet = old
-		})
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = v.SetByPath(n, generic.NewPathFieldId(15), generic.NewPathStrKey("15"), generic.NewPathFieldId(6))
+		}
 	})
 }
 
@@ -893,23 +703,11 @@ func BenchmarkThriftSetMany(b *testing.B) {
 		require.Nil(b, v.GetMany(ps, &opts))
 		require.Nil(b, v.SetMany(ps, &opts))
 
-		b.Run("native", func(b *testing.B) {
-			opts.UseNativeSkip = true
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_ = v.SetMany(ps, &opts)
-			}
-		})
-
-		b.Run("go", func(b *testing.B) {
-			opts.UseNativeSkip = false
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_ = v.SetMany(ps, &opts)
-			}
-		})
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = v.SetMany(ps, &opts)
+		}
 	})
 
 	b.Run("medium", func(b *testing.B) {
@@ -930,23 +728,11 @@ func BenchmarkThriftSetMany(b *testing.B) {
 		require.Nil(b, v.GetMany(ps, &opts))
 		require.Nil(b, v.SetMany(ps, &opts))
 
-		b.Run("native", func(b *testing.B) {
-			opts.UseNativeSkip = true
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_ = v.SetMany(ps, &opts)
-			}
-		})
-
-		b.Run("go", func(b *testing.B) {
-			opts.UseNativeSkip = false
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_ = v.SetMany(ps, &opts)
-			}
-		})
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = v.SetMany(ps, &opts)
+		}
 	})
 }
 
@@ -968,27 +754,11 @@ func BenchmarkThriftMarshalTo(b *testing.B) {
 		_, err = exp.FastRead(out)
 		require.Nil(b, err)
 
-		b.Run("native", func(b *testing.B) {
-			opts := generic.Options{
-				UseNativeSkip: true,
-			}
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_, _ = v.MarshalTo(part, &opts)
-			}
-		})
-
-		b.Run("go", func(b *testing.B) {
-			opts := generic.Options{
-				UseNativeSkip: false,
-			}
-			b.SetBytes(int64(len(data)))
-			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
-				_, _ = v.MarshalTo(part, &opts)
-			}
-		})
+		b.SetBytes(int64(len(data)))
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = v.MarshalTo(part, &opts)
+		}
 	})
 
 	b.Run("medium", func(b *testing.B) {
@@ -1008,52 +778,25 @@ func BenchmarkThriftMarshalTo(b *testing.B) {
 		_, err = exp.FastRead(out)
 		require.Nil(b, err)
 
-		b.Run("native", func(b *testing.B) {
-			b.Run("not_check_requireness", func(b *testing.B) {
-				opts := generic.Options{
-					UseNativeSkip:       true,
-					NotCheckRequireNess: true,
-				}
-				b.SetBytes(int64(len(data)))
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
-					_, _ = v.MarshalTo(part, &opts)
-				}
-			})
-			b.Run("check_requireness", func(b *testing.B) {
-				opts := generic.Options{
-					UseNativeSkip: true,
-				}
-				b.SetBytes(int64(len(data)))
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
-					_, _ = v.MarshalTo(part, &opts)
-				}
-			})
+		b.Run("not_check_requireness", func(b *testing.B) {
+			opts := generic.Options{
+				NotCheckRequireNess: true,
+			}
+			b.SetBytes(int64(len(data)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_, _ = v.MarshalTo(part, &opts)
+			}
 		})
-
-		b.Run("go", func(b *testing.B) {
-			b.Run("not_check_requireness", func(b *testing.B) {
-				opts := generic.Options{
-					UseNativeSkip:       true,
-					NotCheckRequireNess: true,
-				}
-				b.SetBytes(int64(len(data)))
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
-					_, _ = v.MarshalTo(part, &opts)
-				}
-			})
-			b.Run("check_requireness", func(b *testing.B) {
-				opts := generic.Options{
-					UseNativeSkip: true,
-				}
-				b.SetBytes(int64(len(data)))
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
-					_, _ = v.MarshalTo(part, &opts)
-				}
-			})
+		b.Run("check_requireness", func(b *testing.B) {
+			opts := generic.Options{
+				NotCheckRequireNess: false,
+			}
+			b.SetBytes(int64(len(data)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				_, _ = v.MarshalTo(part, &opts)
+			}
 		})
 	})
 }

@@ -7,9 +7,7 @@ import (
 	"github.com/cloudwego/dynamicgo/thrift"
 )
 
-var opts = &Options{
-	UseNativeSkip: true,
-}
+var opts = &Options{}
 
 func ExampleNewTypedNode() {
 	// make a map<string,list<i32>> node

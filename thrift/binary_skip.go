@@ -49,13 +49,10 @@ func TypeSize(t Type) int {
 }
 
 // Skip skips over the value for the given type.
-func (p *BinaryProtocol) Skip(fieldType Type, useNative bool) (err error) {
-	if false {
-		// TODO: rm the skip native in the future, no longer use.
-		// The pure go implementation is better than c
-		return p.SkipNative(fieldType, MaxSkipDepth)
-	}
-	return p.SkipGo(fieldType, MaxSkipDepth)
+//
+// Deprecated: use SkipType instead
+func (p *BinaryProtocol) Skip(t Type, useNative bool) (err error) {
+	return p.skipType(t, MaxSkipDepth)
 }
 
 // next_nopanic returns the same as `next` without panic check, coz `n` is always const value.
@@ -97,15 +94,26 @@ func (p *BinaryProtocol) skipstr() error {
 	return nil
 }
 
-// SkipGo skips over the value for the given type using Go implementation.
+// SkipGo ...
+//
+// Deprecated: It was the name of pure Go implementation. Use SkipType instead.
 func (p *BinaryProtocol) SkipGo(fieldType Type, maxDepth int) error {
+	return p.skipType(fieldType, MaxSkipDepth)
+}
+
+// SkipType skips over the value for the given type
+func (p *BinaryProtocol) SkipType(t Type) error {
+	return p.skipType(t, MaxSkipDepth)
+}
+
+func (p *BinaryProtocol) skipType(t Type, maxDepth int) error {
 	if maxDepth <= 0 {
 		return errExceedDepthLimit
 	}
-	if n := typeSize[fieldType]; n > 0 {
+	if n := typeSize[t]; n > 0 {
 		return p.skipn(n)
 	}
-	switch fieldType {
+	switch t {
 	case STRING:
 		return p.skipstr()
 	case STRUCT:
@@ -124,7 +132,7 @@ func (p *BinaryProtocol) SkipGo(fieldType Type, maxDepth int) error {
 			if n := typeSize[tp]; n > 0 {
 				err = p.skipn(n)
 			} else {
-				err = p.SkipGo(tp, maxDepth-1)
+				err = p.skipType(tp, maxDepth-1)
 			}
 			if err != nil {
 				return err
@@ -150,7 +158,7 @@ func (p *BinaryProtocol) SkipGo(fieldType Type, maxDepth int) error {
 			} else if kt == STRING {
 				err = p.skipstr()
 			} else {
-				err = p.SkipGo(kt, maxDepth-1)
+				err = p.skipType(kt, maxDepth-1)
 			}
 			if err != nil {
 				return err
@@ -160,7 +168,7 @@ func (p *BinaryProtocol) SkipGo(fieldType Type, maxDepth int) error {
 			} else if vt == STRING {
 				err = p.skipstr()
 			} else {
-				err = p.SkipGo(vt, maxDepth-1)
+				err = p.skipType(vt, maxDepth-1)
 			}
 			if err != nil {
 				return err
@@ -183,7 +191,7 @@ func (p *BinaryProtocol) SkipGo(fieldType Type, maxDepth int) error {
 			if vt == STRING {
 				err = p.skipstr()
 			} else {
-				err = p.SkipGo(vt, maxDepth-1)
+				err = p.skipType(vt, maxDepth-1)
 			}
 			if err != nil {
 				return err

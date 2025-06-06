@@ -306,7 +306,7 @@ func searchFieldId(p *thrift.BinaryProtocol, id thrift.FieldID) (tt thrift.Type,
 			tt = t
 			break
 		}
-		if err := p.Skip(t, UseNativeSkipForGet); err != nil {
+		if err := p.SkipType(t); err != nil {
 			return 0, start, errNode(meta.ErrRead, "", err)
 		}
 	}
@@ -328,7 +328,7 @@ func searchIndex(p *thrift.BinaryProtocol, id int, isList bool) (tt thrift.Type,
 
 	//TODO: use direct index calculation for fixed-size list
 	for i := 0; i < id; i++ {
-		if err := p.Skip(et, UseNativeSkipForGet); err != nil {
+		if err := p.SkipType(et); err != nil {
 			return 0, start, errNode(meta.ErrRead, "", err)
 		}
 	}
@@ -358,7 +358,7 @@ func searchStrKey(p *thrift.BinaryProtocol, id string) (tt thrift.Type, start in
 			found = true
 			break
 		}
-		if err := p.Skip(et, UseNativeSkipForGet); err != nil {
+		if err := p.SkipType(et); err != nil {
 			return 0, start, errNode(meta.ErrRead, "", err)
 		}
 	}
@@ -377,7 +377,7 @@ func searchBinKey(p *thrift.BinaryProtocol, id []byte) (tt thrift.Type, start in
 	found := false
 	for i := 0; i < size; i++ {
 		ks := p.Read
-		if err := p.Skip(kt, UseNativeSkipForGet); err != nil {
+		if err := p.SkipType(kt); err != nil {
 			return 0, start, errNode(meta.ErrRead, "", err)
 		}
 		key := p.Buf[ks:p.Read]
@@ -387,7 +387,7 @@ func searchBinKey(p *thrift.BinaryProtocol, id []byte) (tt thrift.Type, start in
 			found = true
 			break
 		}
-		if err := p.Skip(et, UseNativeSkipForGet); err != nil {
+		if err := p.SkipType(et); err != nil {
 			return 0, start, errNode(meta.ErrRead, "", err)
 		}
 	}
@@ -418,7 +418,7 @@ func searchIntKey(p *thrift.BinaryProtocol, id int) (tt thrift.Type, start int, 
 			found = true
 			break
 		}
-		if err := p.Skip(et, UseNativeSkipForGet); err != nil {
+		if err := p.SkipType(et); err != nil {
 			return 0, start, errNode(meta.ErrRead, "", err)
 		}
 	}
@@ -477,7 +477,7 @@ func (self Node) GetByPath(pathes ...Path) Node {
 		}
 	}
 
-	if err := p.Skip(tt, UseNativeSkipForGet); err != nil {
+	if err := p.SkipType(tt); err != nil {
 		return errNode(meta.ErrRead, "", err)
 	}
 	return self.slice(start, p.Read, tt)
@@ -493,7 +493,7 @@ func (self Node) Field(id thrift.FieldID) (v Node) {
 		return errNode(meta.ErrRead, "", it.Err)
 	}
 	for it.HasNext() {
-		i, t, s, e := it.Next(UseNativeSkipForGet)
+		i, t, s, e := it.Next(false)
 		if i == id {
 			v = self.slice(s, e, t)
 			goto ret
@@ -525,13 +525,13 @@ func (self Node) Index(i int) (v Node) {
 		goto ret
 	}
 	for j := 0; it.HasNext() && j < i; j++ {
-		it.Next(UseNativeSkipForGet)
+		it.Next(false)
 	}
 	if it.Err != nil {
 		return errNode(meta.ErrRead, "", it.Err)
 	}
 
-	s, e = it.Next(UseNativeSkipForGet)
+	s, e = it.Next(false)
 	v = self.slice(s, e, self.et)
 ret:
 	// it.Recycle()
@@ -555,7 +555,7 @@ func (self Node) GetByStr(key string) (v Node) {
 		return errNode(meta.ErrRead, "", it.Err)
 	}
 	for it.HasNext() {
-		_, s, ss, e := it.NextStr(UseNativeSkipForGet)
+		_, s, ss, e := it.NextStr(false)
 		if it.Err != nil {
 			v = errNode(meta.ErrRead, "", it.Err)
 			goto ret
@@ -587,7 +587,7 @@ func (self Node) GetByInt(key int) (v Node) {
 		return errNode(meta.ErrRead, "", it.Err)
 	}
 	for it.HasNext() {
-		_, s, ss, e := it.NextInt(UseNativeSkipForGet)
+		_, s, ss, e := it.NextInt(false)
 		if it.Err != nil {
 			v = errNode(meta.ErrRead, "", it.Err)
 			goto ret
@@ -614,7 +614,7 @@ func (self Node) GetByRaw(key []byte) (v Node) {
 		return errNode(meta.ErrRead, "", it.Err)
 	}
 	for it.HasNext() {
-		_, s, ss, e := it.NextBin(UseNativeSkipForGet)
+		_, s, ss, e := it.NextBin(false)
 		if it.Err != nil {
 			v = errNode(meta.ErrRead, "", it.Err)
 			goto ret
@@ -652,7 +652,7 @@ func (self Node) Fields(ids []PathNode, opts *Options) (err error) {
 	need := len(ids)
 	for count := 0; it.HasNext() && count < need; {
 		var p *PathNode
-		i, t, s, e := it.Next(opts.UseNativeSkip)
+		i, t, s, e := it.Next(false)
 		if it.Err != nil {
 			return errValue(meta.ErrRead, "", it.Err)
 		}
@@ -695,7 +695,7 @@ func (self Node) Indexes(ins []PathNode, opts *Options) (err error) {
 
 	need := len(ins)
 	for count, i := 0, 0; it.HasNext() && count < need; i++ {
-		s, e := it.Next(opts.UseNativeSkip)
+		s, e := it.Next(false)
 		if it.Err != nil {
 			return errValue(meta.ErrRead, "", it.Err)
 		}
@@ -747,7 +747,7 @@ func (self Node) Gets(keys []PathNode, opts *Options) (err error) {
 		for j, id := range keys {
 			if id.Path.Type() == PathStrKey {
 				exp := id.Path.str()
-				_, s, v, e := it.NextStr(opts.UseNativeSkip)
+				_, s, v, e := it.NextStr(false)
 				if it.Err != nil {
 					return errValue(meta.ErrRead, "", it.Err)
 				}
@@ -758,7 +758,7 @@ func (self Node) Gets(keys []PathNode, opts *Options) (err error) {
 				}
 			} else if id.Path.Type() == PathIntKey {
 				exp := id.Path.int()
-				_, s, v, e := it.NextInt(opts.UseNativeSkip)
+				_, s, v, e := it.NextInt(false)
 				if it.Err != nil {
 					return errValue(meta.ErrRead, "", it.Err)
 				}
@@ -769,7 +769,7 @@ func (self Node) Gets(keys []PathNode, opts *Options) (err error) {
 				}
 			} else {
 				exp := id.Path.bin()
-				_, s, v, e := it.NextBin(opts.UseNativeSkip)
+				_, s, v, e := it.NextBin(false)
 				if it.Err != nil {
 					return errValue(meta.ErrRead, "", it.Err)
 				}
@@ -1026,7 +1026,7 @@ func (self *Node) deleteChild(path Path) Node {
 			if t == thrift.STOP {
 				return errNotFound
 			}
-			if err := p.Skip(t, UseNativeSkipForGet); err != nil {
+			if err := p.SkipType(t); err != nil {
 				return errNode(meta.ErrRead, "", err)
 			}
 			e = p.Read
@@ -1056,12 +1056,12 @@ func (self *Node) deleteChild(path Path) Node {
 			e = s + d
 		} else {
 			for i := 0; i < id; i++ {
-				if err := p.Skip(et, UseNativeSkipForGet); err != nil {
+				if err := p.SkipType(et); err != nil {
 					return errNode(meta.ErrRead, "", err)
 				}
 			}
 			s = p.Read
-			if err := p.Skip(et, UseNativeSkipForGet); err != nil {
+			if err := p.SkipType(et); err != nil {
 				return errNode(meta.ErrRead, "", err)
 			}
 			e = p.Read
@@ -1081,11 +1081,11 @@ func (self *Node) deleteChild(path Path) Node {
 		tt = et
 		for i := 0; i < size; i++ {
 			s = p.Read
-			if err := p.Skip(kt, UseNativeSkipForGet); err != nil {
+			if err := p.SkipType(kt); err != nil {
 				return errNode(meta.ErrRead, "", err)
 			}
 			key := p.Buf[s:p.Read]
-			if err := p.Skip(et, UseNativeSkipForGet); err != nil {
+			if err := p.SkipType(et); err != nil {
 				return errNode(meta.ErrRead, "", err)
 			}
 			e = p.Read
