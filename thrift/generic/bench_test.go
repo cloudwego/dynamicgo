@@ -65,25 +65,10 @@ func BenchmarkSetOne_DynamicGo(b *testing.B) {
 	f2, _ := s2.String()
 	require.Equal(b, exp, f2)
 
-	b.Run("native", func(b *testing.B) {
-		old := UseNativeSkipForGet
-		UseNativeSkipForGet = true
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, _ = v.SetByPath(vv, ps...)
-		}
-		UseNativeSkipForGet = old
-	})
-
-	b.Run("go", func(b *testing.B) {
-		old := UseNativeSkipForGet
-		UseNativeSkipForGet = false
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, _ = v.SetByPath(vv, ps...)
-		}
-		UseNativeSkipForGet = old
-	})
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = v.SetByPath(vv, ps...)
+	}
 }
 
 func BenchmarkSetMany_DynamicGo(b *testing.B) {
@@ -117,9 +102,7 @@ func BenchmarkSetMany_DynamicGo(b *testing.B) {
 			Node: v3.Node,
 		},
 	}
-	opts := &Options{
-		UseNativeSkip: true,
-	}
+	opts := &Options{}
 	err := v.SetMany(ps, opts)
 	require.Nil(b, err)
 	exp := example2.NewExampleReq()
@@ -127,23 +110,10 @@ func BenchmarkSetMany_DynamicGo(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	b.Run("native", func(b *testing.B) {
-		opts := &Options{
-			UseNativeSkip: true,
-		}
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_ = v.SetMany(ps, opts)
-		}
-	})
-
-	b.Run("go", func(b *testing.B) {
-		opts := &Options{}
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_ = v.SetMany(ps, opts)
-		}
-	})
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = v.SetMany(ps, opts)
+	}
 }
 
 func BenchmarkGetOne_DynamicGo(b *testing.B) {
@@ -159,59 +129,23 @@ func BenchmarkGetOne_DynamicGo(b *testing.B) {
 	vv, err = v.GetByPath(NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("c")).String()
 	require.Nil(b, err)
 	require.Equal(b, "C", vv)
-	b.Run("ByName/native", func(b *testing.B) {
-		old := UseNativeSkipForGet
-		UseNativeSkipForGet = true
+	b.Run("ByName", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, _ = v.FieldByName("Base").FieldByName("Extra").GetByStr("c").String()
 		}
-		UseNativeSkipForGet = old
 	})
-	b.Run("ByName/go", func(b *testing.B) {
-		old := UseNativeSkipForGet
-		UseNativeSkipForGet = false
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, _ = v.FieldByName("Base").FieldByName("Extra").GetByStr("c").String()
-		}
-		UseNativeSkipForGet = old
-	})
-	b.Run("ById/native", func(b *testing.B) {
-		old := UseNativeSkipForGet
-		UseNativeSkipForGet = true
+	b.Run("ById", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, _ = v.Field(255).Field(6).GetByStr("c").String()
 		}
-		UseNativeSkipForGet = old
 	})
-	b.Run("ById/go", func(b *testing.B) {
-		old := UseNativeSkipForGet
-		UseNativeSkipForGet = false
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, _ = v.Field(255).Field(6).GetByStr("c").String()
-		}
-		UseNativeSkipForGet = old
-	})
-	b.Run("ByPath/native", func(b *testing.B) {
-		old := UseNativeSkipForGet
-		UseNativeSkipForGet = true
+	b.Run("ByPath", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, _ = v.GetByPath(NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("c")).String()
 		}
-		UseNativeSkipForGet = old
-	})
-	b.Run("ByPath/go", func(b *testing.B) {
-		old := UseNativeSkipForGet
-		UseNativeSkipForGet = false
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, _ = v.GetByPath(NewPathFieldName("Base"), NewPathFieldName("Extra"), NewPathStrKey("c")).String()
-		}
-		UseNativeSkipForGet = old
 	})
 }
 
@@ -220,11 +154,9 @@ func BenchmarkGetMany_DynamicGo(b *testing.B) {
 	data := getExampleData()
 	v := NewValue(desc, data)
 
-	b.Run("ByName/native", func(b *testing.B) {
+	b.Run("ByName", func(b *testing.B) {
 		tree := GetSampleTree(v)
-		opts := Options{
-			UseNativeSkip: true,
-		}
+		opts := Options{}
 		if err := tree.Assgin(true, &opts); err != nil {
 			b.Fatal(err)
 		}
@@ -233,38 +165,9 @@ func BenchmarkGetMany_DynamicGo(b *testing.B) {
 			_ = tree.Assgin(true, &opts)
 		}
 	})
-	b.Run("ByName/go", func(b *testing.B) {
-		tree := GetSampleTree(v)
-		opts := Options{
-			UseNativeSkip: false,
-		}
-		if err := tree.Assgin(true, &opts); err != nil {
-			b.Fatal(err)
-		}
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_ = tree.Assgin(true, &opts)
-		}
-	})
-
-	b.Run("ById/native", func(b *testing.B) {
+	b.Run("ById", func(b *testing.B) {
 		tree := GetSampleTreeById(v)
-		opts := Options{
-			UseNativeSkip: true,
-		}
-		if err := tree.Assgin(true, &opts); err != nil {
-			b.Fatal(err)
-		}
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_ = tree.Assgin(true, &opts)
-		}
-	})
-	b.Run("ById/go", func(b *testing.B) {
-		tree := GetSampleTreeById(v)
-		opts := Options{
-			UseNativeSkip: false,
-		}
+		opts := Options{}
 		if err := tree.Assgin(true, &opts); err != nil {
 			b.Fatal(err)
 		}
@@ -341,47 +244,10 @@ func BenchmarkMarshalTo_DynamicGo(b *testing.B) {
 	_, err = v.MarshalTo(partial, &opts)
 	require.Nil(b, err)
 
-	b.Run("native", func(b *testing.B) {
-		opts := Options{
-			WriteDefault:  true,
-			UseNativeSkip: true,
-		}
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, _ = v.MarshalTo(partial, &opts)
-		}
-	})
-
-	b.Run("go", func(b *testing.B) {
-		opts := Options{
-			WriteDefault: true,
-		}
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			_, _ = v.MarshalTo(partial, &opts)
-		}
-	})
-
-	// b.Run("ByName/native", func(b *testing.B) {
-	// 	opts := Options{
-	// 		FieldByName:   true,
-	// 		UseNativeSkip: true,
-	// 	}
-	// 	b.ResetTimer()
-	// 	for i := 0; i < b.N; i++ {
-	// 		_, _ = v.MarshalTo(partial, &opts)
-	// 	}
-	// })
-
-	// b.Run("ByName/go", func(b *testing.B) {
-	// 	opts := Options{
-	// 		FieldByName: true,
-	// 	}
-	// 	b.ResetTimer()
-	// 	for i := 0; i < b.N; i++ {
-	// 		_, _ = v.MarshalTo(partial, &opts)
-	// 	}
-	// })
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = v.MarshalTo(partial, &opts)
+	}
 }
 
 func BenchmarkMarshalAll_KitexFast(b *testing.B) {
@@ -426,10 +292,8 @@ func BenchmarkGetAll_DynamicGo(b *testing.B) {
 	err := v.Children(&children, false, &opts)
 	require.Nil(b, err)
 
-	b.Run("skip/native", func(b *testing.B) {
-		opts := Options{
-			UseNativeSkip: true,
-		}
+	b.Run("skip", func(b *testing.B) {
+		opts := Options{}
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			p.ResetValue()
@@ -440,27 +304,7 @@ func BenchmarkGetAll_DynamicGo(b *testing.B) {
 		}
 	})
 
-	b.Run("skip/go", func(b *testing.B) {
-		opts := Options{}
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			p.ResetValue()
-			_ = v.Children(&p.Next, false, &opts)
-		}
-	})
-
-	b.Run("load_all/native", func(b *testing.B) {
-		opts := Options{
-			UseNativeSkip: true,
-		}
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			p.ResetValue()
-			_ = v.Children(&p.Next, true, &opts)
-		}
-	})
-
-	b.Run("load_all/go", func(b *testing.B) {
+	b.Run("load_all", func(b *testing.B) {
 		opts := Options{}
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -469,22 +313,8 @@ func BenchmarkGetAll_DynamicGo(b *testing.B) {
 		}
 	})
 
-	b.Run("only_struct/native", func(b *testing.B) {
-		opts := Options{
-			UseNativeSkip: true,
-			// OnlyScanStruct: true,
-		}
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			p.ResetValue()
-			_ = v.Children(&p.Next, true, &opts)
-		}
-	})
-
-	b.Run("only_struct/go", func(b *testing.B) {
-		opts := Options{
-			// OnlyScanStruct: true,
-		}
+	b.Run("only_struct", func(b *testing.B) {
+		opts := Options{}
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			p.ResetValue()

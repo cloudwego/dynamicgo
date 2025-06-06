@@ -535,9 +535,7 @@ func checkHelper3(t *testing.T, exp, act interface{}) {
 func TestSetMany(t *testing.T) {
 	desc := getExampleDesc()
 	data := getExampleData()
-	opts := &Options{
-		UseNativeSkip: true,
-	}
+	opts := &Options{}
 
 	r := NewValue(desc, data)
 	d1 := desc.Struct().FieldByKey("Msg").Type()

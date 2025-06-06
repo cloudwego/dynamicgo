@@ -6,7 +6,7 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/cloudwego/dynamicgo/internal/native/types"
+	"github.com/cloudwego/dynamicgo/internal/types"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/proto/binary"
@@ -436,11 +436,11 @@ func (self *PathNode) handleChild(in *[]PathNode, lp *int, cp *int, p *binary.Bi
 	var skipType proto.WireType
 	tt := desc.Type()
 	IsPacked := desc.IsPacked()
-	
+
 	if tt != proto.LIST {
 		skipType = desc.WireType()
 	}
-	
+
 	// if parent node is LIST, the children type of parent node is the element type of LIST
 	if self.Node.t == proto.LIST {
 		tt = self.et
@@ -793,7 +793,6 @@ func (self PathNode) marshal(p *binary.BinaryProtocol, rootLayer bool, opts *Opt
 
 	return err
 }
-
 
 // pathNode Slice Pool
 type pnSlice struct {

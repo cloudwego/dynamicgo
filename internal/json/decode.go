@@ -22,8 +22,8 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
+	"github.com/cloudwego/dynamicgo/internal/types"
 )
 
 func decodeNull(src string, pos int) (ret int) {

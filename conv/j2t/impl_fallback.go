@@ -26,8 +26,8 @@ import (
 
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/internal/json"
-	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
+	"github.com/cloudwego/dynamicgo/internal/types"
 	_ "github.com/cloudwego/dynamicgo/internal/warning"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"

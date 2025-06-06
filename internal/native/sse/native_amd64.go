@@ -22,7 +22,7 @@ import (
 
 	"github.com/cloudwego/dynamicgo/internal/caching"
 	"github.com/cloudwego/dynamicgo/internal/rt"
-	"github.com/cloudwego/dynamicgo/internal/native/types"
+	"github.com/cloudwego/dynamicgo/internal/types"
 )
 
 var (

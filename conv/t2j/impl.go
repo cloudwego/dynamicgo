@@ -60,7 +60,7 @@ func (self *BinaryConv) readResponseBase(ctx context.Context, p *thrift.BinaryPr
 		return false, wrapError(meta.ErrInvalidParam, "invalid response base", nil)
 	}
 	s := p.Read
-	if err := p.Skip(thrift.STRUCT, self.opts.UseNativeSkip); err != nil {
+	if err := p.SkipType(thrift.STRUCT); err != nil {
 		return false, wrapError(meta.ErrRead, "", err)
 	}
 	e := p.Read
@@ -108,7 +108,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *thrift.TypeDes
 			if self.opts.DisallowUnknownField {
 				return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", id), nil)
 			}
-			if e := p.Skip(typeId, self.opts.UseNativeSkip); e != nil {
+			if e := p.SkipType(typeId); e != nil {
 				return wrapError(meta.ErrRead, "", e)
 			}
 			continue
@@ -275,7 +275,7 @@ func (self *BinaryConv) doRecurse(ctx context.Context, desc *thrift.TypeDescript
 				if self.opts.DisallowUnknownField {
 					return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", id), nil)
 				}
-				if e := p.Skip(typeId, self.opts.UseNativeSkip); e != nil {
+				if e := p.SkipType(typeId); e != nil {
 					return wrapError(meta.ErrRead, "", e)
 				}
 				continue
@@ -516,7 +516,7 @@ func (self *BinaryConv) writeHttpValue(ctx context.Context, resp http.ResponseSe
 			// raw encoding, check if raw value is set
 			if thriftVal == nil {
 				var start = p.Read
-				if err := p.Skip(field.Type().Type(), self.opts.UseNativeSkip); err != nil {
+				if err := p.SkipType(field.Type().Type()); err != nil {
 					return false, wrapError(meta.ErrRead, "", err)
 				}
 				val = p.Buf[start:p.Read]

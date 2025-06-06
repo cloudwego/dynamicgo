@@ -24,7 +24,7 @@ import (
 	"github.com/cloudwego/dynamicgo/internal/native/avx"
 	"github.com/cloudwego/dynamicgo/internal/native/avx2"
 	"github.com/cloudwego/dynamicgo/internal/native/sse"
-	"github.com/cloudwego/dynamicgo/internal/native/types"
+	"github.com/cloudwego/dynamicgo/internal/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
 )
 

@@ -22,8 +22,8 @@ import (
 
 	"github.com/cloudwego/base64x"
 	"github.com/cloudwego/dynamicgo/internal/native"
-	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
+	"github.com/cloudwego/dynamicgo/internal/types"
 )
 
 var typeByte = rt.UnpackEface(byte(0)).Type

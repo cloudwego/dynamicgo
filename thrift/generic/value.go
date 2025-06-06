@@ -87,7 +87,7 @@ func searchFieldName(p *thrift.BinaryProtocol, id string, f *thrift.FieldDescrip
 			tt = t
 			break
 		}
-		if err := p.Skip(t, UseNativeSkipForGet); err != nil {
+		if err := p.SkipType(t); err != nil {
 			return thrift.STRUCT, start, wrapError(meta.ErrRead, "", err)
 		}
 	}
@@ -154,7 +154,7 @@ func (self Value) GetByPath(pathes ...Path) Value {
 		}
 	}
 
-	if err := p.Skip(desc.Type(), UseNativeSkipForGet); err != nil {
+	if err := p.SkipType(desc.Type()); err != nil {
 		return errValue(meta.ErrRead, "", err)
 	}
 	return self.slice(start, p.Read, desc)
@@ -175,56 +175,6 @@ func (self Value) Field(id thrift.FieldID) (v Value) {
 	return wrapValue(n, f.Type())
 }
 
-// func (self Value) Fields(ids []PathNode, opts *Options) (err error) {
-// 	if err := self.should("Fields", thrift.STRUCT); err != "" {
-// 		return errValue(meta.ErrUnsupportedType, err, nil)
-// 	}
-
-// 	it := self.iterFields()
-// 	if it.Err != nil {
-// 		return errValue(meta.ErrReadInput, "", it.Err)
-// 	}
-
-// 	need := len(ids)
-// 	for count := 0; it.HasNext() && count < need; {
-// 		var p *PathNode
-// 		i, t, s, e := it.Next(opts.UseNativeSkip)
-// 		if it.Err != nil {
-// 			err = errValue(meta.ErrReadInput, "", it.Err)
-// 			goto ret
-// 		}
-// 		f := self.Desc.Struct().FieldById(i)
-// 		if f == nil {
-// 			if opts.DisallowUnknow {
-// 				err = errValue(meta.ErrUnknownField, fmt.Sprintf("field id %d is not defined in IDL", i), nil)
-// 				goto ret
-// 			}
-// 			continue
-
-// 		}
-// 		if t != f.Type().Type() {
-// 			err = errValue(meta.ErrDismatchType, fmt.Sprintf("field '%s' expects type %s, buf got type %s", f.Name(), f.Type().Type(), t), nil)
-// 			goto ret
-// 		}
-// 		//TODO: use bitmap to avoid repeatedly scan
-// 		for j, id := range ids {
-// 			if (id.Path.t == PathFieldId && id.Path.Id() == i) || (id.Path.t == PathFieldName && id.Path.Str() == f.Name()) {
-// 				p = &ids[j]
-// 				count += 1
-// 				break
-// 			}
-// 		}
-// 		if p == nil {
-// 			continue
-// 		}
-// 		p.Node = self.Node.slice(s, e, f.Type().Type())
-// 	}
-
-// ret:
-// 	// it.Recycle()
-// 	return
-// }
-
 // FieldByName returns a sub node at the given field name from a STRUCT value.
 func (self Value) FieldByName(name string) (v Value) {
 	if err := self.should("FieldByName", thrift.STRUCT); err != "" {
@@ -242,7 +192,7 @@ func (self Value) FieldByName(name string) (v Value) {
 		return errValue(meta.ErrRead, "", it.Err)
 	}
 	for it.HasNext() {
-		i, t, s, e := it.Next(UseNativeSkipForGet)
+		i, t, s, e := it.Next(false)
 		if i == f.ID() {
 			if t != f.Type().Type() {
 				v = errValue(meta.ErrDismatchType, fmt.Sprintf("field '%s' expects type %s, buf got type %s", f.Name(), f.Type().Type(), t), nil)
@@ -475,7 +425,7 @@ func marshalTo(read *thrift.BinaryProtocol, write *thrift.BinaryProtocol, from *
 					return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", i), nil)
 				} else {
 					// if not set, skip to the next field
-					if err := read.Skip(tt, opts.UseNativeSkip); err != nil {
+					if err := read.SkipType(tt); err != nil {
 						return wrapError(meta.ErrRead, "", err)
 					}
 					continue
@@ -495,7 +445,7 @@ func marshalTo(read *thrift.BinaryProtocol, write *thrift.BinaryProtocol, from *
 			// }
 			if tf == nil {
 				// if not set, skip to the next field
-				if err := read.Skip(tt, opts.UseNativeSkip); err != nil {
+				if err := read.SkipType(tt); err != nil {
 					return wrapError(meta.ErrRead, "", err)
 				}
 				continue
@@ -584,7 +534,7 @@ skip_val:
 		return meta.NewError(meta.ErrDismatchType, "to descriptor dismatches from descriptor", nil)
 	}
 	e := read.Read
-	if err := read.Skip(to.Type(), opts.UseNativeSkip); err != nil {
+	if err := read.SkipType(to.Type()); err != nil {
 		return wrapError(meta.ErrRead, "", err)
 	}
 	s := read.Read

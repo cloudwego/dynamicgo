@@ -100,7 +100,9 @@ type Options struct {
 
 	// NoCopyString indicates if string-kind http values should be copied or just referenced (if possible)
 	NoCopyString bool
-	// UseNativeSkip indicates if using thrift.SkipNative() or thrift.SkipGo()
+
+	// UseNativeSkip ...
+	// Deprecated: not in use or not implemented
 	UseNativeSkip bool
 
 	// ConvertException indicates that it returns error for thrift exception fields when doing BinaryConv t2j

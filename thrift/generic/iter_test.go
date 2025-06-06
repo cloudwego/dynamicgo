@@ -132,7 +132,7 @@ func TestForeach(t *testing.T) {
 		require.NoError(t, vv.Foreach(handler3, iterOpts))
 		require.Equal(t, 1, cout)
 	})
-	
+
 }
 
 func TestForeachKV(t *testing.T) {
@@ -140,7 +140,7 @@ func TestForeachKV(t *testing.T) {
 	data := getExampleData()
 	root := NewValue(desc, data)
 	opts := &Options{}
-	
+
 	t.Run("Node", func(t *testing.T) {
 		v := root.GetByPath(PathExampleListInt32...)
 		require.Nil(t, v.Check())
@@ -178,5 +178,5 @@ func TestForeachKV(t *testing.T) {
 		}, opts)
 		require.NoError(t, err)
 	})
-	
+
 }

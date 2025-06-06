@@ -25,7 +25,6 @@ import (
 )
 
 func TestSkip(t *testing.T) {
-	var MAX_STACKS = 1000
 	r := require.New(t)
 
 	obj := skip.NewTestListMap()
@@ -39,15 +38,8 @@ func TestSkip(t *testing.T) {
 	p := BinaryProtocol{
 		Buf: data,
 	}
-	println("Skip Go")
-	e1 := p.SkipGo(STRUCT, MAX_STACKS)
+	e1 := p.SkipType(STRUCT)
 	r.NoError(e1)
-	r.Equal(len(data), p.Read)
-
-	p.Read = 0
-	println("Skip Native")
-	e2 := p.SkipNative(STRUCT, MAX_STACKS)
-	r.NoError(e2)
 	r.Equal(len(data), p.Read)
 }
 
@@ -55,68 +47,34 @@ func BenchmarkSkipNoCheck(b *testing.B) {
 	desc := getExampleDesc()
 	data := getExampleData()
 
-	b.Run("native", func(b *testing.B) {
-		p := NewBinaryProtocol(data)
-		err := p.SkipNative(desc.Type(), 512)
-		require.Nil(b, err)
-		require.Equal(b, len(data), p.Read)
+	p := NewBinaryProtocol(data)
+	err := p.SkipType(desc.Type())
+	require.Nil(b, err)
+	require.Equal(b, len(data), p.Read)
 
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			p.Read = 0
-			_ = p.SkipNative(desc.Type(), 512)
-		}
-	})
-
-	b.Run("go", func(b *testing.B) {
-		p := NewBinaryProtocol(data)
-		err := p.SkipGo(desc.Type(), 512)
-		require.Nil(b, err)
-		require.Equal(b, len(data), p.Read)
-
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			p.Read = 0
-			_ = p.SkipGo(desc.Type(), 512)
-		}
-	})
+	b.SetBytes(int64(len(data)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		p.Read = 0
+		_ = p.SkipType(desc.Type())
+	}
 }
 
 func BenchmarkSkipAndCheck(b *testing.B) {
 	desc := getExampleDesc()
 	data := getExampleData()
 
-	b.Run("native", func(b *testing.B) {
-		p := NewBinaryProtocol(data)
-		err := p.SkipNative(desc.Type(), 512)
+	p := NewBinaryProtocol(data)
+	err := p.SkipType(desc.Type())
+	require.Nil(b, err)
+	require.Equal(b, len(data), p.Read)
+
+	b.SetBytes(int64(len(data)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		p.Read = 0
+		err := p.SkipType(desc.Type())
 		require.Nil(b, err)
 		require.Equal(b, len(data), p.Read)
-
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			p.Read = 0
-			err := p.SkipNative(desc.Type(), 512)
-			require.Nil(b, err)
-			require.Equal(b, len(data), p.Read)
-		}
-	})
-
-	b.Run("go", func(b *testing.B) {
-		p := NewBinaryProtocol(data)
-		err := p.SkipGo(desc.Type(), 512)
-		require.Nil(b, err)
-		require.Equal(b, len(data), p.Read)
-
-		b.SetBytes(int64(len(data)))
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			p.Read = 0
-			err := p.SkipGo(desc.Type(), 512)
-			require.Nil(b, err)
-			require.Equal(b, len(data), p.Read)
-		}
-	})
+	}
 }

@@ -62,7 +62,7 @@ func (self *BinaryConv) do(ctx context.Context, src []byte, desc *proto.TypeDesc
 			if self.opts.DisallowUnknownField {
 				return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", fieldId), nil)
 			}
-			if e := p.Skip(typeId, self.opts.UseNativeSkip); e != nil {
+			if e := p.Skip(typeId, false); e != nil {
 				return wrapError(meta.ErrRead, "", e)
 			}
 			continue
@@ -230,7 +230,7 @@ func (self *BinaryConv) unmarshalSingular(ctx context.Context, resp http.Respons
 				if self.opts.DisallowUnknownField {
 					return wrapError(meta.ErrUnknownField, fmt.Sprintf("unknown field %d", fieldId), nil)
 				}
-				if e := p.Skip(typeId, self.opts.UseNativeSkip); e != nil {
+				if e := p.Skip(typeId, false); e != nil {
 					return wrapError(meta.ErrRead, "", e)
 				}
 				continue

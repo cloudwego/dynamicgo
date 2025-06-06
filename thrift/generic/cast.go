@@ -209,7 +209,7 @@ func (self Node) List(opts *Options) ([]interface{}, error) {
 	}
 	ret := make([]interface{}, 0, it.Size())
 	for it.HasNext() {
-		s, e := it.Next(opts.UseNativeSkip)
+		s, e := it.Next(false)
 		if it.Err != nil {
 			return nil, it.Err
 		}
@@ -240,7 +240,7 @@ func (self Node) StrMap(opts *Options) (map[string]interface{}, error) {
 	}
 	ret := make(map[string]interface{}, it.Size())
 	for it.HasNext() {
-		_, ks, s, e := it.NextStr(opts.UseNativeSkip)
+		_, ks, s, e := it.NextStr(false)
 		if it.Err != nil {
 			return nil, it.Err
 		}
@@ -271,7 +271,7 @@ func (self Node) IntMap(opts *Options) (map[int]interface{}, error) {
 	}
 	ret := make(map[int]interface{}, it.Size())
 	for it.HasNext() {
-		_, ks, s, e := it.NextInt(opts.UseNativeSkip)
+		_, ks, s, e := it.NextInt(false)
 		if it.Err != nil {
 			return nil, it.Err
 		}
@@ -304,7 +304,7 @@ func (self Node) InterfaceMap(opts *Options) (map[interface{}]interface{}, error
 	}
 	ret := make(map[interface{}]interface{}, it.Size())
 	for it.HasNext() {
-		_, ks, s, e := it.NextBin(opts.UseNativeSkip)
+		_, ks, s, e := it.NextBin(false)
 		if it.Err != nil {
 			return nil, it.Err
 		}
@@ -365,36 +365,6 @@ func (self Node) Interface(opts *Options) (interface{}, error) {
 			return self.InterfaceMap(opts)
 		}
 	case thrift.STRUCT:
-		// if opts.StructByName {
-		// 	it := self.iterFields()
-		// 	if it.Err != nil {
-		// 		return nil, it.Err
-		// 	}
-		// 	ret := make(map[string]interface{}, defaultNodeSliceCap)
-		// 	for it.HasNext() {
-		// 		id, t, s, e := it.Next(opts.UseNativeSkip)
-		// 		if it.Err != nil {
-		// 			return nil, it.Err
-		// 		}
-		// 		f := self.d.Struct().FieldById(id)
-		// 		if f == nil {
-		// 			if opts.DisallowUnknow {
-		// 				return nil, errNode(meta.ErrUnknownField, fmt.Sprintf("unknow field %d", id), nil)
-		// 			}
-		// 			continue
-		// 		}
-		// 		if f.Type().Type() != t {
-		// 			return nil, errNode(meta.ErrDismatchType, "", nil)
-		// 		}
-		// 		v := self.slice(s, e, f.Type())
-		// 		vv, err := v.Interface(opts)
-		// 		if err != nil {
-		// 			return ret, err
-		// 		}
-		// 		ret[f.Name()] = vv
-		// 	}
-		// 	return ret, it.Err
-		// } else {
 		it := self.iterFields()
 		if it.Err != nil {
 			return nil, it.Err
@@ -407,20 +377,10 @@ func (self Node) Interface(opts *Options) (interface{}, error) {
 			ret2 = make(map[int]interface{}, DefaultNodeSliceCap)
 		}
 		for it.HasNext() {
-			id, t, s, e := it.Next(opts.UseNativeSkip)
+			id, t, s, e := it.Next(false)
 			if it.Err != nil {
 				return nil, it.Err
 			}
-			// f := self.d.Struct().FieldById(id)
-			// if f == nil {
-			// 	if opts.DisallowUnknow {
-			// 		return nil, errNode(meta.ErrUnknownField, fmt.Sprintf("unknow field %d", id), nil)
-			// 	}
-			// 	continue
-			// }
-			// if f.Type().Type() != t {
-			// 	return nil, errNode(meta.ErrDismatchType, "", nil)
-			// }
 			v := self.slice(s, e, t)
 			vv, err := v.Interface(opts)
 			if err != nil {

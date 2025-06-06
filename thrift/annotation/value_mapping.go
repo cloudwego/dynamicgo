@@ -39,8 +39,8 @@ import (
 	"strconv"
 
 	"github.com/cloudwego/dynamicgo/internal/json"
-	"github.com/cloudwego/dynamicgo/internal/native/types"
 	"github.com/cloudwego/dynamicgo/internal/rt"
+	"github.com/cloudwego/dynamicgo/internal/types"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/thrift"
 	"github.com/cloudwego/thriftgo/parser"
