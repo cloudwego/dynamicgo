@@ -4,7 +4,11 @@ package pb3;
 option go_package = "pb/example";
 
 message Item {
-	repeated string ids = 1;
+	repeated string id = 1;
+	bool hasSub = 2;
+	repeated int32 value = 3;
+	map<string, int32> extra = 4;
+	repeated Item subItems = 5;
 }
 
 message NestedExampleReq {

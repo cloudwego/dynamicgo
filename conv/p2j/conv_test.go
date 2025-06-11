@@ -13,10 +13,12 @@ import (
 	"time"
 
 	"github.com/cloudwego/dynamicgo/conv"
+	"github.com/cloudwego/dynamicgo/conv/j2p"
 	"github.com/cloudwego/dynamicgo/internal/util_test"
 	"github.com/cloudwego/dynamicgo/meta"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/base"
+	examplepb "github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,6 +52,7 @@ const (
 	basicExampleIDLPath   = "testdata/idl/basic_example.proto"
 	basicExampleJSONPath  = "testdata/data/basic_example.json"
 	basicExampleProtoPath = "testdata/data/basic_example_pb.bin"
+	NestedExampleIDLPath  = "testdata/idl/nested.proto"
 )
 
 func TestBuildData(t *testing.T) {
@@ -609,4 +612,329 @@ func TestUnknowFields(t *testing.T) {
 		_, err := cv.Do(context.Background(), partialReqDesc, in)
 		require.NoError(t, err)
 	})
+}
+
+func TestNestedField(t *testing.T) {
+	t.Run("nested nested string list example", func(t *testing.T) {
+		protoContent := `
+		syntax = "proto3";
+		message Item {
+			repeated string ids = 1;
+		}
+
+		message ExampleReq {
+			repeated Item items = 1;
+		}
+
+		message ExampleResp {
+			repeated Item items = 1;
+		}
+
+		service Service {
+			rpc Example(ExampleReq) returns (ExampleResp);
+		}
+		`
+		dataContent := `{"items":[{"ids":["123"]},{"ids":["456","789"]}]}`
+		// itemtag L [ idstag1 L V idstag1 L V ] itemtag L [ idstag1 L V ]
+
+		ctx := context.Background()
+		serviceDesc, err := proto.NewDescritorFromContent(ctx, "example.proto", protoContent, map[string]string{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		reqDesc := serviceDesc.LookupMethodByName("Example").Input()
+		conv1 := j2p.NewBinaryConv(conv.Options{})
+		reqProto, err := conv1.Do(ctx, reqDesc, []byte(dataContent))
+
+		if err != nil {
+			t.Fatal("json marshal to protobuf error")
+		}
+		conv2 := NewBinaryConv(conv.Options{})
+		reqJson, err := conv2.Do(ctx, reqDesc, reqProto)
+		if err != nil {
+			t.Fatal("protobuf marshal to json error")
+		}
+		fmt.Println("reqJson:", string(reqJson))
+		require.Equal(t, dataContent, string(reqJson))
+	})
+
+	t.Run("nested nested map field", func(t *testing.T) {
+		protoContent := `
+		syntax = "proto3";
+		message Item {
+			map<string, string> ids = 1;
+		}
+
+		message ExampleReq {
+			repeated Item items = 1;
+		}
+
+		message ExampleResp {
+			repeated Item items = 1;
+		}
+
+		service Service {
+			rpc Example(ExampleReq) returns (ExampleResp);
+		}
+		`
+		dataContent := `{"items":[{"ids":{"123":"456","abc":"def"}},{"ids":{"789":"012"}}]}`
+
+		ctx := context.Background()
+		serviceDesc, err := proto.NewDescritorFromContent(ctx, "example.proto", protoContent, map[string]string{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		reqDesc := serviceDesc.LookupMethodByName("Example").Input()
+
+		conv1 := j2p.NewBinaryConv(conv.Options{})
+		reqProto, err := conv1.Do(ctx, reqDesc, []byte(dataContent))
+		if err != nil {
+			t.Fatal("json marshal to protobuf error")
+		}
+
+		conv2 := NewBinaryConv(conv.Options{})
+		reqJson, err := conv2.Do(ctx, reqDesc, reqProto)
+
+		if err != nil {
+			t.Fatal("protobuf marshal to json error")
+		}
+		fmt.Println("reqJson:", string(reqJson))
+		require.Equal(t, dataContent, string(reqJson))
+	})
+
+	t.Run("nested nested map field with int key", func(t *testing.T) {
+		protoContent := `
+		syntax = "proto3";
+		message Item {
+			map<int32, string> ids = 1;
+		}
+
+		message ExampleReq {
+			repeated Item items = 1;
+		}
+
+		message ExampleResp {
+			repeated Item items = 1;
+		}
+
+		service Service {
+			rpc Example(ExampleReq) returns (ExampleResp);
+		}
+		`
+		dataContent := `{"items":[{"ids":{"123":"456","789":"012"}},{"ids":{"345":"678"}}]}`
+
+		ctx := context.Background()
+		serviceDesc, err := proto.NewDescritorFromContent(ctx, "example.proto", protoContent, map[string]string{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		reqDesc := serviceDesc.LookupMethodByName("Example").Input()
+
+		conv1 := j2p.NewBinaryConv(conv.Options{})
+		reqProto, err := conv1.Do(ctx, reqDesc, []byte(dataContent))
+		if err != nil {
+			t.Fatal("json marshal to protobuf error")
+		}
+
+		conv2 := NewBinaryConv(conv.Options{})
+		reqJson, err := conv2.Do(ctx, reqDesc, reqProto)
+
+		if err != nil {
+			t.Fatal("protobuf marshal to json error")
+		}
+		fmt.Println("reqJson:", string(reqJson))
+		require.Equal(t, dataContent, string(reqJson))
+	})
+
+	t.Run("nested nested int list", func(t *testing.T) {
+		protoContent := `
+		syntax = "proto3";
+		message Item {
+			repeated int32 ids = 1;
+		}
+
+		message ExampleReq {
+			repeated Item items = 1;
+		}
+
+		message ExampleResp {
+			repeated Item items = 1;
+		}
+
+		service Service {
+			rpc Example(ExampleReq) returns (ExampleResp);
+		}
+		`
+		dataContent := `{"items":[{"ids":[123,456]},{"ids":[789]}]}`
+
+		ctx := context.Background()
+		serviceDesc, err := proto.NewDescritorFromContent(ctx, "example.proto", protoContent, map[string]string{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		reqDesc := serviceDesc.LookupMethodByName("Example").Input()
+
+		conv1 := j2p.NewBinaryConv(conv.Options{})
+		reqProto, err := conv1.Do(ctx, reqDesc, []byte(dataContent))
+		if err != nil {
+			t.Fatal("json marshal to protobuf error")
+		}
+
+		conv2 := NewBinaryConv(conv.Options{})
+		reqJson, err := conv2.Do(ctx, reqDesc, reqProto)
+
+		if err != nil {
+			t.Fatal("protobuf marshal to json error")
+		}
+		fmt.Println("reqJson:", string(reqJson))
+		require.Equal(t, dataContent, string(reqJson))
+	})
+
+	t.Run("map value with nested list", func(t *testing.T) {
+		protoContent := `
+		syntax = "proto3";
+		message Item {
+			repeated string name = 1;
+		}
+		message ItemValue {
+			repeated Item ids = 1;
+		}
+
+		message ExampleReq {
+			map<string, ItemValue> items = 1;
+		}
+
+		message ExampleResp {
+			repeated Item items = 1;
+		}
+
+		service Service {
+			rpc Example(ExampleReq) returns (ExampleResp);
+		}
+		`
+		dataContent := `{"items":{"key1":{"ids":[{"name":["123"]},{"name":["456","789"]}]},"key2":{"ids":[{"name":["abc"]}]}}}`
+
+		ctx := context.Background()
+		serviceDesc, err := proto.NewDescritorFromContent(ctx, "example.proto", protoContent, map[string]string{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		reqDesc := serviceDesc.LookupMethodByName("Example").Input()
+
+		conv1 := j2p.NewBinaryConv(conv.Options{})
+		reqProto, err := conv1.Do(ctx, reqDesc, []byte(dataContent))
+		if err != nil {
+			t.Fatal("json marshal to protobuf error")
+		}
+
+		conv2 := NewBinaryConv(conv.Options{})
+		reqJson, err := conv2.Do(ctx, reqDesc, reqProto)
+
+		if err != nil {
+			t.Fatal("protobuf marshal to json error")
+		}
+		fmt.Println("reqJson:", string(reqJson))
+		require.Equal(t, dataContent, string(reqJson))
+	})
+
+	t.Run("nested complex struct", func(t *testing.T) {
+		protoContent := `
+		syntax = "proto3";
+		message Item {
+			repeated string id = 1;
+			bool hasSub = 2;
+			repeated int32 value = 3;
+			map<string, int32> extra = 4;
+			repeated Item subItems = 5;
+		}
+
+		message NestedExampleReq {
+			repeated Item items = 1;
+		}
+
+		message NestedExampleResp {
+			repeated Item items = 1;
+		}
+
+		service Service {
+			rpc Example(NestedExampleReq) returns (NestedExampleResp);
+		}
+		`
+		dataContent := `{"items":[{"id":["123"],"hasSub":false,"value":[1,2,3],"extra":{"key1":10,"key2":20}},{"id":["123"],"hasSub":true,"value":[1,2,3],"extra":{"key1":10,"key2":20},"subItems":[{"id":["sub123","sub456"],"value":[111,222,333],"extra":{"subkey1":10,"subkey2":20}},{"id":["sub789"],"extra":{"SUB7":7,"SUB8":8,"SUB9":9}}]}]}`
+		ctx := context.Background()
+		serviceDesc, err := proto.NewDescritorFromContent(ctx, "example.proto", protoContent, map[string]string{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		reqDesc := serviceDesc.LookupMethodByName("Example").Input()
+
+		conv1 := j2p.NewBinaryConv(conv.Options{})
+		reqProto, err := conv1.Do(ctx, reqDesc, []byte(dataContent))
+		if err != nil {
+			t.Fatal("json marshal to protobuf error")
+		}
+		fmt.Println("reqProto len:", len(reqProto)) // byte length 159
+
+		conv2 := NewBinaryConv(conv.Options{})
+		reqJson, err := conv2.Do(ctx, reqDesc, reqProto)
+		if err != nil {
+			t.Fatal("protobuf marshal to json error")
+		}
+		fmt.Println("reqJson:", string(reqJson))
+		require.Equal(t, dataContent, string(reqJson))
+	})
+
+	t.Run("test p2j with offical go protobuf marshal", func(t *testing.T) {
+		includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
+		requestDesc := proto.FnRequest(proto.GetFnDescFromFile(NestedExampleIDLPath, "Example", proto.Options{}, includeDirs))
+		if requestDesc == nil {
+			t.Fatal("descriptor is nil")
+		}
+		// we also support using p2j with offical marshal protobuf, it ignore default value field
+		// in this case "hasSub":false will be ignored
+		req := &examplepb.NestedExampleReq{
+			Items: []*examplepb.Item{
+				{
+					Id:     []string{"123"},
+					HasSub: false,
+					Value:  []int32{1, 2, 3},
+					Extra:  map[string]int32{"key1": 10},
+				},
+				{
+					Id:     []string{"123"},
+					HasSub: true,
+					Value:  []int32{1, 2, 3},
+					Extra:  map[string]int32{"key1": 10},
+					SubItems: []*examplepb.Item{
+						{
+							Id:    []string{"sub123"},
+							Value: []int32{111, 222, 333},
+							Extra: map[string]int32{"subkey1": 10},
+						},
+						{
+							Id:    []string{"sub789"},
+							Extra: map[string]int32{"SUB7": 7},
+						},
+					},
+				},
+			},
+		}
+
+		origindata, err := goproto.Marshal(req)
+		if err != nil {
+			t.Fatal("offical protobuf marshal error:", err)
+		}
+
+		conv2 := NewBinaryConv(conv.Options{})
+		ctx := context.Background()
+		fmt.Println("reqProto len:", len(origindata))
+		officalReqJson, err := conv2.Do(ctx, requestDesc, origindata)
+		if err != nil {
+			t.Fatal("protobuf marshal to json error")
+		}
+		fmt.Println("officalReqJson:", string(officalReqJson))
+		expOfficaldataContent := `{"items":[{"id":["123"],"value":[1,2,3],"extra":{"key1":10}},{"id":["123"],"hasSub":true,"value":[1,2,3],"extra":{"key1":10},"subItems":[{"id":["sub123"],"value":[111,222,333],"extra":{"subkey1":10}},{"id":["sub789"],"extra":{"SUB7":7}}]}]}`
+		require.Equal(t, expOfficaldataContent, string(officalReqJson))
+	})
+
 }
