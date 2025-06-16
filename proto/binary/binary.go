@@ -948,6 +948,14 @@ func (p *BinaryProtocol) ReadLength() (int, error) {
 	return int(value), err
 }
 
+func (p *BinaryProtocol) ReadLengthWithoutMove() (int, int, error) {
+	value, n := protowire.BinaryDecoder{}.DecodeUint64((p.Buf)[p.Read:])
+	if n < 0 {
+		return 0, 0, errDecodeField
+	}
+	return int(value), n, nil
+}
+
 // ReadString
 func (p *BinaryProtocol) ReadString(copy bool) (value string, err error) {
 	bytes, n, all := protowire.BinaryDecoder{}.DecodeBytes((p.Buf)[p.Read:])
