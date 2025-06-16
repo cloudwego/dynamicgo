@@ -2,6 +2,8 @@ module github.com/cloudwego/dynamicgo
 
 go 1.17
 
+replace github.com/bytedance/sonic => /Users/bytedance/golang/work/sonic
+
 require (
 	github.com/bytedance/sonic v1.13.1
 	github.com/bytedance/sonic/loader v0.2.4
