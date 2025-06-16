@@ -286,21 +286,21 @@ func (self *BinaryConv) unmarshalList(ctx context.Context, resp http.ResponseSet
 		}
 	} else {
 		// unpackedList(format)：[Tag][Length][Value] [Tag][Length][Value]....
-		// store item start and end position pair
-		itemPositionList := make([][2]int, 0)
 		start := p.Read
+		itemDesc := fd.Elem()
 		for p.Read < start+protoLen {
 			itemStartPos := p.Read
-			// read Len
-			itemLength, err := p.ReadLength()
+			// read Len but do not move the read pointer
+			// itemLength is the length of the item value, offset is the byte length of storage length
+			itemLength, offset, err := p.ReadLengthWithoutMove()
 			if err != nil {
 				return wrapError(meta.ErrRead, "unmarshal List item Length error", err)
 			}
-
-			// read Value
-			p.Read += itemLength
-			itemEndPos := p.Read
-			itemPositionList = append(itemPositionList, [2]int{itemStartPos, itemEndPos})
+			itemEndPos := p.Read + offset + itemLength
+			itemLen := itemEndPos - itemStartPos
+			// unmarshal the nested object inner item
+			self.doRecurse(ctx, itemDesc, out, resp, p, typeId, itemLen)
+			// check read pointer after unmarshal
 			if p.Read >= start+protoLen {
 				break
 			}
@@ -309,23 +309,13 @@ func (self *BinaryConv) unmarshalList(ctx context.Context, resp http.ResponseSet
 			if err != nil {
 				return wrapError(meta.ErrRead, "consume list child Tag error", err)
 			}
-
+			// List parse end, pay attention to remove the last ','
 			if elementFieldNumber != fieldNumber {
 				break
 			}
-			// Read Tag
+			*out = json.EncodeArrayComma(*out)
+			// read the tag of the next list item
 			p.Read += tagLen
-		}
-
-		itemDesc := fd.Elem()
-
-		for i, valuePosition := range itemPositionList {
-			p.Read = valuePosition[0]
-			protoLen = valuePosition[1] - valuePosition[0]
-			self.doRecurse(ctx, itemDesc, out, resp, p, typeId, protoLen)
-			if i < len(itemPositionList)-1 {
-				*out = json.EncodeArrayComma(*out)
-			}
 		}
 	}
 
@@ -375,7 +365,7 @@ func (self *BinaryConv) unmarshalMap(ctx context.Context, resp http.ResponseSett
 	for p.Read < start+protoLen {
 		pairNumber, _, tagLen, err := p.ConsumeTagWithoutMove()
 		if err != nil {
-			return wrapError(meta.ErrRead, "consume list child Tag error", err)
+			return wrapError(meta.ErrRead, "consume map child Tag error", err)
 		}
 		// parse second Tag
 		if pairNumber != fieldNumber {
