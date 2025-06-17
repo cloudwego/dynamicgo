@@ -18,6 +18,7 @@ import (
 	goprotowire "google.golang.org/protobuf/encoding/protowire"
 
 	"github.com/cloudwego/dynamicgo/conv"
+	"github.com/cloudwego/dynamicgo/conv/p2j"
 	"github.com/cloudwego/dynamicgo/internal/util_test"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/base"
@@ -51,6 +52,7 @@ const (
 	basicExampleJSON    = "testdata/data/basic_example.json"
 	basicExampleIDLPath = "testdata/idl/basic_example.proto"
 	exampleEmptyIDLPath = "testdata/idl/empty_example.proto"
+	exampleEnumIDLPath  = "testdata/idl/enum_example.proto"
 )
 
 func TestBuildExampleJSONData(t *testing.T) {
@@ -626,6 +628,21 @@ func getEmptyExampleDesc() *proto.TypeDescriptor {
 	return res
 }
 
+func getEnumExampleDesc() *proto.TypeDescriptor {
+	opts := proto.Options{}
+	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
+	svc, err := opts.NewDescriptorFromPath(context.Background(), util_test.MustGitPath(exampleEnumIDLPath), includeDirs)
+	if err != nil {
+		panic(err)
+	}
+	res := (*svc).LookupMethodByName("Probe").Input()
+
+	if res == nil {
+		panic("can't find Target MessageDescriptor")
+	}
+	return res
+}
+
 func TestEmptyList(t *testing.T) {
 	t.Run("empty unpacked list field with string", func(t *testing.T) {
 		desc := getEmptyExampleDesc()
@@ -797,4 +814,51 @@ func TestEmptyList(t *testing.T) {
 			},
 		})
 	})
+}
+
+func TestEnum(t *testing.T) {
+	desc := getEnumExampleDesc()
+	content := `{"event":0,"eventList":[1,2],"eventMap":{"EVENT_NONE":0,"EVENT_ONE":1,"EVENT_TWO":2},"nestedEnum":0,"nestedEnumList":[1,2],"nestedEnumMap":{"NESTED_ZERO":0,"NESTED_ONE":1,"NESTED_TWO":2}}`
+	data := []byte(content)
+	cv := NewBinaryConv(conv.Options{})
+	ctx := context.Background()
+	pbData, err := cv.Do(ctx, desc, data)
+	require.NoError(t, err)
+	exp := example.PingEnumRequest{}
+	l := 0
+	out := pbData
+	dataLen := len(out)
+	// fastRead to get target struct
+	for l < dataLen {
+		id, wtyp, tagLen := goprotowire.ConsumeTag(out)
+		if tagLen < 0 {
+			t.Fatal("test failed")
+		}
+		l += tagLen
+		out = out[tagLen:]
+		offset, err := exp.FastRead(out, int8(wtyp), int32(id))
+		require.Nil(t, err)
+		out = out[offset:]
+		l += offset
+	}
+	require.Nil(t, err)
+	require.Equal(t, exp.Event, example.Event_EVENT_NONE)
+	require.Equal(t, exp.EventList, []example.Event{example.Event_EVENT_ONE, example.Event_EVENT_TWO})
+	require.Equal(t, exp.EventMap, map[string]example.Event{
+		"EVENT_NONE": example.Event_EVENT_NONE,
+		"EVENT_ONE":  example.Event_EVENT_ONE,
+		"EVENT_TWO":  example.Event_EVENT_TWO,
+	})
+	require.Equal(t, exp.NestedEnum, example.PingEnumRequest_NESTED_ZERO)
+	require.Equal(t, exp.NestedEnumList, []example.PingEnumRequest_NestedEnum{example.PingEnumRequest_NESTED_ONE, example.PingEnumRequest_NESTED_TWO})
+	require.Equal(t, exp.NestedEnumMap, map[string]example.PingEnumRequest_NestedEnum{
+		"NESTED_ZERO": example.PingEnumRequest_NESTED_ZERO,
+		"NESTED_ONE":  example.PingEnumRequest_NESTED_ONE,
+		"NESTED_TWO":  example.PingEnumRequest_NESTED_TWO,
+	})
+	// unmarshal check with p2j
+	cv2 := p2j.NewBinaryConv(conv.Options{})
+	out2, err := cv2.Do(ctx, desc, pbData)
+	require.NoError(t, err)
+	require.Equal(t, content, string(out2))
 }

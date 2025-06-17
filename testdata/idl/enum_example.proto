@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package pb3;
+option go_package = "pb/example";
+
+enum Event {
+  EVENT_NONE = 0;
+  EVENT_ONE = 1;
+  EVENT_TWO = 2;
+}
+
+message PingEnumRequest {
+  enum NestedEnum {
+    NESTED_ZERO = 0;
+    NESTED_ONE = 1;
+    NESTED_TWO = 2;
+  }
+  Event event = 1;
+  repeated Event eventList = 2;
+  map<string, Event> eventMap = 3;
+  NestedEnum nestedEnum = 4;
+  repeated NestedEnum nestedEnumList = 5;
+  map<string, NestedEnum> nestedEnumMap = 6;
+}
+
+message PingEnumResponse {
+}
+
+service PingPong {
+  rpc Probe(PingEnumRequest) returns (PingEnumResponse);
+}
