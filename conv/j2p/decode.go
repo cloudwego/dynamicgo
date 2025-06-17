@@ -329,6 +329,11 @@ func (self *visitorUserNode) OnInt64(v int64, n json.Number) error {
 		if err = self.p.WriteDouble(convertData); err != nil {
 			return err
 		}
+	case proto.EnumKind:
+		convertData := proto.EnumNumber(v)
+		if err = self.p.WriteEnum(convertData); err != nil {
+			return err
+		}
 
 	default:
 		return newError(meta.ErrDismatchType, "param isn't intType", nil)
