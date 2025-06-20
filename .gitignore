@@ -11,3 +11,6 @@ output
 # testdata/data/basic_example_pb.bin
 # testdata/data/basic_example_pb.bin
 *.bin
+
+# deprecated github.com/cloudwego/fastpb files
+*.pb.fast.go

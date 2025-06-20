@@ -7,15 +7,18 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"reflect"
 	"runtime"
 	"runtime/debug"
 	"strconv"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/bytedance/sonic/ast"
 	"github.com/stretchr/testify/require"
-	goprotowire "google.golang.org/protobuf/encoding/protowire"
+	goproto "google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/runtime/protoimpl"
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/conv/p2j"
@@ -63,6 +66,22 @@ func TestBuildBasicExampleJSONData(t *testing.T) {
 	buildBasicExampleJSONData()
 }
 
+func protoUnmarshal(b []byte, m goproto.Message) error {
+	if err := goproto.Unmarshal(b, m); err != nil {
+		return err
+	}
+	// reset internal protobuf state field
+	// so that we can require.Equal later without pain
+
+	// use UnsafePointer() >= go1.18
+	p := unsafe.Pointer(reflect.ValueOf(m).Pointer())
+
+	// protoimpl.MessageState is always the 1st field
+	// reset it for require.Equal
+	*(*protoimpl.MessageState)(p) = protoimpl.MessageState{}
+	return nil
+}
+
 func TestConvJSON2Protobf(t *testing.T) {
 	// buildExampleJSONData()
 	desc := getExampleDesc()
@@ -79,22 +98,7 @@ func TestConvJSON2Protobf(t *testing.T) {
 	err = json.Unmarshal(data, exp)
 	require.Nil(t, err)
 	act := &example2.ExampleReq{}
-	l := 0
-	// fmt.Print(out)
-	dataLen := len(out)
-	// fastRead to get target struct
-	for l < dataLen {
-		id, wtyp, tagLen := goprotowire.ConsumeTag(out)
-		if tagLen < 0 {
-			t.Fatal("test failed")
-		}
-		l += tagLen
-		out = out[tagLen:]
-		offset, err := act.FastRead(out, int8(wtyp), int32(id))
-		require.Nil(t, err)
-		out = out[offset:]
-		l += offset
-	}
+	err = protoUnmarshal(out, act)
 	require.Nil(t, err)
 	// compare exp and act struct
 	require.Equal(t, exp, act)
@@ -116,24 +120,7 @@ func TestConvJSON2Protobf_BasicExample(t *testing.T) {
 	err = json.Unmarshal(data, exp)
 	require.Nil(t, err)
 	act := &base.BasicExample{}
-	l := 0
-	// fmt.Print(out)
-	dataLen := len(out)
-	// fastRead to get target struct
-	for l < dataLen {
-		id, wtyp, tagLen := goprotowire.ConsumeTag(out)
-		fmt.Println("id", id)
-		fmt.Println("w", wtyp)
-		if tagLen < 0 {
-			t.Fatal("test failed")
-		}
-		l += tagLen
-		out = out[tagLen:]
-		offset, err := act.FastRead(out, int8(wtyp), int32(id))
-		require.Nil(t, err)
-		out = out[offset:]
-		l += offset
-	}
+	err = protoUnmarshal(out, act)
 	require.Nil(t, err)
 	// compare exp and act struct
 	fmt.Println(exp)
@@ -535,22 +522,7 @@ func TestUnknownFields(t *testing.T) {
 		err = json.Unmarshal(data, exp)
 		require.NoError(t, err)
 		act := &example2.ExampleReq{}
-		l := 0
-		// fmt.Print(out)
-		dataLen := len(out)
-		// fastRead to get target struct
-		for l < dataLen {
-			id, wtyp, tagLen := goprotowire.ConsumeTag(out)
-			if tagLen < 0 {
-				t.Fatal("test failed")
-			}
-			l += tagLen
-			out = out[tagLen:]
-			offset, err := act.FastRead(out, int8(wtyp), int32(id))
-			require.Nil(t, err)
-			out = out[offset:]
-			l += offset
-		}
+		err = protoUnmarshal(out, act)
 		require.Nil(t, err)
 		require.Equal(t, exp, act)
 	})
@@ -565,22 +537,7 @@ func TestFloat2Int(t *testing.T) {
 		out, err := cv.Do(ctx, desc, data)
 		require.NoError(t, err)
 		exp := example2.ExampleInt2Float{}
-		l := 0
-		// fmt.Print(out)
-		dataLen := len(out)
-		// fastRead to get target struct
-		for l < dataLen {
-			id, wtyp, tagLen := goprotowire.ConsumeTag(out)
-			if tagLen < 0 {
-				t.Fatal("test failed")
-			}
-			l += tagLen
-			out = out[tagLen:]
-			offset, err := exp.FastRead(out, int8(wtyp), int32(id))
-			require.Nil(t, err)
-			out = out[offset:]
-			l += offset
-		}
+		err = protoUnmarshal(out, &exp)
 		require.Nil(t, err)
 		require.Equal(t, exp.Int32, int32(222))
 	})
@@ -592,22 +549,7 @@ func TestFloat2Int(t *testing.T) {
 		out, err := cv.Do(ctx, desc, data)
 		require.NoError(t, err)
 		exp := example2.ExampleInt2Float{}
-		l := 0
-		// fmt.Print(out)
-		dataLen := len(out)
-		// fastRead to get target struct
-		for l < dataLen {
-			id, wtyp, tagLen := goprotowire.ConsumeTag(out)
-			if tagLen < 0 {
-				t.Fatal("test failed")
-			}
-			l += tagLen
-			out = out[tagLen:]
-			offset, err := exp.FastRead(out, int8(wtyp), int32(id))
-			require.Nil(t, err)
-			out = out[offset:]
-			l += offset
-		}
+		err = protoUnmarshal(out, &exp)
 		require.Nil(t, err)
 		require.Equal(t, exp.Float64, float64(math.MaxInt64))
 	})
@@ -652,22 +594,7 @@ func TestEmptyList(t *testing.T) {
 		out, err := cv.Do(ctx, desc, data)
 		require.NoError(t, err)
 		exp := example.ExampleEmptyReq{}
-		l := 0
-		// fmt.Print(out)
-		dataLen := len(out)
-		// fastRead to get target struct
-		for l < dataLen {
-			id, wtyp, tagLen := goprotowire.ConsumeTag(out)
-			if tagLen < 0 {
-				t.Fatal("test failed")
-			}
-			l += tagLen
-			out = out[tagLen:]
-			offset, err := exp.FastRead(out, int8(wtyp), int32(id))
-			require.Nil(t, err)
-			out = out[offset:]
-			l += offset
-		}
+		err = protoUnmarshal(out, &exp)
 		require.Nil(t, err)
 		exceptMsg := "msg"
 		require.Equal(t, exp, example.ExampleEmptyReq{
@@ -685,22 +612,7 @@ func TestEmptyList(t *testing.T) {
 		out, err := cv.Do(ctx, desc, data)
 		require.NoError(t, err)
 		exp := example.ExampleEmptyReq{}
-		l := 0
-		// fmt.Print(out)
-		dataLen := len(out)
-		// fastRead to get target struct
-		for l < dataLen {
-			id, wtyp, tagLen := goprotowire.ConsumeTag(out)
-			if tagLen < 0 {
-				t.Fatal("test failed")
-			}
-			l += tagLen
-			out = out[tagLen:]
-			offset, err := exp.FastRead(out, int8(wtyp), int32(id))
-			require.Nil(t, err)
-			out = out[offset:]
-			l += offset
-		}
+		err = protoUnmarshal(out, &exp)
 		require.Nil(t, err)
 		exceptMsg := "msg"
 		require.Equal(t, exp, example.ExampleEmptyReq{
@@ -719,22 +631,7 @@ func TestEmptyList(t *testing.T) {
 		out, err := cv.Do(ctx, desc, data)
 		require.NoError(t, err)
 		exp := example.ExampleEmptyReq{}
-		l := 0
-		// fmt.Print(out)
-		dataLen := len(out)
-		// fastRead to get target struct
-		for l < dataLen {
-			id, wtyp, tagLen := goprotowire.ConsumeTag(out)
-			if tagLen < 0 {
-				t.Fatal("test failed")
-			}
-			l += tagLen
-			out = out[tagLen:]
-			offset, err := exp.FastRead(out, int8(wtyp), int32(id))
-			require.Nil(t, err)
-			out = out[offset:]
-			l += offset
-		}
+		err = protoUnmarshal(out, &exp)
 		require.Nil(t, err)
 		exceptMsg := "msg"
 		require.Equal(t, exp, example.ExampleEmptyReq{
@@ -754,22 +651,7 @@ func TestEmptyList(t *testing.T) {
 		out, err := cv.Do(ctx, desc, data)
 		require.NoError(t, err)
 		exp := example.ExampleEmptyReq{}
-		l := 0
-		// fmt.Print(out)
-		dataLen := len(out)
-		// fastRead to get target struct
-		for l < dataLen {
-			id, wtyp, tagLen := goprotowire.ConsumeTag(out)
-			if tagLen < 0 {
-				t.Fatal("test failed")
-			}
-			l += tagLen
-			out = out[tagLen:]
-			offset, err := exp.FastRead(out, int8(wtyp), int32(id))
-			require.Nil(t, err)
-			out = out[offset:]
-			l += offset
-		}
+		err = protoUnmarshal(out, &exp)
 		require.Nil(t, err)
 		exceptMsg := "msg"
 		require.Equal(t, exp, example.ExampleEmptyReq{
@@ -790,22 +672,7 @@ func TestEmptyList(t *testing.T) {
 		out, err := cv.Do(ctx, desc, data)
 		require.NoError(t, err)
 		exp := example2.ExampleReq{}
-		l := 0
-		// fmt.Print(out)
-		dataLen := len(out)
-		// fastRead to get target struct
-		for l < dataLen {
-			id, wtyp, tagLen := goprotowire.ConsumeTag(out)
-			if tagLen < 0 {
-				t.Fatal("test failed")
-			}
-			l += tagLen
-			out = out[tagLen:]
-			offset, err := exp.FastRead(out, int8(wtyp), int32(id))
-			require.Nil(t, err)
-			out = out[offset:]
-			l += offset
-		}
+		err = protoUnmarshal(out, &exp)
 		require.Nil(t, err)
 		require.Equal(t, exp, example2.ExampleReq{
 			Msg: "hello",
@@ -825,22 +692,7 @@ func TestEnum(t *testing.T) {
 	pbData, err := cv.Do(ctx, desc, data)
 	require.NoError(t, err)
 	exp := example.PingEnumRequest{}
-	l := 0
-	out := pbData
-	dataLen := len(out)
-	// fastRead to get target struct
-	for l < dataLen {
-		id, wtyp, tagLen := goprotowire.ConsumeTag(out)
-		if tagLen < 0 {
-			t.Fatal("test failed")
-		}
-		l += tagLen
-		out = out[tagLen:]
-		offset, err := exp.FastRead(out, int8(wtyp), int32(id))
-		require.Nil(t, err)
-		out = out[offset:]
-		l += offset
-	}
+	err = protoUnmarshal(pbData, &exp)
 	require.Nil(t, err)
 	require.Equal(t, exp.Event, example.Event_EVENT_NONE)
 	require.Equal(t, exp.EventList, []example.Event{example.Event_EVENT_ONE, example.Event_EVENT_TWO})

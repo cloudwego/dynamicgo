@@ -9,7 +9,7 @@ import (
 	"github.com/cloudwego/dynamicgo/internal/util_test"
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
-	goprotowire "google.golang.org/protobuf/encoding/protowire"
+	goproto "google.golang.org/protobuf/proto"
 )
 
 var opts = conv.Options{}
@@ -30,25 +30,10 @@ func ExampleBinaryConv_Do() {
 	}
 	exp := example2.ExampleReq{}
 
-	// use kitex_util to check proto data validity
-	l := 0
-	dataLen := len(in)
-	for l < dataLen {
-		id, wtyp, tagLen := goprotowire.ConsumeTag(in)
-		if tagLen < 0 {
-			panic("proto data error format")
-		}
-		l += tagLen
-		in = in[tagLen:]
-		offset, err := exp.FastRead(in, int8(wtyp), int32(id))
-		if err != nil {
-			panic(err)
-		}
-		in = in[offset:]
-		l += offset
-	}
-	if len(in) != 0 {
-		panic("proto data error format")
+	// use proto.Unmarshal to check proto data validity
+	err = goproto.Unmarshal(readExampleReqProtoBufData(), &exp)
+	if err != nil {
+		panic(err)
 	}
 
 	// validate result

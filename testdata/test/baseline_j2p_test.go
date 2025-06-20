@@ -13,8 +13,8 @@ import (
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/conv/j2p"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/baseline"
+	"github.com/cloudwego/prutal"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/encoding/protowire"
 )
 
 //go:generate kitex -module=github.com/cloudwego/dynamicgo idl/baseline.proto
@@ -153,25 +153,10 @@ func TestJSON2Protobuf_Simple(t *testing.T) {
 	out, err := cv.Do(ctx, simple, []byte(simplePbJSON))
 	require.Nil(t, err)
 
-	// kitex read pb bytes to pb obj
+	// prutal decode pb bytes to pb obj
 	stru := baseline.Simple{}
-	l := 0
-	dataLen := len(out)
-	for l < dataLen {
-		id, wtyp, tagLen := protowire.ConsumeTag(out)
-		if tagLen < 0 {
-			t.Fatal("proto data error format")
-		}
-		l += tagLen
-		out = out[tagLen:]
-		offset, err := stru.FastRead(out, int8(wtyp), int32(id))
-		require.Nil(t, err)
-		out = out[offset:]
-		l += offset
-	}
-	if len(out) != 0 {
-		t.Fatal("proto data error format")
-	}
+	err = prutal.Unmarshal(out, &stru)
+	require.Nil(t, err)
 	require.Equal(t, stru2, stru)
 }
 
@@ -208,23 +193,8 @@ func TestJSON2Protobuf_Simple_Parallel(t *testing.T) {
 			require.Nil(t, err)
 
 			stru := baseline.Simple{}
-			l := 0
-			dataLen := len(out)
-			for l < dataLen {
-				id, wtyp, tagLen := protowire.ConsumeTag(out)
-				if tagLen < 0 {
-					t.Fatal("proto data error format")
-				}
-				l += tagLen
-				out = out[tagLen:]
-				offset, err := stru.FastRead(out, int8(wtyp), int32(id))
-				require.Nil(t, err)
-				out = out[offset:]
-				l += offset
-			}
-			if len(out) != 0 {
-				t.Fatal("proto data error format")
-			}
+			err = prutal.Unmarshal(out, &stru)
+			require.Nil(t, err)
 			require.Equal(t, stru2, stru)
 		}(i)
 	}
@@ -252,25 +222,10 @@ func TestJSON2Protobuf_Nesting(t *testing.T) {
 	out, err := cv.Do(ctx, nesting, []byte(nestingPbJSON))
 	require.Nil(t, err)
 
-	// kitex read pb bytes to pb obj
+	// decode pb bytes to pb obj
 	stru := baseline.Nesting{}
-	l := 0
-	dataLen := len(out)
-	for l < dataLen {
-		id, wtyp, tagLen := protowire.ConsumeTag(out)
-		if tagLen < 0 {
-			t.Fatal("proto data error format")
-		}
-		l += tagLen
-		out = out[tagLen:]
-		offset, err := stru.FastRead(out, int8(wtyp), int32(id))
-		require.Nil(t, err)
-		out = out[offset:]
-		l += offset
-	}
-	if len(out) != 0 {
-		t.Fatal("proto data error format")
-	}
+	err = prutal.Unmarshal(out, &stru)
+	require.Nil(t, err)
 	require.Equal(t, stru2, stru)
 }
 
@@ -308,23 +263,8 @@ func TestJSON2Protobuf_Nesting_Parallel(t *testing.T) {
 			require.Nil(t, err)
 
 			stru := baseline.Nesting{}
-			l := 0
-			dataLen := len(out)
-			for l < dataLen {
-				id, wtyp, tagLen := protowire.ConsumeTag(out)
-				if tagLen < 0 {
-					t.Fatal("proto data error format")
-				}
-				l += tagLen
-				out = out[tagLen:]
-				offset, err := stru.FastRead(out, int8(wtyp), int32(id))
-				require.Nil(t, err)
-				out = out[offset:]
-				l += offset
-			}
-			if len(out) != 0 {
-				t.Fatal("proto data error format")
-			}
+			err = prutal.Unmarshal(out, &stru)
+			require.Nil(t, err)
 			require.Equal(t, stru2, stru)
 		}(i)
 	}
@@ -371,64 +311,36 @@ func BenchmarkJSON2Protobuf_DynamicGo_Raw(b *testing.B) {
 	})
 }
 
-func BenchmarkJSON2Protobuf_SonicAndKitex(b *testing.B) {
+func BenchmarkJSON2Protobuf_SonicAndPrutal(b *testing.B) {
 	b.Run("small", func(b *testing.B) {
 		v := baseline.Simple{}
-		if err := sonic.UnmarshalString(simplePbJSON, &v); err != nil {
-			b.Fatal(err)
-		}
-		var buf = make([]byte, v.Size())
-		v.FastWrite(buf)
+		err := sonic.UnmarshalString(simplePbJSON, &v)
+		require.Nil(b, err)
+		buf, err := prutal.MarshalAppend(nil, &v)
+		require.Nil(b, err)
 
 		b.SetBytes(int64(len(buf)))
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			v := baseline.Simple{}
-			_ = v.Size()
 			_ = sonic.UnmarshalString(simplePbJSON, &v)
-			v.FastWrite(buf)
+			_, _ = prutal.MarshalAppend(buf[:0], &v)
 		}
 	})
 
 	b.Run("medium", func(b *testing.B) {
 		v := baseline.Nesting{}
-		if err := sonic.UnmarshalString(nestingPbJSON, &v); err != nil {
-			b.Fatal(err)
-		}
-		var buf = make([]byte, v.Size())
-		v.FastWrite(buf)
+		err := sonic.UnmarshalString(simplePbJSON, &v)
+		require.Nil(b, err)
+		buf, err := prutal.MarshalAppend(nil, &v)
+		require.Nil(b, err)
 
 		b.SetBytes(int64(len(buf)))
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			v := baseline.Nesting{}
-			_ = v.Size()
 			_ = sonic.UnmarshalString(nestingPbJSON, &v)
-			v.FastWrite(buf)
+			_, _ = prutal.MarshalAppend(buf[:0], &v)
 		}
 	})
 }
-
-// func BenchmarkJSON2Protobuf_ProtoBufGo(b *testing.B) {
-// 	b.Run("small", func(b *testing.B) {
-// 		v := baseline.Simple{}
-// 		if err := protojson.Unmarshal([]byte(simplePbJSON), v.ProtoReflect().Interface()); err != nil {
-// 			b.Fatal(err)
-// 		}
-// 		b.ResetTimer()
-// 		for i := 0; i < b.N; i++ {
-// 			_ = protojson.Unmarshal([]byte(simplePbJSON), v.ProtoReflect().Interface())
-// 		}
-// 	})
-
-// 	b.Run("medium", func(b *testing.B) {
-// 		v := baseline.Nesting{}
-// 		if err := protojson.Unmarshal([]byte(nestingPbJSON), v.ProtoReflect().Interface()); err != nil {
-// 			b.Fatal(err)
-// 		}
-// 		b.ResetTimer()
-// 		for i := 0; i < b.N; i++ {
-// 			_ = protojson.Unmarshal([]byte(nestingPbJSON), v.ProtoReflect().Interface())
-// 		}
-// 	})
-// }

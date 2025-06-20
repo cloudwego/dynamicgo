@@ -24,7 +24,6 @@ import (
 	"sync"
 	"testing"
 
-	athrift "github.com/apache/thrift/lib/go/thrift"
 	"github.com/bytedance/sonic"
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/conv/t2j"
@@ -413,7 +412,7 @@ func BenchmarkThrift2JSON_DynamicGo_Raw(b *testing.B) {
 func wrapKitexGenericRequestPayload(in []byte) []byte {
 	out := make([]byte, 0, len(in)+4)
 	p := thrift.NewBinaryProtocol(out)
-	p.WriteFieldBegin("", athrift.STRUCT, 1)
+	p.WriteFieldBegin("", thrift.STRUCT, 1)
 	p.Buf = append(p.Buf, in...)
 	p.WriteFieldEnd()
 	p.WriteStructEnd()
@@ -423,7 +422,7 @@ func wrapKitexGenericRequestPayload(in []byte) []byte {
 func wrapKitexGenericResponsePayload(in []byte) []byte {
 	out := make([]byte, 0, len(in)+4)
 	p := thrift.NewBinaryProtocol(out)
-	p.WriteFieldBegin("", athrift.STRUCT, 0)
+	p.WriteFieldBegin("", thrift.STRUCT, 0)
 	p.Buf = append(p.Buf, in...)
 	p.WriteFieldEnd()
 	p.WriteStructEnd()

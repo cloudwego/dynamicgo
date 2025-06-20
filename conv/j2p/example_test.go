@@ -7,7 +7,7 @@ import (
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
-	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 )
 
 var opts = conv.Options{}
@@ -33,22 +33,9 @@ func ExampleBinaryConv_Do() {
 		panic(err)
 	}
 	act := &example2.ExampleReq{}
-	l := 0
-	dataLen := len(out)
-	// fastRead to get target struct
-	for l < dataLen {
-		id, wtyp, tagLen := protowire.ConsumeTag(out)
-		if tagLen < 0 {
-			panic("parseTag failed")
-		}
-		l += tagLen
-		out = out[tagLen:]
-		offset, err := act.FastRead(out, int8(wtyp), int32(id))
-		if err != nil {
-			panic(err)
-		}
-		out = out[offset:]
-		l += offset
+	err = proto.Unmarshal(out, act)
+	if err != nil {
+		panic(err)
 	}
 	if !reflect.DeepEqual(exp, act) {
 		panic("not equal")

@@ -6,7 +6,6 @@ require (
 	github.com/bytedance/sonic v1.13.1
 	github.com/bytedance/sonic/loader v0.2.4
 	github.com/cloudwego/base64x v0.1.5
-	github.com/cloudwego/fastpb v0.0.4
 	github.com/cloudwego/gopkg v0.0.0-20240731030152-5e0df5ad4e40
 	github.com/cloudwego/thriftgo v0.3.6
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
