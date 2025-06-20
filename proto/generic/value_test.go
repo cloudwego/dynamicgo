@@ -257,23 +257,8 @@ func TestMarshalTo(t *testing.T) {
 
 	exp := example3.ExampleReq{}
 	v := NewRootValue(desc, data)
-	dataLen := len(data)
-	l := 0
-	for l < dataLen {
-		id, wtyp, tagLen := goprotowire.ConsumeTag(data)
-		if tagLen < 0 {
-			t.Fatal("test failed")
-		}
-		l += tagLen
-		data = data[tagLen:]
-		offset, err := exp.FastRead(data, int8(wtyp), int32(id))
-		require.Nil(t, err)
-		data = data[offset:]
-		l += offset
-	}
-	if len(data) != 0 {
-		t.Fatal("test failed")
-	}
+	err := goproto.Unmarshal(data, &exp)
+	require.Nil(t, err)
 
 	t.Run("ById", func(t *testing.T) {
 		t.Run("TestMapStringString", func(t *testing.T) {
@@ -281,24 +266,8 @@ func TestMarshalTo(t *testing.T) {
 			buf, err := v.MarshalTo(partial, opts)
 			require.Nil(t, err)
 			ep := example3.ExampleReqPartial{}
-			bufLen := len(buf)
-
-			l := 0
-			for l < bufLen {
-				id, wtyp, tagLen := goprotowire.ConsumeTag(buf)
-				if tagLen < 0 {
-					t.Fatal("test failed")
-				}
-				l += tagLen
-				buf = buf[tagLen:]
-				offset, err := ep.FastRead(buf, int8(wtyp), int32(id))
-				require.Nil(t, err)
-				buf = buf[offset:]
-				l += offset
-			}
-			if len(buf) != 0 {
-				t.Fatal("test failed")
-			}
+			err = goproto.Unmarshal(buf, &ep)
+			require.Nil(t, err)
 
 			act := toInterface(ep)
 			exp := toInterface(exp)
@@ -322,24 +291,8 @@ func TestMarshalTo(t *testing.T) {
 			buf, err := v.MarshalTo(partial, opts)
 			require.NoError(t, err)
 			ep := example3.ExampleReqPartial{}
-			bufLen := len(buf)
-
-			l := 0
-			for l < bufLen {
-				id, wtyp, tagLen := goprotowire.ConsumeTag(buf)
-				if tagLen < 0 {
-					t.Fatal("test failed")
-				}
-				l += tagLen
-				buf = buf[tagLen:]
-				offset, err := ep.FastRead(buf, int8(wtyp), int32(id))
-				require.Nil(t, err)
-				buf = buf[offset:]
-				l += offset
-			}
-			if len(buf) != 0 {
-				t.Fatal("test failed")
-			}
+			err = goproto.Unmarshal(buf, &ep)
+			require.Nil(t, err)
 
 			act := toInterface(ep)
 			exp := toInterface(exp)
@@ -372,24 +325,8 @@ func TestGet(t *testing.T) {
 	data := getExample3Data()
 	exp := example3.ExampleReq{}
 	v := NewRootValue(desc, data)
-	dataLen := len(data)
-	l := 0
-	for l < dataLen {
-		id, wtyp, tagLen := goprotowire.ConsumeTag(data)
-		if tagLen < 0 {
-			t.Fatal("test failed")
-		}
-		l += tagLen
-		data = data[tagLen:]
-		offset, err := exp.FastRead(data, int8(wtyp), int32(id))
-		require.Nil(t, err)
-		data = data[offset:]
-		l += offset
-	}
-
-	if len(data) != 0 {
-		t.Fatal("test failed")
-	}
+	err := goproto.Unmarshal(data, &exp)
+	require.Nil(t, err)
 
 	req := getExample3Req()
 	t.Run("GetByStr()", func(t *testing.T) {
@@ -1118,22 +1055,10 @@ func TestSetMany(t *testing.T) {
 		require.Nil(t, err)
 
 		exp := example3.ExampleReq{}
-		// fast read
-		dataLen := vRoot.l
+		// use proto.Unmarshal
 		data := vRoot.raw()
-		l := 0
-		for l < dataLen {
-			id, wtyp, tagLen := goprotowire.ConsumeTag(data)
-			if tagLen < 0 {
-				t.Fatal("test failed")
-			}
-			l += tagLen
-			data = data[tagLen:]
-			offset, err := exp.FastRead(data, int8(wtyp), int32(id))
-			require.Nil(t, err)
-			data = data[offset:]
-			l += offset
-		}
+		err = goproto.Unmarshal(data, &exp)
+		require.Nil(t, err)
 
 		require.Equal(t, exp.Msg, exp1)
 		require.Equal(t, exp.Subfix, exp2)
@@ -1204,26 +1129,14 @@ func TestSetMany(t *testing.T) {
 		require.Nil(t, err)
 
 		expx := example3.InnerBase2{}
-		// fast read
+		// use proto.Unmarshal
 		data = inner.raw()
 		byteLen, offset := goprotowire.ConsumeVarint(data)
 		fmt.Println(byteLen)
 
 		data = data[offset:]
-		dataLen = len(data)
-		l = 0
-		for l < dataLen {
-			id, wtyp, tagLen := goprotowire.ConsumeTag(data)
-			if tagLen < 0 {
-				t.Fatal("test failed")
-			}
-			l += tagLen
-			data = data[tagLen:]
-			offset, err := expx.FastRead(data, int8(wtyp), int32(id))
-			require.Nil(t, err)
-			data = data[offset:]
-			l += offset
-		}
+		err = goproto.Unmarshal(data, &expx)
+		require.Nil(t, err)
 
 		require.Equal(t, expx.Bool, e1)
 		require.Equal(t, expx.Double, e2)

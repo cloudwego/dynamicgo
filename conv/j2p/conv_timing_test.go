@@ -8,7 +8,7 @@ import (
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
 	"github.com/stretchr/testify/require"
-	goprotowire "google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 )
 
 func BenchmarkConvJSON2Protobuf_DynamicGo(b *testing.B) {
@@ -24,21 +24,10 @@ func BenchmarkConvJSON2Protobuf_DynamicGo(b *testing.B) {
 	exp := example2.ExampleReq{}
 	err = json.Unmarshal(data, &exp)
 	require.Nil(b, err)
+
 	act := example2.ExampleReq{}
-	l := 0
-	dataLen := len(out)
-	for l < dataLen {
-		id, wtyp, tagLen := goprotowire.ConsumeTag(out)
-		if tagLen < 0 {
-			b.Fatal("error pb data format")
-		}
-		l += tagLen
-		out = out[tagLen:]
-		offset, err := act.FastRead(out, int8(wtyp), int32(id))
-		require.Nil(b, err)
-		out = out[offset:]
-		l += offset
-	}
+	err = proto.Unmarshal(out, &act)
+	require.Nil(b, err)
 	require.Equal(b, exp, act)
 
 	b.ResetTimer()
@@ -61,26 +50,15 @@ func BenchmarkConvJSON2Protobuf_Parallel_DynamicGo(b *testing.B) {
 	exp := example2.ExampleReq{}
 	err = json.Unmarshal(data, &exp)
 	require.Nil(b, err)
+
 	act := example2.ExampleReq{}
-	l := 0
-	dataLen := len(out)
-	for l < dataLen {
-		id, wtyp, tagLen := goprotowire.ConsumeTag(out)
-		if tagLen < 0 {
-			b.Fatal("error pb data format")
-		}
-		l += tagLen
-		out = out[tagLen:]
-		offset, err := act.FastRead(out, int8(wtyp), int32(id))
-		require.Nil(b, err)
-		out = out[offset:]
-		l += offset
-	}
+	err = proto.Unmarshal(out, &act)
+	require.Nil(b, err)
 	require.Equal(b, exp, act)
 
 	b.ResetTimer()
 	b.RunParallel(func(b *testing.PB) {
-		buf := make([]byte, 0, dataLen)
+		buf := make([]byte, 0, len(out))
 		for b.Next() {
 			buf := buf[:0]
 			_ = cv.DoInto(ctx, desc, data, &buf)

@@ -7,10 +7,12 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"reflect"
 	"runtime"
 	"runtime/debug"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/conv/j2p"
@@ -22,8 +24,8 @@ import (
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/example2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	goprotowire "google.golang.org/protobuf/encoding/protowire"
 	goproto "google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/runtime/protoimpl"
 )
 
 var (
@@ -67,6 +69,22 @@ func TestBuildBasicExampleData(t *testing.T) {
 	}
 }
 
+func protoUnmarshal(b []byte, m goproto.Message) error {
+	if err := goproto.Unmarshal(b, m); err != nil {
+		return err
+	}
+	// reset internal protobuf state field
+	// so that we can require.Equal later without pain
+
+	// use UnsafePointer() >= go1.18
+	p := unsafe.Pointer(reflect.ValueOf(m).Pointer())
+
+	// protoimpl.MessageState is always the 1st field
+	// reset it for require.Equal
+	*(*protoimpl.MessageState)(p) = protoimpl.MessageState{}
+	return nil
+}
+
 func TestConvProto2JSON(t *testing.T) {
 	includeDirs := util_test.MustGitPath("testdata/idl/") // includeDirs is used to find the include files.
 	messageDesc := proto.FnRequest(proto.GetFnDescFromFile(exampleIDLPath, "ExampleMethod", proto.Options{}, includeDirs))
@@ -78,24 +96,9 @@ func TestConvProto2JSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	exp := example2.ExampleReq{}
-	// use kitex_util to check proto data validity
-	l := 0
-	dataLen := len(in)
-	for l < dataLen {
-		id, wtyp, tagLen := goprotowire.ConsumeTag(in)
-		if tagLen < 0 {
-			t.Fatal("proto data error format")
-		}
-		l += tagLen
-		in = in[tagLen:]
-		offset, err := exp.FastRead(in, int8(wtyp), int32(id))
-		require.Nil(t, err)
-		in = in[offset:]
-		l += offset
-	}
-	if len(in) != 0 {
-		t.Fatal("proto data error format")
-	}
+	// use proto.Unmarshal to check proto data validity
+	err = protoUnmarshal(in, &exp)
+	require.Nil(t, err)
 	// check json data validity, convert it into act struct
 	var act example2.ExampleReq
 	require.Nil(t, json.Unmarshal([]byte(out), &act))
@@ -113,24 +116,9 @@ func TestConvProto2JSON_BasicExample(t *testing.T) {
 		t.Fatal(err)
 	}
 	exp := base.BasicExample{}
-	// use kitex_util to check proto data validity
-	l := 0
-	dataLen := len(in)
-	for l < dataLen {
-		id, wtyp, tagLen := goprotowire.ConsumeTag(in)
-		if tagLen < 0 {
-			t.Fatal("proto data error format")
-		}
-		l += tagLen
-		in = in[tagLen:]
-		offset, err := exp.FastRead(in, int8(wtyp), int32(id))
-		require.Nil(t, err)
-		in = in[offset:]
-		l += offset
-	}
-	if len(in) != 0 {
-		t.Fatal("proto data error format")
-	}
+	// use proto.Unmarshal to check proto data validity
+	err = protoUnmarshal(in, &exp)
+	require.Nil(t, err)
 	// check json data validity, convert it into act struct
 	var act base.BasicExample
 	require.Nil(t, json.Unmarshal([]byte(out), &act))
@@ -522,8 +510,8 @@ func TestInt2String(t *testing.T) {
 	exp.String_ = "hello"
 	exp.Subfix = 0.92653
 	ctx := context.Background()
-	in := make([]byte, exp.Size())
-	exp.FastWrite(in)
+	in, err := goproto.Marshal(&exp)
+	require.NoError(t, err)
 
 	out, err := cv.Do(ctx, desc, in)
 	require.NoError(t, err)
