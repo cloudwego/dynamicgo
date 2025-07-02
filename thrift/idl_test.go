@@ -34,11 +34,22 @@ func TestThriftContentWithAbsIncludePath(t *testing.T) {
 	include "x.thrift"
 	include "../y.thrift" 
 
-	service InboxService {}
+	service InboxService {
+		void Echo(1: x.A req)
+	}
 	`
 	includes := map[string]string{
-		path:           content,
-		"a/b/x.thrift": "namespace go kitex.test.server",
+		path: content,
+		"a/b/x.thrift": `namespace go kitex.test1.server
+struct A {
+	1: string A
+}
+`,
+		"x.thrift": `namespace go kitex.test2.server
+struct A {
+	2: i64 B
+}		
+`,
 		"a/y.thrift": `
 		namespace go kitex.test.server
 		include "z.thrift"
@@ -50,14 +61,8 @@ func TestThriftContentWithAbsIncludePath(t *testing.T) {
 		t.Fatal(err)
 	}
 	fmt.Printf("%#v\n", p)
-
-	delete(includes, "a/b/x.thrift")
-	includes["x.thrift"] = "namespace go kitex.test.server"
-	p, err = NewDescritorFromContent(context.Background(), path, content, includes, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Printf("%#v\n", p)
+	fieldA := p.functions["Echo"].request.Struct().FieldByKey("req").Type().Struct().FieldByKey("A")
+	require.NotNil(t, fieldA)
 }
 
 func TestBitmap(t *testing.T) {

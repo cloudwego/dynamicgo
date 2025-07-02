@@ -223,6 +223,7 @@ func refIncludes(tree *parser.Thrift, path string, done map[string]*parser.Thrif
 					return err
 				}
 				i.Reference = ref
+				break
 			}
 		}
 
