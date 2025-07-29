@@ -65,12 +65,12 @@ func InitAGWAnnos() {
 	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, nameCaseMapper{}, NameCaseKeys...)
 }
 
-//go:noline
+//go:noinline
 func errNotFound(key string, scope string) error {
 	return meta.NewError(meta.ErrNotFound, fmt.Sprintf("not fould %s in %s", key, scope), nil)
 }
 
-//go:noline
+//go:noinline
 func errNotImplemented(msg string) error {
 	return meta.NewError(meta.ErrUnsupportedType, msg, nil)
 }
