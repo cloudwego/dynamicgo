@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/meta"
@@ -156,28 +157,33 @@ type KeyMapping interface {
 
 //--------------------------------- Thrid-party Register ----------------------------------
 
-var annotations = map[string]map[AnnoScope]Annotation{}
+// var annotations = map[string]map[AnnoScope]Annotation{}
+var annotations sync.Map
 
 // RegisterAnnotation register an annotation on specific AnnoScope
 func RegisterAnnotation(an Annotation, keys ...string) {
 	for _, key := range keys {
 		key = strings.ToLower(key)
-		m := annotations[key]
+		m, _ := annotations.Load(key)
 		if m == nil {
-			m = make(map[AnnoScope]Annotation)
-			annotations[key] = m
+			m = new(sync.Map)
+			annotations.Store(key, m)
 		}
-		m[an.ID().Scope()] = an
+		m.(*sync.Map).Store(an.ID().Scope(), an)
 	}
 }
 
 func FindAnnotation(key string, scope AnnoScope) Annotation {
 	key = strings.ToLower(key)
-	m := annotations[key]
+	m, _ := annotations.Load(key)
 	if m == nil {
 		return nil
 	}
-	return m[scope]
+	x, _ := m.(*sync.Map).Load(scope)
+	if x == nil {
+		return nil
+	}
+	return x.(Annotation)
 }
 
 // makeAnnotation search an annotation by given key+scope and make its handler
@@ -208,35 +214,38 @@ type AnnotationMapper interface {
 	Map(ctx context.Context, ann []parser.Annotation, desc interface{}, opt Options) (cur []parser.Annotation, next []parser.Annotation, err error)
 }
 
-var annotationMapper = map[string]map[AnnoScope]AnnotationMapper{}
+// var annotationMapper = map[string]map[AnnoScope]AnnotationMapper{}
+var annotationMapper sync.Map
 
 // RegisterAnnotationMapper register a annotation mapper on specific scope
 func RegisterAnnotationMapper(scope AnnoScope, mapper AnnotationMapper, keys ...string) {
 	for _, key := range keys {
-		m := annotationMapper[key]
+		m, _ := annotationMapper.Load(key)
 		if m == nil {
-			m = make(map[AnnoScope]AnnotationMapper)
-			annotationMapper[key] = m
+			m = new(sync.Map)
+			annotationMapper.Store(key, m)
 		}
-		m[scope] = mapper
+		m.(*sync.Map).Store(scope, mapper)
 	}
 }
 
 func FindAnnotationMapper(key string, scope AnnoScope) AnnotationMapper {
-	m := annotationMapper[key]
+	m, _ := annotationMapper.Load(key)
 	if m == nil {
 		return nil
 	}
-	return m[scope]
+	x, _ := m.(*sync.Map).Load(scope)
+	if x == nil {
+		return nil
+	}
+	return x.(AnnotationMapper)
 }
 
 func RemoveAnnotationMapper(scope AnnoScope, keys ...string) {
 	for _, key := range keys {
-		m := annotationMapper[key]
+		m, _ := annotationMapper.Load(key)
 		if m != nil {
-			if _, ok := m[scope]; ok {
-				delete(m, scope)
-			}
+			m.(*sync.Map).Delete(scope)
 		}
 	}
 }
