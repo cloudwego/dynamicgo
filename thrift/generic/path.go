@@ -279,6 +279,7 @@ func GetDescByPath(desc *thrift.TypeDescriptor, path ...Path) (ret *thrift.TypeD
 		if ret == nil {
 			return nil, errNode(meta.ErrNotFound, "", err)
 		}
+		desc = ret
 	}
 	return
 }

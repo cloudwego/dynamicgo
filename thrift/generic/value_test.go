@@ -744,6 +744,27 @@ func TestUnsetByPath(t *testing.T) {
 	require.Equal(t, l-1, ll)
 }
 
+func TestGetDescByPathFailing(t *testing.T) {
+	// Assumes `exampleIDLPath` points to a valid Thrift file with the expected structure.
+	svc, err := thrift.NewDescritorFromPath(context.Background(), "../../testdata/idl/example2.thrift")
+	if err != nil {
+		panic(err)
+	}
+	desc := svc.Functions()["ExampleMethod"].Request().Struct().FieldByKey("req").Type()
+
+	// Define a path that traverses into a nested struct.
+	path := []Path{
+		NewPathFieldName("InnerBase"),
+		NewPathFieldName("Bool"),
+	}
+
+	// Attempt to get the descriptor for the nested field.
+	_, err = GetDescByPath(desc, path...)
+
+	// This assertion will fail with the buggy code.
+	require.NoError(t, err, "GetDescByPath should not fail for a valid path")
+}
+
 func TestSetByPath(t *testing.T) {
 	desc := getExampleDesc()
 	data := getExampleData()
