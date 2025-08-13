@@ -24,4 +24,5 @@ jobs:
       - name: Testdata
         run: |
           cd testdata/test
+          go mod tidy
           go test -race -v ./...
