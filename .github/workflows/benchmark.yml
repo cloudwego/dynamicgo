@@ -19,4 +19,5 @@ jobs:
       - name: Benchmark
         run: |
           cd testdata/test
+          go mod tidy
           go test -benchmem -run=^$ -bench . -benchtime=100ms
