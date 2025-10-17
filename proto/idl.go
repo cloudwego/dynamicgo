@@ -48,6 +48,10 @@ type Options struct {
 	ParseFunctionMode meta.ParseFunctionMode // not implemented.
 
 	EnableProtoBase bool // not implemented.
+
+	// ForceHashMapAsFieldNameMap indicates to use hash map as underlying field name map.
+	// By default we try to use trie tree as field name map, which is usually faster than go map but consume more memory.
+	ForceHashMapAsFieldNameMap bool
 }
 
 // NewDefaultOptions creates a default Options.
@@ -258,7 +262,7 @@ func parseMessage(ctx context.Context, msgDesc *desc.MessageDescriptor, cache co
 		md.names.Set(name, unsafe.Pointer(fieldDesc))
 		md.names.Set(jsonName, unsafe.Pointer(fieldDesc))
 	}
-	md.names.Build()
+	md.names.Build(opts.ForceHashMapAsFieldNameMap)
 
 	return ty, nil
 }

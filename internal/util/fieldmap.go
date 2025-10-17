@@ -35,10 +35,19 @@ type FieldNameMap struct {
 	maxKeyLength int
 	all          []caching.Pair
 	trie         *caching.TrieTree
-	hash         *caching.HashMap
+	hash         map[string]unsafe.Pointer
 }
 
-// Set sets the field descriptor for the given key
+func NewFieldNameMap() *FieldNameMap {
+	return &FieldNameMap{
+		hash: make(map[string]unsafe.Pointer, defaultMapSize),
+	}
+}
+
+// Set sets the field descriptor for the given key.
+//
+// NOTICE: It set to hash map by default. If user want to use trie tree,
+// please call Build() after all Set() calls.
 func (ft *FieldNameMap) Set(key string, field unsafe.Pointer) (exist bool) {
 	if len(key) > ft.maxKeyLength {
 		ft.maxKeyLength = len(key)
@@ -59,7 +68,7 @@ func (ft FieldNameMap) Get(k string) unsafe.Pointer {
 	if ft.trie != nil {
 		return (unsafe.Pointer)(ft.trie.Get(k))
 	} else if ft.hash != nil {
-		return (unsafe.Pointer)(ft.hash.Get(k))
+		return (unsafe.Pointer)(ft.hash[k])
 	}
 	return nil
 }
@@ -72,7 +81,7 @@ func (ft FieldNameMap) All() []caching.Pair {
 // Size returns the size of the map
 func (ft FieldNameMap) Size() int {
 	if ft.hash != nil {
-		return ft.hash.Size()
+		return len(ft.hash)
 	} else if ft.trie != nil {
 		return ft.trie.Size()
 	}
@@ -81,88 +90,90 @@ func (ft FieldNameMap) Size() int {
 
 // Build builds the map.
 // It will try to build a trie tree if the dispersion of keys is higher enough (min).
-func (ft *FieldNameMap) Build() {
+func (ft *FieldNameMap) Build(noTrieTree bool) {
 	if len(ft.all) == 0 {
 		return
 	}
 
 	var empty unsafe.Pointer
 
-	// statistics the distrubution for each position:
-	//   - primary slice store the position as its index
-	//   - secondary map used to merge values with same char at the same position
-	var positionDispersion = make([]map[byte][]int, ft.maxKeyLength)
+	if !noTrieTree {
+		// statistics the distrubution for each position:
+		//   - primary slice store the position as its index
+		//   - secondary map used to merge values with same char at the same position
+		var positionDispersion = make([]map[byte][]int, ft.maxKeyLength)
 
-	for i, v := range ft.all {
-		for j := ft.maxKeyLength - 1; j >= 0; j-- {
-			if v.Key == "" {
-				// empty key, especially store
-				empty = v.Val
-			}
-			// get the char at the position, defualt (position beyonds key range) is ASCII 0
-			var c = byte(0)
-			if j < len(v.Key) {
-				c = v.Key[j]
-			}
+		for i, v := range ft.all {
+			for j := ft.maxKeyLength - 1; j >= 0; j-- {
+				if v.Key == "" {
+					// empty key, especially store
+					empty = v.Val
+				}
+				// get the char at the position, defualt (position beyonds key range) is ASCII 0
+				var c = byte(0)
+				if j < len(v.Key) {
+					c = v.Key[j]
+				}
 
-			if positionDispersion[j] == nil {
-				positionDispersion[j] = make(map[byte][]int, 16)
+				if positionDispersion[j] == nil {
+					positionDispersion[j] = make(map[byte][]int, 16)
+				}
+				// recoder the index i of the value with same char c at the same position j
+				positionDispersion[j][c] = append(positionDispersion[j][c], i)
 			}
-			// recoder the index i of the value with same char c at the same position j
-			positionDispersion[j][c] = append(positionDispersion[j][c], i)
+		}
+
+		// calculate the best position which has the highest dispersion
+		var idealPos = -1
+		var min = defaultMaxBucketSize
+		var count = len(ft.all)
+
+		for i := ft.maxKeyLength - 1; i >= 0; i-- {
+			cd := positionDispersion[i]
+			l := len(cd)
+			// calculate the dispersion (average bucket size)
+			f := float64(count) / float64(l)
+			if f < min {
+				min = f
+				idealPos = i
+			}
+			// 1 means all the value store in different bucket, no need to continue calulating
+			if min == 1 {
+				break
+			}
+		}
+
+		if idealPos != -1 {
+			// find the best position, build a trie tree
+			ft.hash = nil
+			ft.trie = &caching.TrieTree{}
+			// NOTICE: we only use a two-layer tree here, for better performance
+			ft.trie.Positions = append(ft.trie.Positions, idealPos)
+			// set all key-values to the trie tree
+			for _, v := range ft.all {
+				ft.trie.Set(v.Key, v.Val)
+			}
+			if empty != nil {
+				ft.trie.Empty = empty
+			}
+			return
 		}
 	}
 
-	// calculate the best position which has the highest dispersion
-	var idealPos = -1
-	var min = defaultMaxBucketSize
-	var count = len(ft.all)
-
-	for i := ft.maxKeyLength - 1; i >= 0; i-- {
-		cd := positionDispersion[i]
-		l := len(cd)
-		// calculate the dispersion (average bucket size)
-		f := float64(count) / float64(l)
-		if f < min {
-			min = f
-			idealPos = i
-		}
-		// 1 means all the value store in different bucket, no need to continue calulating
-		if min == 1 {
-			break
+	// no ideal position or force use hash map
+	ft.trie = nil
+	ft.hash = make(map[string]unsafe.Pointer, len(ft.all))
+	// set all key-values to the trie tree
+	for _, v := range ft.all {
+		// caching.HashMap does not support duplicate key, so must check if the key exists before set
+		// WARN: if the key exists, the value WON'T be replaced
+		o := ft.hash[v.Key]
+		if o == nil {
+			ft.hash[v.Key] = v.Val
 		}
 	}
-
-	if idealPos != -1 {
-		// find the best position, build a trie tree
-		ft.hash = nil
-		ft.trie = &caching.TrieTree{}
-		// NOTICE: we only use a two-layer tree here, for better performance
-		ft.trie.Positions = append(ft.trie.Positions, idealPos)
-		// set all key-values to the trie tree
-		for _, v := range ft.all {
-			ft.trie.Set(v.Key, v.Val)
-		}
-		if empty != nil {
-			ft.trie.Empty = empty
-		}
-
-	} else {
-		// no ideal position, build a hash map
-		ft.trie = nil
-		ft.hash = caching.NewHashMap(len(ft.all), defaultHashMapLoadFactor)
-		// set all key-values to the trie tree
-		for _, v := range ft.all {
-			// caching.HashMap does not support duplicate key, so must check if the key exists before set
-			// WARN: if the key exists, the value WON'T be replaced
-			o := ft.hash.Get(v.Key)
-			if o == nil {
-				ft.hash.Set(v.Key, v.Val)
-			}
-		}
-		if empty != nil {
-			ft.hash.Set("", empty)
-		}
+	if empty != nil {
+		ft.hash[""] = empty
 	}
 }
 

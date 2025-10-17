@@ -100,6 +100,10 @@ type Options struct {
 
 	// ApiBodyFastPath indicates `api.body` will change alias-name of root field, which can avoid search http-body on them
 	ApiBodyFastPath bool
+
+	// ForceHashMapAsFieldNameMap indicates to use hash map as underlying field name map.
+	// By default we try to use trie tree as field name map, which is usually faster than go map but consume more memory.
+	ForceHashMapAsFieldNameMap bool
 }
 
 // NewDefaultOptions creates a default Options.
@@ -479,7 +483,7 @@ func parseRequest(ctx context.Context, isStreaming bool, fn *parser.Function, tr
 	}
 	wrappedTyDsc.Struct().ids.Set(int32(reqAst.ID), unsafe.Pointer(reqField))
 	wrappedTyDsc.Struct().names.Set(reqAst.Name, unsafe.Pointer(reqField))
-	wrappedTyDsc.Struct().names.Build()
+	wrappedTyDsc.Struct().names.Build(opts.ForceHashMapAsFieldNameMap)
 	return wrappedTyDsc, hasRequestBase, nil
 }
 
@@ -528,7 +532,7 @@ func parseResponse(ctx context.Context, isStreaming bool, fn *parser.Function, t
 		wrappedResp.Struct().ids.Set(int32(exp.ID), unsafe.Pointer(exceptionField))
 		wrappedResp.Struct().names.Set(exp.Name, unsafe.Pointer(exceptionField))
 	}
-	wrappedResp.Struct().names.Build()
+	wrappedResp.Struct().names.Build(opts.ForceHashMapAsFieldNameMap)
 	return wrappedResp, nil
 }
 
@@ -758,7 +762,7 @@ func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache c
 
 		}
 		// buidl field name map
-		ty.Struct().names.Build()
+		ty.Struct().names.Build(opts.ForceHashMapAsFieldNameMap)
 		return ty, nil
 	}
 }

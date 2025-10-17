@@ -16,20 +16,42 @@
 
 package util
 
-import "testing"
+import (
+	"testing"
+	"unsafe"
+)
 
-func TestEmptyFieldMap(t *testing.T) {
-	// empty test
-	ids := FieldIDMap{}
-	if ids.Get(1) != nil {
-		t.Fatalf("expect nil")
+func TestFieldMap(t *testing.T) {
+	ids := NewFieldNameMap()
+	v1 := "a"
+	ids.Set("1", unsafe.Pointer(&v1))
+	v2 := "b"
+	ids.Set("2", unsafe.Pointer(&v2))
+	ids.Set("1", unsafe.Pointer(&v2))
+	ids.Set("", unsafe.Pointer(&v1))
+
+	ids.Build(false)
+
+	if ids.Get("1") != unsafe.Pointer(&v2) {
+		t.Fatalf("expect 1")
 	}
-	names := FieldNameMap{}
-	if names.Get("a") != nil {
-		t.Fatalf("expect nil")
+	if ids.Get("2") != unsafe.Pointer(&v2) {
+		t.Fatalf("expect 1")
 	}
-	names.Build()
-	if names.Get("a") != nil {
-		t.Fatalf("expect nil")
+	if ids.Get("") != unsafe.Pointer(&v1) {
+		t.Fatalf("expect 1")
 	}
+
+	ids = NewFieldNameMap()
+	ids.Set("", unsafe.Pointer(&v1))
+	ids.Set("1", unsafe.Pointer(&v2))
+	ids.Build(true)
+
+	if ids.Get("") != unsafe.Pointer(&v1) {
+		t.Fatalf("expect 1")
+	}
+	if ids.Get("1") != unsafe.Pointer(&v2) {
+		t.Fatalf("expect 2")
+	}
+
 }
