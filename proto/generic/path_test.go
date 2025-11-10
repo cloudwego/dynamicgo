@@ -33,3 +33,40 @@ func TestTreeMarshal(t *testing.T) {
 
 	})
 }
+
+func BenchmarkTreeUnmarshal(b *testing.B) {
+	desc := getExample3Desc()
+	data := getExample3Data()
+	v := NewRootValue(desc, data)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tree := NewPathNode()
+		tree.Node = v.Node
+		if err := tree.Load(true, opts, desc); err != nil {
+			b.Fatal(err)
+		}
+		FreePathNode(tree)
+	}
+}
+
+func BenchmarkTreeMarshal(b *testing.B) {
+	desc := getExample3Desc()
+	data := getExample3Data()
+	v := NewRootValue(desc, data)
+	tree := PathNode{
+		Node: v.Node,
+	}
+	if err := tree.Load(true, opts, desc); err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		buf, err := tree.Marshal(opts)
+		if err != nil {
+			b.Fatal(err)
+		}
+		_ = buf
+	}
+}

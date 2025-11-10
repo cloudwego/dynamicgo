@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package pb3;
+
+import "base.proto";
+
+option go_package = "pb/example5";
+
+enum FOO {
+    FOO_A = 0;
+}
+
+message InnerBase {
+    bool Bool = 1;
+    int32 Int32 = 4;
+    int64 Int64 = 5;
+    double Double = 6;
+    string String = 7;
+    repeated string ListString = 8;
+    map<string, string> MapStringString = 9;
+    repeated int32 SetInt32 = 10;
+    map<int32, string> MapInt32String = 12;
+    bytes Binary = 13;
+    map<int64, string> MapInt64String = 16;
+    repeated InnerBase ListInnerBase = 18;
+    map<string, InnerBase> MapStringInnerBase = 19;
+
+    Base Base = 255;
+}
+
+service TestService {
+  rpc ExampleMethod(InnerBase) returns (InnerBase);
+}
