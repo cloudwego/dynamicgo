@@ -1,6 +1,7 @@
 package t2p
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/testdata/kitex_gen/base"
@@ -47,7 +48,7 @@ func TestT2P_Example5_DOM(t *testing.T) {
 	validate(t, pbBytes)
 }
 
-func generate(t *testing.T) []byte {
+func generate(t testing.TB) []byte {
 	// 1) 构造 thrift 结构体并序列化为 thrift 二进制
 	th := thriftExample5.NewInnerBase()
 	th.Bool = true
@@ -122,4 +123,91 @@ func validate(t *testing.T, pbBytes []byte) {
 	require.Equal(t, 1, len(act.MapStringInnerBase))
 	require.Equal(t, false, act.MapStringInnerBase["kk"].Bool)
 	require.Equal(t, exp.Base.TrafficEnv.Env, act.Base.TrafficEnv.Env)
+}
+
+func BenchmarkConv_DOM(b *testing.B) {
+	b.ReportAllocs()
+	buf := generate(b)
+	if len(buf) == 0 {
+		b.Fatalf("generateThriftBytes failed")
+	}
+	conv := &PathNodeToBytesConv{}
+	root := &tgeneric.PathNode{Node: tgeneric.NewNode(thrift.STRUCT, buf)}
+	if err := root.Load(true, &tgeneric.Options{}); err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		var out = bytesPool.Get().(*[]byte)
+		if err := conv.Do(root, out); err != nil {
+			b.Fatal(err)
+		}
+		putBytes(out)
+	}
+}
+
+var bytesPool = sync.Pool{
+	New: func() interface{} {
+		b := make([]byte, 0, 1024)
+		return &b
+	},
+}
+
+func putBytes(b *[]byte) {
+	*b = (*b)[:0]
+	bytesPool.Put(b)
+}
+
+func BenchmarkConv_RawNode(b *testing.B) {
+	b.ReportAllocs()
+	buf := generate(b)
+	if len(buf) == 0 {
+		b.Fatalf("generateThriftBytes failed")
+	}
+	conv := &PathNodeToBytesConv{}
+	root := &tgeneric.PathNode{Node: tgeneric.NewNode(thrift.STRUCT, buf)}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		var out = bytesPool.Get().(*[]byte)
+		if err := conv.Do(root, out); err != nil {
+			b.Fatal(err)
+		}
+		putBytes(out)
+	}
+}
+
+func BenchmarkProtoMarshal(b *testing.B) {
+	b.ReportAllocs()
+
+	exp := &pbExample5.InnerBase{
+		Bool:            true,
+		Int32:           123,
+		Int64:           -456,
+		Double:          3.14159,
+		String_:         "hello",
+		ListString:      []string{"a", "b"},
+		MapStringString: map[string]string{"k": "v"},
+		SetInt32:        []int32{1, 2, 3},
+		MapInt32String:  map[int32]string{1: "x"},
+		Binary:          []byte{0x00, 0xFF, 0x10},
+		MapInt64String:  map[int64]string{7: "vv"},
+		Base: &pbase.Base{
+			TrafficEnv: &pbase.TrafficEnv{
+				Env: "prod",
+			},
+		},
+	}
+	exp.ListInnerBase = []*pbExample5.InnerBase{&pbExample5.InnerBase{Bool: false}}
+	exp.MapStringInnerBase = map[string]*pbExample5.InnerBase{"kk": &pbExample5.InnerBase{Bool: false}}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		pbBytes, err := proto.Marshal(exp)
+		if err != nil {
+			b.Fatal(err)
+		}
+		_ = pbBytes
+	}
 }

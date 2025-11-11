@@ -2,6 +2,7 @@ package t2p
 
 import (
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/cloudwego/dynamicgo/proto"
 	"github.com/cloudwego/dynamicgo/proto/binary"
@@ -18,8 +19,9 @@ func (c *PathNodeToBytesConv) Do(in *tgeneric.PathNode, out *[]byte) error {
 		return fmt.Errorf("input PathNode is nil")
 	}
 
-	// Create a protobuf binary protocol buffer (empty buffer, managed by pool)
-	p := binary.NewBinaryProtocolBuffer()
+	// Use caller-provided buffer as the initial backing to avoid final copy
+	initial := *out
+	p := binary.NewBinaryProtol(initial[:0])
 	defer binary.FreeBinaryProtocol(p)
 
 	// Convert the thrift PathNode to protobuf binary format
@@ -27,9 +29,8 @@ func (c *PathNodeToBytesConv) Do(in *tgeneric.PathNode, out *[]byte) error {
 		return err
 	}
 
-	// Copy the result to output buffer to avoid retaining pooled buffer
-	*out = make([]byte, len(p.Buf))
-	copy(*out, p.Buf)
+	// Assign the resulting buffer directly to out
+	*out = p.Buf
 	return nil
 }
 
@@ -49,13 +50,14 @@ func (c *PathNodeToBytesConv) convertPathNodeToProto(node *tgeneric.PathNode, p 
 				// top-level: write fields directly
 				return c.convertThriftStructToProto(node, p)
 			}
-			// nested field: wrap as length-delimited even if empty
-			entryP := binary.NewBinaryProtocolBuffer()
-			defer binary.FreeBinaryProtocol(entryP)
-			if err := c.convertThriftStructToProto(node, entryP); err != nil {
+			// nested field: write length-delimited directly into parent buffer
+			var pos int
+			p.Buf, pos = binary.AppendSpeculativeLength(p.Buf)
+			if err := c.convertThriftStructToProto(node, p); err != nil {
 				return err
 			}
-			return p.WriteBytes(entryP.Buf)
+			p.Buf = binary.FinishSpeculativeLength(p.Buf, pos)
+			return nil
 		}
 		return c.writeStruct(node, p, root)
 	case thrift.LIST, thrift.SET:
@@ -160,7 +162,8 @@ func (c *PathNodeToBytesConv) writeStruct(node *tgeneric.PathNode, p *binary.Bin
 	}
 
 	// Write each field
-	for _, child := range node.Next {
+	for i := range node.Next {
+		child := &node.Next[i]
 		if child.IsEmpty() {
 			continue
 		}
@@ -181,7 +184,7 @@ func (c *PathNodeToBytesConv) writeStruct(node *tgeneric.PathNode, p *binary.Bin
 		}
 
 		// Write the field value; nested structs are treated as length-delimited here
-		if err := c.convertPathNodeToProto(&child, p, false); err != nil {
+		if err := c.convertPathNodeToProto(child, p, false); err != nil {
 			return fmt.Errorf("failed to convert field %d: %v", child.Path.Id(), err)
 		}
 	}
@@ -202,7 +205,8 @@ func (c *PathNodeToBytesConv) writeList(node *tgeneric.PathNode, p *binary.Binar
 	if fieldID == 0 {
 		fieldID = 1 // fallback for list without explicit field number
 	}
-	for _, child := range node.Next {
+	for i := range node.Next {
+		child := &node.Next[i]
 		if child.IsEmpty() {
 			continue
 		}
@@ -210,7 +214,7 @@ func (c *PathNodeToBytesConv) writeList(node *tgeneric.PathNode, p *binary.Binar
 		if err := p.AppendTag(fieldID, wireType); err != nil {
 			return fmt.Errorf("failed to append tag for list element: %v", err)
 		}
-		if err := c.convertPathNodeToProto(&child, p, false); err != nil {
+		if err := c.convertPathNodeToProto(child, p, false); err != nil {
 			return fmt.Errorf("failed to convert list element: %v", err)
 		}
 	}
@@ -224,7 +228,8 @@ func (c *PathNodeToBytesConv) writeMap(node *tgeneric.PathNode, p *binary.Binary
 	if fieldID == 0 {
 		fieldID = 1 // fallback for map without explicit field number
 	}
-	for _, child := range node.Next {
+	for i := range node.Next {
+		child := &node.Next[i]
 		if child.IsEmpty() {
 			continue
 		}
@@ -233,34 +238,27 @@ func (c *PathNodeToBytesConv) writeMap(node *tgeneric.PathNode, p *binary.Binary
 			return fmt.Errorf("failed to append tag for map entry: %v", err)
 		}
 
-		// Build entry content in a temporary buffer, then write as bytes
-		entryP := binary.NewBinaryProtocolBuffer()
+		// Inline entry content using speculative length
+		var pos int
+		p.Buf, pos = binary.AppendSpeculativeLength(p.Buf)
 		// key: field 1
 		keyWireType := c.getWireTypeFromPath(child.Path)
-		if err := entryP.AppendTag(1, keyWireType); err != nil {
-			binary.FreeBinaryProtocol(entryP)
+		if err := p.AppendTag(1, keyWireType); err != nil {
 			return fmt.Errorf("failed to append key tag: %v", err)
 		}
-		if err := c.writePathValue(child.Path, entryP); err != nil {
-			binary.FreeBinaryProtocol(entryP)
+		if err := c.writePathValue(child.Path, p); err != nil {
 			return fmt.Errorf("failed to write key value: %v", err)
 		}
 		// value: field 2
 		valWireType := c.getWireType(child.Node.Type())
-		if err := entryP.AppendTag(2, valWireType); err != nil {
-			binary.FreeBinaryProtocol(entryP)
+		if err := p.AppendTag(2, valWireType); err != nil {
 			return fmt.Errorf("failed to append value tag: %v", err)
 		}
-		if err := c.convertPathNodeToProto(&child, entryP, false); err != nil {
-			binary.FreeBinaryProtocol(entryP)
+		if err := c.convertPathNodeToProto(child, p, false); err != nil {
 			return fmt.Errorf("failed to write value: %v", err)
 		}
-		// write entry into parent message
-		if err := p.WriteBytes(entryP.Buf); err != nil {
-			binary.FreeBinaryProtocol(entryP)
-			return fmt.Errorf("failed to write map entry: %v", err)
-		}
-		binary.FreeBinaryProtocol(entryP)
+		// finish entry
+		p.Buf = binary.FinishSpeculativeLength(p.Buf, pos)
 	}
 	return nil
 }
@@ -325,6 +323,7 @@ func (c *PathNodeToBytesConv) convertThriftStructToProto(node *tgeneric.PathNode
 
 	// Create a thrift protocol reader to parse the struct
 	thriftProto := thrift.NewBinaryProtocol(rawData)
+	defer thrift.FreeBinaryProtocolBuffer(thriftProto)
 
 	// Read struct begin
 	if _, err := thriftProto.ReadStructBegin(); err != nil {
@@ -358,6 +357,37 @@ func (c *PathNodeToBytesConv) convertThriftStructToProto(node *tgeneric.PathNode
 	return nil
 }
 
+// convertThriftStructRawToProto converts raw thrift struct bytes to protobuf without creating a PathNode
+func (c *PathNodeToBytesConv) convertThriftStructRawToProto(rawData []byte, p *binary.BinaryProtocol) error {
+	if len(rawData) == 0 {
+		return nil // Empty struct
+	}
+	thriftProto := thrift.NewBinaryProtocol(rawData)
+	defer thrift.FreeBinaryProtocolBuffer(thriftProto)
+	if _, err := thriftProto.ReadStructBegin(); err != nil {
+		return fmt.Errorf("failed to read struct begin: %v", err)
+	}
+	for {
+		_, fieldType, fieldID, err := thriftProto.ReadFieldBegin()
+		if err != nil {
+			return fmt.Errorf("failed to read field begin: %v", err)
+		}
+		if fieldType == thrift.STOP {
+			break
+		}
+		if err := c.convertThriftFieldToProto(int16(fieldID), fieldType, thriftProto, p); err != nil {
+			return fmt.Errorf("failed to convert field %d: %v", fieldID, err)
+		}
+		if err := thriftProto.ReadFieldEnd(); err != nil {
+			return fmt.Errorf("failed to read field end: %v", err)
+		}
+	}
+	if err := thriftProto.ReadStructEnd(); err != nil {
+		return fmt.Errorf("failed to read struct end: %v", err)
+	}
+	return nil
+}
+
 // convertThriftListToProto converts pre-marshaled thrift list to protobuf
 func (c *PathNodeToBytesConv) convertThriftListToProto(node *tgeneric.PathNode, p *binary.BinaryProtocol) error {
 	rawData := node.Node.Raw()
@@ -367,6 +397,7 @@ func (c *PathNodeToBytesConv) convertThriftListToProto(node *tgeneric.PathNode, 
 
 	// Create a thrift protocol reader to parse the list
 	thriftProto := thrift.NewBinaryProtocol(rawData)
+	defer thrift.FreeBinaryProtocolBuffer(thriftProto)
 
 	// Read list begin
 	elemType, size, err := thriftProto.ReadListBegin()
@@ -383,10 +414,21 @@ func (c *PathNodeToBytesConv) convertThriftListToProto(node *tgeneric.PathNode, 
 	for i := 0; i < size; i++ {
 		wireType := c.getThriftWireType(elemType)
 		if err := p.AppendTag(fieldID, wireType); err != nil {
-			return fmt.Errorf("failed to append tag for list element %d: %v", i, err)
+			return err
 		}
-		if err := c.convertThriftValueToProto(elemType, thriftProto, p); err != nil {
-			return fmt.Errorf("failed to convert list element %d: %v", i, err)
+		if thrift.Type(elemType) == thrift.STRING {
+			// read string then write as string to avoid []byte conversion alloc
+			s, err := thriftProto.ReadString(false)
+			if err != nil {
+				return err
+			}
+			if err := p.WriteString(s); err != nil {
+				return err
+			}
+		} else {
+			if err := c.convertThriftValueToProto(elemType, thriftProto, p); err != nil {
+				return fmt.Errorf("failed to convert list element %d: %v", i, err)
+			}
 		}
 	}
 
@@ -406,6 +448,11 @@ func (c *PathNodeToBytesConv) convertThriftMapToProto(node *tgeneric.PathNode, p
 
 	// Create a thrift protocol reader to parse the map
 	thriftProto := thrift.NewBinaryProtocol(rawData)
+	defer thrift.FreeBinaryProtocolBuffer(thriftProto)
+
+	// Reuse entry buffer
+	entryP := binary.NewBinaryProtocolBuffer()
+	defer binary.FreeBinaryProtocol(entryP)
 
 	// Read map begin
 	keyType, valueType, size, err := thriftProto.ReadMapBegin()
@@ -425,36 +472,61 @@ func (c *PathNodeToBytesConv) convertThriftMapToProto(node *tgeneric.PathNode, p
 			return fmt.Errorf("failed to append tag for map entry: %v", err)
 		}
 
-		// Create entry data
-		entryP := binary.NewBinaryProtocolBuffer()
+		// Reset entry buffer and build entry content
+		entryP.Reset()
 		// Write key (field 1)
 		keyWireType := c.getThriftWireType(keyType)
 		if err := entryP.AppendTag(1, keyWireType); err != nil {
-			binary.FreeBinaryProtocol(entryP)
 			return fmt.Errorf("failed to append key tag: %v", err)
 		}
-		if err := c.convertThriftValueToProto(keyType, thriftProto, entryP); err != nil {
-			binary.FreeBinaryProtocol(entryP)
-			return fmt.Errorf("failed to convert map key: %v", err)
+		if thrift.Type(keyType) == thrift.STRING {
+			s, err := thriftProto.ReadString(false)
+			if err != nil {
+				return fmt.Errorf("failed to read map key: %v", err)
+			}
+			if err := entryP.WriteString(s); err != nil {
+				return err
+			}
+		} else {
+			if err := c.convertThriftValueToProto(thrift.Type(keyType), thriftProto, entryP); err != nil {
+				return fmt.Errorf("failed to convert map key: %v", err)
+			}
 		}
 
 		// Write value (field 2)
 		valueWireType := c.getThriftWireType(valueType)
 		if err := entryP.AppendTag(2, valueWireType); err != nil {
-			binary.FreeBinaryProtocol(entryP)
 			return fmt.Errorf("failed to append value tag: %v", err)
 		}
-		if err := c.convertThriftValueToProto(valueType, thriftProto, entryP); err != nil {
-			binary.FreeBinaryProtocol(entryP)
-			return fmt.Errorf("failed to convert map value: %v", err)
+		if thrift.Type(valueType) == thrift.STRUCT {
+			startPos := thriftProto.Read
+			if err := thriftProto.SkipType(thrift.STRUCT); err != nil {
+				return err
+			}
+			endPos := thriftProto.Read
+			structData := thriftProto.Buf[startPos:endPos]
+			tempNode := &tgeneric.PathNode{Node: tgeneric.NewNode(thrift.STRUCT, structData)}
+			if err := c.convertThriftStructToProto(tempNode, entryP); err != nil {
+				return err
+			}
+		} else if thrift.Type(valueType) == thrift.STRING {
+			s, err := thriftProto.ReadString(false)
+			if err != nil {
+				return err
+			}
+			if err := entryP.WriteString(s); err != nil {
+				return err
+			}
+		} else {
+			if err := c.convertThriftValueToProto(thrift.Type(valueType), thriftProto, entryP); err != nil {
+				return err
+			}
 		}
 
 		// Write the complete entry as bytes into parent
 		if err := p.WriteBytes(entryP.Buf); err != nil {
-			binary.FreeBinaryProtocol(entryP)
 			return fmt.Errorf("failed to write map entry: %v", err)
 		}
-		binary.FreeBinaryProtocol(entryP)
 	}
 
 	if err := thriftProto.ReadMapEnd(); err != nil {
@@ -473,16 +545,16 @@ func (c *PathNodeToBytesConv) convertThriftFieldToProto(fieldID int16, fieldType
 	case thrift.MAP:
 		return c.convertThriftMapToProtoWithField(protoFieldID, thriftProto, p)
 	case thrift.STRUCT:
-		// read raw struct bytes and encode as length-delimited
+		// build nested struct in a temporary buffer (reused)
 		startPos := thriftProto.Read
 		if err := thriftProto.SkipType(thrift.STRUCT); err != nil {
 			return err
 		}
 		endPos := thriftProto.Read
 		structData := thriftProto.Buf[startPos:endPos]
+		tempNode := &tgeneric.PathNode{Node: tgeneric.NewNode(thrift.STRUCT, structData)}
 		entryP := binary.NewBinaryProtocolBuffer()
 		defer binary.FreeBinaryProtocol(entryP)
-		tempNode := &tgeneric.PathNode{Node: tgeneric.NewNode(thrift.STRUCT, structData)}
 		if err := c.convertThriftStructToProto(tempNode, entryP); err != nil {
 			return err
 		}
@@ -506,6 +578,9 @@ func (c *PathNodeToBytesConv) convertThriftListToProtoWithField(fieldID proto.Fi
 	if err != nil {
 		return fmt.Errorf("failed to read list begin: %v", err)
 	}
+	// reuse entryP for struct elements
+	entryP := binary.NewBinaryProtocolBuffer()
+	defer binary.FreeBinaryProtocol(entryP)
 	for i := 0; i < size; i++ {
 		// append tag per element (unpacked)
 		wireType := c.getThriftWireType(et)
@@ -513,30 +588,28 @@ func (c *PathNodeToBytesConv) convertThriftListToProtoWithField(fieldID proto.Fi
 			return err
 		}
 		// write element
-		if thrift.Type(et) == thrift.STRUCT {
-			// encode nested struct as bytes
+		if thrift.Type(et) == thrift.STRING {
+			// read string then write as string to avoid []byte conversion alloc
+			s, err := thriftProto.ReadString(false)
+			if err != nil {
+				return err
+			}
+			if err := p.WriteString(s); err != nil {
+				return err
+			}
+		} else if thrift.Type(et) == thrift.STRUCT {
 			startPos := thriftProto.Read
 			if err := thriftProto.SkipType(thrift.STRUCT); err != nil {
 				return err
 			}
 			endPos := thriftProto.Read
 			structData := thriftProto.Buf[startPos:endPos]
-			entryP := binary.NewBinaryProtocolBuffer()
-			defer binary.FreeBinaryProtocol(entryP)
+			entryP.Reset()
 			tempNode := &tgeneric.PathNode{Node: tgeneric.NewNode(thrift.STRUCT, structData)}
 			if err := c.convertThriftStructToProto(tempNode, entryP); err != nil {
 				return err
 			}
 			if err := p.WriteBytes(entryP.Buf); err != nil {
-				return err
-			}
-		} else if thrift.Type(et) == thrift.STRING {
-			// read string then write bytes
-			s, err := thriftProto.ReadString(false)
-			if err != nil {
-				return err
-			}
-			if err := p.WriteBytes([]byte(s)); err != nil {
 				return err
 			}
 		} else {
@@ -557,11 +630,14 @@ func (c *PathNodeToBytesConv) convertThriftMapToProtoWithField(fieldID proto.Fie
 	if err != nil {
 		return fmt.Errorf("failed to read map begin: %v", err)
 	}
+	// reuse entry and tmp buffers
+	entryP := binary.NewBinaryProtocolBuffer()
+	defer binary.FreeBinaryProtocol(entryP)
+	tmp := binary.NewBinaryProtocolBuffer()
+	defer binary.FreeBinaryProtocol(tmp)
 	for i := 0; i < size; i++ {
-		// build entry sub-message
-		entryP := binary.NewBinaryProtocolBuffer()
-		defer binary.FreeBinaryProtocol(entryP)
 		// key tag
+		entryP.Reset()
 		keyWireType := c.getThriftWireType(kt)
 		if err := entryP.AppendTag(1, keyWireType); err != nil {
 			return err
@@ -572,7 +648,7 @@ func (c *PathNodeToBytesConv) convertThriftMapToProtoWithField(fieldID proto.Fie
 			if err != nil {
 				return err
 			}
-			if err := entryP.WriteBytes([]byte(s)); err != nil {
+			if err := entryP.WriteString(s); err != nil {
 				return err
 			}
 		} else {
@@ -593,8 +669,7 @@ func (c *PathNodeToBytesConv) convertThriftMapToProtoWithField(fieldID proto.Fie
 			}
 			endPos := thriftProto.Read
 			structData := thriftProto.Buf[startPos:endPos]
-			tmp := binary.NewBinaryProtocolBuffer()
-			defer binary.FreeBinaryProtocol(tmp)
+			tmp.Reset()
 			tempNode := &tgeneric.PathNode{Node: tgeneric.NewNode(thrift.STRUCT, structData)}
 			if err := c.convertThriftStructToProto(tempNode, tmp); err != nil {
 				return err
@@ -607,7 +682,7 @@ func (c *PathNodeToBytesConv) convertThriftMapToProtoWithField(fieldID proto.Fie
 			if err != nil {
 				return err
 			}
-			if err := entryP.WriteBytes([]byte(s)); err != nil {
+			if err := entryP.WriteString(s); err != nil {
 				return err
 			}
 		} else {
@@ -675,11 +750,15 @@ func (c *PathNodeToBytesConv) convertThriftValueToProto(valueType thrift.Type, t
 		return p.WriteDouble(value)
 
 	case thrift.STRING:
-		// Treat thrift string/binary as raw bytes to avoid UTF-8 constraint
+		// Prefer writing as string if valid UTF-8; otherwise write raw bytes (for thrift binary)
 		s, err := thriftProto.ReadString(false)
 		if err != nil {
 			return err
 		}
+		if utf8.ValidString(s) {
+			return p.WriteString(s)
+		}
+		// invalid UTF-8 -> treat as bytes
 		return p.WriteBytes([]byte(s))
 
 	case thrift.STRUCT:
