@@ -284,6 +284,51 @@ func GetDescByPath(desc *thrift.TypeDescriptor, path ...Path) (ret *thrift.TypeD
 	return
 }
 
+type PathNodeArena struct {
+	mem []PathNode
+}
+
+func NewPathNodeArena(cap int) *PathNodeArena {
+	return &PathNodeArena{
+		mem: make([]PathNode, 0, cap),
+	}
+}
+
+func (a *PathNodeArena) Len() int {
+	return len(a.mem)
+}
+
+func (a *PathNodeArena) Cap() int {
+	return cap(a.mem)
+}
+
+func (a *PathNodeArena) AllocOne() *PathNode {
+	if len(a.mem) == cap(a.mem) {
+		a.mem = append(a.mem, PathNode{})
+	}
+	p := &a.mem[len(a.mem)]
+	a.mem = a.mem[:len(a.mem)+1]
+	return p
+}
+
+func (a *PathNodeArena) FreeAll() {
+	// memclr
+	for i := range a.mem {
+		a.mem[i] = PathNode{}
+	}
+	a.mem = a.mem[:0]
+}
+
+var areaPool = sync.Pool{
+	New: func() interface{} {
+		return NewPathNodeArena(1024)
+	},
+}
+
+func putArena(a *PathNodeArena) {
+	areaPool.Put(a)
+}
+
 // PathNode is a three node of DOM tree
 type PathNode struct {
 	Path

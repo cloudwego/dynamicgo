@@ -258,5 +258,4 @@ func ExamplePathNode_Marshal() {
 		panic(err)
 	}
 	fmt.Printf("%#v", msg)
-
 }

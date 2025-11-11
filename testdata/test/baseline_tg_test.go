@@ -496,6 +496,7 @@ func BenchmarkThriftGetAll_ReuseMemory(b *testing.B) {
 
 		opts := &generic.Options{}
 		b.SetBytes(int64(len(data)))
+		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			r := generic.NewPathNode()
@@ -508,6 +509,7 @@ func BenchmarkThriftGetAll_ReuseMemory(b *testing.B) {
 		b.Run("normal", func(b *testing.B) {
 			opts := &generic.Options{}
 			b.SetBytes(int64(len(data)))
+			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				r := generic.NewPathNode()
@@ -522,6 +524,7 @@ func BenchmarkThriftGetAll_ReuseMemory(b *testing.B) {
 				NotScanParentNode: true,
 			}
 			b.SetBytes(int64(len(data)))
+			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				r := generic.NewPathNode()
@@ -551,6 +554,7 @@ func BenchmarkThriftGetAll_ReuseMemory(b *testing.B) {
 		b.Run("normal", func(b *testing.B) {
 			opts := &generic.Options{}
 			b.SetBytes(int64(len(data)))
+			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				r := generic.NewPathNode()
@@ -566,6 +570,7 @@ func BenchmarkThriftGetAll_ReuseMemory(b *testing.B) {
 				NotScanParentNode: true,
 			}
 			b.SetBytes(int64(len(data)))
+			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				r := generic.NewPathNode()

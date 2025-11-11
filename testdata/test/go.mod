@@ -1,9 +1,11 @@
 module github.com/cloudwego/dynamicgo/testdata/test
 
-go 1.19
+go 1.24
+
+toolchain go1.24.1
 
 require (
-	github.com/bytedance/sonic v1.13.3
+	github.com/bytedance/sonic v1.14.0
 	github.com/cloudwego/dynamicgo v0.6.4
 	github.com/cloudwego/kitex v0.14.0
 	github.com/cloudwego/prutal v0.1.1
@@ -15,8 +17,8 @@ require (
 
 require (
 	github.com/bytedance/gopkg v0.1.2 // indirect
-	github.com/bytedance/sonic/loader v0.2.4 // indirect
-	github.com/cloudwego/base64x v0.1.5 // indirect
+	github.com/bytedance/sonic/loader v0.3.0 // indirect
+	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/cloudwego/configmanager v0.2.3 // indirect
 	github.com/cloudwego/fastpb v0.0.5 // indirect
 	github.com/cloudwego/frugal v0.2.5 // indirect

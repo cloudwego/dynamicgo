@@ -10,11 +10,10 @@ import (
 	tgeneric "github.com/cloudwego/dynamicgo/thrift/generic"
 )
 
-type PathNodeToBytesConv struct {
-}
+type PathNodeToBytesConv struct{}
 
 // Do converts a thrift DOM to a protobuf message.
-func (c *PathNodeToBytesConv) Do(in *tgeneric.PathNode, out *[]byte) error {
+func (c PathNodeToBytesConv) Do(in *tgeneric.PathNode, out *[]byte) error {
 	if in == nil {
 		return fmt.Errorf("input PathNode is nil")
 	}
@@ -36,7 +35,7 @@ func (c *PathNodeToBytesConv) Do(in *tgeneric.PathNode, out *[]byte) error {
 
 // convertPathNodeToProto recursively converts thrift PathNode to protobuf binary format
 // root indicates whether the current node is the root message (top-level)
-func (c *PathNodeToBytesConv) convertPathNodeToProto(node *tgeneric.PathNode, p *binary.BinaryProtocol, root bool) error {
+func (c PathNodeToBytesConv) convertPathNodeToProto(node *tgeneric.PathNode, p *binary.BinaryProtocol, root bool) error {
 	if node.IsError() {
 		return fmt.Errorf("node error: %v", node.Node)
 	}
@@ -79,7 +78,7 @@ func (c *PathNodeToBytesConv) convertPathNodeToProto(node *tgeneric.PathNode, p 
 }
 
 // writePrimitiveValue converts thrift primitive value to protobuf encoding
-func (c *PathNodeToBytesConv) writePrimitiveValue(node *tgeneric.PathNode, p *binary.BinaryProtocol) error {
+func (c PathNodeToBytesConv) writePrimitiveValue(node *tgeneric.PathNode, p *binary.BinaryProtocol) error {
 	// Get the raw thrift data
 	rawData := node.Node.Raw()
 	if len(rawData) == 0 {
@@ -149,7 +148,7 @@ func (c *PathNodeToBytesConv) writePrimitiveValue(node *tgeneric.PathNode, p *bi
 }
 
 // writeStruct converts thrift struct to protobuf message
-func (c *PathNodeToBytesConv) writeStruct(node *tgeneric.PathNode, p *binary.BinaryProtocol, root bool) error {
+func (c PathNodeToBytesConv) writeStruct(node *tgeneric.PathNode, p *binary.BinaryProtocol, root bool) error {
 	// For nested messages, write length-delimited content
 	pos := -1
 	if !root {
@@ -196,7 +195,7 @@ func (c *PathNodeToBytesConv) writeStruct(node *tgeneric.PathNode, p *binary.Bin
 }
 
 // writeList converts thrift list/set to protobuf repeated field
-func (c *PathNodeToBytesConv) writeList(node *tgeneric.PathNode, p *binary.BinaryProtocol) error {
+func (c PathNodeToBytesConv) writeList(node *tgeneric.PathNode, p *binary.BinaryProtocol) error {
 	// In protobuf wire, repeated fields are encoded as multiple occurrences
 	// of the same field number (unpacked). Packed form is also valid but
 	// requires a descriptor; we choose unpacked for compatibility.
@@ -222,7 +221,7 @@ func (c *PathNodeToBytesConv) writeList(node *tgeneric.PathNode, p *binary.Binar
 }
 
 // writeMap converts thrift map to protobuf map field
-func (c *PathNodeToBytesConv) writeMap(node *tgeneric.PathNode, p *binary.BinaryProtocol) error {
+func (c PathNodeToBytesConv) writeMap(node *tgeneric.PathNode, p *binary.BinaryProtocol) error {
 	// For protobuf maps, each key-value pair is written as an entry sub-message
 	fieldID := proto.FieldNumber(node.Path.Id())
 	if fieldID == 0 {
@@ -264,7 +263,7 @@ func (c *PathNodeToBytesConv) writeMap(node *tgeneric.PathNode, p *binary.Binary
 }
 
 // getWireType maps thrift type to protobuf wire type
-func (c *PathNodeToBytesConv) getWireType(thriftType thrift.Type) proto.WireType {
+func (c PathNodeToBytesConv) getWireType(thriftType thrift.Type) proto.WireType {
 	switch thriftType {
 	case thrift.BOOL:
 		return proto.VarintType
@@ -286,7 +285,7 @@ func (c *PathNodeToBytesConv) getWireType(thriftType thrift.Type) proto.WireType
 }
 
 // getWireTypeFromPath maps path type to protobuf wire type for map keys
-func (c *PathNodeToBytesConv) getWireTypeFromPath(path tgeneric.Path) proto.WireType {
+func (c PathNodeToBytesConv) getWireTypeFromPath(path tgeneric.Path) proto.WireType {
 	switch path.Type() {
 	case tgeneric.PathStrKey:
 		return proto.BytesType
@@ -300,7 +299,7 @@ func (c *PathNodeToBytesConv) getWireTypeFromPath(path tgeneric.Path) proto.Wire
 }
 
 // writePathValue writes the value from a Path (used for map keys)
-func (c *PathNodeToBytesConv) writePathValue(path tgeneric.Path, p *binary.BinaryProtocol) error {
+func (c PathNodeToBytesConv) writePathValue(path tgeneric.Path, p *binary.BinaryProtocol) error {
 	switch path.Type() {
 	case tgeneric.PathStrKey:
 		return p.WriteString(path.Str())
@@ -314,7 +313,7 @@ func (c *PathNodeToBytesConv) writePathValue(path tgeneric.Path, p *binary.Binar
 }
 
 // convertThriftStructToProto converts pre-marshaled thrift struct to protobuf
-func (c *PathNodeToBytesConv) convertThriftStructToProto(node *tgeneric.PathNode, p *binary.BinaryProtocol) error {
+func (c PathNodeToBytesConv) convertThriftStructToProto(node *tgeneric.PathNode, p *binary.BinaryProtocol) error {
 	// Parse the thrift struct data and convert to protobuf format
 	rawData := node.Node.Raw()
 	if len(rawData) == 0 {
@@ -358,7 +357,7 @@ func (c *PathNodeToBytesConv) convertThriftStructToProto(node *tgeneric.PathNode
 }
 
 // convertThriftStructRawToProto converts raw thrift struct bytes to protobuf without creating a PathNode
-func (c *PathNodeToBytesConv) convertThriftStructRawToProto(rawData []byte, p *binary.BinaryProtocol) error {
+func (c PathNodeToBytesConv) convertThriftStructRawToProto(rawData []byte, p *binary.BinaryProtocol) error {
 	if len(rawData) == 0 {
 		return nil // Empty struct
 	}
@@ -389,7 +388,7 @@ func (c *PathNodeToBytesConv) convertThriftStructRawToProto(rawData []byte, p *b
 }
 
 // convertThriftListToProto converts pre-marshaled thrift list to protobuf
-func (c *PathNodeToBytesConv) convertThriftListToProto(node *tgeneric.PathNode, p *binary.BinaryProtocol) error {
+func (c PathNodeToBytesConv) convertThriftListToProto(node *tgeneric.PathNode, p *binary.BinaryProtocol) error {
 	rawData := node.Node.Raw()
 	if len(rawData) == 0 {
 		return nil // Empty list
@@ -440,7 +439,7 @@ func (c *PathNodeToBytesConv) convertThriftListToProto(node *tgeneric.PathNode, 
 }
 
 // convertThriftMapToProto converts pre-marshaled thrift map to protobuf
-func (c *PathNodeToBytesConv) convertThriftMapToProto(node *tgeneric.PathNode, p *binary.BinaryProtocol) error {
+func (c PathNodeToBytesConv) convertThriftMapToProto(node *tgeneric.PathNode, p *binary.BinaryProtocol) error {
 	rawData := node.Node.Raw()
 	if len(rawData) == 0 {
 		return nil // Empty map
@@ -537,7 +536,7 @@ func (c *PathNodeToBytesConv) convertThriftMapToProto(node *tgeneric.PathNode, p
 }
 
 // convertThriftFieldToProto converts a thrift field to protobuf format
-func (c *PathNodeToBytesConv) convertThriftFieldToProto(fieldID int16, fieldType thrift.Type, thriftProto *thrift.BinaryProtocol, p *binary.BinaryProtocol) error {
+func (c PathNodeToBytesConv) convertThriftFieldToProto(fieldID int16, fieldType thrift.Type, thriftProto *thrift.BinaryProtocol, p *binary.BinaryProtocol) error {
 	protoFieldID := proto.FieldNumber(fieldID)
 	switch fieldType {
 	case thrift.LIST, thrift.SET:
@@ -573,7 +572,7 @@ func (c *PathNodeToBytesConv) convertThriftFieldToProto(fieldID int16, fieldType
 }
 
 // convertThriftListToProtoWithField writes a thrift list as repeated field with given field number
-func (c *PathNodeToBytesConv) convertThriftListToProtoWithField(fieldID proto.FieldNumber, thriftProto *thrift.BinaryProtocol, p *binary.BinaryProtocol) error {
+func (c PathNodeToBytesConv) convertThriftListToProtoWithField(fieldID proto.FieldNumber, thriftProto *thrift.BinaryProtocol, p *binary.BinaryProtocol) error {
 	et, size, err := thriftProto.ReadListBegin()
 	if err != nil {
 		return fmt.Errorf("failed to read list begin: %v", err)
@@ -625,7 +624,7 @@ func (c *PathNodeToBytesConv) convertThriftListToProtoWithField(fieldID proto.Fi
 }
 
 // convertThriftMapToProtoWithField writes a thrift map as repeated map entry messages
-func (c *PathNodeToBytesConv) convertThriftMapToProtoWithField(fieldID proto.FieldNumber, thriftProto *thrift.BinaryProtocol, p *binary.BinaryProtocol) error {
+func (c PathNodeToBytesConv) convertThriftMapToProtoWithField(fieldID proto.FieldNumber, thriftProto *thrift.BinaryProtocol, p *binary.BinaryProtocol) error {
 	kt, vt, size, err := thriftProto.ReadMapBegin()
 	if err != nil {
 		return fmt.Errorf("failed to read map begin: %v", err)
@@ -705,7 +704,7 @@ func (c *PathNodeToBytesConv) convertThriftMapToProtoWithField(fieldID proto.Fie
 }
 
 // convertThriftValueToProto converts a thrift value to protobuf format
-func (c *PathNodeToBytesConv) convertThriftValueToProto(valueType thrift.Type, thriftProto *thrift.BinaryProtocol, p *binary.BinaryProtocol) error {
+func (c PathNodeToBytesConv) convertThriftValueToProto(valueType thrift.Type, thriftProto *thrift.BinaryProtocol, p *binary.BinaryProtocol) error {
 	switch valueType {
 	case thrift.BOOL:
 		value, err := thriftProto.ReadBool()
@@ -812,6 +811,6 @@ func (c *PathNodeToBytesConv) convertThriftValueToProto(valueType thrift.Type, t
 }
 
 // getThriftWireType maps thrift type to protobuf wire type
-func (c *PathNodeToBytesConv) getThriftWireType(thriftType thrift.Type) proto.WireType {
+func (c PathNodeToBytesConv) getThriftWireType(thriftType thrift.Type) proto.WireType {
 	return c.getWireType(thriftType) // Reuse the existing mapping
 }
