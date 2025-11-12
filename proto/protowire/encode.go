@@ -5,6 +5,8 @@ import (
 	"math/bits"
 )
 
+var ENCODER = BinaryEncoder{}
+
 type BinaryEncoder struct{}
 
 // VarintEncode encodes a uint64 value as a varint-encoded byte slice.

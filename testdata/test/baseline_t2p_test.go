@@ -5,6 +5,9 @@ import (
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/conv/t2p"
+	"github.com/cloudwego/dynamicgo/internal/util_test"
+	"github.com/cloudwego/dynamicgo/proto"
+	"github.com/cloudwego/dynamicgo/proto/binary"
 	tbase "github.com/cloudwego/dynamicgo/testdata/kitex_gen/base"
 	texample5 "github.com/cloudwego/dynamicgo/testdata/kitex_gen/example5"
 	pbbase "github.com/cloudwego/dynamicgo/testdata/kitex_gen/pb/base"
@@ -12,20 +15,28 @@ import (
 	"github.com/cloudwego/dynamicgo/testdata/sample"
 	"github.com/cloudwego/dynamicgo/thrift"
 	"github.com/cloudwego/dynamicgo/thrift/generic"
-	"google.golang.org/protobuf/proto"
+	goproto "google.golang.org/protobuf/proto"
 )
+
+var (
+	sampleDepth = 3
+	sampleWidth = 10
+)
+
+func getThriftBytes() []byte {
+	obj := sample.GetThriftInnerBase5(sampleWidth, sampleDepth)
+	tbytes := make([]byte, obj.BLength())
+	if n := obj.FastWriteNocopy(tbytes, nil); n != obj.BLength() {
+		panic("marshal thrift object failed")
+	}
+	// fmt.Println("thrift sample, width:", sampleWidth, "depth:", sampleDepth, "bytes size:", len(tbytes))
+	return tbytes
+}
 
 // Benchmark comparing manual struct-based Thrift -> PB conversion by field assignment,
 // followed by protobuf marshaling to bytes.
 func BenchmarkThrift2Proto_Struct(b *testing.B) {
-	// get sample thrift object, same as DOM benchmark
-	obj := sample.GetThriftInnerBase5(2, 1)
-
-	// marshal thrift object to bytes
-	tbytes := make([]byte, obj.BLength())
-	if n := obj.FastWriteNocopy(tbytes, nil); n != obj.BLength() {
-		b.Fatalf("marshal thrift object failed: expect %d, got %d", obj.BLength(), n)
-	}
+	tbytes := getThriftBytes()
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -38,19 +49,20 @@ func BenchmarkThrift2Proto_Struct(b *testing.B) {
 
 		// simulate DSL on thrift struct
 		var pbMsg pbexample5.InnerBase
-		CopyStruct(&obj, &pbMsg)
+		copyStruct(&obj, &pbMsg)
 
 		// serialize to protobuf bytes
-		_, err := proto.Marshal(&pbMsg)
+		pbbytes, err := goproto.Marshal(&pbMsg)
 		if err != nil {
 			b.Fatalf("marshal pb message failed: %v", err)
 		}
+		_ = pbbytes
 	}
 }
 
-// CopyStruct performs a deep field-by-field assignment from thrift InnerBase
+// copyStruct performs a deep field-by-field assignment from thrift InnerBase
 // (kitex_gen/example5.InnerBase) into protobuf InnerBase (kitex_gen/pb/example5.InnerBase).
-func CopyStruct(th *texample5.InnerBase, pb *pbexample5.InnerBase) {
+func copyStruct(th *texample5.InnerBase, pb *pbexample5.InnerBase) {
 	if th == nil {
 		return
 	}
@@ -99,7 +111,7 @@ func CopyStruct(th *texample5.InnerBase, pb *pbexample5.InnerBase) {
 		for i := range th.ListInnerBase {
 			tmp := &pbexample5.InnerBase{}
 			pb.ListInnerBase[i] = tmp
-			CopyStruct(th.ListInnerBase[i], tmp)
+			copyStruct(th.ListInnerBase[i], tmp)
 		}
 	}
 	// nested map of InnerBase
@@ -108,7 +120,7 @@ func CopyStruct(th *texample5.InnerBase, pb *pbexample5.InnerBase) {
 		for k, v := range th.MapStringInnerBase {
 			tmp := &pbexample5.InnerBase{}
 			pb.MapStringInnerBase[k] = tmp
-			CopyStruct(v, tmp)
+			copyStruct(v, tmp)
 		}
 	}
 
@@ -147,19 +159,14 @@ var opts = &generic.Options{}
 // followed by protobuf marshaling to bytes.
 func BenchmarkThrift2Proto_DOM(b *testing.B) {
 	// get sample thrift object
-	obj := sample.GetThriftInnerBase5(2, 1)
-	// marshal thrift object to bytes
-	tbytes := make([]byte, obj.BLength())
-	if n := obj.FastWriteNocopy(tbytes, nil); n != obj.BLength() {
-		b.Fatalf("marshal thrift object failed: expect %d, got %d", obj.BLength(), n)
-	}
+	tbytes := getThriftBytes()
 
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// unmashal thrift bytes to thrift DOM
 		doc := generic.NewPathNode()
-		defer generic.FreePathNode(doc)
+		// defer generic.FreePathNode(doc)
 		doc.Node = generic.NewNode(thrift.STRUCT, tbytes)
 		if err := doc.Load(true, opts); err != nil {
 			b.Fatalf("load thrift doc failed: %v", err)
@@ -167,8 +174,8 @@ func BenchmarkThrift2Proto_DOM(b *testing.B) {
 
 		// simulate DSL on thrift DOM
 		var doc2 = generic.NewPathNode()
-		defer generic.FreePathNode(doc2)
-		if err := CopyDOM(doc, doc2); err != nil {
+		// defer generic.FreePathNode(doc2)
+		if err := copyDOM(doc, doc2); err != nil {
 			b.Fatalf("simulate DSL failed: %v", err)
 		}
 
@@ -182,8 +189,8 @@ func BenchmarkThrift2Proto_DOM(b *testing.B) {
 	}
 }
 
-// CopyDOM deep copy a thrift DOM to another thrift DOM.
-func CopyDOM(in *generic.PathNode, out *generic.PathNode) error {
+// copyDOM deep copy a thrift DOM to another thrift DOM.
+func copyDOM(in *generic.PathNode, out *generic.PathNode) error {
 	// // query operations
 	// f7 := in.Field(7, opts)
 	// if f7 == nil {
@@ -221,4 +228,73 @@ func CopyDOM(in *generic.PathNode, out *generic.PathNode) error {
 	// assgin operations
 	in.CopyTo(out)
 	return nil
+}
+
+func BenchmarkThrift2Proto_Map(b *testing.B) {
+	// get sample thrift object
+	tbytes := getThriftBytes()
+
+	tdesc := thrift.FnRequest(thrift.GetFnDescFromFile("testdata/idl/example5.thrift", "ExampleMethod", thrift.Options{}))
+	pdesc := proto.FnRequest(proto.GetFnDescFromFile("testdata/idl/example5.proto", "ExampleMethod", proto.Options{}, util_test.MustGitPath("testdata/idl/")))
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// unmarshal thrift bytes to thrift map
+		t := thrift.BinaryProtocol{Buf: tbytes}
+		tmap, err := t.ReadAnyWithDesc(tdesc, false, false, false, true)
+		if err != nil {
+			b.Fatalf("read thrift struct failed: %v", err)
+		}
+
+		// simulate DSL on thrift map
+		var pmap interface{}
+		copyAny(tmap, &pmap)
+
+		// serialize to protobuf bytes
+		p := binary.NewBinaryProtocolBuffer()
+		if err := p.WriteAnyWithDesc(pdesc, pmap, false, false, false, true); err != nil {
+			b.Fatalf("write proto struct failed: %v", err)
+		}
+		_ = p.Buf
+	}
+}
+
+func copyAny(tmap any, pmap *any) {
+	switch tm := tmap.(type) {
+	case map[string]interface{}:
+		*pmap = make(map[string]interface{}, len(tm))
+		for k, v := range tm {
+			// recurse copy map if value is map
+			var tmp any
+			copyAny(v, &tmp)
+			(*pmap).(map[string]interface{})[k] = tmp
+		}
+	case map[interface{}]interface{}:
+		*pmap = make(map[interface{}]interface{}, len(tm))
+		for k, v := range tm {
+			// recurse copy map if value is map
+			var tmp any
+			copyAny(v, &tmp)
+			(*pmap).(map[interface{}]interface{})[k] = tmp
+		}
+	case map[int]any:
+		*pmap = make(map[int]any, len(tm))
+		for k, v := range tm {
+			// recurse copy map if value is map
+			var tmp any
+			copyAny(v, &tmp)
+			(*pmap).(map[int]any)[k] = tmp
+		}
+	case []interface{}:
+		*pmap = make([]any, len(tm))
+		for i, v := range tm {
+			// recurse copy map if value is map
+			var tmp any
+			copyAny(v, &tmp)
+			(*pmap).([]any)[i] = tmp
+		}
+	default:
+		*pmap = tmap
+	}
 }

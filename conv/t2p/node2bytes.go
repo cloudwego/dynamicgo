@@ -196,28 +196,44 @@ func (c PathNodeToBytesConv) writeStruct(node *tgeneric.PathNode, p *binary.Bina
 
 // writeList converts thrift list/set to protobuf repeated field
 func (c PathNodeToBytesConv) writeList(node *tgeneric.PathNode, p *binary.BinaryProtocol) error {
-	// In protobuf wire, repeated fields are encoded as multiple occurrences
-	// of the same field number (unpacked). Packed form is also valid but
-	// requires a descriptor; we choose unpacked for compatibility.
-	// When PathNode is built from NewNodeList, Path is empty (zero), so we need a fallback field number.
-	fieldID := proto.FieldNumber(node.Path.Id())
-	if fieldID == 0 {
-		fieldID = 1 // fallback for list without explicit field number
-	}
-	for i := range node.Next {
-		child := &node.Next[i]
-		if child.IsEmpty() {
-			continue
-		}
-		wireType := c.getWireType(child.Node.Type())
-		if err := p.AppendTag(fieldID, wireType); err != nil {
-			return fmt.Errorf("failed to append tag for list element: %v", err)
-		}
-		if err := c.convertPathNodeToProto(child, p, false); err != nil {
-			return fmt.Errorf("failed to convert list element: %v", err)
-		}
-	}
-	return nil
+    fieldID := proto.FieldNumber(node.Path.Id())
+    if fieldID == 0 {
+        fieldID = 1
+    }
+    et := node.Node.ElemType()
+    pack := c.isPackableThriftType(et)
+    if pack {
+        if err := p.AppendTag(fieldID, proto.BytesType); err != nil {
+            return err
+        }
+        var pos int
+        p.Buf, pos = binary.AppendSpeculativeLength(p.Buf)
+        for i := range node.Next {
+            child := &node.Next[i]
+            if child.IsEmpty() {
+                continue
+            }
+            if err := c.convertPathNodeToProto(child, p, false); err != nil {
+                return err
+            }
+        }
+        p.Buf = binary.FinishSpeculativeLength(p.Buf, pos)
+        return nil
+    }
+    for i := range node.Next {
+        child := &node.Next[i]
+        if child.IsEmpty() {
+            continue
+        }
+        wireType := c.getWireType(child.Node.Type())
+        if err := p.AppendTag(fieldID, wireType); err != nil {
+            return err
+        }
+        if err := c.convertPathNodeToProto(child, p, false); err != nil {
+            return err
+        }
+    }
+    return nil
 }
 
 // writeMap converts thrift map to protobuf map field
@@ -298,6 +314,15 @@ func (c PathNodeToBytesConv) getWireTypeFromPath(path tgeneric.Path) proto.WireT
 	}
 }
 
+func (c PathNodeToBytesConv) isPackableThriftType(t thrift.Type) bool {
+    switch t {
+    case thrift.STRING, thrift.STRUCT, thrift.MAP, thrift.LIST, thrift.SET:
+        return false
+    default:
+        return true
+    }
+}
+
 // writePathValue writes the value from a Path (used for map keys)
 func (c PathNodeToBytesConv) writePathValue(path tgeneric.Path, p *binary.BinaryProtocol) error {
 	switch path.Type() {
@@ -356,37 +381,6 @@ func (c PathNodeToBytesConv) convertThriftStructToProto(node *tgeneric.PathNode,
 	return nil
 }
 
-// convertThriftStructRawToProto converts raw thrift struct bytes to protobuf without creating a PathNode
-func (c PathNodeToBytesConv) convertThriftStructRawToProto(rawData []byte, p *binary.BinaryProtocol) error {
-	if len(rawData) == 0 {
-		return nil // Empty struct
-	}
-	thriftProto := thrift.NewBinaryProtocol(rawData)
-	defer thrift.FreeBinaryProtocolBuffer(thriftProto)
-	if _, err := thriftProto.ReadStructBegin(); err != nil {
-		return fmt.Errorf("failed to read struct begin: %v", err)
-	}
-	for {
-		_, fieldType, fieldID, err := thriftProto.ReadFieldBegin()
-		if err != nil {
-			return fmt.Errorf("failed to read field begin: %v", err)
-		}
-		if fieldType == thrift.STOP {
-			break
-		}
-		if err := c.convertThriftFieldToProto(int16(fieldID), fieldType, thriftProto, p); err != nil {
-			return fmt.Errorf("failed to convert field %d: %v", fieldID, err)
-		}
-		if err := thriftProto.ReadFieldEnd(); err != nil {
-			return fmt.Errorf("failed to read field end: %v", err)
-		}
-	}
-	if err := thriftProto.ReadStructEnd(); err != nil {
-		return fmt.Errorf("failed to read struct end: %v", err)
-	}
-	return nil
-}
-
 // convertThriftListToProto converts pre-marshaled thrift list to protobuf
 func (c PathNodeToBytesConv) convertThriftListToProto(node *tgeneric.PathNode, p *binary.BinaryProtocol) error {
 	rawData := node.Node.Raw()
@@ -404,32 +398,44 @@ func (c PathNodeToBytesConv) convertThriftListToProto(node *tgeneric.PathNode, p
 		return fmt.Errorf("failed to read list begin: %v", err)
 	}
 
-	// Convert each element (unpacked form)
-	// When PathNode is built from NewNodeList, Path is empty (zero), so we need a fallback field number.
-	fieldID := proto.FieldNumber(node.Path.Id())
-	if fieldID == 0 {
-		fieldID = 1 // fallback for list without explicit field number
-	}
-	for i := 0; i < size; i++ {
-		wireType := c.getThriftWireType(elemType)
-		if err := p.AppendTag(fieldID, wireType); err != nil {
-			return err
-		}
-		if thrift.Type(elemType) == thrift.STRING {
-			// read string then write as string to avoid []byte conversion alloc
-			s, err := thriftProto.ReadString(false)
-			if err != nil {
-				return err
-			}
-			if err := p.WriteString(s); err != nil {
-				return err
-			}
-		} else {
-			if err := c.convertThriftValueToProto(elemType, thriftProto, p); err != nil {
-				return fmt.Errorf("failed to convert list element %d: %v", i, err)
-			}
-		}
-	}
+    fieldID := proto.FieldNumber(node.Path.Id())
+    if fieldID == 0 {
+        fieldID = 1
+    }
+    pack := c.isPackableThriftType(thrift.Type(elemType))
+    if pack {
+        if err := p.AppendTag(fieldID, proto.BytesType); err != nil {
+            return err
+        }
+        var pos int
+        p.Buf, pos = binary.AppendSpeculativeLength(p.Buf)
+        for i := 0; i < size; i++ {
+            if err := c.convertThriftValueToProto(elemType, thriftProto, p); err != nil {
+                return fmt.Errorf("failed to convert list element %d: %v", i, err)
+            }
+        }
+        p.Buf = binary.FinishSpeculativeLength(p.Buf, pos)
+    } else {
+        for i := 0; i < size; i++ {
+            wireType := c.getThriftWireType(elemType)
+            if err := p.AppendTag(fieldID, wireType); err != nil {
+                return err
+            }
+            if thrift.Type(elemType) == thrift.STRING {
+                s, err := thriftProto.ReadString(false)
+                if err != nil {
+                    return err
+                }
+                if err := p.WriteString(s); err != nil {
+                    return err
+                }
+            } else {
+                if err := c.convertThriftValueToProto(elemType, thriftProto, p); err != nil {
+                    return fmt.Errorf("failed to convert list element %d: %v", i, err)
+                }
+            }
+        }
+    }
 
 	if err := thriftProto.ReadListEnd(); err != nil {
 		return fmt.Errorf("failed to read list end: %v", err)
@@ -580,47 +586,59 @@ func (c PathNodeToBytesConv) convertThriftListToProtoWithField(fieldID proto.Fie
 	// reuse entryP for struct elements
 	entryP := binary.NewBinaryProtocolBuffer()
 	defer binary.FreeBinaryProtocol(entryP)
-	for i := 0; i < size; i++ {
-		// append tag per element (unpacked)
-		wireType := c.getThriftWireType(et)
-		if err := p.AppendTag(fieldID, wireType); err != nil {
-			return err
-		}
-		// write element
-		if thrift.Type(et) == thrift.STRING {
-			// read string then write as string to avoid []byte conversion alloc
-			s, err := thriftProto.ReadString(false)
-			if err != nil {
-				return err
-			}
-			if err := p.WriteString(s); err != nil {
-				return err
-			}
-		} else if thrift.Type(et) == thrift.STRUCT {
-			startPos := thriftProto.Read
-			if err := thriftProto.SkipType(thrift.STRUCT); err != nil {
-				return err
-			}
-			endPos := thriftProto.Read
-			structData := thriftProto.Buf[startPos:endPos]
-			entryP.Reset()
-			tempNode := &tgeneric.PathNode{Node: tgeneric.NewNode(thrift.STRUCT, structData)}
-			if err := c.convertThriftStructToProto(tempNode, entryP); err != nil {
-				return err
-			}
-			if err := p.WriteBytes(entryP.Buf); err != nil {
-				return err
-			}
-		} else {
-			if err := c.convertThriftValueToProto(thrift.Type(et), thriftProto, p); err != nil {
-				return err
-			}
-		}
-	}
-	if err := thriftProto.ReadListEnd(); err != nil {
-		return err
-	}
-	return nil
+    pack := c.isPackableThriftType(thrift.Type(et))
+    if pack {
+        if err := p.AppendTag(fieldID, proto.BytesType); err != nil {
+            return err
+        }
+        var pos int
+        p.Buf, pos = binary.AppendSpeculativeLength(p.Buf)
+        for i := 0; i < size; i++ {
+            if err := c.convertThriftValueToProto(thrift.Type(et), thriftProto, p); err != nil {
+                return err
+            }
+        }
+        p.Buf = binary.FinishSpeculativeLength(p.Buf, pos)
+    } else {
+        for i := 0; i < size; i++ {
+            wireType := c.getThriftWireType(et)
+            if err := p.AppendTag(fieldID, wireType); err != nil {
+                return err
+            }
+            if thrift.Type(et) == thrift.STRING {
+                s, err := thriftProto.ReadString(false)
+                if err != nil {
+                    return err
+                }
+                if err := p.WriteString(s); err != nil {
+                    return err
+                }
+            } else if thrift.Type(et) == thrift.STRUCT {
+                startPos := thriftProto.Read
+                if err := thriftProto.SkipType(thrift.STRUCT); err != nil {
+                    return err
+                }
+                endPos := thriftProto.Read
+                structData := thriftProto.Buf[startPos:endPos]
+                entryP.Reset()
+                tempNode := &tgeneric.PathNode{Node: tgeneric.NewNode(thrift.STRUCT, structData)}
+                if err := c.convertThriftStructToProto(tempNode, entryP); err != nil {
+                    return err
+                }
+                if err := p.WriteBytes(entryP.Buf); err != nil {
+                    return err
+                }
+            } else {
+                if err := c.convertThriftValueToProto(thrift.Type(et), thriftProto, p); err != nil {
+                    return err
+                }
+            }
+        }
+    }
+    if err := thriftProto.ReadListEnd(); err != nil {
+        return err
+    }
+    return nil
 }
 
 // convertThriftMapToProtoWithField writes a thrift map as repeated map entry messages

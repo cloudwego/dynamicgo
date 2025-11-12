@@ -139,7 +139,7 @@ func (p *BinaryProtocol) AppendTag(num proto.FieldNumber, typ proto.WireType) er
 	if num > proto.MaxValidNumber || num < proto.MinValidNumber {
 		return errInvalidFieldNumber
 	}
-	p.Buf = protowire.BinaryEncoder{}.EncodeUint64(p.Buf, tag)
+	p.Buf = protowire.ENCODER.EncodeUint64(p.Buf, tag)
 	return nil
 }
 
@@ -232,73 +232,73 @@ func (p *BinaryProtocol) WriteBool(value bool) error {
 
 // WriteInt32
 func (p *BinaryProtocol) WriteInt32(value int32) error {
-	p.Buf = protowire.BinaryEncoder{}.EncodeInt32(p.Buf, value)
+	p.Buf = protowire.ENCODER.EncodeInt32(p.Buf, value)
 	return nil
 }
 
 // WriteSint32
 func (p *BinaryProtocol) WriteSint32(value int32) error {
-	p.Buf = protowire.BinaryEncoder{}.EncodeSint32(p.Buf, value)
+	p.Buf = protowire.ENCODER.EncodeSint32(p.Buf, value)
 	return nil
 }
 
 // WriteUint32
 func (p *BinaryProtocol) WriteUint32(value uint32) error {
-	p.Buf = protowire.BinaryEncoder{}.EncodeUint32(p.Buf, value)
+	p.Buf = protowire.ENCODER.EncodeUint32(p.Buf, value)
 	return nil
 }
 
 // Writefixed32
 func (p *BinaryProtocol) WriteFixed32(value uint32) error {
-	p.Buf = protowire.BinaryEncoder{}.EncodeFixed32(p.Buf, value)
+	p.Buf = protowire.ENCODER.EncodeFixed32(p.Buf, value)
 	return nil
 }
 
 // WriteSfixed32
 func (p *BinaryProtocol) WriteSfixed32(value int32) error {
-	p.Buf = protowire.BinaryEncoder{}.EncodeSfixed32(p.Buf, value)
+	p.Buf = protowire.ENCODER.EncodeSfixed32(p.Buf, value)
 	return nil
 }
 
 // WriteInt64
 func (p *BinaryProtocol) WriteInt64(value int64) error {
-	p.Buf = protowire.BinaryEncoder{}.EncodeInt64(p.Buf, value)
+	p.Buf = protowire.ENCODER.EncodeInt64(p.Buf, value)
 	return nil
 }
 
 // WriteSint64
 func (p *BinaryProtocol) WriteSint64(value int64) error {
-	p.Buf = protowire.BinaryEncoder{}.EncodeSint64(p.Buf, value)
+	p.Buf = protowire.ENCODER.EncodeSint64(p.Buf, value)
 	return nil
 }
 
 // WriteUint64
 func (p *BinaryProtocol) WriteUint64(value uint64) error {
-	p.Buf = protowire.BinaryEncoder{}.EncodeUint64(p.Buf, value)
+	p.Buf = protowire.ENCODER.EncodeUint64(p.Buf, value)
 	return nil
 }
 
 // Writefixed64
 func (p *BinaryProtocol) WriteFixed64(value uint64) error {
-	p.Buf = protowire.BinaryEncoder{}.EncodeFixed64(p.Buf, value)
+	p.Buf = protowire.ENCODER.EncodeFixed64(p.Buf, value)
 	return nil
 }
 
 // WriteSfixed64
 func (p *BinaryProtocol) WriteSfixed64(value int64) error {
-	p.Buf = protowire.BinaryEncoder{}.EncodeSfixed64(p.Buf, value)
+	p.Buf = protowire.ENCODER.EncodeSfixed64(p.Buf, value)
 	return nil
 }
 
 // WriteFloat
 func (p *BinaryProtocol) WriteFloat(value float32) error {
-	p.Buf = protowire.BinaryEncoder{}.EncodeFloat32(p.Buf, value)
+	p.Buf = protowire.ENCODER.EncodeFloat32(p.Buf, value)
 	return nil
 }
 
 // WriteDouble
 func (p *BinaryProtocol) WriteDouble(value float64) error {
-	p.Buf = protowire.BinaryEncoder{}.EncodeDouble(p.Buf, value)
+	p.Buf = protowire.ENCODER.EncodeDouble(p.Buf, value)
 	return nil
 }
 
@@ -307,19 +307,19 @@ func (p *BinaryProtocol) WriteString(value string) error {
 	if !utf8.ValidString(value) {
 		return meta.NewError(meta.ErrInvalidParam, value, nil)
 	}
-	p.Buf = protowire.BinaryEncoder{}.EncodeString(p.Buf, value)
+	p.Buf = protowire.ENCODER.EncodeString(p.Buf, value)
 	return nil
 }
 
 // WriteBytes
 func (p *BinaryProtocol) WriteBytes(value []byte) error {
-	p.Buf = protowire.BinaryEncoder{}.EncodeBytes(p.Buf, value)
+	p.Buf = protowire.ENCODER.EncodeBytes(p.Buf, value)
 	return nil
 }
 
 // WriteEnum
 func (p *BinaryProtocol) WriteEnum(value proto.EnumNumber) error {
-	p.Buf = protowire.BinaryEncoder{}.EncodeInt64(p.Buf, int64(value))
+	p.Buf = protowire.ENCODER.EncodeInt64(p.Buf, int64(value))
 	return nil
 }
 
