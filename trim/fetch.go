@@ -32,6 +32,8 @@ func FetchAny(desc *Descriptor, any interface{}, opts ...FetchOptions) (interfac
 		return nil, nil
 	}
 
+	desc.Normalize()
+
 	var opt FetchOptions
 	if len(opts) > 0 {
 		opt = opts[0]
@@ -44,7 +46,7 @@ func FetchAny(desc *Descriptor, any interface{}, opts ...FetchOptions) (interfac
 // ErrNotFound is returned when a field/index/key is not found and DisallowNotFound is enabled
 type ErrNotFound struct {
 	Parent *Descriptor
-	Field  *Field // the field that is not found
+	Field  Field  // the field that is not found
 	Msg    string // additional message
 }
 
@@ -128,9 +130,6 @@ func fetchValue(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interface
 	case TypeKind_Struct:
 		return fetchStruct(desc, v, opt)
 
-	case TypeKind_List:
-		return fetchList(desc, v, opt)
-
 	case TypeKind_StrMap:
 		return fetchStrMap(desc, v, opt)
 
@@ -175,7 +174,7 @@ func fetchStruct(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interfac
 			fieldValue := v.Field(fieldIdx)
 			if fieldValue.Kind() == reflect.Ptr && fieldValue.IsNil() {
 				if opt.DisallowNotFound {
-					return nil, ErrNotFound{Parent: desc, Field: field, Msg: fmt.Sprintf("field ID=%d is nil", field.ID)}
+					return nil, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d is nil", field.ID)}
 				}
 				continue
 			}
@@ -198,10 +197,10 @@ func fetchStruct(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interfac
 				// (e.g., map[FieldID]interface{} -> map[string]interface{} for nested structs)
 				result[field.Name] = fetchUnknownValue(val, field.Desc)
 			} else if opt.DisallowNotFound {
-				return nil, ErrNotFound{Parent: desc, Field: field, Msg: fmt.Sprintf("field ID=%d not found in struct or unknownFields", field.ID)}
+				return nil, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d not found in struct or unknownFields", field.ID)}
 			}
 		} else if opt.DisallowNotFound {
-			return nil, ErrNotFound{Parent: desc, Field: field, Msg: fmt.Sprintf("field ID=%d not found in struct", field.ID)}
+			return nil, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d not found in struct", field.ID)}
 		}
 	}
 	return result, nil
@@ -255,10 +254,7 @@ func fetchUnknownValue(val interface{}, desc *Descriptor) interface{} {
 		}
 
 		// Build a map from field ID to Field for quick lookup
-		idToField := make(map[int]*Field, len(desc.Children))
-		for i := range desc.Children {
-			idToField[desc.Children[i].ID] = &desc.Children[i]
-		}
+		idToField := desc.ids
 
 		// Convert map[FieldID]interface{} to map[string]interface{}
 		result := make(map[string]interface{}, len(fieldIDMap))
@@ -271,37 +267,6 @@ func fetchUnknownValue(val interface{}, desc *Descriptor) interface{} {
 		}
 		return result
 
-	case TypeKind_List:
-		// ReadAny returns []interface{} for LIST type
-		listVal, ok := val.([]interface{})
-		if !ok {
-			return val
-		}
-
-		// Find wildcard or indexed descriptors
-		var wildcardDesc *Descriptor
-		indexDescMap := make(map[int]*Descriptor, len(desc.Children))
-		for i := range desc.Children {
-			child := &desc.Children[i]
-			if child.Name == "*" {
-				wildcardDesc = child.Desc
-			} else {
-				indexDescMap[child.ID] = child.Desc
-			}
-		}
-
-		result := make([]interface{}, len(listVal))
-		for i, elem := range listVal {
-			if childDesc, ok := indexDescMap[i]; ok {
-				result[i] = fetchUnknownValue(elem, childDesc)
-			} else if wildcardDesc != nil {
-				result[i] = fetchUnknownValue(elem, wildcardDesc)
-			} else {
-				result[i] = elem
-			}
-		}
-		return result
-
 	case TypeKind_StrMap:
 		// ReadAny returns map[string]interface{} for string-keyed MAP type
 		strMap, ok := val.(map[string]interface{})
@@ -310,23 +275,14 @@ func fetchUnknownValue(val interface{}, desc *Descriptor) interface{} {
 		}
 
 		// Find wildcard or keyed descriptors
-		var wildcardDesc *Descriptor
-		keyDescMap := make(map[string]*Descriptor, len(desc.Children))
-		for i := range desc.Children {
-			child := &desc.Children[i]
-			if child.Name == "*" {
-				wildcardDesc = child.Desc
-			} else {
-				keyDescMap[child.Name] = child.Desc
-			}
-		}
+		keyDescMap := desc.names
 
 		result := make(map[string]interface{}, len(strMap))
 		for key, elem := range strMap {
 			if childDesc, ok := keyDescMap[key]; ok {
-				result[key] = fetchUnknownValue(elem, childDesc)
-			} else if wildcardDesc != nil {
-				result[key] = fetchUnknownValue(elem, wildcardDesc)
+				result[key] = fetchUnknownValue(elem, childDesc.Desc)
+			} else if len(desc.Children) == 1 && desc.Children[0].Name == "*" {
+				result[key] = fetchUnknownValue(elem, desc.Children[0].Desc)
 			} else {
 				result[key] = elem
 			}
@@ -338,91 +294,6 @@ func fetchUnknownValue(val interface{}, desc *Descriptor) interface{} {
 	}
 }
 
-// fetchList handles TypeKind_List
-func fetchList(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interface{}, error) {
-	kind := v.Kind()
-	if kind != reflect.Slice && kind != reflect.Array {
-		return nil, nil
-	}
-
-	childrenLen := len(desc.Children)
-	vLen := v.Len()
-
-	// Fast path: only wildcard descriptor
-	if childrenLen == 1 && desc.Children[0].Name == "*" {
-		wildcardDesc := desc.Children[0].Desc
-		result := make([]interface{}, 0, vLen)
-		for i := 0; i < vLen; i++ {
-			elem := v.Index(i)
-			if elem.Kind() == reflect.Ptr && elem.IsNil() {
-				result = append(result, nil)
-				continue
-			}
-			if wildcardDesc != nil {
-				fetched, err := fetchValue(wildcardDesc, elem, opt)
-				if err != nil {
-					return nil, err
-				}
-				result = append(result, fetched)
-			} else {
-				result = append(result, elem.Interface())
-			}
-		}
-		return result, nil
-	}
-
-	// Build a map of index -> descriptor for quick lookup
-	indexDescMap := make(map[int]*Field, childrenLen)
-	var wildcardDesc *Field
-	for i := range desc.Children {
-		child := &desc.Children[i]
-		if child.Name == "*" {
-			wildcardDesc = child
-		} else {
-			// Field.ID represents the slice index
-			indexDescMap[child.ID] = child
-		}
-	}
-
-	// Check if specific indices are requested but not available
-	if opt.DisallowNotFound {
-		for idx := range indexDescMap {
-			if idx >= vLen {
-				return nil, ErrNotFound{Parent: desc, Field: indexDescMap[idx], Msg: fmt.Sprintf("index %d out of range (len=%d)", idx, vLen)}
-			}
-		}
-	}
-
-	result := make([]interface{}, 0, vLen)
-	for i := 0; i < vLen; i++ {
-		elem := v.Index(i)
-		if elem.Kind() == reflect.Ptr && elem.IsNil() {
-			result = append(result, nil)
-			continue
-		}
-
-		// First try to find descriptor by index (Field.ID)
-		var childDesc *Descriptor
-		if field, ok := indexDescMap[i]; ok && field.Desc != nil {
-			childDesc = field.Desc
-		} else if wildcardDesc != nil && wildcardDesc.Desc != nil {
-			// Fallback to wildcard descriptor
-			childDesc = wildcardDesc.Desc
-		}
-
-		if childDesc != nil {
-			fetched, err := fetchValue(childDesc, elem, opt)
-			if err != nil {
-				return nil, err
-			}
-			result = append(result, fetched)
-		} else {
-			result = append(result, elem.Interface())
-		}
-	}
-	return result, nil
-}
-
 // fetchStrMap handles TypeKind_StrMap
 func fetchStrMap(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interface{}, error) {
 	if v.Kind() != reflect.Map || v.Type().Key().Kind() != reflect.String {
@@ -430,12 +301,11 @@ func fetchStrMap(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interfac
 	}
 
 	childrenLen := len(desc.Children)
-	mapLen := v.Len()
 
 	// Fast path: only wildcard descriptor
 	if childrenLen == 1 && desc.Children[0].Name == "*" {
 		wildcardDesc := desc.Children[0].Desc
-		result := make(map[string]interface{}, mapLen)
+		result := make(map[string]interface{}, v.Len())
 		iter := v.MapRange()
 		for iter.Next() {
 			keyStr := iter.Key().String()
@@ -458,55 +328,33 @@ func fetchStrMap(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interfac
 		return result, nil
 	}
 
-	// Build a map of key -> descriptor for quick lookup
-	keyDescMap := make(map[string]*Field, childrenLen)
-	var wildcardDesc *Field
-	for i := range desc.Children {
-		child := &desc.Children[i]
-		if child.Name == "*" {
-			wildcardDesc = child
-		} else {
-			keyDescMap[child.Name] = child
-		}
-	}
-
-	// Check if specific keys are requested but not available in the map
-	if opt.DisallowNotFound && wildcardDesc == nil {
-		for key := range keyDescMap {
-			if !v.MapIndex(reflect.ValueOf(key)).IsValid() {
+	// range over children
+	keyDescMap := desc.names
+	result := make(map[string]interface{}, childrenLen)
+	for key, child := range keyDescMap {
+		val := v.MapIndex(reflect.ValueOf(key))
+		// Check if specific keys are requested but not available in the map
+		if !val.IsValid() {
+			if opt.DisallowNotFound {
 				return nil, ErrNotFound{Parent: desc, Field: keyDescMap[key], Msg: fmt.Sprintf("key '%s' not found in map", key)}
+			} else {
+				continue
 			}
 		}
-	}
-
-	result := make(map[string]interface{}, mapLen)
-	iter := v.MapRange()
-	for iter.Next() {
-		keyStr := iter.Key().String()
-		elemValue := iter.Value()
-
-		if elemValue.Kind() == reflect.Ptr && elemValue.IsNil() {
-			result[keyStr] = nil
+		if val.Kind() == reflect.Ptr && val.IsNil() {
+			result[key] = nil
 			continue
 		}
-
-		// First try to find descriptor by key, then fallback to wildcard
-		var childDesc *Descriptor
-		if field, ok := keyDescMap[keyStr]; ok && field.Desc != nil {
-			childDesc = field.Desc
-		} else if wildcardDesc != nil && wildcardDesc.Desc != nil {
-			childDesc = wildcardDesc.Desc
-		}
-
-		if childDesc != nil {
-			fetched, err := fetchValue(childDesc, elemValue, opt)
+		if child.Desc != nil {
+			fetched, err := fetchValue(child.Desc, val, opt)
 			if err != nil {
 				return nil, err
 			}
-			result[keyStr] = fetched
+			result[key] = fetched
 		} else {
-			result[keyStr] = elemValue.Interface()
+			result[key] = val.Interface()
 		}
 	}
+
 	return result, nil
 }

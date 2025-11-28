@@ -129,6 +129,8 @@ func AssignAny(desc *Descriptor, src interface{}, dest interface{}, opts ...Assi
 		return nil
 	}
 
+	desc.Normalize()
+
 	var opt AssignOptions
 	for _, o := range opts {
 		o(&opt)
@@ -160,8 +162,6 @@ func assignValue(desc *Descriptor, src interface{}, destValue reflect.Value, opt
 	switch desc.Kind {
 	case TypeKind_Struct:
 		return assignStruct(desc, src, destValue, opt)
-	case TypeKind_List:
-		return assignList(desc, src, destValue, opt)
 	case TypeKind_StrMap:
 		return assignStrMap(desc, src, destValue, opt)
 	default:
@@ -184,15 +184,10 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 	fieldInfo := getPBStructFieldInfo(destValue.Type())
 
 	// Track which fields in srcMap are assigned to struct fields
-	assignedFields := make(map[string]bool, len(srcMap))
-
-	// Build a map from desc field name to field info for quick lookup
-	descFieldMap := make(map[string]*Field, len(desc.Children))
-	for i := range desc.Children {
-		descFieldMap[desc.Children[i].Name] = &desc.Children[i]
-	}
+	unassignedFields := make(map[string]interface{}, len(srcMap))
 
 	// Iterate through srcMap and assign values
+	descFieldMap := desc.names
 	for key, value := range srcMap {
 		if value == nil {
 			continue
@@ -204,7 +199,6 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 		// Find struct field by name using cached index map
 		fieldIdx, found := fieldInfo.nameToFieldIndex[key]
 		if found {
-			assignedFields[key] = true
 			fieldValue := destValue.Field(fieldIdx)
 
 			// Make sure field is settable
@@ -226,32 +220,23 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 		} else if hasDescField {
 			// Field exists in descriptor but not in struct - encode to XXX_unrecognized
 			// This will be handled below
+			unassignedFields[key] = value
 		} else if opt.DisallowNotDefined {
-			return ErrNotFound{Parent: desc, Field: &Field{Name: key}, Msg: fmt.Sprintf("field '%s' not found in struct", key)}
+			return ErrNotFound{Parent: desc, Field: Field{Name: key}, Msg: fmt.Sprintf("field '%s' not found in struct", key)}
 		}
 	}
 
 	// Encode unassigned fields (from descriptor) to XXX_unrecognized
-	if fieldInfo.unrecognizedIndex >= 0 {
+	if len(unassignedFields) > 0 && fieldInfo.unrecognizedIndex >= 0 {
 		unrecognizedValue := destValue.Field(fieldInfo.unrecognizedIndex)
 		if unrecognizedValue.CanSet() {
 			bp := binary.NewBinaryProtocolBuffer()
 			defer binary.FreeBinaryProtocol(bp)
 
-			for _, descField := range desc.Children {
-				// Skip if already assigned to struct field
-				if assignedFields[descField.Name] {
-					continue
-				}
-
-				value, exists := srcMap[descField.Name]
-				if !exists || value == nil {
-					continue
-				}
-
+			for key, val := range unassignedFields {
 				// Encode this field to XXX_unrecognized
-				if err := encodeUnknownField(bp, descField.ID, value); err != nil {
-					return fmt.Errorf("failed to encode unknown field '%s': %w", descField.Name, err)
+				if err := encodeUnknownField(bp, descFieldMap[key].ID, val); err != nil {
+					return fmt.Errorf("failed to encode unknown field '%s': %w", key, err)
 				}
 			}
 
@@ -281,71 +266,6 @@ func assignValueToField(desc *Descriptor, src interface{}, fieldValue reflect.Va
 	return assignValue(desc, src, fieldValue, opt)
 }
 
-// assignList handles TypeKind_List assignment
-func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions) error {
-	srcSlice, ok := src.([]interface{})
-	if !ok {
-		// Try to handle typed slices
-		srcValue := reflect.ValueOf(src)
-		if srcValue.Kind() != reflect.Slice && srcValue.Kind() != reflect.Array {
-			return fmt.Errorf("expected slice for list, got %T", src)
-		}
-		// Convert to []interface{}
-		srcSlice = make([]interface{}, srcValue.Len())
-		for i := 0; i < srcValue.Len(); i++ {
-			srcSlice[i] = srcValue.Index(i).Interface()
-		}
-	}
-
-	if destValue.Kind() != reflect.Slice {
-		return fmt.Errorf("expected slice destination, got %v", destValue.Kind())
-	}
-
-	// Find wildcard or indexed descriptors
-	var wildcardDesc *Descriptor
-	indexDescMap := make(map[int]*Descriptor, len(desc.Children))
-	for i := range desc.Children {
-		child := &desc.Children[i]
-		if child.Name == "*" {
-			wildcardDesc = child.Desc
-		} else {
-			indexDescMap[child.ID] = child.Desc
-		}
-	}
-
-	// Create a new slice with the same length as src
-	newSlice := reflect.MakeSlice(destValue.Type(), len(srcSlice), len(srcSlice))
-
-	for i, elem := range srcSlice {
-		if elem == nil {
-			continue
-		}
-
-		elemValue := newSlice.Index(i)
-
-		// Find the appropriate descriptor
-		var childDesc *Descriptor
-		if d, ok := indexDescMap[i]; ok {
-			childDesc = d
-		} else {
-			childDesc = wildcardDesc
-		}
-
-		if childDesc != nil {
-			if err := assignValueToField(childDesc, elem, elemValue, opt); err != nil {
-				return err
-			}
-		} else {
-			if err := assignScalar(elem, elemValue); err != nil {
-				return err
-			}
-		}
-	}
-
-	destValue.Set(newSlice)
-	return nil
-}
-
 // assignStrMap handles TypeKind_StrMap assignment
 func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions) error {
 	srcMap, ok := src.(map[string]interface{})
@@ -359,15 +279,10 @@ func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, op
 
 	// Find wildcard or keyed descriptors
 	var wildcardDesc *Descriptor
-	keyDescMap := make(map[string]*Descriptor, len(desc.Children))
-	for i := range desc.Children {
-		child := &desc.Children[i]
-		if child.Name == "*" {
-			wildcardDesc = child.Desc
-		} else {
-			keyDescMap[child.Name] = child.Desc
-		}
+	if len(desc.Children) == 1 && desc.Children[0].Name == "*" {
+		wildcardDesc = desc.Children[0].Desc
 	}
+	keyDescMap := desc.names
 
 	// Create a new map if nil
 	if destValue.IsNil() {
@@ -385,15 +300,12 @@ func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, op
 		elemValue := reflect.New(elemType).Elem()
 
 		// Find the appropriate descriptor
-		var childDesc *Descriptor
-		if d, ok := keyDescMap[key]; ok {
-			childDesc = d
-		} else {
-			childDesc = wildcardDesc
-		}
-
-		if childDesc != nil {
-			if err := assignValueToField(childDesc, value, elemValue, opt); err != nil {
+		if wildcardDesc != nil {
+			if err := assignValueToField(wildcardDesc, value, elemValue, opt); err != nil {
+				return err
+			}
+		} else if child, ok := keyDescMap[key]; ok && child.Desc != nil {
+			if err := assignValueToField(child.Desc, value, elemValue, opt); err != nil {
 				return err
 			}
 		} else {

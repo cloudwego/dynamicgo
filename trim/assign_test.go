@@ -126,7 +126,7 @@ func TestAssignAny_NestedStruct(t *testing.T) {
 
 func TestAssignAny_List(t *testing.T) {
 	src := map[string]interface{}{
-		"field_list": []interface{}{1, 2, 3},
+		"field_list": []int{1, 2, 3},
 	}
 
 	desc := &Descriptor{
@@ -137,11 +137,8 @@ func TestAssignAny_List(t *testing.T) {
 				Name: "field_list",
 				ID:   6,
 				Desc: &Descriptor{
-					Kind: TypeKind_List,
+					Kind: TypeKind_Scalar,
 					Name: "LIST",
-					Children: []Field{
-						{Name: "*"},
-					},
 				},
 			},
 		},
@@ -282,27 +279,28 @@ func TestAssignAny_UnknownFields(t *testing.T) {
 }
 
 func TestAssignAny_ListOfStructs(t *testing.T) {
+
 	src := map[string]interface{}{
-		"field_b": []interface{}{
-			map[string]interface{}{
-				"field_a": 1,
-				"field_e": "first",
+		"field_b": []*SampleAssign{
+			{
+				FieldA: intPtr(1),
+				FieldE: "first",
 			},
-			map[string]interface{}{
-				"field_a": 2,
-				"field_e": "second",
+			{
+				FieldA: intPtr(2),
+				FieldE: "second",
 			},
 		},
 	}
 
-	nestedDesc := &Descriptor{
-		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
-		Children: []Field{
-			{Name: "field_a", ID: 1},
-			{Name: "field_e", ID: 5},
-		},
-	}
+	// nestedDesc := &Descriptor{
+	// 	Kind: TypeKind_Struct,
+	// 	Name: "SampleAssign",
+	// 	Children: []Field{
+	// 		{Name: "field_a", ID: 1},
+	// 		{Name: "field_e", ID: 5},
+	// 	},
+	// }
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
@@ -312,11 +310,8 @@ func TestAssignAny_ListOfStructs(t *testing.T) {
 				Name: "field_b",
 				ID:   2,
 				Desc: &Descriptor{
-					Kind: TypeKind_List,
+					Kind: TypeKind_Scalar,
 					Name: "LIST",
-					Children: []Field{
-						{Name: "*", Desc: nestedDesc},
-					},
 				},
 			},
 		},
@@ -474,9 +469,8 @@ func BenchmarkAssignAny(b *testing.B) {
 				Name: "field_list",
 				ID:   6,
 				Desc: &Descriptor{
-					Kind:     TypeKind_List,
-					Name:     "LIST",
-					Children: []Field{{Name: "*"}},
+					Kind: TypeKind_Scalar,
+					Name: "LIST",
 				},
 			},
 			{

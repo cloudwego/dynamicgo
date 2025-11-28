@@ -25,25 +25,25 @@ import (
 	"github.com/cloudwego/thriftgo/generator/golang/extension/unknown"
 )
 
-type SampleFetch struct {
+type sampleFetch struct {
 	FieldA         int                     `thrift:"FieldA,1"`
-	FieldB         []*SampleFetch          `thrift:"FieldB,2"`
-	FieldC         map[string]*SampleFetch `thrift:"FieldC,3"`
-	FieldD         *SampleFetch            `thrift:"FieldD,4"`
+	FieldB         []*sampleFetch          `thrift:"FieldB,2"`
+	FieldC         map[string]*sampleFetch `thrift:"FieldC,3"`
+	FieldD         *sampleFetch            `thrift:"FieldD,4"`
 	FieldE         string                  `thrift:"FieldE,5"`
 	FieldList      []int                   `thrift:"FieldList,6"`
 	FieldMap       map[string]int          `thrift:"FieldMap,7"`
 	_unknownFields unknown.Fields
 }
 
-func makeSampleFetch(width int, depth int) *SampleFetch {
+func makeSampleFetch(width int, depth int) *sampleFetch {
 	if depth <= 0 {
 		return nil
 	}
-	ret := &SampleFetch{
+	ret := &sampleFetch{
 		FieldA:    1,
 		FieldE:    "1",
-		FieldC:    make(map[string]*SampleFetch),
+		FieldC:    make(map[string]*sampleFetch),
 		FieldList: []int{1, 2, 3},
 		FieldMap: map[string]int{
 			"1": 1,
@@ -98,16 +98,6 @@ func makeDesc(width int, depth int) *Descriptor {
 	}
 
 	nd := makeDesc(width, depth-1)
-	desc.Children[1].Desc = &Descriptor{
-		Kind: TypeKind_List,
-		Name: "LIST",
-		Children: []Field{
-			{
-				Name: "*",
-				Desc: nd,
-			},
-		},
-	}
 	desc.Children[2].Desc = &Descriptor{
 		Kind: TypeKind_StrMap,
 		Name: "MAP",
@@ -131,7 +121,7 @@ func makeSampleAny(width int, depth int) interface{} {
 	}
 	ret := map[string]interface{}{
 		"field_a":    int(1),
-		"field_b":    []interface{}{},
+		"field_b":    []*sampleFetch{},
 		"field_c":    map[string]interface{}{},
 		"field_list": []int{1, 2, 3},
 		"field_map": map[string]int{
@@ -141,7 +131,7 @@ func makeSampleAny(width int, depth int) interface{} {
 		},
 	}
 	for i := 0; i < width; i++ {
-		ret["field_b"] = append(ret["field_b"].([]interface{}), makeSampleAny(width, depth-1))
+		ret["field_b"] = append(ret["field_b"].([]*sampleFetch), makeSampleFetch(width, depth-1))
 		ret["field_c"].(map[string]interface{})[fmt.Sprintf("%d", i)] = makeSampleAny(width, depth-1)
 	}
 	// Only include field_d if it's not nil (depth > 1 means child will not be nil)
@@ -211,9 +201,9 @@ func BenchmarkFetchAny_CacheHit(b *testing.B) {
 	}
 }
 
-// SampleWithUnknown is a struct that has a subset of fields compared to SampleFetch
+// sampleWithUnknown is a struct that has a subset of fields compared to SampleFetch
 // It simulates a scenario where some fields are stored in _unknownFields
-type SampleWithUnknown struct {
+type sampleWithUnknown struct {
 	FieldA int `thrift:"FieldA,1"`
 	// FieldB, FieldC, FieldD, FieldE are not declared here, they will be in _unknownFields
 	_unknownFields unknown.Fields
@@ -221,7 +211,7 @@ type SampleWithUnknown struct {
 
 func TestFetchAnyWithUnknownFields(t *testing.T) {
 	// Create a struct with some fields in _unknownFields
-	obj := &SampleWithUnknown{
+	obj := &sampleWithUnknown{
 		FieldA: 42,
 	}
 
@@ -323,7 +313,7 @@ func TestFetchAnyWithUnknownFields(t *testing.T) {
 
 func TestFetchAnyWithEmptyUnknownFields(t *testing.T) {
 	// Create a struct with empty _unknownFields
-	obj := &SampleWithUnknown{
+	obj := &sampleWithUnknown{
 		FieldA: 42,
 	}
 
@@ -359,7 +349,7 @@ func TestFetchAnyWithEmptyUnknownFields(t *testing.T) {
 
 func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 	t.Run("struct field not found", func(t *testing.T) {
-		obj := &SampleWithUnknown{FieldA: 42}
+		obj := &sampleWithUnknown{FieldA: 42}
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
@@ -430,49 +420,6 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 		}
 	})
 
-	t.Run("list index out of range", func(t *testing.T) {
-		obj := &struct {
-			Items []int `thrift:"Items,1"`
-		}{
-			Items: []int{10, 20}, // length is 2
-		}
-
-		desc := &Descriptor{
-			Kind: TypeKind_Struct,
-			Name: "Test",
-			Children: []Field{
-				{
-					Name: "items",
-					ID:   1,
-					Desc: &Descriptor{
-						Kind: TypeKind_List,
-						Name: "LIST",
-						Children: []Field{
-							{Name: "0", ID: 0}, // exists
-							{Name: "5", ID: 5}, // out of range
-						},
-					},
-				},
-			},
-		}
-
-		_, err := FetchAny(desc, obj, FetchOptions{DisallowNotFound: true})
-		if err == nil {
-			t.Fatalf("expected ErrNotFound, got nil")
-		}
-
-		notFoundErr, ok := err.(ErrNotFound)
-		if !ok {
-			t.Fatalf("expected ErrNotFound, got %T: %v", err, err)
-		}
-		if notFoundErr.Parent.Name != "LIST" {
-			t.Errorf("expected parent name 'LIST', got '%s'", notFoundErr.Parent.Name)
-		}
-		if notFoundErr.Field.Name != "5" {
-			t.Errorf("expected field name '5', got '%s'", notFoundErr.Field.Name)
-		}
-	})
-
 	t.Run("nested struct field not found", func(t *testing.T) {
 		obj := &struct {
 			Inner *struct {
@@ -521,7 +468,7 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 	})
 
 	t.Run("no error when all fields found", func(t *testing.T) {
-		obj := &SampleWithUnknown{FieldA: 42}
+		obj := &sampleWithUnknown{FieldA: 42}
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
@@ -553,7 +500,7 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 	t.Run("nested struct without descriptor (no further fetch)", func(t *testing.T) {
 		// Create a struct with a nested struct in _unknownFields
-		obj := &SampleWithUnknown{
+		obj := &sampleWithUnknown{
 			FieldA: 42,
 		}
 
@@ -617,7 +564,7 @@ func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 
 	t.Run("nested struct with descriptor (with further fetch)", func(t *testing.T) {
 		// Create a struct with a nested struct in _unknownFields
-		obj := &SampleWithUnknown{
+		obj := &sampleWithUnknown{
 			FieldA: 42,
 		}
 
@@ -704,7 +651,7 @@ func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 
 	t.Run("deeply nested struct with descriptor", func(t *testing.T) {
 		// Create a struct with a deeply nested struct in _unknownFields
-		obj := &SampleWithUnknown{
+		obj := &sampleWithUnknown{
 			FieldA: 42,
 		}
 
@@ -796,110 +743,9 @@ func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 		}
 	})
 
-	t.Run("struct in list in unknownFields", func(t *testing.T) {
-		// Create a struct with a list of structs in _unknownFields
-		obj := &SampleWithUnknown{
-			FieldA: 42,
-		}
-
-		// Encode a list<struct> into _unknownFields (id=10)
-		p := thrift.BinaryProtocol{}
-		p.WriteFieldBegin("", thrift.LIST, 10)
-		p.WriteListBegin(thrift.STRUCT, 2)
-		// First struct
-		p.WriteFieldBegin("", thrift.STRING, 1)
-		p.WriteString("item1")
-		p.WriteFieldBegin("", thrift.I32, 2)
-		p.WriteI32(100)
-		p.WriteFieldStop()
-		// Second struct
-		p.WriteFieldBegin("", thrift.STRING, 1)
-		p.WriteString("item2")
-		p.WriteFieldBegin("", thrift.I32, 2)
-		p.WriteI32(200)
-		p.WriteFieldStop()
-		p.WriteListEnd()
-
-		obj._unknownFields = p.Buf
-
-		// Create a descriptor with list containing struct descriptor
-		desc := &Descriptor{
-			Kind: TypeKind_Struct,
-			Name: "SampleWithUnknown",
-			Children: []Field{
-				{Name: "field_a", ID: 1},
-				{
-					Name: "items",
-					ID:   10,
-					Desc: &Descriptor{
-						Kind: TypeKind_List,
-						Name: "ItemList",
-						Children: []Field{
-							{
-								Name: "*",
-								Desc: &Descriptor{
-									Kind: TypeKind_Struct,
-									Name: "Item",
-									Children: []Field{
-										{Name: "name", ID: 1},
-										{Name: "value", ID: 2},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-
-		ret, err := FetchAny(desc, obj)
-		if err != nil {
-			t.Fatalf("FetchAny failed: %v", err)
-		}
-
-		result, ok := ret.(map[string]interface{})
-		if !ok {
-			t.Fatalf("expected map[string]interface{}, got %T", ret)
-		}
-
-		// Check items list
-		items, ok := result["items"].([]interface{})
-		if !ok {
-			t.Fatalf("items: expected []interface{}, got %T", result["items"])
-		}
-
-		if len(items) != 2 {
-			t.Fatalf("items: expected 2 elements, got %d", len(items))
-		}
-
-		// Check first item
-		item1, ok := items[0].(map[string]interface{})
-		if !ok {
-			t.Fatalf("items[0]: expected map[string]interface{}, got %T", items[0])
-		}
-		if item1["name"] != "item1" {
-			t.Errorf("items[0]['name']: expected 'item1', got %v", item1["name"])
-		}
-		if item1["value"] != int32(100) {
-			t.Errorf("items[0]['value']: expected 100, got %v", item1["value"])
-		}
-
-		// Check second item
-		item2, ok := items[1].(map[string]interface{})
-		if !ok {
-			t.Fatalf("items[1]: expected map[string]interface{}, got %T", items[1])
-		}
-		if item2["name"] != "item2" {
-			t.Errorf("items[1]['name']: expected 'item2', got %v", item2["name"])
-		}
-		if item2["value"] != int32(200) {
-			t.Errorf("items[1]['value']: expected 200, got %v", item2["value"])
-		}
-	})
-
 	t.Run("struct in map in unknownFields", func(t *testing.T) {
 		// Create a struct with a map<string, struct> in _unknownFields
-		obj := &SampleWithUnknown{
+		obj := &sampleWithUnknown{
 			FieldA: 42,
 		}
 

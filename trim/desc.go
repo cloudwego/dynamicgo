@@ -18,15 +18,17 @@ package trim
 
 import (
 	"strings"
+	"sync"
 )
 
 // TypeKind is the kind of type.
 type TypeKind int
 
 const (
-	TypeKind_Struct TypeKind = iota + 1
+	TypeKind_Scalar TypeKind = iota
+	TypeKind_Struct
 	TypeKind_StrMap
-	TypeKind_List
+	// TypeKind_List
 )
 
 // Descriptor describes the entire a DSL-pruning scheme for a type.
@@ -40,10 +42,14 @@ type Descriptor struct {
 	Name string
 
 	// children for TypeKind_Struct|TypeKind_StrMap|TypeKind_List
-	// - For TypeKind_List, there is either one Field with Name "*" or index as ID
 	// - For TypeKind_StrMap, either each Field is a key-value pair or one field with Name "*"
 	// - For TypeKind_Struct, each Field is a field with both Name and ID
 	Children []Field
+
+	// for speed-up search
+	sync.Once
+	ids   map[int]Field
+	names map[string]Field
 }
 
 // Field represents a mapping selection
@@ -52,11 +58,26 @@ type Field struct {
 	// Or the selection key for TypeKind_StrMap
 	Name string
 
-	// IDL-FieldID or Array-Index
+	// FieldID in IDL
 	ID int
 
 	// the child of the field
 	Desc *Descriptor
+}
+
+// Normalize cache all the fields in the descriptor for speeding up search
+func (d *Descriptor) Normalize() {
+	d.Once.Do(func() {
+		d.ids = make(map[int]Field, len(d.Children))
+		d.names = make(map[string]Field, len(d.Children))
+		for _, f := range d.Children {
+			d.ids[f.ID] = f
+			d.names[f.Name] = f
+			if f.Desc != nil {
+				f.Desc.Normalize()
+			}
+		}
+	})
 }
 
 // String returns the string representation of the descriptor.
