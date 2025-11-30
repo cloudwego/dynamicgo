@@ -292,12 +292,14 @@ func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, op
 	elemType := destValue.Type().Elem()
 
 	for key, value := range srcMap {
-		if value == nil {
-			continue
-		}
-
 		// Create a new element
 		elemValue := reflect.New(elemType).Elem()
+
+		if value == nil {
+			// Set nil value in map (zero value for the element type, e.g., nil pointer)
+			destValue.SetMapIndex(reflect.ValueOf(key), elemValue)
+			continue
+		}
 
 		// Find the appropriate descriptor
 		if wildcardDesc != nil {
@@ -416,6 +418,14 @@ func assignScalar(src interface{}, destValue reflect.Value) error {
 		return assignMapToMap(srcValue, destValue)
 	}
 
+	// Handle map[string]interface{} to struct mapping
+	if srcValue.Kind() == reflect.Map && destValue.Kind() == reflect.Struct {
+		srcMapIface, ok := src.(map[string]interface{})
+		if ok {
+			return assignMapToStruct(srcMapIface, destValue)
+		}
+	}
+
 	// Handle special cases for numeric type conversions
 	switch destValue.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -488,6 +498,42 @@ func assignStructToStruct(srcValue, destValue reflect.Value) error {
 	return nil
 }
 
+// assignMapToStruct assigns a map[string]interface{} to a struct by matching json tags
+func assignMapToStruct(srcMap map[string]interface{}, destValue reflect.Value) error {
+	destType := destValue.Type()
+
+	// Get json field info for dest type
+	destInfo := getJSONStructFieldInfo(destType)
+
+	// Iterate through source map and find matching dest fields by json tag
+	for jsonName, srcVal := range srcMap {
+		destIdx, found := destInfo.jsonNameToFieldIndex[jsonName]
+		if !found {
+			continue
+		}
+
+		destField := destValue.Field(destIdx)
+		if !destField.CanSet() {
+			continue
+		}
+
+		if srcVal == nil {
+			// Set to zero value if source is nil
+			if destField.Kind() == reflect.Ptr || destField.Kind() == reflect.Slice || destField.Kind() == reflect.Map {
+				destField.Set(reflect.Zero(destField.Type()))
+			}
+			continue
+		}
+
+		// Recursively assign the field value
+		if err := assignScalar(srcVal, destField); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // assignScalarValue assigns a reflect.Value to another reflect.Value
 func assignScalarValue(srcValue, destValue reflect.Value) error {
 	// Handle pointer destination
@@ -504,6 +550,16 @@ func assignScalarValue(srcValue, destValue reflect.Value) error {
 			return nil
 		}
 		srcValue = srcValue.Elem()
+	}
+
+	// Handle interface{} source - extract the underlying value
+	if srcValue.Kind() == reflect.Interface {
+		if srcValue.IsNil() {
+			return nil
+		}
+		// Get the underlying value and use assignScalar instead
+		// because the underlying value could be map[string]interface{}
+		return assignScalar(srcValue.Interface(), destValue)
 	}
 
 	// Try direct assignment first
@@ -607,6 +663,16 @@ func assignSliceToSlice(srcValue, destValue reflect.Value) error {
 
 		// Handle pointer element type
 		if destElemType.Kind() == reflect.Ptr {
+			// Check if source element is nil pointer
+			if srcElem.Kind() == reflect.Ptr && srcElem.IsNil() {
+				// Keep destination as nil (zero value for pointer)
+				continue
+			}
+			// Check if source element is interface{} containing nil
+			if srcElem.Kind() == reflect.Interface && srcElem.IsNil() {
+				// Keep destination as nil (zero value for pointer)
+				continue
+			}
 			newElem := reflect.New(destElemType.Elem())
 			if err := assignScalarValue(srcElem, newElem.Elem()); err != nil {
 				return err
@@ -654,6 +720,18 @@ func assignMapToMap(srcValue, destValue reflect.Value) error {
 		// Convert value
 		destVal := reflect.New(destElemType).Elem()
 		if destElemType.Kind() == reflect.Ptr {
+			// Check if source value is nil pointer
+			if srcVal.Kind() == reflect.Ptr && srcVal.IsNil() {
+				// Keep destination as nil (zero value for pointer)
+				newMap.SetMapIndex(destKey, destVal)
+				continue
+			}
+			// Check if source value is interface{} containing nil
+			if srcVal.Kind() == reflect.Interface && srcVal.IsNil() {
+				// Keep destination as nil (zero value for pointer)
+				newMap.SetMapIndex(destKey, destVal)
+				continue
+			}
 			newElem := reflect.New(destElemType.Elem())
 			if err := assignScalarValue(srcVal, newElem.Elem()); err != nil {
 				return err

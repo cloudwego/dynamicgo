@@ -24,25 +24,25 @@ import (
 	"github.com/cloudwego/dynamicgo/proto/binary"
 )
 
-type SampleAssign struct {
-	FieldA           *int                     `protobuf:"varint,1,req,name=field_a" json:"field_a"`
-	FieldB           []*SampleAssign          `protobuf:"bytes,2,opt,name=field_b" json:"field_b"`
-	FieldC           map[string]*SampleAssign `protobuf:"bytes,3,opt,name=field_c" json:"field_c"`
-	FieldD           *SampleAssign            `protobuf:"bytes,4,opt,name=field_d" json:"field_d"`
-	FieldE           string                   `protobuf:"bytes,5,opt,name=field_e" json:"field_e"`
-	FieldList        []int                    `protobuf:"bytes,6,opt,name=field_list" json:"field_list"`
-	FieldMap         map[string]int           `protobuf:"bytes,7,opt,name=field_map" json:"field_map"`
+type sampleAssign struct {
+	FieldA           int                      `protobuf:"varint,1,req,name=field_a" json:"field_a,omitempty"`
+	FieldB           []*sampleAssign          `protobuf:"bytes,2,opt,name=field_b" json:"field_b,omitempty"`
+	FieldC           map[string]*sampleAssign `protobuf:"bytes,3,opt,name=field_c" json:"field_c,omitempty"`
+	FieldD           *sampleAssign            `protobuf:"bytes,4,opt,name=field_d" json:"field_d,omitempty"`
+	FieldE           string                   `protobuf:"bytes,5,opt,name=field_e" json:"field_e,omitempty"`
+	FieldList        []int                    `protobuf:"bytes,6,opt,name=field_list" json:"field_list,omitempty"`
+	FieldMap         map[string]int           `protobuf:"bytes,7,opt,name=field_map" json:"field_map,omitempty"`
 	XXX_unrecognized []byte                   `json:"-"`
 }
 
-func makeSampleAssign(width, depth int) *SampleAssign {
+func makeSampleAssign(width, depth int) *sampleAssign {
 	if width <= 0 || depth <= 0 {
 		return nil
 	}
-	ret := &SampleAssign{
-		FieldA:    intPtr(2),
+	ret := &sampleAssign{
+		FieldA:    2,
 		FieldE:    "2",
-		FieldC:    make(map[string]*SampleAssign),
+		FieldC:    make(map[string]*sampleAssign),
 		FieldList: []int{4, 5, 6},
 		FieldMap: map[string]int{
 			"4": 4,
@@ -58,9 +58,9 @@ func makeSampleAssign(width, depth int) *SampleAssign {
 	return ret
 }
 
-// SampleAssignSmall is a struct with fewer fields than SampleAssign
+// sampleAssignSmall is a struct with fewer fields than SampleAssign
 // Used to test XXX_unrecognized field encoding
-type SampleAssignSmall struct {
+type sampleAssignSmall struct {
 	FieldA           *int   `protobuf:"varint,1,req,name=field_a"`
 	FieldE           string `protobuf:"bytes,5,opt,name=field_e"`
 	XXX_unrecognized []byte `json:"-"`
@@ -85,13 +85,13 @@ func TestAssignAny_Basic(t *testing.T) {
 		},
 	}
 
-	dest := &SampleAssign{}
+	dest := &sampleAssign{}
 	err := AssignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
 
-	if dest.FieldA == nil || *dest.FieldA != 42 {
+	if dest.FieldA != 42 {
 		t.Errorf("field_a: expected 42, got %v", dest.FieldA)
 	}
 	if dest.FieldE != "hello" {
@@ -128,19 +128,19 @@ func TestAssignAny_NestedStruct(t *testing.T) {
 		},
 	}
 
-	dest := &SampleAssign{}
+	dest := &sampleAssign{}
 	err := AssignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
 
-	if dest.FieldA == nil || *dest.FieldA != 1 {
+	if dest.FieldA != 1 {
 		t.Errorf("field_a: expected 1, got %v", dest.FieldA)
 	}
 	if dest.FieldD == nil {
 		t.Fatalf("field_d: expected non-nil")
 	}
-	if dest.FieldD.FieldA == nil || *dest.FieldD.FieldA != 2 {
+	if dest.FieldD.FieldA != 2 {
 		t.Errorf("field_d.field_a: expected 2, got %v", dest.FieldD.FieldA)
 	}
 	if dest.FieldD.FieldE != "nested" {
@@ -168,7 +168,7 @@ func TestAssignAny_List(t *testing.T) {
 		},
 	}
 
-	dest := &SampleAssign{}
+	dest := &sampleAssign{}
 	err := AssignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
@@ -206,7 +206,7 @@ func TestAssignAny_Map(t *testing.T) {
 		},
 	}
 
-	dest := &SampleAssign{}
+	dest := &sampleAssign{}
 	err := AssignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
@@ -236,7 +236,7 @@ func TestAssignAny_UnknownFields(t *testing.T) {
 		},
 	}
 
-	dest := &SampleAssignSmall{}
+	dest := &sampleAssignSmall{}
 	err := AssignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
@@ -305,13 +305,13 @@ func TestAssignAny_UnknownFields(t *testing.T) {
 func TestAssignAny_ListOfStructs(t *testing.T) {
 
 	src := map[string]interface{}{
-		"field_b": []*SampleAssign{
+		"field_b": []*sampleAssign{
 			{
-				FieldA: intPtr(1),
+				FieldA: 2,
 				FieldE: "first",
 			},
 			{
-				FieldA: intPtr(2),
+				FieldA: 2,
 				FieldE: "second",
 			},
 		},
@@ -341,7 +341,7 @@ func TestAssignAny_ListOfStructs(t *testing.T) {
 		},
 	}
 
-	dest := &SampleAssign{}
+	dest := &sampleAssign{}
 	err := AssignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
@@ -351,13 +351,13 @@ func TestAssignAny_ListOfStructs(t *testing.T) {
 		t.Fatalf("field_b: expected length 2, got %d", len(dest.FieldB))
 	}
 
-	if dest.FieldB[0].FieldA == nil || *dest.FieldB[0].FieldA != 1 {
+	if dest.FieldB[0].FieldA != 2 {
 		t.Errorf("field_b[0].field_a: expected 1, got %v", dest.FieldB[0].FieldA)
 	}
 	if dest.FieldB[0].FieldE != "first" {
 		t.Errorf("field_b[0].field_e: expected 'first', got %v", dest.FieldB[0].FieldE)
 	}
-	if dest.FieldB[1].FieldA == nil || *dest.FieldB[1].FieldA != 2 {
+	if dest.FieldB[1].FieldA != 2 {
 		t.Errorf("field_b[1].field_a: expected 2, got %v", dest.FieldB[1].FieldA)
 	}
 	if dest.FieldB[1].FieldE != "second" {
@@ -406,7 +406,7 @@ func TestAssignAny_MapOfStructs(t *testing.T) {
 		},
 	}
 
-	dest := &SampleAssign{}
+	dest := &sampleAssign{}
 	err := AssignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
@@ -419,7 +419,7 @@ func TestAssignAny_MapOfStructs(t *testing.T) {
 	if dest.FieldC["key1"] == nil {
 		t.Fatalf("field_c['key1']: expected non-nil")
 	}
-	if dest.FieldC["key1"].FieldA == nil || *dest.FieldC["key1"].FieldA != 10 {
+	if dest.FieldC["key1"].FieldA != 10 {
 		t.Errorf("field_c['key1'].field_a: expected 10, got %v", dest.FieldC["key1"].FieldA)
 	}
 	if dest.FieldC["key1"].FieldE != "value1" {
@@ -434,7 +434,7 @@ func TestAssignAny_NilValues(t *testing.T) {
 	}
 
 	desc := &Descriptor{Kind: TypeKind_Struct, Name: "Test"}
-	dest := &SampleAssign{}
+	dest := &sampleAssign{}
 
 	err = AssignAny(desc, nil, dest)
 	if err != nil {
@@ -457,7 +457,7 @@ func TestAssignAny_DisallowNotFound(t *testing.T) {
 		},
 	}
 
-	dest := &SampleAssign{}
+	dest := &sampleAssign{}
 	err := AssignAny(desc, src, dest, WithDisallowNotDefined(true))
 	if err == nil {
 		t.Fatalf("expected error for nonexistent field with DisallowNotFound")
@@ -512,7 +512,7 @@ func BenchmarkAssignAny(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		dest := &SampleAssign{}
+		dest := &sampleAssign{}
 		_ = AssignAny(desc, src, dest)
 	}
 }
@@ -541,7 +541,7 @@ func BenchmarkAssignAny_WithUnknownFields(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		dest := &SampleAssignSmall{}
+		dest := &sampleAssignSmall{}
 		_ = AssignAny(desc, src, dest)
 	}
 }

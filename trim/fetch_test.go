@@ -26,14 +26,14 @@ import (
 )
 
 type sampleFetch struct {
-	FieldA         int                     `thrift:"FieldA,1" json:"field_a"`
-	FieldB         []*sampleFetch          `thrift:"FieldB,2" json:"field_b"`
-	FieldC         map[string]*sampleFetch `thrift:"FieldC,3" json:"field_c"`
-	FieldD         *sampleFetch            `thrift:"FieldD,4" json:"field_d"`
-	FieldE         string                  `thrift:"FieldE,5" json:"field_e"`
-	FieldList      []int                   `thrift:"FieldList,6" json:"field_list"`
-	FieldMap       map[string]int          `thrift:"FieldMap,7" json:"field_map"`
-	_unknownFields unknown.Fields
+	FieldA         int                     `thrift:"FieldA,1" json:"field_a,omitempty"`
+	FieldB         []*sampleFetch          `thrift:"FieldB,2" json:"field_b,omitempty"`
+	FieldC         map[string]*sampleFetch `thrift:"FieldC,3" json:"field_c,omitempty"`
+	FieldD         *sampleFetch            `thrift:"FieldD,4" json:"field_d,omitempty"`
+	FieldE         string                  `thrift:"FieldE,5" json:"field_e,omitempty"`
+	FieldList      []int                   `thrift:"FieldList,6" json:"field_list,omitempty"`
+	FieldMap       map[string]int          `thrift:"FieldMap,7" json:"field_map,omitempty"`
+	_unknownFields unknown.Fields          `json:"-"`
 }
 
 func makeSampleFetch(width int, depth int) *sampleFetch {
@@ -61,7 +61,7 @@ func makeSampleFetch(width int, depth int) *sampleFetch {
 
 // makeDesc generates a descriptor for fetching SampleFetch struct.
 // NOTICE: it ignores FieldE.
-func makeDesc(width int, depth int) *Descriptor {
+func makeDesc(width int, depth int, withE bool) *Descriptor {
 	if depth <= 0 {
 		return nil
 	}
@@ -97,7 +97,14 @@ func makeDesc(width int, depth int) *Descriptor {
 		},
 	}
 
-	nd := makeDesc(width, depth-1)
+	if withE {
+		desc.Children = append(desc.Children, Field{
+			Name: "field_e",
+			ID:   5,
+		})
+	}
+
+	nd := makeDesc(width, depth-1, withE)
 	desc.Children[2].Desc = &Descriptor{
 		Kind: TypeKind_StrMap,
 		Name: "MAP",
@@ -146,7 +153,7 @@ func TestFetchAny(t *testing.T) {
 	width := 2
 	depth := 2
 	obj := makeSampleFetch(width, depth)
-	desc := makeDesc(width, depth)
+	desc := makeDesc(width, depth, false)
 	ret, err := FetchAny(desc, obj)
 	if err != nil {
 		t.Fatalf("FetchAny failed: %v", err)
@@ -172,7 +179,7 @@ func BenchmarkFetchAny(b *testing.B) {
 
 	for _, bm := range benchmarks {
 		obj := makeSampleFetch(bm.width, bm.depth)
-		desc := makeDesc(bm.width, bm.depth)
+		desc := makeDesc(bm.width, bm.depth, false)
 
 		b.Run(bm.name, func(b *testing.B) {
 			b.ReportAllocs()
@@ -189,7 +196,7 @@ func BenchmarkFetchAny_CacheHit(b *testing.B) {
 	width := 3
 	depth := 3
 	obj := makeSampleFetch(width, depth)
-	desc := makeDesc(width, depth)
+	desc := makeDesc(width, depth, false)
 
 	// Warm up the cache
 	_, _ = FetchAny(desc, obj)
