@@ -26,13 +26,13 @@ import (
 )
 
 type sampleFetch struct {
-	FieldA         int                     `thrift:"FieldA,1"`
-	FieldB         []*sampleFetch          `thrift:"FieldB,2"`
-	FieldC         map[string]*sampleFetch `thrift:"FieldC,3"`
-	FieldD         *sampleFetch            `thrift:"FieldD,4"`
-	FieldE         string                  `thrift:"FieldE,5"`
-	FieldList      []int                   `thrift:"FieldList,6"`
-	FieldMap       map[string]int          `thrift:"FieldMap,7"`
+	FieldA         int                     `thrift:"FieldA,1" json:"field_a"`
+	FieldB         []*sampleFetch          `thrift:"FieldB,2" json:"field_b"`
+	FieldC         map[string]*sampleFetch `thrift:"FieldC,3" json:"field_c"`
+	FieldD         *sampleFetch            `thrift:"FieldD,4" json:"field_d"`
+	FieldE         string                  `thrift:"FieldE,5" json:"field_e"`
+	FieldList      []int                   `thrift:"FieldList,6" json:"field_list"`
+	FieldMap       map[string]int          `thrift:"FieldMap,7" json:"field_map"`
 	_unknownFields unknown.Fields
 }
 

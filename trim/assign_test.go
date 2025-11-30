@@ -17,6 +17,7 @@
 package trim
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -24,14 +25,37 @@ import (
 )
 
 type SampleAssign struct {
-	FieldA           *int                     `protobuf:"varint,1,req,name=field_a"`
-	FieldB           []*SampleAssign          `protobuf:"bytes,2,opt,name=field_b"`
-	FieldC           map[string]*SampleAssign `protobuf:"bytes,3,opt,name=field_c"`
-	FieldD           *SampleAssign            `protobuf:"bytes,4,opt,name=field_d"`
-	FieldE           string                   `protobuf:"bytes,5,opt,name=field_e"`
-	FieldList        []int                    `protobuf:"bytes,6,opt,name=field_list"`
-	FieldMap         map[string]int           `protobuf:"bytes,7,opt,name=field_map"`
+	FieldA           *int                     `protobuf:"varint,1,req,name=field_a" json:"field_a"`
+	FieldB           []*SampleAssign          `protobuf:"bytes,2,opt,name=field_b" json:"field_b"`
+	FieldC           map[string]*SampleAssign `protobuf:"bytes,3,opt,name=field_c" json:"field_c"`
+	FieldD           *SampleAssign            `protobuf:"bytes,4,opt,name=field_d" json:"field_d"`
+	FieldE           string                   `protobuf:"bytes,5,opt,name=field_e" json:"field_e"`
+	FieldList        []int                    `protobuf:"bytes,6,opt,name=field_list" json:"field_list"`
+	FieldMap         map[string]int           `protobuf:"bytes,7,opt,name=field_map" json:"field_map"`
 	XXX_unrecognized []byte                   `json:"-"`
+}
+
+func makeSampleAssign(width, depth int) *SampleAssign {
+	if width <= 0 || depth <= 0 {
+		return nil
+	}
+	ret := &SampleAssign{
+		FieldA:    intPtr(2),
+		FieldE:    "2",
+		FieldC:    make(map[string]*SampleAssign),
+		FieldList: []int{4, 5, 6},
+		FieldMap: map[string]int{
+			"4": 4,
+			"5": 5,
+			"6": 6,
+		},
+	}
+	for i := 0; i < width; i++ {
+		ret.FieldB = append(ret.FieldB, makeSampleAssign(width, depth-1))
+		ret.FieldC[fmt.Sprintf("%d", i)] = makeSampleAssign(width, depth-1)
+	}
+	ret.FieldD = makeSampleAssign(width, depth-1)
+	return ret
 }
 
 // SampleAssignSmall is a struct with fewer fields than SampleAssign
@@ -519,5 +543,530 @@ func BenchmarkAssignAny_WithUnknownFields(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		dest := &SampleAssignSmall{}
 		_ = AssignAny(desc, src, dest)
+	}
+}
+
+// SourceStruct is used for struct-to-struct assignment tests via json tag matching
+type SourceStruct struct {
+	Name   string  `json:"name"`
+	Age    int     `json:"age"`
+	Score  float64 `json:"score"`
+	Active bool    `json:"active"`
+}
+
+// DestStruct has same json tags but different Go field names
+type DestStruct struct {
+	UserName  string  `json:"name"`
+	UserAge   int     `json:"age"`
+	UserScore float64 `json:"score"`
+	IsActive  bool    `json:"active"`
+}
+
+// NestedSourceStruct contains nested struct
+type NestedSourceStruct struct {
+	ID   int           `json:"id"`
+	Data *SourceStruct `json:"data"`
+}
+
+// NestedDestStruct contains nested struct with different types
+type NestedDestStruct struct {
+	ID   int         `json:"id"`
+	Data *DestStruct `json:"data"`
+}
+
+// ListSourceStruct contains a list of structs
+type ListSourceStruct struct {
+	Items []*SourceStruct `json:"items"`
+}
+
+// ListDestStruct contains a list of different struct types
+type ListDestStruct struct {
+	Items []*DestStruct `json:"items"`
+}
+
+// MapSourceStruct contains a map of structs
+type MapSourceStruct struct {
+	Data map[string]*SourceStruct `json:"data"`
+}
+
+// MapDestStruct contains a map of different struct types
+type MapDestStruct struct {
+	Data map[string]*DestStruct `json:"data"`
+}
+
+func TestAssignScalar_StructToStruct(t *testing.T) {
+	t.Run("basic struct to struct via json tag", func(t *testing.T) {
+		src := &SourceStruct{
+			Name:   "Alice",
+			Age:    30,
+			Score:  95.5,
+			Active: true,
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "Wrapper",
+			Children: []Field{
+				{Name: "data", ID: 1},
+			},
+		}
+
+		type Wrapper struct {
+			Data *DestStruct `protobuf:"bytes,1,opt,name=data" json:"data"`
+		}
+
+		srcMap := map[string]interface{}{
+			"data": src,
+		}
+
+		dest := &Wrapper{}
+		err := AssignAny(desc, srcMap, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		if dest.Data == nil {
+			t.Fatalf("dest.Data should not be nil")
+		}
+		if dest.Data.UserName != "Alice" {
+			t.Errorf("UserName: expected 'Alice', got '%s'", dest.Data.UserName)
+		}
+		if dest.Data.UserAge != 30 {
+			t.Errorf("UserAge: expected 30, got %d", dest.Data.UserAge)
+		}
+		if dest.Data.UserScore != 95.5 {
+			t.Errorf("UserScore: expected 95.5, got %f", dest.Data.UserScore)
+		}
+		if dest.Data.IsActive != true {
+			t.Errorf("IsActive: expected true, got %v", dest.Data.IsActive)
+		}
+	})
+
+	t.Run("nested struct to struct via json tag", func(t *testing.T) {
+		src := &NestedSourceStruct{
+			ID: 100,
+			Data: &SourceStruct{
+				Name:   "Bob",
+				Age:    25,
+				Score:  88.0,
+				Active: false,
+			},
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "Wrapper",
+			Children: []Field{
+				{Name: "nested", ID: 1},
+			},
+		}
+
+		type Wrapper struct {
+			Nested *NestedDestStruct `protobuf:"bytes,1,opt,name=nested" json:"nested"`
+		}
+
+		srcMap := map[string]interface{}{
+			"nested": src,
+		}
+
+		dest := &Wrapper{}
+		err := AssignAny(desc, srcMap, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		if dest.Nested == nil {
+			t.Fatalf("dest.Nested should not be nil")
+		}
+		if dest.Nested.ID != 100 {
+			t.Errorf("ID: expected 100, got %d", dest.Nested.ID)
+		}
+		if dest.Nested.Data == nil {
+			t.Fatalf("dest.Nested.Data should not be nil")
+		}
+		if dest.Nested.Data.UserName != "Bob" {
+			t.Errorf("UserName: expected 'Bob', got '%s'", dest.Nested.Data.UserName)
+		}
+		if dest.Nested.Data.UserAge != 25 {
+			t.Errorf("UserAge: expected 25, got %d", dest.Nested.Data.UserAge)
+		}
+	})
+}
+
+func TestAssignScalar_SliceToSlice(t *testing.T) {
+	t.Run("slice of structs via json tag", func(t *testing.T) {
+		src := &ListSourceStruct{
+			Items: []*SourceStruct{
+				{Name: "Alice", Age: 30, Score: 95.5, Active: true},
+				{Name: "Bob", Age: 25, Score: 88.0, Active: false},
+			},
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "Wrapper",
+			Children: []Field{
+				{Name: "list", ID: 1},
+			},
+		}
+
+		type Wrapper struct {
+			List *ListDestStruct `protobuf:"bytes,1,opt,name=list" json:"list"`
+		}
+
+		srcMap := map[string]interface{}{
+			"list": src,
+		}
+
+		dest := &Wrapper{}
+		err := AssignAny(desc, srcMap, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		if dest.List == nil {
+			t.Fatalf("dest.List should not be nil")
+		}
+		if len(dest.List.Items) != 2 {
+			t.Fatalf("Items length: expected 2, got %d", len(dest.List.Items))
+		}
+		if dest.List.Items[0].UserName != "Alice" {
+			t.Errorf("Items[0].UserName: expected 'Alice', got '%s'", dest.List.Items[0].UserName)
+		}
+		if dest.List.Items[1].UserName != "Bob" {
+			t.Errorf("Items[1].UserName: expected 'Bob', got '%s'", dest.List.Items[1].UserName)
+		}
+	})
+
+	t.Run("slice of primitives", func(t *testing.T) {
+		src := []int32{1, 2, 3, 4, 5}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "Wrapper",
+			Children: []Field{
+				{Name: "nums", ID: 1},
+			},
+		}
+
+		type Wrapper struct {
+			Nums []int64 `protobuf:"bytes,1,opt,name=nums" json:"nums"`
+		}
+
+		srcMap := map[string]interface{}{
+			"nums": src,
+		}
+
+		dest := &Wrapper{}
+		err := AssignAny(desc, srcMap, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		expected := []int64{1, 2, 3, 4, 5}
+		if !reflect.DeepEqual(dest.Nums, expected) {
+			t.Errorf("Nums: expected %v, got %v", expected, dest.Nums)
+		}
+	})
+}
+
+func TestAssignScalar_MapToMap(t *testing.T) {
+	t.Run("map of structs via json tag", func(t *testing.T) {
+		src := &MapSourceStruct{
+			Data: map[string]*SourceStruct{
+				"user1": {Name: "Alice", Age: 30, Score: 95.5, Active: true},
+				"user2": {Name: "Bob", Age: 25, Score: 88.0, Active: false},
+			},
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "Wrapper",
+			Children: []Field{
+				{Name: "map_data", ID: 1},
+			},
+		}
+
+		type Wrapper struct {
+			MapData *MapDestStruct `protobuf:"bytes,1,opt,name=map_data" json:"map_data"`
+		}
+
+		srcMap := map[string]interface{}{
+			"map_data": src,
+		}
+
+		dest := &Wrapper{}
+		err := AssignAny(desc, srcMap, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		if dest.MapData == nil {
+			t.Fatalf("dest.MapData should not be nil")
+		}
+		if len(dest.MapData.Data) != 2 {
+			t.Fatalf("Data length: expected 2, got %d", len(dest.MapData.Data))
+		}
+		if dest.MapData.Data["user1"].UserName != "Alice" {
+			t.Errorf("Data['user1'].UserName: expected 'Alice', got '%s'", dest.MapData.Data["user1"].UserName)
+		}
+		if dest.MapData.Data["user2"].UserName != "Bob" {
+			t.Errorf("Data['user2'].UserName: expected 'Bob', got '%s'", dest.MapData.Data["user2"].UserName)
+		}
+	})
+
+	t.Run("map of primitives with type conversion", func(t *testing.T) {
+		src := map[string]int32{"a": 1, "b": 2, "c": 3}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "Wrapper",
+			Children: []Field{
+				{Name: "data", ID: 1},
+			},
+		}
+
+		type Wrapper struct {
+			Data map[string]int64 `protobuf:"bytes,1,opt,name=data" json:"data"`
+		}
+
+		srcMap := map[string]interface{}{
+			"data": src,
+		}
+
+		dest := &Wrapper{}
+		err := AssignAny(desc, srcMap, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		expected := map[string]int64{"a": 1, "b": 2, "c": 3}
+		if !reflect.DeepEqual(dest.Data, expected) {
+			t.Errorf("Data: expected %v, got %v", expected, dest.Data)
+		}
+	})
+}
+
+func TestAssignScalar_ComplexNested(t *testing.T) {
+	// Test complex nested structure similar to TestFetchAndAssign scenario
+	t.Run("complex nested with lists and maps", func(t *testing.T) {
+		type InnerSource struct {
+			Value int    `json:"value"`
+			Label string `json:"label"`
+		}
+
+		type OuterSource struct {
+			ID       int                     `json:"id"`
+			Children []*InnerSource          `json:"children"`
+			Mapping  map[string]*InnerSource `json:"mapping"`
+		}
+
+		type InnerDest struct {
+			Value int    `json:"value"`
+			Label string `json:"label"`
+		}
+
+		type OuterDest struct {
+			ID       int                   `json:"id"`
+			Children []*InnerDest          `json:"children"`
+			Mapping  map[string]*InnerDest `json:"mapping"`
+		}
+
+		src := &OuterSource{
+			ID: 1,
+			Children: []*InnerSource{
+				{Value: 10, Label: "first"},
+				{Value: 20, Label: "second"},
+			},
+			Mapping: map[string]*InnerSource{
+				"key1": {Value: 100, Label: "mapped1"},
+				"key2": {Value: 200, Label: "mapped2"},
+			},
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "Wrapper",
+			Children: []Field{
+				{Name: "data", ID: 1},
+			},
+		}
+
+		type Wrapper struct {
+			Data *OuterDest `protobuf:"bytes,1,opt,name=data" json:"data"`
+		}
+
+		srcMap := map[string]interface{}{
+			"data": src,
+		}
+
+		dest := &Wrapper{}
+		err := AssignAny(desc, srcMap, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		if dest.Data == nil {
+			t.Fatalf("dest.Data should not be nil")
+		}
+		if dest.Data.ID != 1 {
+			t.Errorf("ID: expected 1, got %d", dest.Data.ID)
+		}
+		if len(dest.Data.Children) != 2 {
+			t.Fatalf("Children length: expected 2, got %d", len(dest.Data.Children))
+		}
+		if dest.Data.Children[0].Value != 10 {
+			t.Errorf("Children[0].Value: expected 10, got %d", dest.Data.Children[0].Value)
+		}
+		if dest.Data.Children[0].Label != "first" {
+			t.Errorf("Children[0].Label: expected 'first', got '%s'", dest.Data.Children[0].Label)
+		}
+		if len(dest.Data.Mapping) != 2 {
+			t.Fatalf("Mapping length: expected 2, got %d", len(dest.Data.Mapping))
+		}
+		if dest.Data.Mapping["key1"].Value != 100 {
+			t.Errorf("Mapping['key1'].Value: expected 100, got %d", dest.Data.Mapping["key1"].Value)
+		}
+	})
+}
+
+func TestAssignScalar_NilHandling(t *testing.T) {
+	t.Run("nil pointer in source struct", func(t *testing.T) {
+		src := &NestedSourceStruct{
+			ID:   100,
+			Data: nil, // nil pointer
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "Wrapper",
+			Children: []Field{
+				{Name: "nested", ID: 1},
+			},
+		}
+
+		type Wrapper struct {
+			Nested *NestedDestStruct `protobuf:"bytes,1,opt,name=nested" json:"nested"`
+		}
+
+		srcMap := map[string]interface{}{
+			"nested": src,
+		}
+
+		dest := &Wrapper{}
+		err := AssignAny(desc, srcMap, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		if dest.Nested == nil {
+			t.Fatalf("dest.Nested should not be nil")
+		}
+		if dest.Nested.ID != 100 {
+			t.Errorf("ID: expected 100, got %d", dest.Nested.ID)
+		}
+		if dest.Nested.Data != nil {
+			t.Errorf("Data: expected nil, got %v", dest.Nested.Data)
+		}
+	})
+
+	t.Run("nil slice in source struct", func(t *testing.T) {
+		src := &ListSourceStruct{
+			Items: nil,
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "Wrapper",
+			Children: []Field{
+				{Name: "list", ID: 1},
+			},
+		}
+
+		type Wrapper struct {
+			List *ListDestStruct `protobuf:"bytes,1,opt,name=list" json:"list"`
+		}
+
+		srcMap := map[string]interface{}{
+			"list": src,
+		}
+
+		dest := &Wrapper{}
+		err := AssignAny(desc, srcMap, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		if dest.List == nil {
+			t.Fatalf("dest.List should not be nil")
+		}
+		if dest.List.Items != nil {
+			t.Errorf("Items: expected nil, got %v", dest.List.Items)
+		}
+	})
+}
+
+func BenchmarkAssignScalar_StructToStruct(b *testing.B) {
+	src := &SourceStruct{
+		Name:   "Alice",
+		Age:    30,
+		Score:  95.5,
+		Active: true,
+	}
+
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "Wrapper",
+		Children: []Field{
+			{Name: "data", ID: 1},
+		},
+	}
+
+	type Wrapper struct {
+		Data *DestStruct `protobuf:"bytes,1,opt,name=data" json:"data"`
+	}
+
+	srcMap := map[string]interface{}{
+		"data": src,
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		dest := &Wrapper{}
+		_ = AssignAny(desc, srcMap, dest)
+	}
+}
+
+func BenchmarkAssignScalar_SliceOfStructs(b *testing.B) {
+	src := &ListSourceStruct{
+		Items: []*SourceStruct{
+			{Name: "Alice", Age: 30, Score: 95.5, Active: true},
+			{Name: "Bob", Age: 25, Score: 88.0, Active: false},
+			{Name: "Charlie", Age: 35, Score: 92.0, Active: true},
+		},
+	}
+
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "Wrapper",
+		Children: []Field{
+			{Name: "list", ID: 1},
+		},
+	}
+
+	type Wrapper struct {
+		List *ListDestStruct `protobuf:"bytes,1,opt,name=list" json:"list"`
+	}
+
+	srcMap := map[string]interface{}{
+		"list": src,
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		dest := &Wrapper{}
+		_ = AssignAny(desc, srcMap, dest)
 	}
 }

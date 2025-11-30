@@ -25,10 +25,12 @@ import (
 type TypeKind int
 
 const (
+	// TypeKind_Scalar indicates Descriptor is a leaf node, its underlying type can be anything (event go struct/map/list)
 	TypeKind_Scalar TypeKind = iota
+	// TypeKind_Struct indicates Descriptor.Field is struct field
 	TypeKind_Struct
+	// TypeKind_StrMap indicates Descriptor.Field is map key
 	TypeKind_StrMap
-	// TypeKind_List
 )
 
 // Descriptor describes the entire a DSL-pruning scheme for a type.

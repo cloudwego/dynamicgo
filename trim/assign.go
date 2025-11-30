@@ -320,6 +320,51 @@ func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, op
 	return nil
 }
 
+// jsonStructFieldInfo caches field mapping information for a struct type based on json tags
+type jsonStructFieldInfo struct {
+	// jsonNameToFieldIndex maps json tag name to struct field index
+	jsonNameToFieldIndex map[string]int
+}
+
+// jsonFieldCache caches the struct field info for each type
+var jsonFieldCache sync.Map // map[reflect.Type]*jsonStructFieldInfo
+
+// getJSONStructFieldInfo returns cached struct field info for the given type based on json tags
+func getJSONStructFieldInfo(t reflect.Type) *jsonStructFieldInfo {
+	if cached, ok := jsonFieldCache.Load(t); ok {
+		return cached.(*jsonStructFieldInfo)
+	}
+
+	// Build the field info
+	numField := t.NumField()
+	info := &jsonStructFieldInfo{
+		jsonNameToFieldIndex: make(map[string]int, numField),
+	}
+
+	for i := 0; i < numField; i++ {
+		field := t.Field(i)
+		tag := field.Tag.Get("json")
+		if tag == "" || tag == "-" {
+			continue
+		}
+
+		// Parse json tag: "field_name" or "field_name,omitempty"
+		jsonName := tag
+		if idx := strings.IndexByte(tag, ','); idx >= 0 {
+			jsonName = tag[:idx]
+		}
+		if jsonName == "" {
+			continue
+		}
+
+		info.jsonNameToFieldIndex[jsonName] = i
+	}
+
+	// Store in cache (use LoadOrStore to handle concurrent initialization)
+	actual, _ := jsonFieldCache.LoadOrStore(t, info)
+	return actual.(*jsonStructFieldInfo)
+}
+
 // assignScalar assigns a scalar value to destValue
 func assignScalar(src interface{}, destValue reflect.Value) error {
 	if src == nil {
@@ -336,6 +381,14 @@ func assignScalar(src interface{}, destValue reflect.Value) error {
 		destValue = destValue.Elem()
 	}
 
+	// Dereference pointer source
+	for srcValue.Kind() == reflect.Ptr {
+		if srcValue.IsNil() {
+			return nil
+		}
+		srcValue = srcValue.Elem()
+	}
+
 	// Try direct assignment first
 	if srcValue.Type().AssignableTo(destValue.Type()) {
 		destValue.Set(srcValue)
@@ -346,6 +399,21 @@ func assignScalar(src interface{}, destValue reflect.Value) error {
 	if srcValue.Type().ConvertibleTo(destValue.Type()) {
 		destValue.Set(srcValue.Convert(destValue.Type()))
 		return nil
+	}
+
+	// Handle struct to struct mapping via json tags
+	if srcValue.Kind() == reflect.Struct && destValue.Kind() == reflect.Struct {
+		return assignStructToStruct(srcValue, destValue)
+	}
+
+	// Handle slice to slice mapping
+	if srcValue.Kind() == reflect.Slice && destValue.Kind() == reflect.Slice {
+		return assignSliceToSlice(srcValue, destValue)
+	}
+
+	// Handle map to map mapping
+	if srcValue.Kind() == reflect.Map && destValue.Kind() == reflect.Map {
+		return assignMapToMap(srcValue, destValue)
 	}
 
 	// Handle special cases for numeric type conversions
@@ -378,6 +446,230 @@ func assignScalar(src interface{}, destValue reflect.Value) error {
 	}
 
 	return fmt.Errorf("cannot assign %T to %v", src, destValue.Type())
+}
+
+// assignStructToStruct assigns a struct to another struct by matching json tags
+func assignStructToStruct(srcValue, destValue reflect.Value) error {
+	srcType := srcValue.Type()
+	destType := destValue.Type()
+
+	// Get json field info for both types
+	srcInfo := getJSONStructFieldInfo(srcType)
+	destInfo := getJSONStructFieldInfo(destType)
+
+	// Iterate through dest fields and find matching src fields by json tag
+	for jsonName, destIdx := range destInfo.jsonNameToFieldIndex {
+		srcIdx, found := srcInfo.jsonNameToFieldIndex[jsonName]
+		if !found {
+			continue
+		}
+
+		srcField := srcValue.Field(srcIdx)
+		destField := destValue.Field(destIdx)
+
+		if !destField.CanSet() {
+			continue
+		}
+
+		// nil pointer in source struct: set dest to nil if pointer
+		if srcField.Kind() == reflect.Ptr && srcField.IsNil() {
+			if destField.Kind() == reflect.Ptr {
+				destField.Set(reflect.Zero(destField.Type()))
+			}
+			continue
+		}
+
+		// Recursively assign the field value
+		if err := assignScalarValue(srcField, destField); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// assignScalarValue assigns a reflect.Value to another reflect.Value
+func assignScalarValue(srcValue, destValue reflect.Value) error {
+	// Handle pointer destination
+	if destValue.Kind() == reflect.Ptr {
+		if destValue.IsNil() {
+			destValue.Set(reflect.New(destValue.Type().Elem()))
+		}
+		destValue = destValue.Elem()
+	}
+
+	// Dereference pointer source
+	for srcValue.Kind() == reflect.Ptr {
+		if srcValue.IsNil() {
+			return nil
+		}
+		srcValue = srcValue.Elem()
+	}
+
+	// Try direct assignment first
+	if srcValue.Type().AssignableTo(destValue.Type()) {
+		destValue.Set(srcValue)
+		return nil
+	}
+
+	// Try conversion
+	if srcValue.Type().ConvertibleTo(destValue.Type()) {
+		destValue.Set(srcValue.Convert(destValue.Type()))
+		return nil
+	}
+
+	// Handle struct to struct mapping via json tags
+	if srcValue.Kind() == reflect.Struct && destValue.Kind() == reflect.Struct {
+		return assignStructToStruct(srcValue, destValue)
+	}
+
+	// Handle slice to slice mapping
+	if srcValue.Kind() == reflect.Slice && destValue.Kind() == reflect.Slice {
+		return assignSliceToSlice(srcValue, destValue)
+	}
+
+	// Handle map to map mapping
+	if srcValue.Kind() == reflect.Map && destValue.Kind() == reflect.Map {
+		return assignMapToMap(srcValue, destValue)
+	}
+
+	// Handle numeric conversions
+	switch destValue.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if srcValue.CanInt() {
+			destValue.SetInt(srcValue.Int())
+			return nil
+		}
+		if srcValue.CanUint() {
+			destValue.SetInt(int64(srcValue.Uint()))
+			return nil
+		}
+		if srcValue.CanFloat() {
+			destValue.SetInt(int64(srcValue.Float()))
+			return nil
+		}
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		if srcValue.CanUint() {
+			destValue.SetUint(srcValue.Uint())
+			return nil
+		}
+		if srcValue.CanInt() {
+			destValue.SetUint(uint64(srcValue.Int()))
+			return nil
+		}
+		if srcValue.CanFloat() {
+			destValue.SetUint(uint64(srcValue.Float()))
+			return nil
+		}
+	case reflect.Float32, reflect.Float64:
+		if srcValue.CanFloat() {
+			destValue.SetFloat(srcValue.Float())
+			return nil
+		}
+		if srcValue.CanInt() {
+			destValue.SetFloat(float64(srcValue.Int()))
+			return nil
+		}
+		if srcValue.CanUint() {
+			destValue.SetFloat(float64(srcValue.Uint()))
+			return nil
+		}
+	case reflect.String:
+		if srcValue.Kind() == reflect.String {
+			destValue.SetString(srcValue.String())
+			return nil
+		}
+	case reflect.Bool:
+		if srcValue.Kind() == reflect.Bool {
+			destValue.SetBool(srcValue.Bool())
+			return nil
+		}
+	}
+
+	return fmt.Errorf("cannot assign %v to %v", srcValue.Type(), destValue.Type())
+}
+
+// assignSliceToSlice assigns a slice to another slice, converting elements as needed
+func assignSliceToSlice(srcValue, destValue reflect.Value) error {
+	if srcValue.IsNil() {
+		destValue.Set(reflect.Zero(destValue.Type()))
+		return nil
+	}
+	srcLen := srcValue.Len()
+	destElemType := destValue.Type().Elem()
+
+	// Create a new slice with the same length
+	newSlice := reflect.MakeSlice(destValue.Type(), srcLen, srcLen)
+
+	for i := 0; i < srcLen; i++ {
+		srcElem := srcValue.Index(i)
+		destElem := newSlice.Index(i)
+
+		// Handle pointer element type
+		if destElemType.Kind() == reflect.Ptr {
+			newElem := reflect.New(destElemType.Elem())
+			if err := assignScalarValue(srcElem, newElem.Elem()); err != nil {
+				return err
+			}
+			destElem.Set(newElem)
+		} else {
+			if err := assignScalarValue(srcElem, destElem); err != nil {
+				return err
+			}
+		}
+	}
+
+	destValue.Set(newSlice)
+	return nil
+}
+
+// assignMapToMap assigns a map to another map, converting elements as needed
+func assignMapToMap(srcValue, destValue reflect.Value) error {
+	if srcValue.IsNil() {
+		return nil
+	}
+
+	destType := destValue.Type()
+	destKeyType := destType.Key()
+	destElemType := destType.Elem()
+
+	// Create a new map
+	newMap := reflect.MakeMap(destType)
+
+	iter := srcValue.MapRange()
+	for iter.Next() {
+		srcKey := iter.Key()
+		srcVal := iter.Value()
+
+		// Convert key
+		var destKey reflect.Value
+		if srcKey.Type().AssignableTo(destKeyType) {
+			destKey = srcKey
+		} else if srcKey.Type().ConvertibleTo(destKeyType) {
+			destKey = srcKey.Convert(destKeyType)
+		} else {
+			return fmt.Errorf("cannot convert map key %v to %v", srcKey.Type(), destKeyType)
+		}
+
+		// Convert value
+		destVal := reflect.New(destElemType).Elem()
+		if destElemType.Kind() == reflect.Ptr {
+			newElem := reflect.New(destElemType.Elem())
+			if err := assignScalarValue(srcVal, newElem.Elem()); err != nil {
+				return err
+			}
+			destVal.Set(newElem)
+		} else {
+			if err := assignScalarValue(srcVal, destVal); err != nil {
+				return err
+			}
+		}
+
+		newMap.SetMapIndex(destKey, destVal)
+	}
+
+	destValue.Set(newMap)
+	return nil
 }
 
 // toInt64 converts various numeric types to int64
