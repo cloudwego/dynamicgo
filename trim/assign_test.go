@@ -1070,3 +1070,433 @@ func BenchmarkAssignScalar_SliceOfStructs(b *testing.B) {
 		_ = AssignAny(desc, srcMap, dest)
 	}
 }
+
+// ===================== Circular Reference Tests =====================
+// These tests verify that AssignAny can handle circular reference type descriptions.
+// The key principle is: recursively process data until data is nil (src == nil).
+
+// circularAssignNode represents a node that can reference itself (like a linked list)
+type circularAssignNode struct {
+	Value            int                 `protobuf:"varint,1,req,name=value" json:"value,omitempty"`
+	Next             *circularAssignNode `protobuf:"bytes,2,opt,name=next" json:"next,omitempty"`
+	XXX_unrecognized []byte              `json:"-"`
+}
+
+// circularAssignTree represents a tree node that can reference itself
+type circularAssignTree struct {
+	Value            int                 `protobuf:"varint,1,req,name=value" json:"value,omitempty"`
+	Left             *circularAssignTree `protobuf:"bytes,2,opt,name=left" json:"left,omitempty"`
+	Right            *circularAssignTree `protobuf:"bytes,3,opt,name=right" json:"right,omitempty"`
+	XXX_unrecognized []byte              `json:"-"`
+}
+
+// makeCircularAssignDesc creates a descriptor that references itself (circular reference)
+func makeCircularAssignDesc() *Descriptor {
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "CircularNode",
+		Children: []Field{
+			{Name: "value", ID: 1},
+			{Name: "next", ID: 2},
+		},
+	}
+	// Make it circular: next field's Desc points back to the same descriptor
+	desc.Children[1].Desc = desc
+	return desc
+}
+
+// makeCircularAssignTreeDesc creates a tree descriptor that references itself
+func makeCircularAssignTreeDesc() *Descriptor {
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "CircularTree",
+		Children: []Field{
+			{Name: "value", ID: 1},
+			{Name: "left", ID: 2},
+			{Name: "right", ID: 3},
+		},
+	}
+	// Make it circular: left, right fields' Desc point back to the same descriptor
+	desc.Children[1].Desc = desc
+	desc.Children[2].Desc = desc
+	return desc
+}
+
+func TestAssignAny_CircularDescriptor_LinkedList(t *testing.T) {
+	// Create source data: linked list 1 -> 2 -> 3 -> nil
+	src := map[string]interface{}{
+		"value": 1,
+		"next": map[string]interface{}{
+			"value": 2,
+			"next": map[string]interface{}{
+				"value": 3,
+				// next is nil (absent)
+			},
+		},
+	}
+
+	desc := makeCircularAssignDesc()
+
+	dest := &circularAssignNode{}
+	err := AssignAny(desc, src, dest)
+	if err != nil {
+		t.Fatalf("AssignAny failed: %v", err)
+	}
+
+	// Verify the assigned structure
+	if dest.Value != 1 {
+		t.Errorf("value: expected 1, got %v", dest.Value)
+	}
+
+	if dest.Next == nil {
+		t.Fatalf("next: expected non-nil")
+	}
+	if dest.Next.Value != 2 {
+		t.Errorf("next.value: expected 2, got %v", dest.Next.Value)
+	}
+
+	if dest.Next.Next == nil {
+		t.Fatalf("next.next: expected non-nil")
+	}
+	if dest.Next.Next.Value != 3 {
+		t.Errorf("next.next.value: expected 3, got %v", dest.Next.Next.Value)
+	}
+
+	// The last node's next should be nil
+	if dest.Next.Next.Next != nil {
+		t.Errorf("next.next.next: expected nil, got %v", dest.Next.Next.Next)
+	}
+}
+
+func TestAssignAny_CircularDescriptor_SingleNode(t *testing.T) {
+	// Single node with nil next
+	src := map[string]interface{}{
+		"value": 42,
+		// next is not present (nil)
+	}
+
+	desc := makeCircularAssignDesc()
+
+	dest := &circularAssignNode{}
+	err := AssignAny(desc, src, dest)
+	if err != nil {
+		t.Fatalf("AssignAny failed: %v", err)
+	}
+
+	if dest.Value != 42 {
+		t.Errorf("value: expected 42, got %v", dest.Value)
+	}
+
+	if dest.Next != nil {
+		t.Errorf("next: expected nil, got %v", dest.Next)
+	}
+}
+
+func TestAssignAny_CircularDescriptor_Tree(t *testing.T) {
+	// Create source data: binary tree
+	//       1
+	//      / \
+	//     2   3
+	//    /
+	//   4
+	src := map[string]interface{}{
+		"value": 1,
+		"left": map[string]interface{}{
+			"value": 2,
+			"left": map[string]interface{}{
+				"value": 4,
+			},
+		},
+		"right": map[string]interface{}{
+			"value": 3,
+		},
+	}
+
+	desc := makeCircularAssignTreeDesc()
+
+	dest := &circularAssignTree{}
+	err := AssignAny(desc, src, dest)
+	if err != nil {
+		t.Fatalf("AssignAny failed: %v", err)
+	}
+
+	// Verify root
+	if dest.Value != 1 {
+		t.Errorf("value: expected 1, got %v", dest.Value)
+	}
+
+	// Verify left subtree
+	if dest.Left == nil {
+		t.Fatalf("left: expected non-nil")
+	}
+	if dest.Left.Value != 2 {
+		t.Errorf("left.value: expected 2, got %v", dest.Left.Value)
+	}
+
+	if dest.Left.Left == nil {
+		t.Fatalf("left.left: expected non-nil")
+	}
+	if dest.Left.Left.Value != 4 {
+		t.Errorf("left.left.value: expected 4, got %v", dest.Left.Left.Value)
+	}
+
+	// Verify right subtree
+	if dest.Right == nil {
+		t.Fatalf("right: expected non-nil")
+	}
+	if dest.Right.Value != 3 {
+		t.Errorf("right.value: expected 3, got %v", dest.Right.Value)
+	}
+}
+
+func TestAssignAny_CircularDescriptor_NilSrc(t *testing.T) {
+	desc := makeCircularAssignDesc()
+
+	dest := &circularAssignNode{Value: 999}
+
+	// Assign with nil src should not modify dest
+	err := AssignAny(desc, nil, dest)
+	if err != nil {
+		t.Fatalf("AssignAny failed: %v", err)
+	}
+
+	// Original value should be preserved
+	if dest.Value != 999 {
+		t.Errorf("value should be preserved, expected 999, got %v", dest.Value)
+	}
+}
+
+func TestAssignAny_CircularDescriptor_DeepList(t *testing.T) {
+	// Create a deep linked list (depth=100) as source
+	depth := 100
+	var src interface{}
+	for i := depth; i > 0; i-- {
+		node := map[string]interface{}{
+			"value": i,
+		}
+		if src != nil {
+			node["next"] = src
+		}
+		src = node
+	}
+
+	desc := makeCircularAssignDesc()
+
+	dest := &circularAssignNode{}
+	err := AssignAny(desc, src, dest)
+	if err != nil {
+		t.Fatalf("AssignAny failed: %v", err)
+	}
+
+	// Verify the structure by traversing
+	current := dest
+	for i := 1; i <= depth; i++ {
+		if current.Value != i {
+			t.Errorf("at depth %d: expected value %d, got %v", i, i, current.Value)
+		}
+		if i < depth {
+			if current.Next == nil {
+				t.Fatalf("at depth %d: expected non-nil next", i)
+			}
+			current = current.Next
+		} else {
+			// Last node should have nil next
+			if current.Next != nil {
+				t.Errorf("last node should have nil next")
+			}
+		}
+	}
+}
+
+// circularAssignMapNode represents a node with a map that can contain circular references
+type circularAssignMapNode struct {
+	Name             string                            `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Children         map[string]*circularAssignMapNode `protobuf:"bytes,2,opt,name=children" json:"children,omitempty"`
+	XXX_unrecognized []byte                            `json:"-"`
+}
+
+func makeCircularAssignMapDesc() *Descriptor {
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "CircularMapNode",
+		Children: []Field{
+			{Name: "name", ID: 1},
+			{Name: "children", ID: 2},
+		},
+	}
+	// Make children field circular: it's a map with values of the same type
+	desc.Children[1].Desc = &Descriptor{
+		Kind: TypeKind_StrMap,
+		Name: "ChildrenMap",
+		Children: []Field{
+			{Name: "*", Desc: desc}, // Wildcard with circular reference
+		},
+	}
+	return desc
+}
+
+func TestAssignAny_CircularDescriptor_MapOfNodes(t *testing.T) {
+	// Create source data: tree-like structure using maps
+	// root
+	// ├── child1
+	// │   └── grandchild1
+	// └── child2
+	src := map[string]interface{}{
+		"name": "root",
+		"children": map[string]interface{}{
+			"child1": map[string]interface{}{
+				"name": "child1",
+				"children": map[string]interface{}{
+					"grandchild1": map[string]interface{}{
+						"name": "grandchild1",
+						// children is nil
+					},
+				},
+			},
+			"child2": map[string]interface{}{
+				"name": "child2",
+				// children is nil
+			},
+		},
+	}
+
+	desc := makeCircularAssignMapDesc()
+
+	dest := &circularAssignMapNode{}
+	err := AssignAny(desc, src, dest)
+	if err != nil {
+		t.Fatalf("AssignAny failed: %v", err)
+	}
+
+	// Verify root
+	if dest.Name != "root" {
+		t.Errorf("name: expected 'root', got %v", dest.Name)
+	}
+
+	if dest.Children == nil {
+		t.Fatalf("children: expected non-nil")
+	}
+
+	child1 := dest.Children["child1"]
+	if child1 == nil {
+		t.Fatalf("child1: expected non-nil")
+	}
+	if child1.Name != "child1" {
+		t.Errorf("child1.name: expected 'child1', got %v", child1.Name)
+	}
+
+	if child1.Children == nil {
+		t.Fatalf("child1.children: expected non-nil")
+	}
+
+	grandchild1 := child1.Children["grandchild1"]
+	if grandchild1 == nil {
+		t.Fatalf("grandchild1: expected non-nil")
+	}
+	if grandchild1.Name != "grandchild1" {
+		t.Errorf("grandchild1.name: expected 'grandchild1', got %v", grandchild1.Name)
+	}
+
+	child2 := dest.Children["child2"]
+	if child2 == nil {
+		t.Fatalf("child2: expected non-nil")
+	}
+	if child2.Name != "child2" {
+		t.Errorf("child2.name: expected 'child2', got %v", child2.Name)
+	}
+}
+
+func BenchmarkAssignAny_CircularDescriptor(b *testing.B) {
+	// Create a linked list of depth 10 as source
+	depth := 10
+	var src interface{}
+	for i := depth; i > 0; i-- {
+		node := map[string]interface{}{
+			"value": i,
+		}
+		if src != nil {
+			node["next"] = src
+		}
+		src = node
+	}
+
+	desc := makeCircularAssignDesc()
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		dest := &circularAssignNode{}
+		_ = AssignAny(desc, src, dest)
+	}
+}
+
+// TestAssignAny_CircularDescriptor_FetchThenAssign tests the full round-trip:
+// fetch from a circular structure, then assign to another circular structure
+func TestAssignAny_CircularDescriptor_FetchThenAssign(t *testing.T) {
+	// This uses types from fetch_test.go
+	// Create a linked list: 1 -> 2 -> 3 -> nil
+	type circularFetchNode struct {
+		Value int                `thrift:"Value,1" json:"value,omitempty"`
+		Next  *circularFetchNode `thrift:"Next,2" json:"next,omitempty"`
+	}
+
+	srcList := &circularFetchNode{
+		Value: 1,
+		Next: &circularFetchNode{
+			Value: 2,
+			Next: &circularFetchNode{
+				Value: 3,
+				Next:  nil,
+			},
+		},
+	}
+
+	// Create circular descriptor for fetch
+	fetchDesc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "CircularNode",
+		Children: []Field{
+			{Name: "value", ID: 1},
+			{Name: "next", ID: 2},
+		},
+	}
+	fetchDesc.Children[1].Desc = fetchDesc
+
+	// Fetch
+	fetched, err := FetchAny(fetchDesc, srcList)
+	if err != nil {
+		t.Fatalf("FetchAny failed: %v", err)
+	}
+
+	// Create circular descriptor for assign (with different IDs if needed)
+	assignDesc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "CircularNode",
+		Children: []Field{
+			{Name: "value", ID: 1},
+			{Name: "next", ID: 2},
+		},
+	}
+	assignDesc.Children[1].Desc = assignDesc
+
+	// Assign
+	dest := &circularAssignNode{}
+	err = AssignAny(assignDesc, fetched, dest)
+	if err != nil {
+		t.Fatalf("AssignAny failed: %v", err)
+	}
+
+	// Verify
+	if dest.Value != 1 {
+		t.Errorf("value: expected 1, got %v", dest.Value)
+	}
+	if dest.Next == nil || dest.Next.Value != 2 {
+		t.Errorf("next.value: expected 2")
+	}
+	if dest.Next.Next == nil || dest.Next.Next.Value != 3 {
+		t.Errorf("next.next.value: expected 3")
+	}
+	if dest.Next.Next.Next != nil {
+		t.Errorf("next.next.next: expected nil")
+	}
+}

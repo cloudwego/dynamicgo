@@ -504,6 +504,379 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 // This covers two cases:
 // 1. No further fetch: Descriptor is nil, the struct is returned as-is (map[FieldID]interface{})
 // 2. With further fetch: Descriptor is provided, the struct is converted to map[string]interface{}
+// ===================== Circular Reference Tests =====================
+// These tests verify that FetchAny can handle circular reference type descriptions.
+// The key principle is: recursively process data until data is nil (any == nil).
+
+// circularNode represents a node that can reference itself (like a linked list or tree)
+type circularNode struct {
+	Value int           `thrift:"Value,1" json:"value,omitempty"`
+	Next  *circularNode `thrift:"Next,2" json:"next,omitempty"`
+}
+
+// circularTree represents a tree node that can reference itself
+type circularTree struct {
+	Value    int             `thrift:"Value,1" json:"value,omitempty"`
+	Left     *circularTree   `thrift:"Left,2" json:"left,omitempty"`
+	Right    *circularTree   `thrift:"Right,3" json:"right,omitempty"`
+	Children []*circularTree `thrift:"Children,4" json:"children,omitempty"`
+}
+
+// makeCircularDesc creates a descriptor that references itself (circular reference)
+func makeCircularDesc() *Descriptor {
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "CircularNode",
+		Children: []Field{
+			{Name: "value", ID: 1},
+			{Name: "next", ID: 2},
+		},
+	}
+	// Make it circular: next field's Desc points back to the same descriptor
+	desc.Children[1].Desc = desc
+	return desc
+}
+
+// makeCircularTreeDesc creates a tree descriptor that references itself
+func makeCircularTreeDesc() *Descriptor {
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "CircularTree",
+		Children: []Field{
+			{Name: "value", ID: 1},
+			{Name: "left", ID: 2},
+			{Name: "right", ID: 3},
+			{Name: "children", ID: 4},
+		},
+	}
+	// Make it circular: left, right fields' Desc point back to the same descriptor
+	desc.Children[1].Desc = desc
+	desc.Children[2].Desc = desc
+	// children is a list, no further Desc needed (will be handled as raw value)
+	return desc
+}
+
+func TestFetchAny_CircularDescriptor_LinkedList(t *testing.T) {
+	// Create a linked list: 1 -> 2 -> 3 -> nil
+	list := &circularNode{
+		Value: 1,
+		Next: &circularNode{
+			Value: 2,
+			Next: &circularNode{
+				Value: 3,
+				Next:  nil, // Termination point
+			},
+		},
+	}
+
+	desc := makeCircularDesc()
+
+	// Fetch should work correctly, recursing until Next is nil
+	fetched, err := FetchAny(desc, list)
+	if err != nil {
+		t.Fatalf("FetchAny failed: %v", err)
+	}
+
+	// Verify the fetched structure
+	result, ok := fetched.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map[string]interface{}, got %T", fetched)
+	}
+
+	if result["value"] != 1 {
+		t.Errorf("value: expected 1, got %v", result["value"])
+	}
+
+	next1, ok := result["next"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("next: expected map[string]interface{}, got %T", result["next"])
+	}
+	if next1["value"] != 2 {
+		t.Errorf("next.value: expected 2, got %v", next1["value"])
+	}
+
+	next2, ok := next1["next"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("next.next: expected map[string]interface{}, got %T", next1["next"])
+	}
+	if next2["value"] != 3 {
+		t.Errorf("next.next.value: expected 3, got %v", next2["value"])
+	}
+
+	// The last node's next should not be present (nil)
+	if _, exists := next2["next"]; exists {
+		t.Errorf("next.next.next should not exist (nil)")
+	}
+}
+
+func TestFetchAny_CircularDescriptor_SingleNode(t *testing.T) {
+	// Single node with nil next
+	node := &circularNode{
+		Value: 42,
+		Next:  nil,
+	}
+
+	desc := makeCircularDesc()
+
+	fetched, err := FetchAny(desc, node)
+	if err != nil {
+		t.Fatalf("FetchAny failed: %v", err)
+	}
+
+	result, ok := fetched.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map[string]interface{}, got %T", fetched)
+	}
+
+	if result["value"] != 42 {
+		t.Errorf("value: expected 42, got %v", result["value"])
+	}
+
+	// next should not be present
+	if _, exists := result["next"]; exists {
+		t.Errorf("next should not exist for nil pointer")
+	}
+}
+
+func TestFetchAny_CircularDescriptor_Tree(t *testing.T) {
+	// Create a binary tree:
+	//       1
+	//      / \
+	//     2   3
+	//    /
+	//   4
+	tree := &circularTree{
+		Value: 1,
+		Left: &circularTree{
+			Value: 2,
+			Left: &circularTree{
+				Value: 4,
+			},
+		},
+		Right: &circularTree{
+			Value: 3,
+		},
+	}
+
+	desc := makeCircularTreeDesc()
+
+	fetched, err := FetchAny(desc, tree)
+	if err != nil {
+		t.Fatalf("FetchAny failed: %v", err)
+	}
+
+	result, ok := fetched.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map[string]interface{}, got %T", fetched)
+	}
+
+	// Verify root
+	if result["value"] != 1 {
+		t.Errorf("value: expected 1, got %v", result["value"])
+	}
+
+	// Verify left subtree
+	left, ok := result["left"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("left: expected map[string]interface{}, got %T", result["left"])
+	}
+	if left["value"] != 2 {
+		t.Errorf("left.value: expected 2, got %v", left["value"])
+	}
+
+	leftLeft, ok := left["left"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("left.left: expected map[string]interface{}, got %T", left["left"])
+	}
+	if leftLeft["value"] != 4 {
+		t.Errorf("left.left.value: expected 4, got %v", leftLeft["value"])
+	}
+
+	// Verify right subtree
+	right, ok := result["right"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("right: expected map[string]interface{}, got %T", result["right"])
+	}
+	if right["value"] != 3 {
+		t.Errorf("right.value: expected 3, got %v", right["value"])
+	}
+}
+
+func TestFetchAny_CircularDescriptor_NilRoot(t *testing.T) {
+	desc := makeCircularDesc()
+
+	// Fetch with nil input should return nil
+	fetched, err := FetchAny(desc, nil)
+	if err != nil {
+		t.Fatalf("FetchAny failed: %v", err)
+	}
+
+	if fetched != nil {
+		t.Errorf("expected nil, got %v", fetched)
+	}
+}
+
+func TestFetchAny_CircularDescriptor_DeepList(t *testing.T) {
+	// Create a deep linked list (depth=100) to stress test
+	depth := 100
+	var head *circularNode
+	for i := depth; i > 0; i-- {
+		head = &circularNode{
+			Value: i,
+			Next:  head,
+		}
+	}
+
+	desc := makeCircularDesc()
+
+	fetched, err := FetchAny(desc, head)
+	if err != nil {
+		t.Fatalf("FetchAny failed: %v", err)
+	}
+
+	// Verify the structure by traversing
+	current := fetched
+	for i := 1; i <= depth; i++ {
+		m, ok := current.(map[string]interface{})
+		if !ok {
+			t.Fatalf("at depth %d: expected map[string]interface{}, got %T", i, current)
+		}
+		if m["value"] != i {
+			t.Errorf("at depth %d: expected value %d, got %v", i, i, m["value"])
+		}
+		if i < depth {
+			current = m["next"]
+		} else {
+			// Last node should not have next
+			if _, exists := m["next"]; exists {
+				t.Errorf("last node should not have next")
+			}
+		}
+	}
+}
+
+// circularMapNode represents a node with a map that can contain circular references
+type circularMapNode struct {
+	Name     string                      `thrift:"Name,1" json:"name,omitempty"`
+	Children map[string]*circularMapNode `thrift:"Children,2" json:"children,omitempty"`
+}
+
+func makeCircularMapDesc() *Descriptor {
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "CircularMapNode",
+		Children: []Field{
+			{Name: "name", ID: 1},
+			{Name: "children", ID: 2},
+		},
+	}
+	// Make children field circular: it's a map with values of the same type
+	desc.Children[1].Desc = &Descriptor{
+		Kind: TypeKind_StrMap,
+		Name: "ChildrenMap",
+		Children: []Field{
+			{Name: "*", Desc: desc}, // Wildcard with circular reference
+		},
+	}
+	return desc
+}
+
+func TestFetchAny_CircularDescriptor_MapOfNodes(t *testing.T) {
+	// Create a tree-like structure using maps:
+	// root
+	// ├── child1
+	// │   └── grandchild1
+	// └── child2
+	node := &circularMapNode{
+		Name: "root",
+		Children: map[string]*circularMapNode{
+			"child1": {
+				Name: "child1",
+				Children: map[string]*circularMapNode{
+					"grandchild1": {
+						Name:     "grandchild1",
+						Children: nil, // Termination
+					},
+				},
+			},
+			"child2": {
+				Name:     "child2",
+				Children: nil, // Termination
+			},
+		},
+	}
+
+	desc := makeCircularMapDesc()
+
+	fetched, err := FetchAny(desc, node)
+	if err != nil {
+		t.Fatalf("FetchAny failed: %v", err)
+	}
+
+	result, ok := fetched.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map[string]interface{}, got %T", fetched)
+	}
+
+	if result["name"] != "root" {
+		t.Errorf("name: expected 'root', got %v", result["name"])
+	}
+
+	children, ok := result["children"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("children: expected map[string]interface{}, got %T", result["children"])
+	}
+
+	child1, ok := children["child1"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("child1: expected map[string]interface{}, got %T", children["child1"])
+	}
+	if child1["name"] != "child1" {
+		t.Errorf("child1.name: expected 'child1', got %v", child1["name"])
+	}
+
+	child1Children, ok := child1["children"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("child1.children: expected map[string]interface{}, got %T", child1["children"])
+	}
+
+	grandchild1, ok := child1Children["grandchild1"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("grandchild1: expected map[string]interface{}, got %T", child1Children["grandchild1"])
+	}
+	if grandchild1["name"] != "grandchild1" {
+		t.Errorf("grandchild1.name: expected 'grandchild1', got %v", grandchild1["name"])
+	}
+
+	child2, ok := children["child2"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("child2: expected map[string]interface{}, got %T", children["child2"])
+	}
+	if child2["name"] != "child2" {
+		t.Errorf("child2.name: expected 'child2', got %v", child2["name"])
+	}
+}
+
+func BenchmarkFetchAny_CircularDescriptor(b *testing.B) {
+	// Create a linked list of depth 10
+	depth := 10
+	var head *circularNode
+	for i := depth; i > 0; i-- {
+		head = &circularNode{
+			Value: i,
+			Next:  head,
+		}
+	}
+
+	desc := makeCircularDesc()
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		_, _ = FetchAny(desc, head)
+	}
+}
+
 func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 	t.Run("nested struct without descriptor (no further fetch)", func(t *testing.T) {
 		// Create a struct with a nested struct in _unknownFields

@@ -18,7 +18,7 @@ package trim
 
 import (
 	"strings"
-	"sync"
+	"sync/atomic"
 )
 
 // TypeKind is the kind of type.
@@ -49,9 +49,9 @@ type Descriptor struct {
 	Children []Field
 
 	// for speed-up search
-	sync.Once
-	ids   map[int]Field
-	names map[string]Field
+	normalized int32 // atomic flag: 0=not started, 1=in progress/done
+	ids        map[int]Field
+	names      map[string]Field
 }
 
 // Field represents a mapping selection
@@ -67,37 +67,90 @@ type Field struct {
 	Desc *Descriptor
 }
 
-// Normalize cache all the fields in the descriptor for speeding up search
+// Normalize cache all the fields in the descriptor for speeding up search.
+// It handles circular references by using an atomic flag to detect re-entry.
 func (d *Descriptor) Normalize() {
-	d.Once.Do(func() {
-		d.ids = make(map[int]Field, len(d.Children))
-		d.names = make(map[string]Field, len(d.Children))
-		for _, f := range d.Children {
-			d.ids[f.ID] = f
-			d.names[f.Name] = f
-			if f.Desc != nil {
-				f.Desc.Normalize()
-			}
-		}
-	})
-}
+	// Use atomic to detect if we're already normalizing this descriptor
+	// This prevents infinite recursion in circular references
+	if !atomic.CompareAndSwapInt32(&d.normalized, 0, 1) {
+		// Already being normalized or already done
+		return
+	}
 
-// String returns the string representation of the descriptor.
-func (d *Descriptor) String() string {
-	sb := strings.Builder{}
-	var printer func(*Descriptor)
-	printer = func(pbtr *Descriptor) {
-		sb.WriteString("<" + pbtr.Name + ">")
-		for _, f := range pbtr.Children {
-			sb.WriteString("--" + f.Name)
-			if f.Desc == nil {
-				sb.WriteString("\n")
-				continue
-			}
-			sb.WriteString("->")
-			printer(f.Desc)
+	d.ids = make(map[int]Field, len(d.Children))
+	d.names = make(map[string]Field, len(d.Children))
+	for _, f := range d.Children {
+		d.ids[f.ID] = f
+		d.names[f.Name] = f
+		if f.Desc != nil {
+			f.Desc.Normalize()
 		}
 	}
-	printer(d)
+}
+
+// String returns the string representation of the descriptor in JSON-like format.
+// It handles circular references by tracking visited descriptors.
+// Format: <TypeName>{...} for struct/map, "-" for scalar types.
+func (d *Descriptor) String() string {
+	sb := strings.Builder{}
+	visited := make(map[*Descriptor]bool)
+
+	var printer func(desc *Descriptor, indent string)
+	printer = func(desc *Descriptor, indent string) {
+		// Handle circular references
+		if visited[desc] {
+			sb.WriteString("<" + desc.Name + ">")
+			return
+		}
+		visited[desc] = true
+
+		// Get type prefix based on Kind
+		var typePrefix string
+		switch desc.Kind {
+		case TypeKind_Scalar:
+			sb.WriteString("-")
+			return
+		case TypeKind_StrMap:
+			typePrefix = "<MAP>"
+		default: // TypeKind_Struct
+			typePrefix = "<" + desc.Name + ">"
+		}
+
+		sb.WriteString(typePrefix)
+
+		if len(desc.Children) == 0 {
+			sb.WriteString("{}")
+			return
+		}
+
+		sb.WriteString("{\n")
+		nextIndent := indent + "\t"
+
+		for i, f := range desc.Children {
+			sb.WriteString(nextIndent)
+
+			// For MAP with "*" key, just use "*"
+			if desc.Kind == TypeKind_StrMap && f.Name == "*" {
+				sb.WriteString("\"*\": ")
+			} else {
+				sb.WriteString("\"" + f.Name + "\": ")
+			}
+
+			if f.Desc == nil {
+				sb.WriteString("-")
+			} else {
+				printer(f.Desc, nextIndent)
+			}
+
+			if i < len(desc.Children)-1 {
+				sb.WriteString(",")
+			}
+			sb.WriteString("\n")
+		}
+
+		sb.WriteString(indent + "}")
+	}
+
+	printer(d, "")
 	return sb.String()
 }

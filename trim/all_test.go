@@ -1047,3 +1047,273 @@ func TestFetchAndAssign_EmptyDescriptor(t *testing.T) {
 	require.Equal(t, 999, dest.FieldA)
 	require.Equal(t, "original", dest.FieldB)
 }
+
+// ===================== Descriptor.String() Tests =====================
+
+// TestDescriptor_String_Scalar tests String() for scalar type descriptor
+func TestDescriptor_String_Scalar(t *testing.T) {
+	desc := &Descriptor{
+		Kind: TypeKind_Scalar,
+		Name: "ScalarType",
+	}
+
+	result := desc.String()
+	require.Equal(t, "-", result)
+}
+
+// TestDescriptor_String_EmptyStruct tests String() for struct with no children
+func TestDescriptor_String_EmptyStruct(t *testing.T) {
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "EmptyStruct",
+	}
+
+	result := desc.String()
+	require.Equal(t, "<EmptyStruct>{}", result)
+}
+
+// TestDescriptor_String_SimpleStruct tests String() for struct with scalar fields
+func TestDescriptor_String_SimpleStruct(t *testing.T) {
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "SimpleStruct",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{Name: "field_b", ID: 2},
+		},
+	}
+
+	result := desc.String()
+	expected := `<SimpleStruct>{
+	"field_a": -,
+	"field_b": -
+}`
+	require.Equal(t, expected, result)
+}
+
+// TestDescriptor_String_NestedStruct tests String() for nested struct
+func TestDescriptor_String_NestedStruct(t *testing.T) {
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "OuterStruct",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{
+				Name: "inner",
+				ID:   2,
+				Desc: &Descriptor{
+					Kind: TypeKind_Struct,
+					Name: "InnerStruct",
+					Children: []Field{
+						{Name: "name", ID: 1},
+						{Name: "value", ID: 2},
+					},
+				},
+			},
+		},
+	}
+
+	result := desc.String()
+	expected := `<OuterStruct>{
+	"field_a": -,
+	"inner": <InnerStruct>{
+		"name": -,
+		"value": -
+	}
+}`
+	require.Equal(t, expected, result)
+}
+
+// TestDescriptor_String_MapWithWildcard tests String() for map with "*" key
+func TestDescriptor_String_MapWithWildcard(t *testing.T) {
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "ContainerStruct",
+		Children: []Field{
+			{Name: "id", ID: 1},
+			{
+				Name: "data",
+				ID:   2,
+				Desc: &Descriptor{
+					Kind: TypeKind_StrMap,
+					Name: "DataMap",
+					Children: []Field{
+						{
+							Name: "*",
+							Desc: &Descriptor{
+								Kind: TypeKind_Struct,
+								Name: "ItemStruct",
+								Children: []Field{
+									{Name: "name", ID: 1},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := desc.String()
+	expected := `<ContainerStruct>{
+	"id": -,
+	"data": <MAP>{
+		"*": <ItemStruct>{
+			"name": -
+		}
+	}
+}`
+	require.Equal(t, expected, result)
+}
+
+// TestDescriptor_String_MapWithSpecificKeys tests String() for map with specific keys
+func TestDescriptor_String_MapWithSpecificKeys(t *testing.T) {
+	desc := &Descriptor{
+		Kind: TypeKind_StrMap,
+		Name: "SpecificKeyMap",
+		Children: []Field{
+			{Name: "key1"},
+			{Name: "key2"},
+			{
+				Name: "key3",
+				Desc: &Descriptor{
+					Kind: TypeKind_Struct,
+					Name: "NestedType",
+					Children: []Field{
+						{Name: "value", ID: 1},
+					},
+				},
+			},
+		},
+	}
+
+	result := desc.String()
+	expected := `<MAP>{
+	"key1": -,
+	"key2": -,
+	"key3": <NestedType>{
+		"value": -
+	}
+}`
+	require.Equal(t, expected, result)
+}
+
+// TestDescriptor_String_DeeplyNested tests String() for deeply nested structure
+func TestDescriptor_String_DeeplyNested(t *testing.T) {
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "Level1",
+		Children: []Field{
+			{
+				Name: "level2",
+				ID:   1,
+				Desc: &Descriptor{
+					Kind: TypeKind_Struct,
+					Name: "Level2",
+					Children: []Field{
+						{
+							Name: "level3",
+							ID:   1,
+							Desc: &Descriptor{
+								Kind: TypeKind_Struct,
+								Name: "Level3",
+								Children: []Field{
+									{Name: "value", ID: 1},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	result := desc.String()
+	expected := `<Level1>{
+	"level2": <Level2>{
+		"level3": <Level3>{
+			"value": -
+		}
+	}
+}`
+	require.Equal(t, expected, result)
+}
+
+// TestDescriptor_String_CircularReference tests String() handles circular references
+func TestDescriptor_String_CircularReference(t *testing.T) {
+	// Create a descriptor that references itself
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "SelfRef",
+		Children: []Field{
+			{Name: "value", ID: 1},
+		},
+	}
+	// Add self-reference
+	desc.Children = append(desc.Children, Field{
+		Name: "self",
+		ID:   2,
+		Desc: desc, // circular reference
+	})
+
+	result := desc.String()
+	expected := `<SelfRef>{
+	"value": -,
+	"self": <SelfRef>
+}`
+	require.Equal(t, expected, result)
+}
+
+// TestDescriptor_String_MixedTypes tests String() for mixed struct and map types
+func TestDescriptor_String_MixedTypes(t *testing.T) {
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "MixedStruct",
+		Children: []Field{
+			{Name: "scalar_field", ID: 1},
+			{
+				Name: "struct_field",
+				ID:   2,
+				Desc: &Descriptor{
+					Kind: TypeKind_Struct,
+					Name: "NestedStruct",
+					Children: []Field{
+						{Name: "a", ID: 1},
+					},
+				},
+			},
+			{
+				Name: "map_field",
+				ID:   3,
+				Desc: &Descriptor{
+					Kind: TypeKind_StrMap,
+					Name: "NestedMap",
+					Children: []Field{
+						{Name: "*"},
+					},
+				},
+			},
+			{
+				Name: "scalar_desc",
+				ID:   4,
+				Desc: &Descriptor{
+					Kind: TypeKind_Scalar,
+					Name: "ScalarType",
+				},
+			},
+		},
+	}
+
+	result := desc.String()
+	expected := `<MixedStruct>{
+	"scalar_field": -,
+	"struct_field": <NestedStruct>{
+		"a": -
+	},
+	"map_field": <MAP>{
+		"*": -
+	},
+	"scalar_desc": -
+}`
+	require.Equal(t, expected, result)
+}
