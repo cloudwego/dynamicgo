@@ -97,12 +97,12 @@ func getStructFieldInfo(t reflect.Type) *structFieldInfo {
 		}
 
 		// Parse thrift tag: "FieldName,ID" - use IndexByte for better performance
-		idx := strings.IndexByte(tag, ',')
-		if idx < 0 {
+		idx := strings.Split(tag, ",")
+		if len(idx) < 2 {
 			continue
 		}
 
-		fieldID, err := strconv.Atoi(tag[idx+1:])
+		fieldID, err := strconv.Atoi(idx[1])
 		if err != nil {
 			continue
 		}

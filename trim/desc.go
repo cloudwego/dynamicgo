@@ -17,6 +17,8 @@
 package trim
 
 import (
+	"encoding/json"
+	"fmt"
 	"strings"
 	"sync/atomic"
 )
@@ -153,4 +155,142 @@ func (d *Descriptor) String() string {
 
 	printer(d, "")
 	return sb.String()
+}
+
+// descriptorJSON is the JSON representation of Descriptor
+type descriptorJSON struct {
+	Kind     TypeKind    `json:"kind"`
+	Name     string      `json:"name"`
+	Children []fieldJSON `json:"children,omitempty"`
+}
+
+// fieldJSON is the JSON representation of Field
+type fieldJSON struct {
+	Name string          `json:"name"`
+	ID   int             `json:"id"`
+	Desc *descriptorJSON `json:"desc,omitempty"`
+	Ref  string          `json:"$ref,omitempty"` // reference to another descriptor by path
+}
+
+// MarshalJSON implements json.Marshaler interface for Descriptor
+// It handles circular references by using $ref to reference already visited descriptors
+func (d *Descriptor) MarshalJSON() ([]byte, error) {
+	visited := make(map[*Descriptor]string) // maps pointer to path
+	result := d.marshalWithPath("$", visited)
+	return json.Marshal(result)
+}
+
+// marshalWithPath recursively marshals the descriptor, tracking visited nodes
+func (d *Descriptor) marshalWithPath(path string, visited map[*Descriptor]string) *descriptorJSON {
+	if d == nil {
+		return nil
+	}
+
+	// Check if we've already visited this descriptor (circular reference)
+	if existingPath, ok := visited[d]; ok {
+		// Return a reference placeholder - this will be handled specially
+		return &descriptorJSON{
+			Kind: d.Kind,
+			Name: fmt.Sprintf("$ref:%s", existingPath),
+		}
+	}
+
+	// Mark as visited
+	visited[d] = path
+
+	result := &descriptorJSON{
+		Kind:     d.Kind,
+		Name:     d.Name,
+		Children: make([]fieldJSON, 0, len(d.Children)),
+	}
+
+	for i, f := range d.Children {
+		childPath := fmt.Sprintf("%s.children[%d].desc", path, i)
+		fj := fieldJSON{
+			Name: f.Name,
+			ID:   f.ID,
+		}
+
+		if f.Desc != nil {
+			// Check if child descriptor was already visited
+			if existingPath, ok := visited[f.Desc]; ok {
+				fj.Ref = existingPath
+			} else {
+				fj.Desc = f.Desc.marshalWithPath(childPath, visited)
+			}
+		}
+
+		result.Children = append(result.Children, fj)
+	}
+
+	return result
+}
+
+// UnmarshalJSON implements json.Unmarshaler interface for Descriptor
+// It handles circular references by resolving $ref references after initial parsing
+func (d *Descriptor) UnmarshalJSON(data []byte) error {
+	var raw descriptorJSON
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	// First pass: build all descriptors and collect references
+	refs := make(map[string]*Descriptor) // path -> descriptor
+	d.unmarshalFromJSON(&raw, "$", refs)
+
+	// Second pass: resolve references
+	d.resolveRefs("$", refs)
+
+	return nil
+}
+
+// unmarshalFromJSON populates the descriptor from JSON representation
+func (d *Descriptor) unmarshalFromJSON(raw *descriptorJSON, path string, refs map[string]*Descriptor) {
+	d.Kind = raw.Kind
+	d.Name = raw.Name
+	d.Children = make([]Field, 0, len(raw.Children))
+	d.ids = nil
+	d.names = nil
+
+	// Register this descriptor
+	refs[path] = d
+
+	for i, fj := range raw.Children {
+		childPath := fmt.Sprintf("%s.children[%d].desc", path, i)
+		f := Field{
+			Name: fj.Name,
+			ID:   fj.ID,
+		}
+
+		if fj.Ref != "" {
+			// This is a reference, will be resolved later
+			// Create a placeholder descriptor with special name
+			f.Desc = &Descriptor{Name: "$ref:" + fj.Ref}
+		} else if fj.Desc != nil {
+			f.Desc = &Descriptor{}
+			f.Desc.unmarshalFromJSON(fj.Desc, childPath, refs)
+		}
+
+		d.Children = append(d.Children, f)
+	}
+}
+
+// resolveRefs resolves all $ref references in the descriptor tree
+func (d *Descriptor) resolveRefs(path string, refs map[string]*Descriptor) {
+	for i := range d.Children {
+		if d.Children[i].Desc != nil {
+			childPath := fmt.Sprintf("%s.children[%d].desc", path, i)
+
+			// Check if this is a reference
+			if strings.HasPrefix(d.Children[i].Desc.Name, "$ref:") {
+				refPath := strings.TrimPrefix(d.Children[i].Desc.Name, "$ref:")
+				if target, ok := refs[refPath]; ok {
+					d.Children[i].Desc = target
+				}
+			} else {
+				// Recursively resolve references
+				d.Children[i].Desc.resolveRefs(childPath, refs)
+			}
+		}
+	}
 }
