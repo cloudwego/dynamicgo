@@ -27,7 +27,7 @@ import (
 )
 
 // FetchAny fetches the value of the field described by desc from any based on go reflect.
-func FetchAny(desc *Descriptor, any interface{}, opts ...FetchOptions) (interface{}, error) {
+func FetchAny(desc *Descriptor, any interface{}, opts ...FetchOption) (interface{}, error) {
 	if any == nil || desc == nil {
 		return nil, nil
 	}
@@ -35,15 +35,15 @@ func FetchAny(desc *Descriptor, any interface{}, opts ...FetchOptions) (interfac
 	desc.Normalize()
 
 	var opt FetchOptions
-	if len(opts) > 0 {
-		opt = opts[0]
+	for _, op := range opts {
+		op(&opt)
 	}
 
 	v := reflect.ValueOf(any)
 	return fetchValue(desc, v, &opt)
 }
 
-// ErrNotFound is returned when a field/index/key is not found and DisallowNotFound is enabled
+// ErrNotFound is returned when a field/index/key is not found and disallowNotFound is enabled
 type ErrNotFound struct {
 	Parent *Descriptor
 	Field  Field  // the field that is not found
@@ -57,7 +57,15 @@ func (e ErrNotFound) Error() string {
 // FetchOptions contains options for FetchAny
 type FetchOptions struct {
 	// DisallowNotFound if true, returns ErrNotFound when a field/index/key is not found
-	DisallowNotFound bool
+	disallowNotFound bool
+}
+
+type FetchOption func(*FetchOptions)
+
+func WithDisallowNotFound(b bool) FetchOption {
+	return func(opt *FetchOptions) {
+		opt.disallowNotFound = b
+	}
 }
 
 // structFieldInfo caches field mapping information for a struct type
@@ -173,7 +181,7 @@ func fetchStruct(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interfac
 		if found {
 			fieldValue := v.Field(fieldIdx)
 			if fieldValue.Kind() == reflect.Ptr && fieldValue.IsNil() {
-				if opt.DisallowNotFound {
+				if opt.disallowNotFound {
 					return nil, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d is nil", field.ID)}
 				}
 				continue
@@ -196,10 +204,10 @@ func fetchStruct(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interfac
 				// Convert the value based on the field's Descriptor
 				// (e.g., map[FieldID]interface{} -> map[string]interface{} for nested structs)
 				result[field.Name] = fetchUnknownValue(val, field.Desc)
-			} else if opt.DisallowNotFound {
+			} else if opt.disallowNotFound {
 				return nil, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d not found in struct or unknownFields", field.ID)}
 			}
-		} else if opt.DisallowNotFound {
+		} else if opt.disallowNotFound {
 			return nil, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d not found in struct", field.ID)}
 		}
 	}
@@ -335,7 +343,7 @@ func fetchStrMap(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interfac
 		val := v.MapIndex(reflect.ValueOf(key))
 		// Check if specific keys are requested but not available in the map
 		if !val.IsValid() {
-			if opt.DisallowNotFound {
+			if opt.disallowNotFound {
 				return nil, ErrNotFound{Parent: desc, Field: keyDescMap[key], Msg: fmt.Sprintf("key '%s' not found in map", key)}
 			} else {
 				continue

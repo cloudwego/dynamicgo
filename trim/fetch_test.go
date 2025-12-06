@@ -367,7 +367,7 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 			},
 		}
 
-		_, err := FetchAny(desc, obj, FetchOptions{DisallowNotFound: true})
+		_, err := FetchAny(desc, obj, WithDisallowNotFound(true))
 		if err == nil {
 			t.Fatalf("expected ErrNotFound, got nil")
 		}
@@ -410,7 +410,7 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 			},
 		}
 
-		_, err := FetchAny(desc, obj, FetchOptions{DisallowNotFound: true})
+		_, err := FetchAny(desc, obj, WithDisallowNotFound(true))
 		if err == nil {
 			t.Fatalf("expected ErrNotFound, got nil")
 		}
@@ -457,7 +457,7 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 			},
 		}
 
-		_, err := FetchAny(desc, obj, FetchOptions{DisallowNotFound: true})
+		_, err := FetchAny(desc, obj, WithDisallowNotFound(true))
 		if err == nil {
 			t.Fatalf("expected ErrNotFound, got nil")
 		}
@@ -485,7 +485,7 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 			},
 		}
 
-		ret, err := FetchAny(desc, obj, FetchOptions{DisallowNotFound: true})
+		ret, err := FetchAny(desc, obj, WithDisallowNotFound(true))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
