@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/cloudwego/dynamicgo/conv"
 	"github.com/cloudwego/dynamicgo/http"
@@ -235,7 +236,15 @@ func (self *BinaryConv) doRecurse(ctx context.Context, desc *thrift.TypeDescript
 		if e != nil {
 			return wrapError(meta.ErrWrite, "", e)
 		}
-		*out = json.EncodeFloat64(*out, float64(v))
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			if self.opts.EncodeNullJSONForInfOrNan {
+				*out = json.EncodeNull(*out)
+			} else {
+				return wrapError(meta.ErrWrite, "encounter Nan or Inf double", nil)
+			}
+		} else {
+			*out = json.EncodeFloat64(*out, float64(v))
+		}
 	case thrift.STRING:
 		if desc.IsBinary() && !self.opts.NoBase64Binary {
 			v, e := p.ReadBinary(false)

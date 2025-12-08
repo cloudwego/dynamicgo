@@ -349,6 +349,32 @@ func TestInt2String(t *testing.T) {
 	require.Equal(t, `{"Int32":"1","Float64":"3.14","中文":"hello","Int64":2,"Subfix":0.92653}`, string(out))
 
 	cv.opts.EnableValueMapping = false
+	t.Run("no error", func(t *testing.T) {
+		out, err = cv.Do(ctx, desc, in)
+		require.NoError(t, err)
+		require.Equal(t, (`{"Int32":1,"Float64":3.14,"中文":"hello","Int64":2,"Subfix":0.92653}`), string(out))
+	})
+	t.Run("err NaN", func(t *testing.T) {
+		exp2 := exp
+		exp2.Subfix = math.NaN()
+		in := make([]byte, exp2.BLength())
+		_ = exp.FastWriteNocopy(in, nil)
+		out, err = cv.Do(ctx, desc, in)
+		require.Error(t, err)
+		require.Equal(t, meta.ErrWrite, err.(meta.Error).Code.Behavior())
+	})
+	t.Run("null for NaN", func(t *testing.T) {
+		cv.opts.EncodeNullJSONForInfOrNan = true
+		exp2 := exp
+		exp2.Subfix = math.NaN()
+		in := make([]byte, exp2.BLength())
+		_ = exp.FastWriteNocopy(in, nil)
+		out, err = cv.Do(ctx, desc, in)
+		require.NoError(t, err)
+		require.Equal(t, (`{"Int32":1,"Float64":3.14,"中文":"hello","Int64":2,"Subfix":null}`), string(out))
+	})
+
+	cv.opts.EnableValueMapping = false
 	out, err = cv.Do(ctx, desc, in)
 	require.NoError(t, err)
 	require.Equal(t, (`{"Int32":1,"Float64":3.14,"中文":"hello","Int64":2,"Subfix":0.92653}`), string(out))
