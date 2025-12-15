@@ -19,7 +19,9 @@ package trim
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 )
 
@@ -33,6 +35,8 @@ const (
 	TypeKind_Struct
 	// TypeKind_StrMap indicates Descriptor.Field is map key
 	TypeKind_StrMap
+	// TypeKind_List indicates Descriptor.Field is list index
+	TypeKind_List
 )
 
 // Descriptor describes the entire a DSL-pruning scheme for a type.
@@ -48,6 +52,7 @@ type Descriptor struct {
 	// children for TypeKind_Struct|TypeKind_StrMap|TypeKind_List
 	// - For TypeKind_StrMap, either each Field is a key-value pair or one field with Name "*"
 	// - For TypeKind_Struct, each Field is a field with both Name and ID
+	// - For TypeKind_List, either each Field.ID is the element index or one field with Name "*" (means all elements)
 	Children []Field
 
 	// for speed-up search
@@ -293,4 +298,80 @@ func (d *Descriptor) resolveRefs(path string, refs map[string]*Descriptor) {
 			}
 		}
 	}
+}
+
+// stackFrame represents a single frame in the path tracking stack
+type stackFrame struct {
+	kind TypeKind
+	name string
+	id   int
+}
+
+// stackFramePool is a pool for stackFrame slices to reduce allocations
+var stackFramePool = sync.Pool{
+	New: func() interface{} {
+		ret := make([]stackFrame, 0, 16) // pre-allocate for common depth
+		return (*pathStack)(&ret)
+	},
+}
+
+// getStackFrames gets a stackFrame slice from the pool
+func getStackFrames() *pathStack {
+	return stackFramePool.Get().(*pathStack)
+}
+
+// putStackFrames returns a stackFrame slice to the pool
+func putStackFrames(s *pathStack) {
+	if s == nil {
+		return
+	}
+	*s = (*s)[:0]         // reset slice
+	stackFramePool.Put(s) //nolint:staticcheck // SA6002: storing slice in Pool is intentional
+}
+
+// pathStack tracks the path from root to current node
+type pathStack []stackFrame
+
+// push adds a new frame to the stack
+func (s *pathStack) push(kind TypeKind, name string, id int) {
+	*s = append(*s, stackFrame{
+		kind: kind,
+		name: name,
+		id:   id,
+	})
+}
+
+// pop removes the last frame from the stack
+func (s *pathStack) pop() {
+	if len(*s) > 0 {
+		*s = (*s)[:len(*s)-1]
+	}
+}
+
+// buildPath constructs a human-readable DSL path from the stack
+// This is only called when an error occurs
+func (s *pathStack) buildPath() string {
+	if len(*s) == 0 {
+		return "$"
+	}
+
+	var sb strings.Builder
+	sb.WriteString("$")
+
+	for _, frame := range *s {
+		if frame.kind == TypeKind_StrMap {
+			sb.WriteString("[")
+			sb.WriteString(frame.name)
+			sb.WriteString("]")
+		} else if frame.kind == TypeKind_List {
+			sb.WriteString("[")
+			sb.WriteString(strconv.Itoa(frame.id))
+			sb.WriteString("]")
+		} else {
+			sb.WriteString(".")
+			sb.WriteString(frame.name)
+		}
+	}
+
+	return sb.String()
 }

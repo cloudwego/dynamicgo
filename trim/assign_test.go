@@ -432,6 +432,638 @@ func TestAssignAny_MapOfStructs(t *testing.T) {
 	}
 }
 
+// TestAssignAny_ListWithSpecificIndices tests assigning list elements by specific indices or wildcard
+func TestAssignAny_ListWithSpecificIndices(t *testing.T) {
+	// Test case 1: Wildcard - assign all elements
+	t.Run("wildcard_all_elements", func(t *testing.T) {
+		src := map[string]interface{}{
+			"field_list": []interface{}{10, 20, 30, 40, 50},
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleAssign",
+			Children: []Field{
+				{
+					Name: "field_list",
+					ID:   6,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Name: "LIST",
+						Children: []Field{
+							{Name: "*"}, // wildcard - all elements
+						},
+					},
+				},
+			},
+		}
+
+		dest := &sampleAssign{}
+		err := assignAny(desc, src, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		expected := []int{10, 20, 30, 40, 50}
+		if !reflect.DeepEqual(dest.FieldList, expected) {
+			t.Errorf("field_list: expected %v, got %v", expected, dest.FieldList)
+		}
+	})
+
+	// Test case 2: Specific indices (0, 2, 4)
+	// The source array's elements are mapped to destination indices specified by Field.ID
+	// src[0] (10) -> dest[0], src[1] (20) -> dest[2], src[2] (30) -> dest[4]
+	t.Run("specific_indices", func(t *testing.T) {
+		src := map[string]interface{}{
+			"field_list": []interface{}{10, 20, 30}, // 3 elements
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleAssign",
+			Children: []Field{
+				{
+					Name: "field_list",
+					ID:   6,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Name: "LIST",
+						Children: []Field{
+							{Name: "0", ID: 0}, // src[0] -> dest[0]
+							{Name: "2", ID: 2}, // src[1] -> dest[2]
+							{Name: "4", ID: 4}, // src[2] -> dest[4]
+						},
+					},
+				},
+			},
+		}
+
+		dest := &sampleAssign{}
+		err := assignAny(desc, src, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		// Should create a slice with length maxIdx+1 = 5
+		if len(dest.FieldList) != 5 {
+			t.Fatalf("field_list: expected length 5, got %d", len(dest.FieldList))
+		}
+
+		// Check that specific indices are assigned
+		if dest.FieldList[0] != 10 {
+			t.Errorf("field_list[0]: expected 10, got %v", dest.FieldList[0])
+		}
+		if dest.FieldList[2] != 20 {
+			t.Errorf("field_list[2]: expected 20, got %v", dest.FieldList[2])
+		}
+		if dest.FieldList[4] != 30 {
+			t.Errorf("field_list[4]: expected 30, got %v", dest.FieldList[4])
+		}
+
+		// Indices 1 and 3 should be zero values
+		if dest.FieldList[1] != 0 {
+			t.Errorf("field_list[1]: expected 0 (zero value), got %v", dest.FieldList[1])
+		}
+		if dest.FieldList[3] != 0 {
+			t.Errorf("field_list[3]: expected 0 (zero value), got %v", dest.FieldList[3])
+		}
+	})
+
+	// Test case 3: Mapping to non-contiguous indices
+	// src[0] -> dest[0], src[1] -> dest[1], src[2] -> dest[10]
+	t.Run("non_contiguous_indices", func(t *testing.T) {
+		src := map[string]interface{}{
+			"field_list": []interface{}{10, 20, 30},
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleAssign",
+			Children: []Field{
+				{
+					Name: "field_list",
+					ID:   6,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Name: "LIST",
+						Children: []Field{
+							{Name: "0", ID: 0},   // src[0] -> dest[0]
+							{Name: "1", ID: 1},   // src[1] -> dest[1]
+							{Name: "10", ID: 10}, // src[2] -> dest[10]
+						},
+					},
+				},
+			},
+		}
+
+		dest := &sampleAssign{}
+		err := assignAny(desc, src, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		// Should create a slice with length maxIdx+1 = 11
+		if len(dest.FieldList) != 11 {
+			t.Fatalf("field_list: expected length 11, got %d", len(dest.FieldList))
+		}
+
+		// Check assigned values
+		if dest.FieldList[0] != 10 {
+			t.Errorf("field_list[0]: expected 10, got %v", dest.FieldList[0])
+		}
+		if dest.FieldList[1] != 20 {
+			t.Errorf("field_list[1]: expected 20, got %v", dest.FieldList[1])
+		}
+		if dest.FieldList[10] != 30 {
+			t.Errorf("field_list[10]: expected 30, got %v", dest.FieldList[10])
+		}
+
+		// Indices 2-9 should be zero values
+		for i := 2; i < 10; i++ {
+			if dest.FieldList[i] != 0 {
+				t.Errorf("field_list[%d]: expected 0 (zero value), got %v", i, dest.FieldList[i])
+			}
+		}
+	})
+
+	// Test case 4: DisallowNotDefined with insufficient source elements
+	// Descriptor requires 3 elements but source only has 2
+	t.Run("disallow_not_defined_insufficient_source", func(t *testing.T) {
+		src := map[string]interface{}{
+			"field_list": []interface{}{10, 20}, // only 2 elements
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleAssign",
+			Children: []Field{
+				{
+					Name: "field_list",
+					ID:   6,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Name: "LIST",
+						Children: []Field{
+							{Name: "0", ID: 0}, // src[0] -> dest[0]
+							{Name: "1", ID: 1}, // src[1] -> dest[1]
+							{Name: "2", ID: 2}, // src[2] doesn't exist!
+						},
+					},
+				},
+			},
+		}
+
+		assigner := Assigner{AssignOptions: AssignOptions{DisallowNotDefined: true}}
+		dest := &sampleAssign{}
+		err := assigner.AssignAny(desc, src, dest)
+		if err == nil {
+			t.Fatalf("expected ErrNotFound, got nil")
+		}
+
+		notFoundErr, ok := err.(ErrNotFound)
+		if !ok {
+			t.Fatalf("expected ErrNotFound, got %T: %v", err, err)
+		}
+		if notFoundErr.Parent.Name != "LIST" {
+			t.Errorf("expected parent name 'LIST', got '%s'", notFoundErr.Parent.Name)
+		}
+	})
+
+	// Test case 5: List with nested structures
+	t.Run("list_with_nested_structs_wildcard", func(t *testing.T) {
+		src := map[string]interface{}{
+			"field_b": []interface{}{
+				map[string]interface{}{
+					"field_a": 1,
+					"field_e": "first",
+				},
+				map[string]interface{}{
+					"field_a": 2,
+					"field_e": "second",
+				},
+				map[string]interface{}{
+					"field_a": 3,
+					"field_e": "third",
+				},
+			},
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleAssign",
+			Children: []Field{
+				{
+					Name: "field_b",
+					ID:   2,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Name: "LIST",
+						Children: []Field{
+							{
+								Name: "*",
+								Desc: &Descriptor{
+									Kind: TypeKind_Struct,
+									Name: "SampleAssign",
+									Children: []Field{
+										{Name: "field_a", ID: 1},
+										{Name: "field_e", ID: 5},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		dest := &sampleAssign{}
+		err := assignAny(desc, src, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		if len(dest.FieldB) != 3 {
+			t.Fatalf("field_b: expected length 3, got %d", len(dest.FieldB))
+		}
+
+		if dest.FieldB[0].FieldA != 1 {
+			t.Errorf("field_b[0].field_a: expected 1, got %v", dest.FieldB[0].FieldA)
+		}
+		if dest.FieldB[0].FieldE != "first" {
+			t.Errorf("field_b[0].field_e: expected 'first', got %v", dest.FieldB[0].FieldE)
+		}
+
+		if dest.FieldB[2].FieldA != 3 {
+			t.Errorf("field_b[2].field_a: expected 3, got %v", dest.FieldB[2].FieldA)
+		}
+		if dest.FieldB[2].FieldE != "third" {
+			t.Errorf("field_b[2].field_e: expected 'third', got %v", dest.FieldB[2].FieldE)
+		}
+	})
+
+	// Test case 6: List with nested structures and specific indices
+	// src[0] -> dest[0], src[1] -> dest[2] (Note: assign copies ALL available fields from source)
+	t.Run("list_with_nested_structs_specific_indices", func(t *testing.T) {
+		src := map[string]interface{}{
+			"field_b": []interface{}{
+				map[string]interface{}{
+					"field_a": 1,
+					"field_e": "first",
+				},
+				map[string]interface{}{
+					"field_a": 2,
+					"field_e": "second",
+				},
+			},
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleAssign",
+			Children: []Field{
+				{
+					Name: "field_b",
+					ID:   2,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Name: "LIST",
+						Children: []Field{
+							{
+								Name: "0",
+								ID:   0, // src[0] -> dest[0]
+								Desc: &Descriptor{
+									Kind: TypeKind_Struct,
+									Name: "SampleAssign",
+									Children: []Field{
+										{Name: "field_a", ID: 1},
+										{Name: "field_e", ID: 5},
+									},
+								},
+							},
+							{
+								Name: "2",
+								ID:   2, // src[1] -> dest[2]
+								Desc: &Descriptor{
+									Kind: TypeKind_Struct,
+									Name: "SampleAssign",
+									Children: []Field{
+										{Name: "field_a", ID: 1},
+										{Name: "field_e", ID: 5},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		dest := &sampleAssign{}
+		err := assignAny(desc, src, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		// Should create a slice with length maxIdx+1 = 3
+		if len(dest.FieldB) != 3 {
+			t.Fatalf("field_b: expected length 3, got %d", len(dest.FieldB))
+		}
+
+		// Check first element (src[0] -> dest[0])
+		if dest.FieldB[0] == nil {
+			t.Fatalf("field_b[0]: expected non-nil")
+		}
+		if dest.FieldB[0].FieldA != 1 {
+			t.Errorf("field_b[0].field_a: expected 1, got %v", dest.FieldB[0].FieldA)
+		}
+		if dest.FieldB[0].FieldE != "first" {
+			t.Errorf("field_b[0].field_e: expected 'first', got %v", dest.FieldB[0].FieldE)
+		}
+
+		// Index 1 should be nil (not assigned)
+		if dest.FieldB[1] != nil {
+			t.Errorf("field_b[1]: expected nil, got %v", dest.FieldB[1])
+		}
+
+		// Check element at index 2 (src[1] -> dest[2])
+		if dest.FieldB[2] == nil {
+			t.Fatalf("field_b[2]: expected non-nil")
+		}
+		if dest.FieldB[2].FieldA != 2 {
+			t.Errorf("field_b[2].field_a: expected 2, got %v", dest.FieldB[2].FieldA)
+		}
+		if dest.FieldB[2].FieldE != "second" {
+			t.Errorf("field_b[2].field_e: expected 'second', got %v", dest.FieldB[2].FieldE)
+		}
+	})
+
+	// Test case 7: Preserve existing slice elements not accessed by descriptor
+	// dest already has [elem0, elem1, elem2, elem3], descriptor only modifies indices 1 and 3
+	t.Run("preserve_unmodified_elements", func(t *testing.T) {
+		src := map[string]interface{}{
+			"field_b": []interface{}{
+				map[string]interface{}{
+					"field_a": 100,
+					"field_e": "new_first",
+				},
+				map[string]interface{}{
+					"field_a": 200,
+					"field_e": "new_second",
+				},
+			},
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleAssign",
+			Children: []Field{
+				{
+					Name: "field_b",
+					ID:   2,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Name: "LIST",
+						Children: []Field{
+							{
+								Name: "1",
+								ID:   1, // src[0] -> dest[1]
+								Desc: &Descriptor{
+									Kind: TypeKind_Struct,
+									Name: "SampleAssign",
+									Children: []Field{
+										{Name: "field_a", ID: 1},
+										{Name: "field_e", ID: 5},
+									},
+								},
+							},
+							{
+								Name: "3",
+								ID:   3, // src[1] -> dest[3]
+								Desc: &Descriptor{
+									Kind: TypeKind_Struct,
+									Name: "SampleAssign",
+									Children: []Field{
+										{Name: "field_a", ID: 1},
+										{Name: "field_e", ID: 5},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		// Pre-populate dest with existing elements
+		dest := &sampleAssign{
+			FieldB: []*sampleAssign{
+				{FieldA: 1, FieldE: "original_0"},
+				{FieldA: 2, FieldE: "original_1"},
+				{FieldA: 3, FieldE: "original_2"},
+				{FieldA: 4, FieldE: "original_3"},
+			},
+		}
+
+		err := assignAny(desc, src, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		// Should have 4 elements (maxIdx+1 = 4)
+		if len(dest.FieldB) != 4 {
+			t.Fatalf("field_b: expected length 4, got %d", len(dest.FieldB))
+		}
+
+		// Index 0 should be preserved (not modified)
+		if dest.FieldB[0] == nil {
+			t.Fatalf("field_b[0]: expected non-nil")
+		}
+		if dest.FieldB[0].FieldA != 1 {
+			t.Errorf("field_b[0].field_a: expected 1 (preserved), got %v", dest.FieldB[0].FieldA)
+		}
+		if dest.FieldB[0].FieldE != "original_0" {
+			t.Errorf("field_b[0].field_e: expected 'original_0' (preserved), got %v", dest.FieldB[0].FieldE)
+		}
+
+		// Index 1 should be overwritten by src[0]
+		if dest.FieldB[1] == nil {
+			t.Fatalf("field_b[1]: expected non-nil")
+		}
+		if dest.FieldB[1].FieldA != 100 {
+			t.Errorf("field_b[1].field_a: expected 100 (overwritten), got %v", dest.FieldB[1].FieldA)
+		}
+		if dest.FieldB[1].FieldE != "new_first" {
+			t.Errorf("field_b[1].field_e: expected 'new_first' (overwritten), got %v", dest.FieldB[1].FieldE)
+		}
+
+		// Index 2 should be preserved (not modified)
+		if dest.FieldB[2] == nil {
+			t.Fatalf("field_b[2]: expected non-nil")
+		}
+		if dest.FieldB[2].FieldA != 3 {
+			t.Errorf("field_b[2].field_a: expected 3 (preserved), got %v", dest.FieldB[2].FieldA)
+		}
+		if dest.FieldB[2].FieldE != "original_2" {
+			t.Errorf("field_b[2].field_e: expected 'original_2' (preserved), got %v", dest.FieldB[2].FieldE)
+		}
+
+		// Index 3 should be overwritten by src[1]
+		if dest.FieldB[3] == nil {
+			t.Fatalf("field_b[3]: expected non-nil")
+		}
+		if dest.FieldB[3].FieldA != 200 {
+			t.Errorf("field_b[3].field_a: expected 200 (overwritten), got %v", dest.FieldB[3].FieldA)
+		}
+		if dest.FieldB[3].FieldE != "new_second" {
+			t.Errorf("field_b[3].field_e: expected 'new_second' (overwritten), got %v", dest.FieldB[3].FieldE)
+		}
+	})
+
+	// Test case 8: Expand existing slice when descriptor requires larger size
+	t.Run("expand_existing_slice", func(t *testing.T) {
+		src := map[string]interface{}{
+			"field_b": []interface{}{
+				map[string]interface{}{
+					"field_a": 999,
+				},
+			},
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleAssign",
+			Children: []Field{
+				{
+					Name: "field_b",
+					ID:   2,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Name: "LIST",
+						Children: []Field{
+							{
+								Name: "5",
+								ID:   5, // src[0] -> dest[5]
+								Desc: &Descriptor{
+									Kind: TypeKind_Struct,
+									Name: "SampleAssign",
+									Children: []Field{
+										{Name: "field_a", ID: 1},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		// Pre-populate dest with smaller slice
+		dest := &sampleAssign{
+			FieldB: []*sampleAssign{
+				{FieldA: 1, FieldE: "keep_0"},
+				{FieldA: 2, FieldE: "keep_1"},
+			},
+		}
+
+		err := assignAny(desc, src, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		// Should expand to length 6 (maxIdx+1 = 6)
+		if len(dest.FieldB) != 6 {
+			t.Fatalf("field_b: expected length 6, got %d", len(dest.FieldB))
+		}
+
+		// Original elements should be preserved
+		if dest.FieldB[0].FieldA != 1 || dest.FieldB[0].FieldE != "keep_0" {
+			t.Errorf("field_b[0]: expected {1, keep_0}, got {%v, %v}", dest.FieldB[0].FieldA, dest.FieldB[0].FieldE)
+		}
+		if dest.FieldB[1].FieldA != 2 || dest.FieldB[1].FieldE != "keep_1" {
+			t.Errorf("field_b[1]: expected {2, keep_1}, got {%v, %v}", dest.FieldB[1].FieldA, dest.FieldB[1].FieldE)
+		}
+
+		// Indices 2-4 should be nil (newly created, not assigned)
+		for i := 2; i <= 4; i++ {
+			if dest.FieldB[i] != nil {
+				t.Errorf("field_b[%d]: expected nil, got %v", i, dest.FieldB[i])
+			}
+		}
+
+		// Index 5 should have the new value
+		if dest.FieldB[5] == nil {
+			t.Fatalf("field_b[5]: expected non-nil")
+		}
+		if dest.FieldB[5].FieldA != 999 {
+			t.Errorf("field_b[5].field_a: expected 999, got %v", dest.FieldB[5].FieldA)
+		}
+	})
+
+	// Test case 9: Wildcard overwrites all existing elements
+	t.Run("wildcard_overwrites_all", func(t *testing.T) {
+		src := map[string]interface{}{
+			"field_b": []interface{}{
+				map[string]interface{}{"field_a": 10},
+				map[string]interface{}{"field_a": 20},
+			},
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleAssign",
+			Children: []Field{
+				{
+					Name: "field_b",
+					ID:   2,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Name: "LIST",
+						Children: []Field{
+							{
+								Name: "*",
+								Desc: &Descriptor{
+									Kind: TypeKind_Struct,
+									Name: "SampleAssign",
+									Children: []Field{
+										{Name: "field_a", ID: 1},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		// Pre-populate dest with different size slice
+		dest := &sampleAssign{
+			FieldB: []*sampleAssign{
+				{FieldA: 100, FieldE: "old_0"},
+				{FieldA: 200, FieldE: "old_1"},
+				{FieldA: 300, FieldE: "old_2"},
+			},
+		}
+
+		err := assignAny(desc, src, dest)
+		if err != nil {
+			t.Fatalf("AssignAny failed: %v", err)
+		}
+
+		// Wildcard should completely replace with source length
+		if len(dest.FieldB) != 2 {
+			t.Fatalf("field_b: expected length 2 (from source), got %d", len(dest.FieldB))
+		}
+
+		// All elements should be new values from source
+		if dest.FieldB[0].FieldA != 10 {
+			t.Errorf("field_b[0].field_a: expected 10, got %v", dest.FieldB[0].FieldA)
+		}
+		if dest.FieldB[1].FieldA != 20 {
+			t.Errorf("field_b[1].field_a: expected 20, got %v", dest.FieldB[1].FieldA)
+		}
+	})
+}
+
 func TestAssignAny_NilValues(t *testing.T) {
 	err := assignAny(nil, nil, nil)
 	if err != nil {
@@ -1760,51 +2392,51 @@ func TestPathStack(t *testing.T) {
 		{
 			name: "single field",
 			ops: func(s *pathStack) {
-				s.push("field_a", 1, false, -1)
+				s.push(TypeKind_Struct, "field_a", 1)
 			},
 			expected: "$.field_a",
 		},
 		{
 			name: "nested fields",
 			ops: func(s *pathStack) {
-				s.push("field_d", 4, false, -1)
-				s.push("field_a", 1, false, -1)
+				s.push(TypeKind_Struct, "field_d", 4)
+				s.push(TypeKind_Struct, "field_a", 1)
 			},
 			expected: "$.field_d.field_a",
 		},
 		{
 			name: "map key",
 			ops: func(s *pathStack) {
-				s.push("field_c", 3, false, -1)
-				s.push("my_key", 0, true, -1)
+				s.push(TypeKind_Struct, "field_c", 3)
+				s.push(TypeKind_StrMap, "my_key", 0)
 			},
 			expected: "$.field_c[my_key]",
 		},
 		{
 			name: "array index",
 			ops: func(s *pathStack) {
-				s.push("field_b", 2, false, -1)
-				s.push("", 0, false, 0)
+				s.push(TypeKind_Struct, "field_b", 2)
+				s.push(TypeKind_List, "", 0)
 			},
 			expected: "$.field_b[0]",
 		},
 		{
 			name: "complex path",
 			ops: func(s *pathStack) {
-				s.push("root_field", 1, false, -1)
-				s.push("map_field", 3, false, -1)
-				s.push("key1", 0, true, -1)
-				s.push("nested", 4, false, -1)
-				s.push("array", 2, false, -1)
-				s.push("", 0, false, 2)
+				s.push(TypeKind_Struct, "root_field", 1)
+				s.push(TypeKind_Struct, "map_field", 3)
+				s.push(TypeKind_StrMap, "key1", 0)
+				s.push(TypeKind_Struct, "nested", 4)
+				s.push(TypeKind_Struct, "array", 2)
+				s.push(TypeKind_List, "", 2)
 			},
 			expected: "$.root_field.map_field[key1].nested.array[2]",
 		},
 		{
 			name: "push and pop",
 			ops: func(s *pathStack) {
-				s.push("field_a", 1, false, -1)
-				s.push("field_b", 2, false, -1)
+				s.push(TypeKind_Struct, "field_a", 1)
+				s.push(TypeKind_Struct, "field_b", 2)
 				s.pop()
 			},
 			expected: "$.field_a",
@@ -1837,7 +2469,7 @@ func TestStackFramePool(t *testing.T) {
 	}
 
 	// Use it and return it
-	*frames1 = append(*frames1, stackFrame{fieldName: "test", fieldID: 1})
+	*frames1 = append(*frames1, stackFrame{name: "test", id: 1})
 	putStackFrames(frames1)
 
 	// Get another one - should be reused
@@ -2253,7 +2885,7 @@ func BenchmarkPathStack_Operations(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			stack := getStackFrames()
 			for j := 0; j < 10; j++ {
-				stack.push("field", j, false, -1)
+				stack.push(TypeKind_Struct, "field", j)
 			}
 			for j := 0; j < 10; j++ {
 				stack.pop()
@@ -2264,8 +2896,8 @@ func BenchmarkPathStack_Operations(b *testing.B) {
 
 	b.Run("build_path_shallow", func(b *testing.B) {
 		stack := getStackFrames()
-		stack.push("field_a", 1, false, -1)
-		stack.push("field_b", 2, false, -1)
+		stack.push(TypeKind_Struct, "field_a", 1)
+		stack.push(TypeKind_Struct, "field_b", 2)
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -2276,7 +2908,7 @@ func BenchmarkPathStack_Operations(b *testing.B) {
 	b.Run("build_path_deep", func(b *testing.B) {
 		stack := getStackFrames()
 		for i := 0; i < 10; i++ {
-			stack.push("field", i, false, -1)
+			stack.push(TypeKind_Struct, "field", i)
 		}
 
 		b.ResetTimer()
@@ -2287,12 +2919,12 @@ func BenchmarkPathStack_Operations(b *testing.B) {
 
 	b.Run("build_path_mixed", func(b *testing.B) {
 		stack := getStackFrames()
-		stack.push("root", 1, false, -1)
-		stack.push("map_field", 3, false, -1)
-		stack.push("key1", 0, true, -1)
-		stack.push("nested", 4, false, -1)
-		stack.push("", 0, false, 5)
-		stack.push("deep", 6, false, -1)
+		stack.push(TypeKind_Struct, "root", 1)
+		stack.push(TypeKind_StrMap, "map_field", 3)
+		stack.push(TypeKind_StrMap, "key1", 0)
+		stack.push(TypeKind_Struct, "nested", 4)
+		stack.push(TypeKind_List, "", 5)
+		stack.push(TypeKind_Struct, "deep", 6)
 
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -2307,7 +2939,7 @@ func BenchmarkStackFramePool(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			frames := getStackFrames()
 			for j := 0; j < 16; j++ {
-				*frames = append(*frames, stackFrame{fieldName: "test", fieldID: j})
+				*frames = append(*frames, stackFrame{name: "test", id: j})
 			}
 			putStackFrames(frames)
 		}
@@ -2317,7 +2949,7 @@ func BenchmarkStackFramePool(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			frames := make([]stackFrame, 0, 16)
 			for j := 0; j < 16; j++ {
-				frames = append(frames, stackFrame{fieldName: "test", fieldID: j})
+				frames = append(frames, stackFrame{name: "test", id: j})
 			}
 			_ = frames
 		}

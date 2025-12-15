@@ -138,84 +138,6 @@ func getPBStructFieldInfo(t reflect.Type) *pbStructFieldInfo {
 	return actual.(*pbStructFieldInfo)
 }
 
-// stackFrame represents a single frame in the path tracking stack
-type stackFrame struct {
-	fieldName string
-	fieldID   int
-	isMapKey  bool // true if this is a map key
-	index     int  // for array elements, -1 if not array
-}
-
-// stackFramePool is a pool for stackFrame slices to reduce allocations
-var stackFramePool = sync.Pool{
-	New: func() interface{} {
-		ret := make([]stackFrame, 0, 16) // pre-allocate for common depth
-		return (*pathStack)(&ret)
-	},
-}
-
-// getStackFrames gets a stackFrame slice from the pool
-func getStackFrames() *pathStack {
-	return stackFramePool.Get().(*pathStack)
-}
-
-// putStackFrames returns a stackFrame slice to the pool
-func putStackFrames(s *pathStack) {
-	if s == nil {
-		return
-	}
-	*s = (*s)[:0]         // reset slice
-	stackFramePool.Put(s) //nolint:staticcheck // SA6002: storing slice in Pool is intentional
-}
-
-// pathStack tracks the path from root to current node
-type pathStack []stackFrame
-
-// push adds a new frame to the stack
-func (s *pathStack) push(name string, id int, isMapKey bool, index int) {
-	*s = append(*s, stackFrame{
-		fieldName: name,
-		fieldID:   id,
-		isMapKey:  isMapKey,
-		index:     index,
-	})
-}
-
-// pop removes the last frame from the stack
-func (s *pathStack) pop() {
-	if len(*s) > 0 {
-		*s = (*s)[:len(*s)-1]
-	}
-}
-
-// buildPath constructs a human-readable DSL path from the stack
-// This is only called when an error occurs
-func (s *pathStack) buildPath() string {
-	if len(*s) == 0 {
-		return "$"
-	}
-
-	var sb strings.Builder
-	sb.WriteString("$")
-
-	for _, frame := range *s {
-		if frame.isMapKey {
-			sb.WriteString("[")
-			sb.WriteString(frame.fieldName)
-			sb.WriteString("]")
-		} else if frame.index >= 0 {
-			sb.WriteString("[")
-			sb.WriteString(strconv.Itoa(frame.index))
-			sb.WriteString("]")
-		} else {
-			sb.WriteString(".")
-			sb.WriteString(frame.fieldName)
-		}
-	}
-
-	return sb.String()
-}
-
 // assignValue is the internal implementation that works with reflect.Value directly
 func assignValue(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions, stack *pathStack) error {
 	if src == nil {
@@ -236,6 +158,8 @@ func assignValue(desc *Descriptor, src interface{}, destValue reflect.Value, opt
 		return assignStruct(desc, src, destValue, opt, stack)
 	case TypeKind_StrMap:
 		return assignStrMap(desc, src, destValue, opt, stack)
+	case TypeKind_List:
+		return assignList(desc, src, destValue, opt, stack)
 	default:
 		return assignScalar(src, destValue)
 	}
@@ -283,7 +207,7 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 			}
 
 			// Push field onto stack
-			stack.push(key, fieldID, false, -1)
+			stack.push(TypeKind_Struct, key, fieldID)
 
 			// If field has a child descriptor, recursively assign
 			var err error
@@ -306,7 +230,7 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 			unassignedFields[key] = value
 		} else if opt.DisallowNotDefined {
 			// Include path in error message
-			stack.push(key, fieldID, false, -1)
+			stack.push(TypeKind_Struct, key, fieldID)
 			path := stack.buildPath()
 			stack.pop()
 			return ErrNotFound{Parent: desc, Field: Field{Name: key}, Msg: fmt.Sprintf("field '%s' not found in struct at path %s", key, path)}
@@ -389,7 +313,7 @@ func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, op
 		}
 
 		// Push map key onto stack
-		stack.push(key, 0, true, -1)
+		stack.push(TypeKind_StrMap, key, 0)
 
 		// Find the appropriate descriptor
 		var err error
@@ -411,6 +335,241 @@ func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, op
 		destValue.SetMapIndex(reflect.ValueOf(key), elemValue)
 	}
 
+	return nil
+}
+
+// assignList handles TypeKind_List assignment
+func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions, stack *pathStack) error {
+	srcSlice, ok := src.([]interface{})
+	if !ok {
+		return fmt.Errorf("expected []interface{} for list at %s, got %T", stack.buildPath(), src)
+	}
+
+	if destValue.Kind() != reflect.Slice && destValue.Kind() != reflect.Array {
+		return fmt.Errorf("expected slice or array destination at %s, got %v", stack.buildPath(), destValue.Kind())
+	}
+
+	childrenLen := len(desc.Children)
+
+	// Fast path: only wildcard descriptor ("*" means all elements)
+	if childrenLen == 1 && desc.Children[0].Name == "*" {
+		wildcardDesc := desc.Children[0].Desc
+		srcLen := len(srcSlice)
+
+		// Handle array (fixed size)
+		if destValue.Kind() == reflect.Array {
+			arrayLen := destValue.Len()
+			if srcLen != arrayLen {
+				return fmt.Errorf("array length mismatch at %s: expected %d, got %d", stack.buildPath(), arrayLen, srcLen)
+			}
+			for i := 0; i < srcLen; i++ {
+				elemValue := destValue.Index(i)
+				if srcSlice[i] == nil {
+					continue
+				}
+
+				// Push list index onto stack
+				stack.push(TypeKind_List, "*", i)
+
+				var err error
+				if wildcardDesc != nil {
+					err = assignValueToField(wildcardDesc, srcSlice[i], elemValue, opt, stack)
+				} else {
+					err = assignScalar(srcSlice[i], elemValue)
+				}
+
+				// Pop list index from stack
+				stack.pop()
+
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+
+		// Handle slice (dynamic size)
+		elemType := destValue.Type().Elem()
+		newSlice := reflect.MakeSlice(destValue.Type(), srcLen, srcLen)
+
+		for i := 0; i < srcLen; i++ {
+			elemValue := newSlice.Index(i)
+			if srcSlice[i] == nil {
+				// Keep as zero value
+				continue
+			}
+
+			// Push list index onto stack
+			stack.push(TypeKind_List, "*", i)
+
+			var err error
+			if wildcardDesc != nil {
+				// Handle pointer element type
+				if elemType.Kind() == reflect.Ptr {
+					newElem := reflect.New(elemType.Elem())
+					err = assignValue(wildcardDesc, srcSlice[i], newElem.Elem(), opt, stack)
+					if err == nil {
+						elemValue.Set(newElem)
+					}
+				} else {
+					err = assignValue(wildcardDesc, srcSlice[i], elemValue, opt, stack)
+				}
+			} else {
+				err = assignScalar(srcSlice[i], elemValue)
+			}
+
+			// Pop list index from stack
+			stack.pop()
+
+			if err != nil {
+				return err
+			}
+		}
+
+		destValue.Set(newSlice)
+		return nil
+	}
+
+	// Specific indices requested
+	// This is a sparse assignment - we need to ensure the slice is large enough
+	maxIdx := -1
+	for _, child := range desc.Children {
+		idx := child.ID
+		if idx > maxIdx {
+			maxIdx = idx
+		}
+	}
+
+	if maxIdx < 0 {
+		// No valid indices
+		return nil
+	}
+
+	// Handle array (fixed size)
+	if destValue.Kind() == reflect.Array {
+		arrayLen := destValue.Len()
+		if maxIdx >= arrayLen {
+			return fmt.Errorf("index %d out of bounds for array of length %d at %s", maxIdx, arrayLen, stack.buildPath())
+		}
+
+		// Find corresponding source elements by index
+		srcMap := make(map[int]interface{})
+		for i, elem := range srcSlice {
+			if i < len(desc.Children) {
+				idx := desc.Children[i].ID
+				srcMap[idx] = elem
+			}
+		}
+
+		for _, child := range desc.Children {
+			idx := child.ID
+			if idx < 0 || idx >= arrayLen {
+				if opt.DisallowNotDefined {
+					stack.push(TypeKind_List, "", idx)
+					path := stack.buildPath()
+					stack.pop()
+					return ErrNotFound{Parent: desc, Field: child, Msg: fmt.Sprintf("index %d out of bounds for array at path %s", idx, path)}
+				}
+				continue
+			}
+
+			srcVal, hasSrc := srcMap[idx]
+			if !hasSrc {
+				if opt.DisallowNotDefined {
+					stack.push(TypeKind_List, "", idx)
+					path := stack.buildPath()
+					stack.pop()
+					return ErrNotFound{Parent: desc, Field: child, Msg: fmt.Sprintf("index %d not found in source at path %s", idx, path)}
+				}
+				continue
+			}
+
+			elemValue := destValue.Index(idx)
+
+			// Push list index onto stack
+			stack.push(TypeKind_List, "", idx)
+
+			var err2 error
+			if child.Desc != nil {
+				err2 = assignValueToField(child.Desc, srcVal, elemValue, opt, stack)
+			} else {
+				err2 = assignScalar(srcVal, elemValue)
+			}
+
+			// Pop list index from stack
+			stack.pop()
+
+			if err2 != nil {
+				return err2
+			}
+		}
+		return nil
+	}
+
+	// Handle slice (dynamic size)
+	// Create a slice large enough to hold all specified indices
+	requiredLen := maxIdx + 1
+	elemType := destValue.Type().Elem()
+	newSlice := reflect.MakeSlice(destValue.Type(), requiredLen, requiredLen)
+
+	// Copy existing elements if dest slice already has values
+	if !destValue.IsNil() && destValue.Len() > 0 {
+		reflect.Copy(newSlice, destValue)
+	}
+
+	// Find corresponding source elements by index
+	srcMap := make(map[int]interface{})
+	for i, elem := range srcSlice {
+		if i < len(desc.Children) {
+			idx := desc.Children[i].ID
+			srcMap[idx] = elem
+		}
+	}
+
+	for _, child := range desc.Children {
+		idx := child.ID
+
+		srcVal, hasSrc := srcMap[idx]
+		if !hasSrc {
+			if opt.DisallowNotDefined {
+				stack.push(TypeKind_List, "", idx)
+				path := stack.buildPath()
+				stack.pop()
+				return ErrNotFound{Parent: desc, Field: child, Msg: fmt.Sprintf("index %d not found in source at path %s", idx, path)}
+			}
+			continue
+		}
+
+		elemValue := newSlice.Index(idx)
+
+		// Push list index onto stack
+		stack.push(TypeKind_List, "", idx)
+
+		var err2 error
+		if child.Desc != nil {
+			// Handle pointer element type
+			if elemType.Kind() == reflect.Ptr {
+				newElem := reflect.New(elemType.Elem())
+				err2 = assignValue(child.Desc, srcVal, newElem.Elem(), opt, stack)
+				if err2 == nil {
+					elemValue.Set(newElem)
+				}
+			} else {
+				err2 = assignValue(child.Desc, srcVal, elemValue, opt, stack)
+			}
+		} else {
+			err2 = assignScalar(srcVal, elemValue)
+		}
+
+		// Pop list index from stack
+		stack.pop()
+
+		if err2 != nil {
+			return err2
+		}
+	}
+
+	destValue.Set(newSlice)
 	return nil
 }
 

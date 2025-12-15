@@ -116,6 +116,17 @@ func makeDesc(width int, depth int, withE bool) *Descriptor {
 		},
 	}
 	desc.Children[3].Desc = nd
+	// field_list is TypeKind_List with wildcard (all elements)
+	desc.Children[4].Desc = &Descriptor{
+		Kind: TypeKind_List,
+		Name: "LIST",
+		Children: []Field{
+			{
+				Name: "*", // all elements
+				// Desc is nil, meaning list elements are scalar (int)
+			},
+		},
+	}
 
 	return desc
 }
@@ -130,7 +141,7 @@ func makeSampleAny(width int, depth int) interface{} {
 		"field_a":    int(1),
 		"field_b":    []*sampleFetch{},
 		"field_c":    map[string]interface{}{},
-		"field_list": []int{1, 2, 3},
+		"field_list": []interface{}{int(1), int(2), int(3)},
 		"field_map": map[string]int{
 			"1": 1,
 			"2": 2,
@@ -162,6 +173,253 @@ func TestFetchAny(t *testing.T) {
 	if !reflect.DeepEqual(ret, exp) {
 		t.Fatalf("FetchAny failed: %v != %v", ret, exp)
 	}
+}
+
+// TestFetchAny_ListWithSpecificIndices tests fetching list elements by specific indices
+func TestFetchAny_ListWithSpecificIndices(t *testing.T) {
+	// Create a struct with a list field
+	obj := &sampleFetch{
+		FieldA:    42,
+		FieldList: []int{10, 20, 30, 40, 50},
+	}
+
+	// Test case 1: Fetch specific indices (0, 2, 4)
+	t.Run("specific_indices", func(t *testing.T) {
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleFetch",
+			Children: []Field{
+				{
+					Name: "field_a",
+					ID:   1,
+				},
+				{
+					Name: "field_list",
+					ID:   6,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Name: "LIST",
+						Children: []Field{
+							{Name: "0", ID: 0}, // index 0
+							{Name: "2", ID: 2}, // index 2
+							{Name: "4", ID: 4}, // index 4
+						},
+					},
+				},
+			},
+		}
+
+		ret, err := fetchAny(desc, obj)
+		if err != nil {
+			t.Fatalf("FetchAny failed: %v", err)
+		}
+
+		result, ok := ret.(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected map[string]interface{}, got %T", ret)
+		}
+
+		if result["field_a"] != 42 {
+			t.Errorf("field_a: expected 42, got %v", result["field_a"])
+		}
+
+		listVal, ok := result["field_list"].([]interface{})
+		if !ok {
+			t.Fatalf("field_list: expected []interface{}, got %T", result["field_list"])
+		}
+
+		// Should only have 3 elements (indices 0, 2, 4)
+		if len(listVal) != 3 {
+			t.Errorf("field_list: expected length 3, got %d", len(listVal))
+		}
+
+		expectedValues := []int{10, 30, 50}
+		for i, expected := range expectedValues {
+			if listVal[i] != expected {
+				t.Errorf("field_list[%d]: expected %d, got %v", i, expected, listVal[i])
+			}
+		}
+	})
+
+	// Test case 2: Fetch with out of bounds index (should skip)
+	t.Run("out_of_bounds_index", func(t *testing.T) {
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleFetch",
+			Children: []Field{
+				{
+					Name: "field_list",
+					ID:   6,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Name: "LIST",
+						Children: []Field{
+							{Name: "1", ID: 1},   // index 1 - valid
+							{Name: "10", ID: 10}, // index 10 - out of bounds
+							{Name: "3", ID: 3},   // index 3 - valid
+						},
+					},
+				},
+			},
+		}
+
+		ret, err := fetchAny(desc, obj)
+		if err != nil {
+			t.Fatalf("FetchAny failed: %v", err)
+		}
+
+		result, ok := ret.(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected map[string]interface{}, got %T", ret)
+		}
+
+		listVal, ok := result["field_list"].([]interface{})
+		if !ok {
+			t.Fatalf("field_list: expected []interface{}, got %T", result["field_list"])
+		}
+
+		// Should only have 2 elements (indices 1, 3), index 10 is skipped
+		if len(listVal) != 2 {
+			t.Errorf("field_list: expected length 2, got %d", len(listVal))
+		}
+
+		if listVal[0] != 20 {
+			t.Errorf("field_list[0]: expected 20, got %v", listVal[0])
+		}
+		if listVal[1] != 40 {
+			t.Errorf("field_list[1]: expected 40, got %v", listVal[1])
+		}
+	})
+
+	// Test case 3: DisallowNotFound with out of bounds
+	t.Run("disallow_not_found_out_of_bounds", func(t *testing.T) {
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleFetch",
+			Children: []Field{
+				{
+					Name: "field_list",
+					ID:   6,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Name: "LIST",
+						Children: []Field{
+							{Name: "1", ID: 1},   // index 1 - valid
+							{Name: "10", ID: 10}, // index 10 - out of bounds
+						},
+					},
+				},
+			},
+		}
+
+		f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+		_, err := f.FetchAny(desc, obj)
+		if err == nil {
+			t.Fatalf("expected ErrNotFound, got nil")
+		}
+
+		notFoundErr, ok := err.(ErrNotFound)
+		if !ok {
+			t.Fatalf("expected ErrNotFound, got %T: %v", err, err)
+		}
+		if notFoundErr.Parent.Name != "LIST" {
+			t.Errorf("expected parent name 'LIST', got '%s'", notFoundErr.Parent.Name)
+		}
+	})
+
+	// Test case 4: List with nested structures
+	t.Run("list_with_nested_structs", func(t *testing.T) {
+		objWithNested := &sampleFetch{
+			FieldB: []*sampleFetch{
+				{FieldA: 1, FieldE: "first"},
+				{FieldA: 2, FieldE: "second"},
+				{FieldA: 3, FieldE: "third"},
+				{FieldA: 4, FieldE: "fourth"},
+			},
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleFetch",
+			Children: []Field{
+				{
+					Name: "field_b",
+					ID:   2,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Name: "LIST",
+						Children: []Field{
+							{
+								Name: "0",
+								ID:   0,
+								Desc: &Descriptor{
+									Kind: TypeKind_Struct,
+									Name: "SampleFetch",
+									Children: []Field{
+										{Name: "field_a", ID: 1},
+									},
+								},
+							},
+							{
+								Name: "2",
+								ID:   2,
+								Desc: &Descriptor{
+									Kind: TypeKind_Struct,
+									Name: "SampleFetch",
+									Children: []Field{
+										{Name: "field_e", ID: 5},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		ret, err := fetchAny(desc, objWithNested)
+		if err != nil {
+			t.Fatalf("FetchAny failed: %v", err)
+		}
+
+		result, ok := ret.(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected map[string]interface{}, got %T", ret)
+		}
+
+		listVal, ok := result["field_b"].([]interface{})
+		if !ok {
+			t.Fatalf("field_b: expected []interface{}, got %T", result["field_b"])
+		}
+
+		if len(listVal) != 2 {
+			t.Fatalf("field_b: expected length 2, got %d", len(listVal))
+		}
+
+		// Check first element (index 0, should have field_a)
+		elem0, ok := listVal[0].(map[string]interface{})
+		if !ok {
+			t.Fatalf("field_b[0]: expected map[string]interface{}, got %T", listVal[0])
+		}
+		if elem0["field_a"] != 1 {
+			t.Errorf("field_b[0].field_a: expected 1, got %v", elem0["field_a"])
+		}
+		if _, hasE := elem0["field_e"]; hasE {
+			t.Errorf("field_b[0] should not have field_e")
+		}
+
+		// Check second element (index 2, should have field_e)
+		elem2, ok := listVal[1].(map[string]interface{})
+		if !ok {
+			t.Fatalf("field_b[1]: expected map[string]interface{}, got %T", listVal[1])
+		}
+		if elem2["field_e"] != "third" {
+			t.Errorf("field_b[1].field_e: expected 'third', got %v", elem2["field_e"])
+		}
+		if _, hasA := elem2["field_a"]; hasA {
+			t.Errorf("field_b[1] should not have field_a")
+		}
+	})
 }
 
 func BenchmarkFetchAny(b *testing.B) {
