@@ -11,6 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func fetchAny(desc *Descriptor, any interface{}) (interface{}, error) {
+	fetcher := &Fetcher{}
+	return fetcher.FetchAny(desc, any)
+}
+
 func TestFetchAndAssign(t *testing.T) {
 	src := makeSampleFetch(3, 3)
 	srcjson, err := json.Marshal(src)
@@ -18,7 +23,7 @@ func TestFetchAndAssign(t *testing.T) {
 		t.Fatalf("json.Marshal failed: %v", err)
 	}
 	desc := makeDesc(3, 3, true)
-	m, err := FetchAny(desc, src)
+	m, err := fetchAny(desc, src)
 	if err != nil {
 		t.Fatalf("FetchAny failed: %v", err)
 	}
@@ -29,7 +34,7 @@ func TestFetchAndAssign(t *testing.T) {
 	require.Equal(t, string(srcjson), string(mjson))
 
 	dest := makeSampleAssign(3, 3)
-	err = AssignAny(desc, m, dest)
+	err = assignAny(desc, m, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
@@ -111,7 +116,7 @@ func TestFetchAndAssign_UnknownToUnrecognized(t *testing.T) {
 	}
 
 	// Fetch from thrift struct
-	fetched, err := FetchAny(desc, src)
+	fetched, err := fetchAny(desc, src)
 	require.NoError(t, err)
 
 	fetchedMap, ok := fetched.(map[string]interface{})
@@ -136,7 +141,7 @@ func TestFetchAndAssign_UnknownToUnrecognized(t *testing.T) {
 		},
 	}
 
-	err = AssignAny(assignDesc, fetched, dest)
+	err = assignAny(assignDesc, fetched, dest)
 	require.NoError(t, err)
 
 	// Verify field_a is assigned correctly
@@ -204,7 +209,7 @@ func TestFetchAndAssign_UnknownToKnown(t *testing.T) {
 	}
 
 	// Fetch from thrift struct
-	fetched, err := FetchAny(fetchDesc, src)
+	fetched, err := fetchAny(fetchDesc, src)
 	require.NoError(t, err)
 
 	fetchedMap, ok := fetched.(map[string]interface{})
@@ -225,7 +230,7 @@ func TestFetchAndAssign_UnknownToKnown(t *testing.T) {
 		},
 	}
 
-	err = AssignAny(assignDesc, fetched, dest)
+	err = assignAny(assignDesc, fetched, dest)
 	require.NoError(t, err)
 
 	// Verify both fields are assigned correctly to known fields
@@ -267,7 +272,7 @@ func TestFetchAndAssign_KnownToUnrecognized(t *testing.T) {
 	}
 
 	// Fetch from thrift struct
-	fetched, err := FetchAny(fetchDesc, src)
+	fetched, err := fetchAny(fetchDesc, src)
 	require.NoError(t, err)
 
 	fetchedMap, ok := fetched.(map[string]interface{})
@@ -292,7 +297,7 @@ func TestFetchAndAssign_KnownToUnrecognized(t *testing.T) {
 		},
 	}
 
-	err = AssignAny(assignDesc, fetched, dest)
+	err = assignAny(assignDesc, fetched, dest)
 	require.NoError(t, err)
 
 	// Verify field_a is assigned correctly
@@ -380,7 +385,7 @@ func TestFetchAndAssign_MixedScenario(t *testing.T) {
 	}
 
 	// Fetch from thrift struct
-	fetched, err := FetchAny(fetchDesc, src)
+	fetched, err := fetchAny(fetchDesc, src)
 	require.NoError(t, err)
 
 	fetchedMap, ok := fetched.(map[string]interface{})
@@ -403,7 +408,7 @@ func TestFetchAndAssign_MixedScenario(t *testing.T) {
 	}
 
 	dest := &protoMixedStruct{}
-	err = AssignAny(assignDesc, fetched, dest)
+	err = assignAny(assignDesc, fetched, dest)
 	require.NoError(t, err)
 
 	// Verify known fields
@@ -501,7 +506,7 @@ func TestFetchAndAssign_NestedStructWithUnknownFields(t *testing.T) {
 	}
 
 	// Fetch from thrift struct
-	fetched, err := FetchAny(fetchDesc, src)
+	fetched, err := fetchAny(fetchDesc, src)
 	require.NoError(t, err)
 
 	fetchedMap, ok := fetched.(map[string]interface{})
@@ -535,7 +540,7 @@ func TestFetchAndAssign_NestedStructWithUnknownFields(t *testing.T) {
 	}
 
 	dest := &protoOuter{}
-	err = AssignAny(assignDesc, fetched, dest)
+	err = assignAny(assignDesc, fetched, dest)
 	require.NoError(t, err)
 
 	// Verify
@@ -570,7 +575,7 @@ func TestFetchAndAssign_ShallowDescriptor(t *testing.T) {
 	}
 
 	// Fetch with shallow descriptor
-	fetched, err := FetchAny(shallowDesc, src)
+	fetched, err := fetchAny(shallowDesc, src)
 	require.NoError(t, err)
 
 	fetchedMap, ok := fetched.(map[string]interface{})
@@ -592,7 +597,7 @@ func TestFetchAndAssign_ShallowDescriptor(t *testing.T) {
 
 	// Now assign with the same shallow descriptor
 	dest := makeSampleAssign(2, 3)
-	err = AssignAny(shallowDesc, fetched, dest)
+	err = assignAny(shallowDesc, fetched, dest)
 	require.NoError(t, err)
 
 	// Verify scalar fields are correctly assigned
@@ -646,7 +651,7 @@ func TestFetchAndAssign_MissingFieldsInDescriptor(t *testing.T) {
 	}
 
 	// Fetch with partial descriptor
-	fetched, err := FetchAny(partialDesc, src)
+	fetched, err := fetchAny(partialDesc, src)
 	require.NoError(t, err)
 
 	fetchedMap, ok := fetched.(map[string]interface{})
@@ -669,7 +674,7 @@ func TestFetchAndAssign_MissingFieldsInDescriptor(t *testing.T) {
 		FieldD: "original_d",
 	}
 
-	err = AssignAny(partialDesc, fetched, dest)
+	err = assignAny(partialDesc, fetched, dest)
 	require.NoError(t, err)
 
 	// Verify only specified fields are assigned
@@ -742,7 +747,7 @@ func TestFetchAndAssign_NestedMissingFields(t *testing.T) {
 	}
 
 	// Fetch with partial descriptor
-	fetched, err := FetchAny(partialDesc, src)
+	fetched, err := fetchAny(partialDesc, src)
 	require.NoError(t, err)
 
 	fetchedMap, ok := fetched.(map[string]interface{})
@@ -772,7 +777,7 @@ func TestFetchAndAssign_NestedMissingFields(t *testing.T) {
 		},
 	}
 
-	err = AssignAny(partialDesc, fetched, dest)
+	err = assignAny(partialDesc, fetched, dest)
 	require.NoError(t, err)
 
 	// Verify assigned fields
@@ -825,7 +830,7 @@ func TestFetchAndAssign_DescShallowerThanNestedList(t *testing.T) {
 	}
 
 	// Fetch with shallow descriptor
-	fetched, err := FetchAny(shallowDesc, src)
+	fetched, err := fetchAny(shallowDesc, src)
 	require.NoError(t, err)
 
 	fetchedMap, ok := fetched.(map[string]interface{})
@@ -838,7 +843,7 @@ func TestFetchAndAssign_DescShallowerThanNestedList(t *testing.T) {
 
 	// Assign with shallow descriptor
 	dest := &protoContainer{}
-	err = AssignAny(shallowDesc, fetched, dest)
+	err = assignAny(shallowDesc, fetched, dest)
 	require.NoError(t, err)
 
 	// Verify items are assigned
@@ -899,7 +904,7 @@ func TestFetchAndAssign_DescShallowerThanNestedMap(t *testing.T) {
 	}
 
 	// Fetch with shallow descriptor
-	fetched, err := FetchAny(shallowDesc, src)
+	fetched, err := fetchAny(shallowDesc, src)
 	require.NoError(t, err)
 
 	fetchedMap, ok := fetched.(map[string]interface{})
@@ -912,7 +917,7 @@ func TestFetchAndAssign_DescShallowerThanNestedMap(t *testing.T) {
 
 	// Assign with shallow descriptor
 	dest := &protoContainer{}
-	err = AssignAny(shallowDesc, fetched, dest)
+	err = assignAny(shallowDesc, fetched, dest)
 	require.NoError(t, err)
 
 	// Verify data is assigned
@@ -967,7 +972,7 @@ func TestFetchAndAssign_PartialMapKeys(t *testing.T) {
 	}
 
 	// Fetch with partial descriptor
-	fetched, err := FetchAny(partialDesc, src)
+	fetched, err := fetchAny(partialDesc, src)
 	require.NoError(t, err)
 
 	fetchedMap, ok := fetched.(map[string]interface{})
@@ -991,7 +996,7 @@ func TestFetchAndAssign_PartialMapKeys(t *testing.T) {
 			"key2": 999, // pre-existing key
 		},
 	}
-	err = AssignAny(partialDesc, fetched, dest)
+	err = assignAny(partialDesc, fetched, dest)
 	require.NoError(t, err)
 
 	// Verify only specified keys are assigned, pre-existing keys might be overwritten depending on implementation
@@ -1026,7 +1031,7 @@ func TestFetchAndAssign_EmptyDescriptor(t *testing.T) {
 	}
 
 	// Fetch with empty descriptor
-	fetched, err := FetchAny(emptyDesc, src)
+	fetched, err := fetchAny(emptyDesc, src)
 	require.NoError(t, err)
 
 	fetchedMap, ok := fetched.(map[string]interface{})
@@ -1040,7 +1045,7 @@ func TestFetchAndAssign_EmptyDescriptor(t *testing.T) {
 		FieldA: 999,
 		FieldB: "original",
 	}
-	err = AssignAny(emptyDesc, fetched, dest)
+	err = assignAny(emptyDesc, fetched, dest)
 	require.NoError(t, err)
 
 	// Original values should be preserved

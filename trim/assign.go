@@ -33,13 +33,30 @@ type AssignOptions struct {
 	DisallowNotDefined bool
 }
 
-type AssignOption func(*AssignOptions)
+type Assigner struct {
+	AssignOptions
+}
 
-// WithDisallowNotDefined sets the DisallowNotFound option
-func WithDisallowNotDefined(disallow bool) AssignOption {
-	return func(o *AssignOptions) {
-		o.DisallowNotDefined = disallow
+// AssignAny assigns values from src (map[string]interface{}) to dest (protobuf struct) according to desc.
+// For fields that exist in src but not in dest's struct definition, they will be encoded
+// to XXX_unrecognized field using protobuf binary encoding.
+func (a Assigner) AssignAny(desc *Descriptor, src interface{}, dest interface{}) error {
+	if src == nil || dest == nil || desc == nil {
+		return nil
 	}
+
+	desc.Normalize()
+
+	destValue := reflect.ValueOf(dest)
+	if destValue.Kind() != reflect.Ptr {
+		return fmt.Errorf("dest must be a pointer to struct")
+	}
+
+	// Initialize path stack from pool
+	stack := getStackFrames()
+	defer putStackFrames(stack)
+
+	return assignValue(desc, src, destValue.Elem(), &a.AssignOptions, stack)
 }
 
 // pbStructFieldInfo caches field mapping information for a protobuf struct type
@@ -121,31 +138,86 @@ func getPBStructFieldInfo(t reflect.Type) *pbStructFieldInfo {
 	return actual.(*pbStructFieldInfo)
 }
 
-// AssignAny assigns values from src (map[string]interface{}) to dest (protobuf struct) according to desc.
-// For fields that exist in src but not in dest's struct definition, they will be encoded
-// to XXX_unrecognized field using protobuf binary encoding.
-func AssignAny(desc *Descriptor, src interface{}, dest interface{}, opts ...AssignOption) error {
-	if src == nil || dest == nil || desc == nil {
-		return nil
+// stackFrame represents a single frame in the path tracking stack
+type stackFrame struct {
+	fieldName string
+	fieldID   int
+	isMapKey  bool // true if this is a map key
+	index     int  // for array elements, -1 if not array
+}
+
+// stackFramePool is a pool for stackFrame slices to reduce allocations
+var stackFramePool = sync.Pool{
+	New: func() interface{} {
+		ret := make([]stackFrame, 0, 16) // pre-allocate for common depth
+		return (*pathStack)(&ret)
+	},
+}
+
+// getStackFrames gets a stackFrame slice from the pool
+func getStackFrames() *pathStack {
+	return stackFramePool.Get().(*pathStack)
+}
+
+// putStackFrames returns a stackFrame slice to the pool
+func putStackFrames(s *pathStack) {
+	if s == nil {
+		return
+	}
+	*s = (*s)[:0]         // reset slice
+	stackFramePool.Put(s) //nolint:staticcheck // SA6002: storing slice in Pool is intentional
+}
+
+// pathStack tracks the path from root to current node
+type pathStack []stackFrame
+
+// push adds a new frame to the stack
+func (s *pathStack) push(name string, id int, isMapKey bool, index int) {
+	*s = append(*s, stackFrame{
+		fieldName: name,
+		fieldID:   id,
+		isMapKey:  isMapKey,
+		index:     index,
+	})
+}
+
+// pop removes the last frame from the stack
+func (s *pathStack) pop() {
+	if len(*s) > 0 {
+		*s = (*s)[:len(*s)-1]
+	}
+}
+
+// buildPath constructs a human-readable DSL path from the stack
+// This is only called when an error occurs
+func (s *pathStack) buildPath() string {
+	if len(*s) == 0 {
+		return "$"
 	}
 
-	desc.Normalize()
+	var sb strings.Builder
+	sb.WriteString("$")
 
-	var opt AssignOptions
-	for _, o := range opts {
-		o(&opt)
+	for _, frame := range *s {
+		if frame.isMapKey {
+			sb.WriteString("[")
+			sb.WriteString(frame.fieldName)
+			sb.WriteString("]")
+		} else if frame.index >= 0 {
+			sb.WriteString("[")
+			sb.WriteString(strconv.Itoa(frame.index))
+			sb.WriteString("]")
+		} else {
+			sb.WriteString(".")
+			sb.WriteString(frame.fieldName)
+		}
 	}
 
-	destValue := reflect.ValueOf(dest)
-	if destValue.Kind() != reflect.Ptr {
-		return fmt.Errorf("dest must be a pointer to struct")
-	}
-
-	return assignValue(desc, src, destValue.Elem(), &opt)
+	return sb.String()
 }
 
 // assignValue is the internal implementation that works with reflect.Value directly
-func assignValue(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions) error {
+func assignValue(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions, stack *pathStack) error {
 	if src == nil {
 		return nil
 	}
@@ -161,23 +233,23 @@ func assignValue(desc *Descriptor, src interface{}, destValue reflect.Value, opt
 
 	switch desc.Kind {
 	case TypeKind_Struct:
-		return assignStruct(desc, src, destValue, opt)
+		return assignStruct(desc, src, destValue, opt, stack)
 	case TypeKind_StrMap:
-		return assignStrMap(desc, src, destValue, opt)
+		return assignStrMap(desc, src, destValue, opt, stack)
 	default:
 		return assignScalar(src, destValue)
 	}
 }
 
 // assignStruct handles TypeKind_Struct assignment
-func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions) error {
+func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions, stack *pathStack) error {
 	srcMap, ok := src.(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("expected map[string]interface{} for struct, got %T", src)
+		return fmt.Errorf("expected map[string]interface{} for struct at %s, got %T", stack.buildPath(), src)
 	}
 
 	if destValue.Kind() != reflect.Struct {
-		return fmt.Errorf("expected struct destination, got %v", destValue.Kind())
+		return fmt.Errorf("expected struct destination at %s, got %v", stack.buildPath(), destValue.Kind())
 	}
 
 	// Get cached field info for this type
@@ -195,6 +267,10 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 
 		// Find the descriptor field for this key
 		descField, hasDescField := descFieldMap[key]
+		fieldID := 0
+		if hasDescField {
+			fieldID = descField.ID
+		}
 
 		// Find struct field by name using cached index map
 		fieldIdx, found := fieldInfo.nameToFieldIndex[key]
@@ -206,23 +282,34 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 				continue
 			}
 
+			// Push field onto stack
+			stack.push(key, fieldID, false, -1)
+
 			// If field has a child descriptor, recursively assign
+			var err error
 			if hasDescField && descField.Desc != nil {
-				if err := assignValueToField(descField.Desc, value, fieldValue, opt); err != nil {
-					return err
-				}
+				err = assignValueToField(descField.Desc, value, fieldValue, opt, stack)
 			} else {
 				// Otherwise, assign the value directly
-				if err := assignScalar(value, fieldValue); err != nil {
-					return err
-				}
+				err = assignScalar(value, fieldValue)
+			}
+
+			// Pop field from stack
+			stack.pop()
+
+			if err != nil {
+				return err
 			}
 		} else if hasDescField {
 			// Field exists in descriptor but not in struct - encode to XXX_unrecognized
 			// This will be handled below
 			unassignedFields[key] = value
 		} else if opt.DisallowNotDefined {
-			return ErrNotFound{Parent: desc, Field: Field{Name: key}, Msg: fmt.Sprintf("field '%s' not found in struct", key)}
+			// Include path in error message
+			stack.push(key, fieldID, false, -1)
+			path := stack.buildPath()
+			stack.pop()
+			return ErrNotFound{Parent: desc, Field: Field{Name: key}, Msg: fmt.Sprintf("field '%s' not found in struct at path %s", key, path)}
 		}
 	}
 
@@ -255,26 +342,26 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 }
 
 // assignValueToField assigns a value to a field, handling pointer allocation
-func assignValueToField(desc *Descriptor, src interface{}, fieldValue reflect.Value, opt *AssignOptions) error {
+func assignValueToField(desc *Descriptor, src interface{}, fieldValue reflect.Value, opt *AssignOptions, stack *pathStack) error {
 	// Handle pointer fields - allocate if needed
 	if fieldValue.Kind() == reflect.Ptr {
 		if fieldValue.IsNil() {
 			fieldValue.Set(reflect.New(fieldValue.Type().Elem()))
 		}
-		return assignValue(desc, src, fieldValue.Elem(), opt)
+		return assignValue(desc, src, fieldValue.Elem(), opt, stack)
 	}
-	return assignValue(desc, src, fieldValue, opt)
+	return assignValue(desc, src, fieldValue, opt, stack)
 }
 
 // assignStrMap handles TypeKind_StrMap assignment
-func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions) error {
+func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions, stack *pathStack) error {
 	srcMap, ok := src.(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("expected map[string]interface{} for strmap, got %T", src)
+		return fmt.Errorf("expected map[string]interface{} for strmap at %s, got %T", stack.buildPath(), src)
 	}
 
 	if destValue.Kind() != reflect.Map {
-		return fmt.Errorf("expected map destination, got %v", destValue.Kind())
+		return fmt.Errorf("expected map destination at %s, got %v", stack.buildPath(), destValue.Kind())
 	}
 
 	// Find wildcard or keyed descriptors
@@ -301,19 +388,24 @@ func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, op
 			continue
 		}
 
+		// Push map key onto stack
+		stack.push(key, 0, true, -1)
+
 		// Find the appropriate descriptor
+		var err error
 		if wildcardDesc != nil {
-			if err := assignValueToField(wildcardDesc, value, elemValue, opt); err != nil {
-				return err
-			}
+			err = assignValueToField(wildcardDesc, value, elemValue, opt, stack)
 		} else if child, ok := keyDescMap[key]; ok && child.Desc != nil {
-			if err := assignValueToField(child.Desc, value, elemValue, opt); err != nil {
-				return err
-			}
+			err = assignValueToField(child.Desc, value, elemValue, opt, stack)
 		} else {
-			if err := assignScalar(value, elemValue); err != nil {
-				return err
-			}
+			err = assignScalar(value, elemValue)
+		}
+
+		// Pop map key from stack
+		stack.pop()
+
+		if err != nil {
+			return err
 		}
 
 		destValue.SetMapIndex(reflect.ValueOf(key), elemValue)

@@ -154,7 +154,7 @@ func TestFetchAny(t *testing.T) {
 	depth := 2
 	obj := makeSampleFetch(width, depth)
 	desc := makeDesc(width, depth, false)
-	ret, err := FetchAny(desc, obj)
+	ret, err := fetchAny(desc, obj)
 	if err != nil {
 		t.Fatalf("FetchAny failed: %v", err)
 	}
@@ -184,7 +184,7 @@ func BenchmarkFetchAny(b *testing.B) {
 		b.Run(bm.name, func(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
-				_, _ = FetchAny(desc, obj)
+				_, _ = fetchAny(desc, obj)
 			}
 		})
 	}
@@ -199,12 +199,12 @@ func BenchmarkFetchAny_CacheHit(b *testing.B) {
 	desc := makeDesc(width, depth, false)
 
 	// Warm up the cache
-	_, _ = FetchAny(desc, obj)
+	_, _ = fetchAny(desc, obj)
 
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_, _ = FetchAny(desc, obj)
+		_, _ = fetchAny(desc, obj)
 	}
 }
 
@@ -265,7 +265,7 @@ func TestFetchAnyWithUnknownFields(t *testing.T) {
 		},
 	}
 
-	ret, err := FetchAny(desc, obj)
+	ret, err := fetchAny(desc, obj)
 	if err != nil {
 		t.Fatalf("FetchAny failed: %v", err)
 	}
@@ -333,7 +333,7 @@ func TestFetchAnyWithEmptyUnknownFields(t *testing.T) {
 		},
 	}
 
-	ret, err := FetchAny(desc, obj)
+	ret, err := fetchAny(desc, obj)
 	if err != nil {
 		t.Fatalf("FetchAny failed: %v", err)
 	}
@@ -367,7 +367,8 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 			},
 		}
 
-		_, err := FetchAny(desc, obj, WithDisallowNotFound(true))
+		f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+		_, err := f.FetchAny(desc, obj)
 		if err == nil {
 			t.Fatalf("expected ErrNotFound, got nil")
 		}
@@ -410,7 +411,8 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 			},
 		}
 
-		_, err := FetchAny(desc, obj, WithDisallowNotFound(true))
+		f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+		_, err := f.FetchAny(desc, obj)
 		if err == nil {
 			t.Fatalf("expected ErrNotFound, got nil")
 		}
@@ -457,7 +459,8 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 			},
 		}
 
-		_, err := FetchAny(desc, obj, WithDisallowNotFound(true))
+		f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+		_, err := f.FetchAny(desc, obj)
 		if err == nil {
 			t.Fatalf("expected ErrNotFound, got nil")
 		}
@@ -485,7 +488,8 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 			},
 		}
 
-		ret, err := FetchAny(desc, obj, WithDisallowNotFound(true))
+		f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+		ret, err := f.FetchAny(desc, obj)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -572,7 +576,7 @@ func TestFetchAny_CircularDescriptor_LinkedList(t *testing.T) {
 	desc := makeCircularDesc()
 
 	// Fetch should work correctly, recursing until Next is nil
-	fetched, err := FetchAny(desc, list)
+	fetched, err := fetchAny(desc, list)
 	if err != nil {
 		t.Fatalf("FetchAny failed: %v", err)
 	}
@@ -618,7 +622,7 @@ func TestFetchAny_CircularDescriptor_SingleNode(t *testing.T) {
 
 	desc := makeCircularDesc()
 
-	fetched, err := FetchAny(desc, node)
+	fetched, err := fetchAny(desc, node)
 	if err != nil {
 		t.Fatalf("FetchAny failed: %v", err)
 	}
@@ -660,7 +664,7 @@ func TestFetchAny_CircularDescriptor_Tree(t *testing.T) {
 
 	desc := makeCircularTreeDesc()
 
-	fetched, err := FetchAny(desc, tree)
+	fetched, err := fetchAny(desc, tree)
 	if err != nil {
 		t.Fatalf("FetchAny failed: %v", err)
 	}
@@ -706,7 +710,7 @@ func TestFetchAny_CircularDescriptor_NilRoot(t *testing.T) {
 	desc := makeCircularDesc()
 
 	// Fetch with nil input should return nil
-	fetched, err := FetchAny(desc, nil)
+	fetched, err := fetchAny(desc, nil)
 	if err != nil {
 		t.Fatalf("FetchAny failed: %v", err)
 	}
@@ -729,7 +733,7 @@ func TestFetchAny_CircularDescriptor_DeepList(t *testing.T) {
 
 	desc := makeCircularDesc()
 
-	fetched, err := FetchAny(desc, head)
+	fetched, err := fetchAny(desc, head)
 	if err != nil {
 		t.Fatalf("FetchAny failed: %v", err)
 	}
@@ -808,7 +812,7 @@ func TestFetchAny_CircularDescriptor_MapOfNodes(t *testing.T) {
 
 	desc := makeCircularMapDesc()
 
-	fetched, err := FetchAny(desc, node)
+	fetched, err := fetchAny(desc, node)
 	if err != nil {
 		t.Fatalf("FetchAny failed: %v", err)
 	}
@@ -873,7 +877,7 @@ func BenchmarkFetchAny_CircularDescriptor(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_, _ = FetchAny(desc, head)
+		_, _ = fetchAny(desc, head)
 	}
 }
 
@@ -907,7 +911,7 @@ func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 			},
 		}
 
-		ret, err := FetchAny(desc, obj)
+		ret, err := fetchAny(desc, obj)
 		if err != nil {
 			t.Fatalf("FetchAny failed: %v", err)
 		}
@@ -985,7 +989,7 @@ func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 			},
 		}
 
-		ret, err := FetchAny(desc, obj)
+		ret, err := fetchAny(desc, obj)
 		if err != nil {
 			t.Fatalf("FetchAny failed: %v", err)
 		}
@@ -1084,7 +1088,7 @@ func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 			},
 		}
 
-		ret, err := FetchAny(desc, obj)
+		ret, err := fetchAny(desc, obj)
 		if err != nil {
 			t.Fatalf("FetchAny failed: %v", err)
 		}
@@ -1181,7 +1185,7 @@ func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 			},
 		}
 
-		ret, err := FetchAny(desc, obj)
+		ret, err := fetchAny(desc, obj)
 		if err != nil {
 			t.Fatalf("FetchAny failed: %v", err)
 		}
@@ -1223,6 +1227,406 @@ func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 		}
 		if data2["count"] != int32(200) {
 			t.Errorf("data_map['key2']['count']: expected 200, got %v", data2["count"])
+		}
+	})
+}
+
+// TestFetchAny_PathTracking tests that error messages include the correct DSL path
+func TestFetchAny_PathTracking(t *testing.T) {
+	tests := []struct {
+		name        string
+		obj         interface{}
+		desc        *Descriptor
+		expectedErr string
+	}{
+		{
+			name: "field not found at root",
+			obj: &sampleFetch{
+				FieldA: 42,
+			},
+			desc: &Descriptor{
+				Kind: TypeKind_Struct,
+				Name: "SampleFetch",
+				Children: []Field{
+					{Name: "field_a", ID: 1},
+					{Name: "unknown_field", ID: 99},
+				},
+			},
+			expectedErr: "field ID=99 not found in struct at path $.unknown_field",
+		},
+		{
+			name: "field not found in nested struct",
+			obj: &sampleFetch{
+				FieldA: 1,
+				FieldD: &sampleFetch{
+					FieldA: 2,
+				},
+			},
+			desc: &Descriptor{
+				Kind: TypeKind_Struct,
+				Name: "SampleFetch",
+				Children: []Field{
+					{Name: "field_a", ID: 1},
+					{
+						Name: "field_d",
+						ID:   4,
+						Desc: &Descriptor{
+							Kind: TypeKind_Struct,
+							Name: "SampleFetch",
+							Children: []Field{
+								{Name: "field_a", ID: 1},
+								{Name: "missing_field", ID: 88},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "field ID=88 not found in struct at path $.field_d.missing_field",
+		},
+		{
+			name: "field not found in deeply nested struct",
+			obj: &sampleFetch{
+				FieldA: 1,
+				FieldD: &sampleFetch{
+					FieldA: 2,
+					FieldD: &sampleFetch{
+						FieldA: 3,
+					},
+				},
+			},
+			desc: &Descriptor{
+				Kind: TypeKind_Struct,
+				Name: "SampleFetch",
+				Children: []Field{
+					{Name: "field_a", ID: 1},
+					{
+						Name: "field_d",
+						ID:   4,
+						Desc: &Descriptor{
+							Kind: TypeKind_Struct,
+							Name: "SampleFetch",
+							Children: []Field{
+								{Name: "field_a", ID: 1},
+								{
+									Name: "field_d",
+									ID:   4,
+									Desc: &Descriptor{
+										Kind: TypeKind_Struct,
+										Name: "SampleFetch",
+										Children: []Field{
+											{Name: "field_a", ID: 1},
+											{Name: "bad_field", ID: 77},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "field ID=77 not found in struct at path $.field_d.field_d.bad_field",
+		},
+		{
+			name: "map key not found",
+			obj: &sampleFetch{
+				FieldA: 1,
+				FieldC: map[string]*sampleFetch{
+					"key1": {FieldA: 10},
+				},
+			},
+			desc: &Descriptor{
+				Kind: TypeKind_Struct,
+				Name: "SampleFetch",
+				Children: []Field{
+					{Name: "field_a", ID: 1},
+					{
+						Name: "field_c",
+						ID:   3,
+						Desc: &Descriptor{
+							Kind: TypeKind_StrMap,
+							Name: "MAP",
+							Children: []Field{
+								{Name: "key1"},
+								{Name: "missing_key"},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "key 'missing_key' not found in map at path $.field_c[missing_key]",
+		},
+		{
+			name: "field not found in map value",
+			obj: &sampleFetch{
+				FieldA: 1,
+				FieldC: map[string]*sampleFetch{
+					"item1": {FieldA: 10},
+				},
+			},
+			desc: &Descriptor{
+				Kind: TypeKind_Struct,
+				Name: "SampleFetch",
+				Children: []Field{
+					{Name: "field_a", ID: 1},
+					{
+						Name: "field_c",
+						ID:   3,
+						Desc: &Descriptor{
+							Kind: TypeKind_StrMap,
+							Name: "MAP",
+							Children: []Field{
+								{
+									Name: "*",
+									Desc: &Descriptor{
+										Kind: TypeKind_Struct,
+										Name: "SampleFetch",
+										Children: []Field{
+											{Name: "field_a", ID: 1},
+											{Name: "nonexistent", ID: 66},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "field ID=66 not found in struct at path $.field_c[item1].nonexistent",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+			_, err := f.FetchAny(tt.desc, tt.obj)
+			if err == nil {
+				t.Fatalf("expected error, got nil")
+			}
+			if !contains(err.Error(), tt.expectedErr) {
+				t.Errorf("expected error to contain:\n%s\ngot:\n%s", tt.expectedErr, err.Error())
+			}
+		})
+	}
+}
+
+// TestFetchAny_PathTracking_Integration tests path tracking in complex nested scenarios
+func TestFetchAny_PathTracking_Integration(t *testing.T) {
+	obj := &sampleFetch{
+		FieldA: 1,
+		FieldC: map[string]*sampleFetch{
+			"item1": {
+				FieldA: 10,
+				FieldD: &sampleFetch{
+					FieldA: 20,
+				},
+			},
+		},
+	}
+
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "SampleFetch",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{
+				Name: "field_c",
+				ID:   3,
+				Desc: &Descriptor{
+					Kind: TypeKind_StrMap,
+					Name: "MAP",
+					Children: []Field{
+						{
+							Name: "*",
+							Desc: &Descriptor{
+								Kind: TypeKind_Struct,
+								Name: "SampleFetch",
+								Children: []Field{
+									{Name: "field_a", ID: 1},
+									{
+										Name: "field_d",
+										ID:   4,
+										Desc: &Descriptor{
+											Kind: TypeKind_Struct,
+											Name: "SampleFetch",
+											Children: []Field{
+												{Name: "field_a", ID: 1},
+												{Name: "missing", ID: 55},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+	_, err := f.FetchAny(desc, obj)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	expectedPath := "$.field_c[item1].field_d.missing"
+	if !contains(err.Error(), expectedPath) {
+		t.Errorf("expected error to contain path %s, got: %s", expectedPath, err.Error())
+	}
+}
+
+// BenchmarkFetchAny_PathTracking benchmarks the overhead of path tracking in fetch
+func BenchmarkFetchAny_PathTracking(b *testing.B) {
+	b.Run("simple_struct", func(b *testing.B) {
+		obj := &sampleFetch{
+			FieldA: 42,
+			FieldE: "hello",
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleFetch",
+			Children: []Field{
+				{Name: "field_a", ID: 1},
+				{Name: "field_e", ID: 5},
+			},
+		}
+
+		f := Fetcher{}
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = f.FetchAny(desc, obj)
+		}
+	})
+
+	b.Run("nested_struct", func(b *testing.B) {
+		obj := &sampleFetch{
+			FieldA: 1,
+			FieldD: &sampleFetch{
+				FieldA: 2,
+				FieldD: &sampleFetch{
+					FieldA: 3,
+					FieldE: "nested",
+				},
+			},
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleFetch",
+			Children: []Field{
+				{Name: "field_a", ID: 1},
+				{
+					Name: "field_d",
+					ID:   4,
+					Desc: &Descriptor{
+						Kind: TypeKind_Struct,
+						Name: "SampleFetch",
+						Children: []Field{
+							{Name: "field_a", ID: 1},
+							{
+								Name: "field_d",
+								ID:   4,
+								Desc: &Descriptor{
+									Kind: TypeKind_Struct,
+									Name: "SampleFetch",
+									Children: []Field{
+										{Name: "field_a", ID: 1},
+										{Name: "field_e", ID: 5},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		f := Fetcher{}
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = f.FetchAny(desc, obj)
+		}
+	})
+
+	b.Run("with_map", func(b *testing.B) {
+		obj := &sampleFetch{
+			FieldA: 1,
+			FieldC: map[string]*sampleFetch{
+				"key1": {FieldA: 10, FieldE: "v1"},
+				"key2": {FieldA: 20, FieldE: "v2"},
+				"key3": {FieldA: 30, FieldE: "v3"},
+			},
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleFetch",
+			Children: []Field{
+				{Name: "field_a", ID: 1},
+				{
+					Name: "field_c",
+					ID:   3,
+					Desc: &Descriptor{
+						Kind: TypeKind_StrMap,
+						Name: "MAP",
+						Children: []Field{
+							{
+								Name: "*",
+								Desc: &Descriptor{
+									Kind: TypeKind_Struct,
+									Name: "SampleFetch",
+									Children: []Field{
+										{Name: "field_a", ID: 1},
+										{Name: "field_e", ID: 5},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		f := Fetcher{}
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = f.FetchAny(desc, obj)
+		}
+	})
+
+	b.Run("error_case", func(b *testing.B) {
+		obj := &sampleFetch{
+			FieldA: 1,
+			FieldD: &sampleFetch{
+				FieldA: 2,
+			},
+		}
+
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleFetch",
+			Children: []Field{
+				{Name: "field_a", ID: 1},
+				{
+					Name: "field_d",
+					ID:   4,
+					Desc: &Descriptor{
+						Kind: TypeKind_Struct,
+						Name: "SampleFetch",
+						Children: []Field{
+							{Name: "field_a", ID: 1},
+							{Name: "missing", ID: 99},
+						},
+					},
+				},
+			},
+		}
+
+		f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_, _ = f.FetchAny(desc, obj)
 		}
 	})
 }

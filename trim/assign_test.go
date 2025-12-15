@@ -24,6 +24,11 @@ import (
 	"github.com/cloudwego/dynamicgo/proto/binary"
 )
 
+func assignAny(desc *Descriptor, src interface{}, dest interface{}) error {
+	assigner := &Assigner{}
+	return assigner.AssignAny(desc, src, dest)
+}
+
 type sampleAssign struct {
 	FieldA           int                      `protobuf:"varint,1,req,name=field_a" json:"field_a,omitempty"`
 	FieldB           []*sampleAssign          `protobuf:"bytes,2,opt,name=field_b" json:"field_b,omitempty"`
@@ -86,7 +91,7 @@ func TestAssignAny_Basic(t *testing.T) {
 	}
 
 	dest := &sampleAssign{}
-	err := AssignAny(desc, src, dest)
+	err := assignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
@@ -129,7 +134,7 @@ func TestAssignAny_NestedStruct(t *testing.T) {
 	}
 
 	dest := &sampleAssign{}
-	err := AssignAny(desc, src, dest)
+	err := assignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
@@ -169,7 +174,7 @@ func TestAssignAny_List(t *testing.T) {
 	}
 
 	dest := &sampleAssign{}
-	err := AssignAny(desc, src, dest)
+	err := assignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
@@ -207,7 +212,7 @@ func TestAssignAny_Map(t *testing.T) {
 	}
 
 	dest := &sampleAssign{}
-	err := AssignAny(desc, src, dest)
+	err := assignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
@@ -237,7 +242,7 @@ func TestAssignAny_UnknownFields(t *testing.T) {
 	}
 
 	dest := &sampleAssignSmall{}
-	err := AssignAny(desc, src, dest)
+	err := assignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
@@ -342,7 +347,7 @@ func TestAssignAny_ListOfStructs(t *testing.T) {
 	}
 
 	dest := &sampleAssign{}
-	err := AssignAny(desc, src, dest)
+	err := assignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
@@ -407,7 +412,7 @@ func TestAssignAny_MapOfStructs(t *testing.T) {
 	}
 
 	dest := &sampleAssign{}
-	err := AssignAny(desc, src, dest)
+	err := assignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
@@ -428,7 +433,7 @@ func TestAssignAny_MapOfStructs(t *testing.T) {
 }
 
 func TestAssignAny_NilValues(t *testing.T) {
-	err := AssignAny(nil, nil, nil)
+	err := assignAny(nil, nil, nil)
 	if err != nil {
 		t.Errorf("expected nil error for nil inputs, got %v", err)
 	}
@@ -436,7 +441,7 @@ func TestAssignAny_NilValues(t *testing.T) {
 	desc := &Descriptor{Kind: TypeKind_Struct, Name: "Test"}
 	dest := &sampleAssign{}
 
-	err = AssignAny(desc, nil, dest)
+	err = assignAny(desc, nil, dest)
 	if err != nil {
 		t.Errorf("expected nil error for nil src, got %v", err)
 	}
@@ -458,7 +463,8 @@ func TestAssignAny_DisallowNotFound(t *testing.T) {
 	}
 
 	dest := &sampleAssign{}
-	err := AssignAny(desc, src, dest, WithDisallowNotDefined(true))
+	as := Assigner{AssignOptions{DisallowNotDefined: true}}
+	err := as.AssignAny(desc, src, dest)
 	if err == nil {
 		t.Fatalf("expected error for nonexistent field with DisallowNotFound")
 	}
@@ -472,7 +478,7 @@ func TestAssignAny_DisallowNotFound(t *testing.T) {
 	}
 }
 
-func BenchmarkAssignAny(b *testing.B) {
+func BenchmarkassignAny(b *testing.B) {
 	src := map[string]interface{}{
 		"field_a":    42,
 		"field_e":    "hello",
@@ -513,7 +519,7 @@ func BenchmarkAssignAny(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		dest := &sampleAssign{}
-		_ = AssignAny(desc, src, dest)
+		_ = assignAny(desc, src, dest)
 	}
 }
 
@@ -542,7 +548,7 @@ func BenchmarkAssignAny_WithUnknownFields(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		dest := &sampleAssignSmall{}
-		_ = AssignAny(desc, src, dest)
+		_ = assignAny(desc, src, dest)
 	}
 }
 
@@ -620,7 +626,7 @@ func TestAssignScalar_StructToStruct(t *testing.T) {
 		}
 
 		dest := &Wrapper{}
-		err := AssignAny(desc, srcMap, dest)
+		err := assignAny(desc, srcMap, dest)
 		if err != nil {
 			t.Fatalf("AssignAny failed: %v", err)
 		}
@@ -670,7 +676,7 @@ func TestAssignScalar_StructToStruct(t *testing.T) {
 		}
 
 		dest := &Wrapper{}
-		err := AssignAny(desc, srcMap, dest)
+		err := assignAny(desc, srcMap, dest)
 		if err != nil {
 			t.Fatalf("AssignAny failed: %v", err)
 		}
@@ -719,7 +725,7 @@ func TestAssignScalar_SliceToSlice(t *testing.T) {
 		}
 
 		dest := &Wrapper{}
-		err := AssignAny(desc, srcMap, dest)
+		err := assignAny(desc, srcMap, dest)
 		if err != nil {
 			t.Fatalf("AssignAny failed: %v", err)
 		}
@@ -758,7 +764,7 @@ func TestAssignScalar_SliceToSlice(t *testing.T) {
 		}
 
 		dest := &Wrapper{}
-		err := AssignAny(desc, srcMap, dest)
+		err := assignAny(desc, srcMap, dest)
 		if err != nil {
 			t.Fatalf("AssignAny failed: %v", err)
 		}
@@ -796,7 +802,7 @@ func TestAssignScalar_MapToMap(t *testing.T) {
 		}
 
 		dest := &Wrapper{}
-		err := AssignAny(desc, srcMap, dest)
+		err := assignAny(desc, srcMap, dest)
 		if err != nil {
 			t.Fatalf("AssignAny failed: %v", err)
 		}
@@ -835,7 +841,7 @@ func TestAssignScalar_MapToMap(t *testing.T) {
 		}
 
 		dest := &Wrapper{}
-		err := AssignAny(desc, srcMap, dest)
+		err := assignAny(desc, srcMap, dest)
 		if err != nil {
 			t.Fatalf("AssignAny failed: %v", err)
 		}
@@ -901,7 +907,7 @@ func TestAssignScalar_ComplexNested(t *testing.T) {
 		}
 
 		dest := &Wrapper{}
-		err := AssignAny(desc, srcMap, dest)
+		err := assignAny(desc, srcMap, dest)
 		if err != nil {
 			t.Fatalf("AssignAny failed: %v", err)
 		}
@@ -954,7 +960,7 @@ func TestAssignScalar_NilHandling(t *testing.T) {
 		}
 
 		dest := &Wrapper{}
-		err := AssignAny(desc, srcMap, dest)
+		err := assignAny(desc, srcMap, dest)
 		if err != nil {
 			t.Fatalf("AssignAny failed: %v", err)
 		}
@@ -992,7 +998,7 @@ func TestAssignScalar_NilHandling(t *testing.T) {
 		}
 
 		dest := &Wrapper{}
-		err := AssignAny(desc, srcMap, dest)
+		err := assignAny(desc, srcMap, dest)
 		if err != nil {
 			t.Fatalf("AssignAny failed: %v", err)
 		}
@@ -1034,7 +1040,7 @@ func BenchmarkAssignScalar_StructToStruct(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		dest := &Wrapper{}
-		_ = AssignAny(desc, srcMap, dest)
+		_ = assignAny(desc, srcMap, dest)
 	}
 }
 
@@ -1067,7 +1073,7 @@ func BenchmarkAssignScalar_SliceOfStructs(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		dest := &Wrapper{}
-		_ = AssignAny(desc, srcMap, dest)
+		_ = assignAny(desc, srcMap, dest)
 	}
 }
 
@@ -1138,7 +1144,7 @@ func TestAssignAny_CircularDescriptor_LinkedList(t *testing.T) {
 	desc := makeCircularAssignDesc()
 
 	dest := &circularAssignNode{}
-	err := AssignAny(desc, src, dest)
+	err := assignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
@@ -1178,7 +1184,7 @@ func TestAssignAny_CircularDescriptor_SingleNode(t *testing.T) {
 	desc := makeCircularAssignDesc()
 
 	dest := &circularAssignNode{}
-	err := AssignAny(desc, src, dest)
+	err := assignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
@@ -1215,7 +1221,7 @@ func TestAssignAny_CircularDescriptor_Tree(t *testing.T) {
 	desc := makeCircularAssignTreeDesc()
 
 	dest := &circularAssignTree{}
-	err := AssignAny(desc, src, dest)
+	err := assignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
@@ -1255,7 +1261,7 @@ func TestAssignAny_CircularDescriptor_NilSrc(t *testing.T) {
 	dest := &circularAssignNode{Value: 999}
 
 	// Assign with nil src should not modify dest
-	err := AssignAny(desc, nil, dest)
+	err := assignAny(desc, nil, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
@@ -1283,7 +1289,7 @@ func TestAssignAny_CircularDescriptor_DeepList(t *testing.T) {
 	desc := makeCircularAssignDesc()
 
 	dest := &circularAssignNode{}
-	err := AssignAny(desc, src, dest)
+	err := assignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
@@ -1363,7 +1369,7 @@ func TestAssignAny_CircularDescriptor_MapOfNodes(t *testing.T) {
 	desc := makeCircularAssignMapDesc()
 
 	dest := &circularAssignMapNode{}
-	err := AssignAny(desc, src, dest)
+	err := assignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
@@ -1426,7 +1432,7 @@ func BenchmarkAssignAny_CircularDescriptor(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		dest := &circularAssignNode{}
-		_ = AssignAny(desc, src, dest)
+		_ = assignAny(desc, src, dest)
 	}
 }
 
@@ -1463,7 +1469,7 @@ func TestAssignAny_CircularDescriptor_FetchThenAssign(t *testing.T) {
 	fetchDesc.Children[1].Desc = fetchDesc
 
 	// Fetch
-	fetched, err := FetchAny(fetchDesc, srcList)
+	fetched, err := fetchAny(fetchDesc, srcList)
 	if err != nil {
 		t.Fatalf("FetchAny failed: %v", err)
 	}
@@ -1481,7 +1487,7 @@ func TestAssignAny_CircularDescriptor_FetchThenAssign(t *testing.T) {
 
 	// Assign
 	dest := &circularAssignNode{}
-	err = AssignAny(assignDesc, fetched, dest)
+	err = assignAny(assignDesc, fetched, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
@@ -1499,4 +1505,889 @@ func TestAssignAny_CircularDescriptor_FetchThenAssign(t *testing.T) {
 	if dest.Next.Next.Next != nil {
 		t.Errorf("next.next.next: expected nil")
 	}
+}
+
+// TestAssignAny_PathTracking tests that error messages include the correct DSL path
+func TestAssignAny_PathTracking(t *testing.T) {
+	tests := []struct {
+		name        string
+		src         interface{}
+		desc        *Descriptor
+		expectedErr string
+	}{
+		{
+			name: "field not found in root",
+			src: map[string]interface{}{
+				"unknown_field": 42,
+			},
+			desc: &Descriptor{
+				Kind: TypeKind_Struct,
+				Name: "SampleAssign",
+				Children: []Field{
+					{Name: "field_a", ID: 1},
+				},
+			},
+			expectedErr: "not found unknown_field at SampleAssign: field 'unknown_field' not found in struct at path $.unknown_field",
+		},
+		{
+			name: "field not found in nested struct",
+			src: map[string]interface{}{
+				"field_d": map[string]interface{}{
+					"unknown_nested": 123,
+				},
+			},
+			desc: &Descriptor{
+				Kind: TypeKind_Struct,
+				Name: "SampleAssign",
+				Children: []Field{
+					{
+						Name: "field_d",
+						ID:   4,
+						Desc: &Descriptor{
+							Kind: TypeKind_Struct,
+							Name: "SampleAssign",
+							Children: []Field{
+								{Name: "field_a", ID: 1},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "not found unknown_nested at SampleAssign: field 'unknown_nested' not found in struct at path $.field_d.unknown_nested",
+		},
+		{
+			name: "field not found in deeply nested struct",
+			src: map[string]interface{}{
+				"field_d": map[string]interface{}{
+					"field_a": 1,
+					"field_d": map[string]interface{}{
+						"missing_field": "test",
+					},
+				},
+			},
+			desc: &Descriptor{
+				Kind: TypeKind_Struct,
+				Name: "SampleAssign",
+				Children: []Field{
+					{
+						Name: "field_d",
+						ID:   4,
+						Desc: &Descriptor{
+							Kind: TypeKind_Struct,
+							Name: "SampleAssign",
+							Children: []Field{
+								{Name: "field_a", ID: 1},
+								{
+									Name: "field_d",
+									ID:   4,
+									Desc: &Descriptor{
+										Kind: TypeKind_Struct,
+										Name: "SampleAssign",
+										Children: []Field{
+											{Name: "field_a", ID: 1},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "not found missing_field at SampleAssign: field 'missing_field' not found in struct at path $.field_d.field_d.missing_field",
+		},
+		{
+			name: "field not found in map",
+			src: map[string]interface{}{
+				"field_c": map[string]interface{}{
+					"key1": map[string]interface{}{
+						"bad_field": 999,
+					},
+				},
+			},
+			desc: &Descriptor{
+				Kind: TypeKind_Struct,
+				Name: "SampleAssign",
+				Children: []Field{
+					{
+						Name: "field_c",
+						ID:   3,
+						Desc: &Descriptor{
+							Kind: TypeKind_StrMap,
+							Name: "MAP",
+							Children: []Field{
+								{
+									Name: "*",
+									Desc: &Descriptor{
+										Kind: TypeKind_Struct,
+										Name: "SampleAssign",
+										Children: []Field{
+											{Name: "field_a", ID: 1},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedErr: "not found bad_field at SampleAssign: field 'bad_field' not found in struct at path $.field_c[key1].bad_field",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dest := &sampleAssign{}
+			as := Assigner{AssignOptions{DisallowNotDefined: true}}
+			err := as.AssignAny(tt.desc, tt.src, dest)
+			if err == nil {
+				t.Fatalf("expected error, got nil")
+			}
+			if err.Error() != tt.expectedErr {
+				t.Errorf("expected error:\n%s\ngot:\n%s", tt.expectedErr, err.Error())
+			}
+		})
+	}
+}
+
+// TestAssignAny_PathTracking_TypeErrors tests path tracking for type mismatch errors
+func TestAssignAny_PathTracking_TypeErrors(t *testing.T) {
+	tests := []struct {
+		name        string
+		src         interface{}
+		desc        *Descriptor
+		errorSubstr string // Substring that should be in the error
+	}{
+		{
+			name: "type error at root",
+			src:  "not a map", // Should be map[string]interface{}
+			desc: &Descriptor{
+				Kind: TypeKind_Struct,
+				Name: "SampleAssign",
+				Children: []Field{
+					{Name: "field_a", ID: 1},
+				},
+			},
+			errorSubstr: "expected map[string]interface{} for struct at $",
+		},
+		{
+			name: "type error in nested struct",
+			src: map[string]interface{}{
+				"field_d": "not a map", // Should be map[string]interface{}
+			},
+			desc: &Descriptor{
+				Kind: TypeKind_Struct,
+				Name: "SampleAssign",
+				Children: []Field{
+					{
+						Name: "field_d",
+						ID:   4,
+						Desc: &Descriptor{
+							Kind: TypeKind_Struct,
+							Name: "SampleAssign",
+							Children: []Field{
+								{Name: "field_a", ID: 1},
+							},
+						},
+					},
+				},
+			},
+			errorSubstr: "expected map[string]interface{} for struct at $.field_d",
+		},
+		{
+			name: "type error in map value",
+			src: map[string]interface{}{
+				"field_c": map[string]interface{}{
+					"key1": []int{1, 2, 3}, // Should be a struct map
+				},
+			},
+			desc: &Descriptor{
+				Kind: TypeKind_Struct,
+				Name: "SampleAssign",
+				Children: []Field{
+					{
+						Name: "field_c",
+						ID:   3,
+						Desc: &Descriptor{
+							Kind: TypeKind_StrMap,
+							Name: "MAP",
+							Children: []Field{
+								{
+									Name: "*",
+									Desc: &Descriptor{
+										Kind: TypeKind_Struct,
+										Name: "SampleAssign",
+										Children: []Field{
+											{Name: "field_a", ID: 1},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			errorSubstr: "expected map[string]interface{} for struct at $.field_c[key1]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dest := &sampleAssign{}
+			err := assignAny(tt.desc, tt.src, dest)
+			if err == nil {
+				t.Fatalf("expected error, got nil")
+			}
+			if !contains(err.Error(), tt.errorSubstr) {
+				t.Errorf("expected error to contain:\n%s\ngot:\n%s", tt.errorSubstr, err.Error())
+			}
+		})
+	}
+}
+
+// TestPathStack tests the pathStack implementation directly
+func TestPathStack(t *testing.T) {
+	tests := []struct {
+		name     string
+		ops      func(*pathStack)
+		expected string
+	}{
+		{
+			name: "empty stack",
+			ops: func(s *pathStack) {
+			},
+			expected: "$",
+		},
+		{
+			name: "single field",
+			ops: func(s *pathStack) {
+				s.push("field_a", 1, false, -1)
+			},
+			expected: "$.field_a",
+		},
+		{
+			name: "nested fields",
+			ops: func(s *pathStack) {
+				s.push("field_d", 4, false, -1)
+				s.push("field_a", 1, false, -1)
+			},
+			expected: "$.field_d.field_a",
+		},
+		{
+			name: "map key",
+			ops: func(s *pathStack) {
+				s.push("field_c", 3, false, -1)
+				s.push("my_key", 0, true, -1)
+			},
+			expected: "$.field_c[my_key]",
+		},
+		{
+			name: "array index",
+			ops: func(s *pathStack) {
+				s.push("field_b", 2, false, -1)
+				s.push("", 0, false, 0)
+			},
+			expected: "$.field_b[0]",
+		},
+		{
+			name: "complex path",
+			ops: func(s *pathStack) {
+				s.push("root_field", 1, false, -1)
+				s.push("map_field", 3, false, -1)
+				s.push("key1", 0, true, -1)
+				s.push("nested", 4, false, -1)
+				s.push("array", 2, false, -1)
+				s.push("", 0, false, 2)
+			},
+			expected: "$.root_field.map_field[key1].nested.array[2]",
+		},
+		{
+			name: "push and pop",
+			ops: func(s *pathStack) {
+				s.push("field_a", 1, false, -1)
+				s.push("field_b", 2, false, -1)
+				s.pop()
+			},
+			expected: "$.field_a",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stack := getStackFrames()
+			defer putStackFrames(stack)
+
+			tt.ops(stack)
+			result := stack.buildPath()
+			if result != tt.expected {
+				t.Errorf("expected %s, got %s", tt.expected, result)
+			}
+		})
+	}
+}
+
+// TestStackFramePool tests that the stack frame pool works correctly
+func TestStackFramePool(t *testing.T) {
+	// Get a stack from the pool
+	frames1 := getStackFrames()
+	if len(*frames1) != 0 {
+		t.Errorf("expected empty frames, got length %d", len(*frames1))
+	}
+	if cap(*frames1) < 16 {
+		t.Errorf("expected capacity >= 16, got %d", cap(*frames1))
+	}
+
+	// Use it and return it
+	*frames1 = append(*frames1, stackFrame{fieldName: "test", fieldID: 1})
+	putStackFrames(frames1)
+
+	// Get another one - should be reused
+	frames2 := getStackFrames()
+	if len(*frames2) != 0 {
+		t.Errorf("expected frames to be reset, got length %d", len(*frames2))
+	}
+
+	// Return it
+	putStackFrames(frames2)
+}
+
+// TestAssignAny_PathTracking_Integration tests path tracking in a complex nested scenario
+func TestAssignAny_PathTracking_Integration(t *testing.T) {
+	// Create a complex nested structure
+	src := map[string]interface{}{
+		"field_a": 1,
+		"field_c": map[string]interface{}{
+			"item1": map[string]interface{}{
+				"field_a": 10,
+				"field_d": map[string]interface{}{
+					"field_a":   20,
+					"bad_field": "should fail", // This will cause error
+				},
+			},
+		},
+	}
+
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "SampleAssign",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{
+				Name: "field_c",
+				ID:   3,
+				Desc: &Descriptor{
+					Kind: TypeKind_StrMap,
+					Name: "MAP",
+					Children: []Field{
+						{
+							Name: "*",
+							Desc: &Descriptor{
+								Kind: TypeKind_Struct,
+								Name: "SampleAssign",
+								Children: []Field{
+									{Name: "field_a", ID: 1},
+									{
+										Name: "field_d",
+										ID:   4,
+										Desc: &Descriptor{
+											Kind: TypeKind_Struct,
+											Name: "SampleAssign",
+											Children: []Field{
+												{Name: "field_a", ID: 1},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	dest := &sampleAssign{}
+	as := Assigner{AssignOptions{DisallowNotDefined: true}}
+	err := as.AssignAny(desc, src, dest)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	expectedPath := "$.field_c[item1].field_d.bad_field"
+	if !contains(err.Error(), expectedPath) {
+		t.Errorf("expected error to contain path %s, got: %s", expectedPath, err.Error())
+	}
+}
+
+// Helper function to check if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
+		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
+			anyIndex(s, substr)))
+}
+
+func anyIndex(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
+// Benchmark tests for path tracking overhead
+
+// BenchmarkAssignAny_SimpleStruct tests baseline performance on simple struct
+func BenchmarkAssignAny_SimpleStruct(b *testing.B) {
+	src := map[string]interface{}{
+		"field_a": 42,
+		"field_e": "hello",
+	}
+
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "SampleAssign",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{Name: "field_e", ID: 5},
+		},
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		dest := &sampleAssign{}
+		_ = assignAny(desc, src, dest)
+	}
+}
+
+// BenchmarkAssignAny_NestedStruct tests performance with nested structures
+func BenchmarkAssignAny_NestedStruct(b *testing.B) {
+	src := map[string]interface{}{
+		"field_a": 1,
+		"field_d": map[string]interface{}{
+			"field_a": 2,
+			"field_d": map[string]interface{}{
+				"field_a": 3,
+				"field_e": "nested",
+			},
+		},
+	}
+
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "SampleAssign",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{
+				Name: "field_d",
+				ID:   4,
+				Desc: &Descriptor{
+					Kind: TypeKind_Struct,
+					Name: "SampleAssign",
+					Children: []Field{
+						{Name: "field_a", ID: 1},
+						{
+							Name: "field_d",
+							ID:   4,
+							Desc: &Descriptor{
+								Kind: TypeKind_Struct,
+								Name: "SampleAssign",
+								Children: []Field{
+									{Name: "field_a", ID: 1},
+									{Name: "field_e", ID: 5},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		dest := &sampleAssign{}
+		_ = assignAny(desc, src, dest)
+	}
+}
+
+// BenchmarkAssignAny_WithMap tests performance with map structures
+func BenchmarkAssignAny_WithMap(b *testing.B) {
+	src := map[string]interface{}{
+		"field_a": 1,
+		"field_c": map[string]interface{}{
+			"key1": map[string]interface{}{
+				"field_a": 10,
+				"field_e": "value1",
+			},
+			"key2": map[string]interface{}{
+				"field_a": 20,
+				"field_e": "value2",
+			},
+			"key3": map[string]interface{}{
+				"field_a": 30,
+				"field_e": "value3",
+			},
+		},
+	}
+
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "SampleAssign",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{
+				Name: "field_c",
+				ID:   3,
+				Desc: &Descriptor{
+					Kind: TypeKind_StrMap,
+					Name: "MAP",
+					Children: []Field{
+						{
+							Name: "*",
+							Desc: &Descriptor{
+								Kind: TypeKind_Struct,
+								Name: "SampleAssign",
+								Children: []Field{
+									{Name: "field_a", ID: 1},
+									{Name: "field_e", ID: 5},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		dest := &sampleAssign{}
+		_ = assignAny(desc, src, dest)
+	}
+}
+
+// BenchmarkAssignAny_DeepNesting tests performance with deeply nested structures
+func BenchmarkAssignAny_DeepNesting(b *testing.B) {
+	// Create a deeply nested structure
+	src := map[string]interface{}{
+		"field_a": 1,
+	}
+	current := src
+	for i := 0; i < 10; i++ {
+		nested := map[string]interface{}{
+			"field_a": i + 2,
+		}
+		current["field_d"] = nested
+		current = nested
+	}
+
+	// Create corresponding descriptor
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "SampleAssign",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+		},
+	}
+	currentDesc := desc
+	for i := 0; i < 10; i++ {
+		childDesc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleAssign",
+			Children: []Field{
+				{Name: "field_a", ID: 1},
+			},
+		}
+		currentDesc.Children = append(currentDesc.Children, Field{
+			Name: "field_d",
+			ID:   4,
+			Desc: childDesc,
+		})
+		currentDesc = childDesc
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		dest := &sampleAssign{}
+		_ = assignAny(desc, src, dest)
+	}
+}
+
+// BenchmarkAssignAny_ErrorPath tests performance when error occurs (path building)
+func BenchmarkAssignAny_ErrorPath(b *testing.B) {
+	src := map[string]interface{}{
+		"field_a": 1,
+		"field_d": map[string]interface{}{
+			"field_a": 2,
+			"unknown": 999, // This will cause error
+		},
+	}
+
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "SampleAssign",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{
+				Name: "field_d",
+				ID:   4,
+				Desc: &Descriptor{
+					Kind: TypeKind_Struct,
+					Name: "SampleAssign",
+					Children: []Field{
+						{Name: "field_a", ID: 1},
+					},
+				},
+			},
+		},
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		dest := &sampleAssign{}
+		as := Assigner{AssignOptions{DisallowNotDefined: true}}
+		_ = as.AssignAny(desc, src, dest)
+	}
+}
+
+// BenchmarkAssignAny_ComplexMixed tests performance with complex mixed structure
+func BenchmarkAssignAny_ComplexMixed(b *testing.B) {
+	src := map[string]interface{}{
+		"field_a": 1,
+		"field_e": "root",
+		"field_b": []interface{}{
+			map[string]interface{}{
+				"field_a": 10,
+				"field_e": "list1",
+			},
+			map[string]interface{}{
+				"field_a": 20,
+				"field_e": "list2",
+			},
+		},
+		"field_c": map[string]interface{}{
+			"key1": map[string]interface{}{
+				"field_a": 100,
+				"field_d": map[string]interface{}{
+					"field_a": 200,
+					"field_e": "deep",
+				},
+			},
+			"key2": map[string]interface{}{
+				"field_a": 300,
+			},
+		},
+		"field_map": map[string]interface{}{
+			"mk1": 1000,
+			"mk2": 2000,
+		},
+	}
+
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "SampleAssign",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{Name: "field_e", ID: 5},
+			{
+				Name: "field_b",
+				ID:   2,
+				Desc: &Descriptor{
+					Kind: TypeKind_Scalar,
+					Name: "LIST",
+				},
+			},
+			{
+				Name: "field_c",
+				ID:   3,
+				Desc: &Descriptor{
+					Kind: TypeKind_StrMap,
+					Name: "MAP",
+					Children: []Field{
+						{
+							Name: "*",
+							Desc: &Descriptor{
+								Kind: TypeKind_Struct,
+								Name: "SampleAssign",
+								Children: []Field{
+									{Name: "field_a", ID: 1},
+									{
+										Name: "field_d",
+										ID:   4,
+										Desc: &Descriptor{
+											Kind: TypeKind_Struct,
+											Name: "SampleAssign",
+											Children: []Field{
+												{Name: "field_a", ID: 1},
+												{Name: "field_e", ID: 5},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "field_map",
+				ID:   7,
+				Desc: &Descriptor{
+					Kind: TypeKind_StrMap,
+					Name: "MAP",
+				},
+			},
+		},
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		dest := &sampleAssign{}
+		_ = assignAny(desc, src, dest)
+	}
+}
+
+// BenchmarkPathStack_Operations tests the performance of stack operations
+func BenchmarkPathStack_Operations(b *testing.B) {
+	b.Run("push_and_pop", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			stack := getStackFrames()
+			for j := 0; j < 10; j++ {
+				stack.push("field", j, false, -1)
+			}
+			for j := 0; j < 10; j++ {
+				stack.pop()
+			}
+			putStackFrames(stack)
+		}
+	})
+
+	b.Run("build_path_shallow", func(b *testing.B) {
+		stack := getStackFrames()
+		stack.push("field_a", 1, false, -1)
+		stack.push("field_b", 2, false, -1)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = stack.buildPath()
+		}
+	})
+
+	b.Run("build_path_deep", func(b *testing.B) {
+		stack := getStackFrames()
+		for i := 0; i < 10; i++ {
+			stack.push("field", i, false, -1)
+		}
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = stack.buildPath()
+		}
+	})
+
+	b.Run("build_path_mixed", func(b *testing.B) {
+		stack := getStackFrames()
+		stack.push("root", 1, false, -1)
+		stack.push("map_field", 3, false, -1)
+		stack.push("key1", 0, true, -1)
+		stack.push("nested", 4, false, -1)
+		stack.push("", 0, false, 5)
+		stack.push("deep", 6, false, -1)
+
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = stack.buildPath()
+		}
+	})
+}
+
+// BenchmarkStackFramePool tests the performance of memory pool
+func BenchmarkStackFramePool(b *testing.B) {
+	b.Run("with_pool", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			frames := getStackFrames()
+			for j := 0; j < 16; j++ {
+				*frames = append(*frames, stackFrame{fieldName: "test", fieldID: j})
+			}
+			putStackFrames(frames)
+		}
+	})
+
+	b.Run("without_pool", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			frames := make([]stackFrame, 0, 16)
+			for j := 0; j < 16; j++ {
+				frames = append(frames, stackFrame{fieldName: "test", fieldID: j})
+			}
+			_ = frames
+		}
+	})
+}
+
+// BenchmarkPathTracking_Overhead compares the overhead of path tracking
+func BenchmarkPathTracking_Overhead(b *testing.B) {
+	src := map[string]interface{}{
+		"field_a": 1,
+		"field_e": "test",
+		"field_c": map[string]interface{}{
+			"k1": map[string]interface{}{
+				"field_a": 10,
+			},
+			"k2": map[string]interface{}{
+				"field_a": 20,
+			},
+		},
+	}
+
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "SampleAssign",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{Name: "field_e", ID: 5},
+			{
+				Name: "field_c",
+				ID:   3,
+				Desc: &Descriptor{
+					Kind: TypeKind_StrMap,
+					Name: "MAP",
+					Children: []Field{
+						{
+							Name: "*",
+							Desc: &Descriptor{
+								Kind: TypeKind_Struct,
+								Name: "SampleAssign",
+								Children: []Field{
+									{Name: "field_a", ID: 1},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	b.Run("success_case", func(b *testing.B) {
+		// Normal case - path tracking is active but never used for errors
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			dest := &sampleAssign{}
+			_ = assignAny(desc, src, dest)
+		}
+	})
+
+	b.Run("error_case", func(b *testing.B) {
+		// Error case - path is built when error occurs
+		srcWithError := map[string]interface{}{
+			"field_a": 1,
+			"unknown": 999,
+		}
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			dest := &sampleAssign{}
+			as := Assigner{AssignOptions{DisallowNotDefined: true}}
+			_ = as.AssignAny(desc, srcWithError, dest)
+		}
+	})
 }

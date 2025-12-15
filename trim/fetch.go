@@ -26,21 +26,30 @@ import (
 	"github.com/cloudwego/dynamicgo/thrift"
 )
 
+type Fetcher struct {
+	FetchOptions
+}
+
+// FetchOptions contains options for FetchAny
+type FetchOptions struct {
+	// DisallowNotFound if true, returns ErrNotFound when a field/index/key is not found
+	DisallowNotFound bool
+}
+
 // FetchAny fetches the value of the field described by desc from any based on go reflect.
-func FetchAny(desc *Descriptor, any interface{}, opts ...FetchOption) (interface{}, error) {
+func (f Fetcher) FetchAny(desc *Descriptor, any interface{}) (interface{}, error) {
 	if any == nil || desc == nil {
 		return nil, nil
 	}
 
 	desc.Normalize()
 
-	var opt FetchOptions
-	for _, op := range opts {
-		op(&opt)
-	}
+	// Initialize path stack from pool
+	stack := getStackFrames()
+	defer putStackFrames(stack)
 
 	v := reflect.ValueOf(any)
-	return fetchValue(desc, v, &opt)
+	return fetchValue(desc, v, &f.FetchOptions, stack)
 }
 
 // ErrNotFound is returned when a field/index/key is not found and disallowNotFound is enabled
@@ -51,21 +60,10 @@ type ErrNotFound struct {
 }
 
 func (e ErrNotFound) Error() string {
-	return fmt.Sprintf("not found %v at %v: %s", e.Field.Name, e.Parent.Name, e.Msg)
-}
-
-// FetchOptions contains options for FetchAny
-type FetchOptions struct {
-	// DisallowNotFound if true, returns ErrNotFound when a field/index/key is not found
-	disallowNotFound bool
-}
-
-type FetchOption func(*FetchOptions)
-
-func WithDisallowNotFound(b bool) FetchOption {
-	return func(opt *FetchOptions) {
-		opt.disallowNotFound = b
+	if e.Msg != "" {
+		return fmt.Sprintf("not found %v at %v: %s", e.Field.Name, e.Parent.Name, e.Msg)
 	}
+	return fmt.Sprintf("not found %v at %v", e.Field.Name, e.Parent.Name)
 }
 
 // structFieldInfo caches field mapping information for a struct type
@@ -125,7 +123,7 @@ func getStructFieldInfo(t reflect.Type) *structFieldInfo {
 
 // fetchValue is the internal implementation that works with reflect.Value directly
 // to avoid repeated interface{} boxing/unboxing overhead
-func fetchValue(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interface{}, error) {
+func fetchValue(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pathStack) (interface{}, error) {
 	// Dereference pointers
 	for v.Kind() == reflect.Ptr {
 		if v.IsNil() {
@@ -136,10 +134,10 @@ func fetchValue(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interface
 
 	switch desc.Kind {
 	case TypeKind_Struct:
-		return fetchStruct(desc, v, opt)
+		return fetchStruct(desc, v, opt, stack)
 
 	case TypeKind_StrMap:
-		return fetchStrMap(desc, v, opt)
+		return fetchStrMap(desc, v, opt, stack)
 
 	default:
 		return v.Interface(), nil
@@ -147,7 +145,7 @@ func fetchValue(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interface
 }
 
 // fetchStruct handles TypeKind_Struct
-func fetchStruct(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interface{}, error) {
+func fetchStruct(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pathStack) (interface{}, error) {
 	if v.Kind() != reflect.Struct {
 		return nil, nil
 	}
@@ -181,22 +179,36 @@ func fetchStruct(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interfac
 		if found {
 			fieldValue := v.Field(fieldIdx)
 			if fieldValue.Kind() == reflect.Ptr && fieldValue.IsNil() {
-				if opt.disallowNotFound {
-					return nil, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d is nil", field.ID)}
+				if opt.DisallowNotFound {
+					stack.push(field.Name, field.ID, false, -1)
+					path := stack.buildPath()
+					stack.pop()
+					return nil, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d is nil at path %s", field.ID, path)}
 				}
 				continue
 			}
 
+			// Push field onto stack
+			stack.push(field.Name, field.ID, false, -1)
+
 			// If field has a child descriptor, recursively fetch
+			var err error
 			if field.Desc != nil {
-				fetched, err := fetchValue(field.Desc, fieldValue, opt)
-				if err != nil {
-					return nil, err
+				var fetched interface{}
+				fetched, err = fetchValue(field.Desc, fieldValue, opt, stack)
+				if err == nil {
+					result[field.Name] = fetched
 				}
-				result[field.Name] = fetched
 			} else {
 				// Otherwise, use the value directly
 				result[field.Name] = fieldValue.Interface()
+			}
+
+			// Pop field from stack
+			stack.pop()
+
+			if err != nil {
+				return nil, err
 			}
 		} else if unknownFieldsMap != nil {
 			// Try to get field from unknownFields
@@ -204,11 +216,17 @@ func fetchStruct(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interfac
 				// Convert the value based on the field's Descriptor
 				// (e.g., map[FieldID]interface{} -> map[string]interface{} for nested structs)
 				result[field.Name] = fetchUnknownValue(val, field.Desc)
-			} else if opt.disallowNotFound {
-				return nil, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d not found in struct or unknownFields", field.ID)}
+			} else if opt.DisallowNotFound {
+				stack.push(field.Name, field.ID, false, -1)
+				path := stack.buildPath()
+				stack.pop()
+				return nil, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d not found in struct or unknownFields at path %s", field.ID, path)}
 			}
-		} else if opt.disallowNotFound {
-			return nil, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d not found in struct", field.ID)}
+		} else if opt.DisallowNotFound {
+			stack.push(field.Name, field.ID, false, -1)
+			path := stack.buildPath()
+			stack.pop()
+			return nil, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d not found in struct at path %s", field.ID, path)}
 		}
 	}
 	return result, nil
@@ -303,7 +321,7 @@ func fetchUnknownValue(val interface{}, desc *Descriptor) interface{} {
 }
 
 // fetchStrMap handles TypeKind_StrMap
-func fetchStrMap(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interface{}, error) {
+func fetchStrMap(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pathStack) (interface{}, error) {
 	if v.Kind() != reflect.Map || v.Type().Key().Kind() != reflect.String {
 		return nil, nil
 	}
@@ -323,14 +341,26 @@ func fetchStrMap(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interfac
 				result[keyStr] = nil
 				continue
 			}
+
+			// Push map key onto stack
+			stack.push(keyStr, 0, true, -1)
+
+			var err error
 			if wildcardDesc != nil {
-				fetched, err := fetchValue(wildcardDesc, elemValue, opt)
-				if err != nil {
-					return nil, err
+				var fetched interface{}
+				fetched, err = fetchValue(wildcardDesc, elemValue, opt, stack)
+				if err == nil {
+					result[keyStr] = fetched
 				}
-				result[keyStr] = fetched
 			} else {
 				result[keyStr] = elemValue.Interface()
+			}
+
+			// Pop map key from stack
+			stack.pop()
+
+			if err != nil {
+				return nil, err
 			}
 		}
 		return result, nil
@@ -343,8 +373,11 @@ func fetchStrMap(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interfac
 		val := v.MapIndex(reflect.ValueOf(key))
 		// Check if specific keys are requested but not available in the map
 		if !val.IsValid() {
-			if opt.disallowNotFound {
-				return nil, ErrNotFound{Parent: desc, Field: keyDescMap[key], Msg: fmt.Sprintf("key '%s' not found in map", key)}
+			if opt.DisallowNotFound {
+				stack.push(key, 0, true, -1)
+				path := stack.buildPath()
+				stack.pop()
+				return nil, ErrNotFound{Parent: desc, Field: keyDescMap[key], Msg: fmt.Sprintf("key '%s' not found in map at path %s", key, path)}
 			} else {
 				continue
 			}
@@ -353,14 +386,26 @@ func fetchStrMap(desc *Descriptor, v reflect.Value, opt *FetchOptions) (interfac
 			result[key] = nil
 			continue
 		}
+
+		// Push map key onto stack
+		stack.push(key, 0, true, -1)
+
+		var err error
 		if child.Desc != nil {
-			fetched, err := fetchValue(child.Desc, val, opt)
-			if err != nil {
-				return nil, err
+			var fetched interface{}
+			fetched, err = fetchValue(child.Desc, val, opt, stack)
+			if err == nil {
+				result[key] = fetched
 			}
-			result[key] = fetched
 		} else {
 			result[key] = val.Interface()
+		}
+
+		// Pop map key from stack
+		stack.pop()
+
+		if err != nil {
+			return nil, err
 		}
 	}
 
