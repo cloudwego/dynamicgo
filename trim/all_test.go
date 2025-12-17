@@ -1058,7 +1058,7 @@ func TestFetchAndAssign_EmptyDescriptor(t *testing.T) {
 // TestDescriptor_String_Scalar tests String() for scalar type descriptor
 func TestDescriptor_String_Scalar(t *testing.T) {
 	desc := &Descriptor{
-		Kind: TypeKind_Scalar,
+		Kind: TypeKind_Leaf,
 		Name: "ScalarType",
 	}
 
@@ -1302,7 +1302,7 @@ func TestDescriptor_String_MixedTypes(t *testing.T) {
 				Name: "scalar_desc",
 				ID:   4,
 				Desc: &Descriptor{
-					Kind: TypeKind_Scalar,
+					Kind: TypeKind_Leaf,
 					Name: "ScalarType",
 				},
 			},

@@ -19,9 +19,15 @@ package trim
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/bytedance/sonic"
 	"github.com/cloudwego/dynamicgo/proto/binary"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 func assignAny(desc *Descriptor, src interface{}, dest interface{}) error {
@@ -30,14 +36,15 @@ func assignAny(desc *Descriptor, src interface{}, dest interface{}) error {
 }
 
 type sampleAssign struct {
-	FieldA           int                      `protobuf:"varint,1,req,name=field_a" json:"field_a,omitempty"`
-	FieldB           []*sampleAssign          `protobuf:"bytes,2,opt,name=field_b" json:"field_b,omitempty"`
-	FieldC           map[string]*sampleAssign `protobuf:"bytes,3,opt,name=field_c" json:"field_c,omitempty"`
-	FieldD           *sampleAssign            `protobuf:"bytes,4,opt,name=field_d" json:"field_d,omitempty"`
-	FieldE           string                   `protobuf:"bytes,5,opt,name=field_e" json:"field_e,omitempty"`
-	FieldList        []int                    `protobuf:"bytes,6,opt,name=field_list" json:"field_list,omitempty"`
-	FieldMap         map[string]int           `protobuf:"bytes,7,opt,name=field_map" json:"field_map,omitempty"`
-	XXX_unrecognized []byte                   `json:"-"`
+	XXX_NoUnkeyedLiteral map[string]interface{}   `json:"-"`
+	FieldA               int                      `protobuf:"varint,1,req,name=field_a" json:"field_a,omitempty"`
+	FieldB               []*sampleAssign          `protobuf:"bytes,2,opt,name=field_b" json:"field_b,omitempty"`
+	FieldC               map[string]*sampleAssign `protobuf:"bytes,3,opt,name=field_c" json:"field_c,omitempty"`
+	FieldD               *sampleAssign            `protobuf:"bytes,4,opt,name=field_d" json:"field_d,omitempty"`
+	FieldE               string                   `protobuf:"bytes,5,opt,name=field_e" json:"field_e,omitempty"`
+	FieldList            []int                    `protobuf:"bytes,6,opt,name=field_list" json:"field_list,omitempty"`
+	FieldMap             map[string]int           `protobuf:"bytes,7,opt,name=field_map" json:"field_map,omitempty"`
+	XXX_unrecognized     []byte                   `json:"-"`
 }
 
 func makeSampleAssign(width, depth int) *sampleAssign {
@@ -66,9 +73,10 @@ func makeSampleAssign(width, depth int) *sampleAssign {
 // sampleAssignSmall is a struct with fewer fields than SampleAssign
 // Used to test XXX_unrecognized field encoding
 type sampleAssignSmall struct {
-	FieldA           *int   `protobuf:"varint,1,req,name=field_a"`
-	FieldE           string `protobuf:"bytes,5,opt,name=field_e"`
-	XXX_unrecognized []byte `json:"-"`
+	XXX_NoUnkeyedLiteral map[string]interface{} `json:"-"`
+	FieldA               *int                   `protobuf:"varint,1,req,name=field_a"`
+	FieldE               string                 `protobuf:"bytes,5,opt,name=field_e"`
+	XXX_unrecognized     []byte                 `json:"-"`
 }
 
 func intPtr(i int) *int {
@@ -166,7 +174,7 @@ func TestAssignAny_List(t *testing.T) {
 				Name: "field_list",
 				ID:   6,
 				Desc: &Descriptor{
-					Kind: TypeKind_Scalar,
+					Kind: TypeKind_Leaf,
 					Name: "LIST",
 				},
 			},
@@ -223,10 +231,13 @@ func TestAssignAny_Map(t *testing.T) {
 	}
 }
 
+// TestAssignAny_UnknownFields tests that the converted sample
+// with XXX_unrecognized can be correctly serialized and deserialized
 func TestAssignAny_UnknownFields(t *testing.T) {
-	// Source has fields that don't exist in destination struct
+	// Step 1: Create a sampleAssignSmall with unknown fields
 	src := map[string]interface{}{
 		"field_a":     42,
+		"field_e":     "hello",
 		"unknown_int": 100,      // Field ID 10
 		"unknown_str": "secret", // Field ID 11
 	}
@@ -236,6 +247,7 @@ func TestAssignAny_UnknownFields(t *testing.T) {
 		Name: "SampleAssignSmall",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
+			{Name: "field_e", ID: 5},
 			{Name: "unknown_int", ID: 10},
 			{Name: "unknown_str", ID: 11},
 		},
@@ -247,64 +259,190 @@ func TestAssignAny_UnknownFields(t *testing.T) {
 		t.Fatalf("AssignAny failed: %v", err)
 	}
 
-	// Check known field
+	// Step 2: Serialize sampleAssignSmall to protobuf binary
+	// We need to manually serialize this since sampleAssignSmall is not a generated proto message
+	bp := binary.NewBinaryProtocolBuffer()
+	defer binary.FreeBinaryProtocol(bp)
+
+	// Write field_a (field ID 1, varint)
+	if dest.FieldA != nil {
+		bp.AppendTag(1, 0) // 0 = varint wire type
+		bp.WriteInt32(int32(*dest.FieldA))
+	}
+
+	// Write field_e (field ID 5, string/bytes)
+	if dest.FieldE != "" {
+		bp.AppendTag(5, 2) // 2 = length-delimited wire type
+		bp.WriteString(dest.FieldE)
+	}
+
+	// Write XXX_unrecognized fields (these contain unknown_int and unknown_str)
+	if len(dest.XXX_unrecognized) > 0 {
+		bp.Buf = append(bp.Buf, dest.XXX_unrecognized...)
+	}
+
+	serializedData := bp.Buf
+
+	// Step 3: Create a dynamic proto message descriptor using official protobuf reflect API
+	// This defines the full structure including all fields (known and unknown)
+	messageDesc := &descriptorpb.DescriptorProto{
+		Name: proto.String("SampleAssignFull"),
+		Field: []*descriptorpb.FieldDescriptorProto{
+			{
+				Name:   proto.String("field_a"),
+				Number: proto.Int32(1),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+			{
+				Name:   proto.String("field_e"),
+				Number: proto.Int32(5),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+			{
+				Name:   proto.String("unknown_int"),
+				Number: proto.Int32(10),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_INT64.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+			{
+				Name:   proto.String("unknown_str"),
+				Number: proto.Int32(11),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+		},
+	}
+
+	// Create file descriptor
+	fileDesc := &descriptorpb.FileDescriptorProto{
+		Name:        proto.String("test.proto"),
+		Syntax:      proto.String("proto3"),
+		MessageType: []*descriptorpb.DescriptorProto{messageDesc},
+	}
+
+	// Build the descriptor using protodesc
+	fd, err := protodesc.NewFile(fileDesc, nil)
+	if err != nil {
+		t.Fatalf("failed to create file descriptor: %v", err)
+	}
+
+	msgDesc := fd.Messages().Get(0)
+
+	// Step 4: Create a dynamic message and unmarshal using official proto.Unmarshal
+	dynamicMsg := dynamicpb.NewMessage(msgDesc)
+	err = proto.Unmarshal(serializedData, dynamicMsg)
+	if err != nil {
+		t.Fatalf("proto.Unmarshal failed: %v", err)
+	}
+
+	// Step 5: Verify that all fields are correctly deserialized
+	fields := dynamicMsg.Descriptor().Fields()
+
+	fieldA := dynamicMsg.Get(fields.ByNumber(1)).Int()
+	if fieldA != 42 {
+		t.Errorf("field_a: expected 42, got %v", fieldA)
+	}
+
+	fieldE := dynamicMsg.Get(fields.ByNumber(5)).String()
+	if fieldE != "hello" {
+		t.Errorf("field_e: expected 'hello', got %v", fieldE)
+	}
+
+	unknownInt := dynamicMsg.Get(fields.ByNumber(10)).Int()
+	if unknownInt != 100 {
+		t.Errorf("unknown_int: expected 100, got %v", unknownInt)
+	}
+
+	unknownStr := dynamicMsg.Get(fields.ByNumber(11)).String()
+	if unknownStr != "secret" {
+		t.Errorf("unknown_str: expected 'secret', got %v", unknownStr)
+	}
+
+	t.Logf("Successfully verified protobuf serialization with unknown fields using official proto")
+	t.Logf("  field_a: %v", fieldA)
+	t.Logf("  field_e: %v", fieldE)
+	t.Logf("  unknown_int: %v", unknownInt)
+	t.Logf("  unknown_str: %v", unknownStr)
+}
+
+// TestAssignAny_NoUnkeyedLiteral tests that unknown fields are also stored in XXX_NoUnkeyedLiteral
+func TestAssignAny_NoUnkeyedLiteral(t *testing.T) {
+	src := map[string]interface{}{
+		"field_a":     42,
+		"field_e":     "hello",
+		"unknown_int": 100,
+		"unknown_str": "secret",
+		"unknown_map": map[string]interface{}{
+			"nested_key": "nested_value",
+		},
+	}
+
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "SampleAssignSmall",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{Name: "field_e", ID: 5},
+			{Name: "unknown_int", ID: 10},
+			{Name: "unknown_str", ID: 11},
+			{Name: "unknown_map", ID: 12},
+		},
+	}
+
+	dest := &sampleAssignSmall{}
+	err := assignAny(desc, src, dest)
+	if err != nil {
+		t.Fatalf("AssignAny failed: %v", err)
+	}
+
+	// Verify known fields
 	if dest.FieldA == nil || *dest.FieldA != 42 {
 		t.Errorf("field_a: expected 42, got %v", dest.FieldA)
 	}
+	if dest.FieldE != "hello" {
+		t.Errorf("field_e: expected 'hello', got %v", dest.FieldE)
+	}
 
-	// Check that XXX_unrecognized has data
+	// Verify XXX_unrecognized is set (protobuf binary encoded)
 	if len(dest.XXX_unrecognized) == 0 {
-		t.Fatalf("XXX_unrecognized: expected non-empty bytes")
+		t.Errorf("XXX_unrecognized: expected non-empty, got empty")
 	}
 
-	// Decode the unknown fields
-	bp := binary.NewBinaryProtol(dest.XXX_unrecognized)
-	defer binary.FreeBinaryProtocol(bp)
-
-	foundInt := false
-	foundStr := false
-
-	for bp.Read < len(bp.Buf) {
-		fieldNum, wireType, _, err := bp.ConsumeTag()
-		if err != nil {
-			t.Fatalf("failed to consume tag: %v", err)
-		}
-
-		switch fieldNum {
-		case 10:
-			// unknown_int
-			val, err := bp.ReadInt64()
-			if err != nil {
-				t.Fatalf("failed to read int64: %v", err)
-			}
-			if val != 100 {
-				t.Errorf("unknown_int: expected 100, got %v", val)
-			}
-			foundInt = true
-		case 11:
-			// unknown_str
-			if wireType != 2 { // length-delimited
-				t.Errorf("unknown_str: expected wire type 2, got %v", wireType)
-			}
-			val, err := bp.ReadString(true)
-			if err != nil {
-				t.Fatalf("failed to read string: %v", err)
-			}
-			if val != "secret" {
-				t.Errorf("unknown_str: expected 'secret', got %v", val)
-			}
-			foundStr = true
-		default:
-			t.Errorf("unexpected field number: %v", fieldNum)
-		}
+	// Verify XXX_NoUnkeyedLiteral contains the raw unknown field values
+	if dest.XXX_NoUnkeyedLiteral == nil {
+		t.Fatalf("XXX_NoUnkeyedLiteral: expected non-nil map")
 	}
 
-	if !foundInt {
-		t.Errorf("unknown_int field not found in XXX_unrecognized")
+	// Check unknown_int
+	if val, ok := dest.XXX_NoUnkeyedLiteral["unknown_int"]; !ok {
+		t.Errorf("XXX_NoUnkeyedLiteral: expected 'unknown_int' key")
+	} else if intVal, ok := val.(int); !ok || intVal != 100 {
+		t.Errorf("XXX_NoUnkeyedLiteral['unknown_int']: expected 100, got %v (type %T)", val, val)
 	}
-	if !foundStr {
-		t.Errorf("unknown_str field not found in XXX_unrecognized")
+
+	// Check unknown_str
+	if val, ok := dest.XXX_NoUnkeyedLiteral["unknown_str"]; !ok {
+		t.Errorf("XXX_NoUnkeyedLiteral: expected 'unknown_str' key")
+	} else if strVal, ok := val.(string); !ok || strVal != "secret" {
+		t.Errorf("XXX_NoUnkeyedLiteral['unknown_str']: expected 'secret', got %v (type %T)", val, val)
 	}
+
+	// Check unknown_map
+	if val, ok := dest.XXX_NoUnkeyedLiteral["unknown_map"]; !ok {
+		t.Errorf("XXX_NoUnkeyedLiteral: expected 'unknown_map' key")
+	} else if mapVal, ok := val.(map[string]interface{}); !ok {
+		t.Errorf("XXX_NoUnkeyedLiteral['unknown_map']: expected map[string]interface{}, got %T", val)
+	} else if nestedVal, ok := mapVal["nested_key"]; !ok || nestedVal != "nested_value" {
+		t.Errorf("XXX_NoUnkeyedLiteral['unknown_map']['nested_key']: expected 'nested_value', got %v", nestedVal)
+	}
+
+	t.Logf("Successfully verified XXX_NoUnkeyedLiteral and XXX_unrecognized for unknown fields")
+	t.Logf("  field_a: %v", *dest.FieldA)
+	t.Logf("  field_e: %v", dest.FieldE)
+	t.Logf("  XXX_unrecognized length: %d", len(dest.XXX_unrecognized))
+	t.Logf("  XXX_NoUnkeyedLiteral: %+v", dest.XXX_NoUnkeyedLiteral)
 }
 
 func TestAssignAny_ListOfStructs(t *testing.T) {
@@ -339,7 +477,7 @@ func TestAssignAny_ListOfStructs(t *testing.T) {
 				Name: "field_b",
 				ID:   2,
 				Desc: &Descriptor{
-					Kind: TypeKind_Scalar,
+					Kind: TypeKind_Leaf,
 					Name: "LIST",
 				},
 			},
@@ -1110,605 +1248,6 @@ func TestAssignAny_DisallowNotFound(t *testing.T) {
 	}
 }
 
-func BenchmarkassignAny(b *testing.B) {
-	src := map[string]interface{}{
-		"field_a":    42,
-		"field_e":    "hello",
-		"field_list": []interface{}{1, 2, 3, 4, 5},
-		"field_map": map[string]interface{}{
-			"key1": 100,
-			"key2": 200,
-		},
-	}
-
-	desc := &Descriptor{
-		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
-		Children: []Field{
-			{Name: "field_a", ID: 1},
-			{Name: "field_e", ID: 5},
-			{
-				Name: "field_list",
-				ID:   6,
-				Desc: &Descriptor{
-					Kind: TypeKind_Scalar,
-					Name: "LIST",
-				},
-			},
-			{
-				Name: "field_map",
-				ID:   7,
-				Desc: &Descriptor{
-					Kind:     TypeKind_StrMap,
-					Name:     "MAP",
-					Children: []Field{{Name: "*"}},
-				},
-			},
-		},
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		dest := &sampleAssign{}
-		_ = assignAny(desc, src, dest)
-	}
-}
-
-func BenchmarkAssignAny_WithUnknownFields(b *testing.B) {
-	src := map[string]interface{}{
-		"field_a":  42,
-		"field_e":  "hello",
-		"unknown1": 100,
-		"unknown2": "secret",
-		"unknown3": 3.14,
-	}
-
-	desc := &Descriptor{
-		Kind: TypeKind_Struct,
-		Name: "SampleAssignSmall",
-		Children: []Field{
-			{Name: "field_a", ID: 1},
-			{Name: "field_e", ID: 5},
-			{Name: "unknown1", ID: 10},
-			{Name: "unknown2", ID: 11},
-			{Name: "unknown3", ID: 12},
-		},
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		dest := &sampleAssignSmall{}
-		_ = assignAny(desc, src, dest)
-	}
-}
-
-// SourceStruct is used for struct-to-struct assignment tests via json tag matching
-type SourceStruct struct {
-	Name   string  `json:"name"`
-	Age    int     `json:"age"`
-	Score  float64 `json:"score"`
-	Active bool    `json:"active"`
-}
-
-// DestStruct has same json tags but different Go field names
-type DestStruct struct {
-	UserName  string  `json:"name"`
-	UserAge   int     `json:"age"`
-	UserScore float64 `json:"score"`
-	IsActive  bool    `json:"active"`
-}
-
-// NestedSourceStruct contains nested struct
-type NestedSourceStruct struct {
-	ID   int           `json:"id"`
-	Data *SourceStruct `json:"data"`
-}
-
-// NestedDestStruct contains nested struct with different types
-type NestedDestStruct struct {
-	ID   int         `json:"id"`
-	Data *DestStruct `json:"data"`
-}
-
-// ListSourceStruct contains a list of structs
-type ListSourceStruct struct {
-	Items []*SourceStruct `json:"items"`
-}
-
-// ListDestStruct contains a list of different struct types
-type ListDestStruct struct {
-	Items []*DestStruct `json:"items"`
-}
-
-// MapSourceStruct contains a map of structs
-type MapSourceStruct struct {
-	Data map[string]*SourceStruct `json:"data"`
-}
-
-// MapDestStruct contains a map of different struct types
-type MapDestStruct struct {
-	Data map[string]*DestStruct `json:"data"`
-}
-
-func TestAssignScalar_StructToStruct(t *testing.T) {
-	t.Run("basic struct to struct via json tag", func(t *testing.T) {
-		src := &SourceStruct{
-			Name:   "Alice",
-			Age:    30,
-			Score:  95.5,
-			Active: true,
-		}
-
-		desc := &Descriptor{
-			Kind: TypeKind_Struct,
-			Name: "Wrapper",
-			Children: []Field{
-				{Name: "data", ID: 1},
-			},
-		}
-
-		type Wrapper struct {
-			Data *DestStruct `protobuf:"bytes,1,opt,name=data" json:"data"`
-		}
-
-		srcMap := map[string]interface{}{
-			"data": src,
-		}
-
-		dest := &Wrapper{}
-		err := assignAny(desc, srcMap, dest)
-		if err != nil {
-			t.Fatalf("AssignAny failed: %v", err)
-		}
-
-		if dest.Data == nil {
-			t.Fatalf("dest.Data should not be nil")
-		}
-		if dest.Data.UserName != "Alice" {
-			t.Errorf("UserName: expected 'Alice', got '%s'", dest.Data.UserName)
-		}
-		if dest.Data.UserAge != 30 {
-			t.Errorf("UserAge: expected 30, got %d", dest.Data.UserAge)
-		}
-		if dest.Data.UserScore != 95.5 {
-			t.Errorf("UserScore: expected 95.5, got %f", dest.Data.UserScore)
-		}
-		if dest.Data.IsActive != true {
-			t.Errorf("IsActive: expected true, got %v", dest.Data.IsActive)
-		}
-	})
-
-	t.Run("nested struct to struct via json tag", func(t *testing.T) {
-		src := &NestedSourceStruct{
-			ID: 100,
-			Data: &SourceStruct{
-				Name:   "Bob",
-				Age:    25,
-				Score:  88.0,
-				Active: false,
-			},
-		}
-
-		desc := &Descriptor{
-			Kind: TypeKind_Struct,
-			Name: "Wrapper",
-			Children: []Field{
-				{Name: "nested", ID: 1},
-			},
-		}
-
-		type Wrapper struct {
-			Nested *NestedDestStruct `protobuf:"bytes,1,opt,name=nested" json:"nested"`
-		}
-
-		srcMap := map[string]interface{}{
-			"nested": src,
-		}
-
-		dest := &Wrapper{}
-		err := assignAny(desc, srcMap, dest)
-		if err != nil {
-			t.Fatalf("AssignAny failed: %v", err)
-		}
-
-		if dest.Nested == nil {
-			t.Fatalf("dest.Nested should not be nil")
-		}
-		if dest.Nested.ID != 100 {
-			t.Errorf("ID: expected 100, got %d", dest.Nested.ID)
-		}
-		if dest.Nested.Data == nil {
-			t.Fatalf("dest.Nested.Data should not be nil")
-		}
-		if dest.Nested.Data.UserName != "Bob" {
-			t.Errorf("UserName: expected 'Bob', got '%s'", dest.Nested.Data.UserName)
-		}
-		if dest.Nested.Data.UserAge != 25 {
-			t.Errorf("UserAge: expected 25, got %d", dest.Nested.Data.UserAge)
-		}
-	})
-}
-
-func TestAssignScalar_SliceToSlice(t *testing.T) {
-	t.Run("slice of structs via json tag", func(t *testing.T) {
-		src := &ListSourceStruct{
-			Items: []*SourceStruct{
-				{Name: "Alice", Age: 30, Score: 95.5, Active: true},
-				{Name: "Bob", Age: 25, Score: 88.0, Active: false},
-			},
-		}
-
-		desc := &Descriptor{
-			Kind: TypeKind_Struct,
-			Name: "Wrapper",
-			Children: []Field{
-				{Name: "list", ID: 1},
-			},
-		}
-
-		type Wrapper struct {
-			List *ListDestStruct `protobuf:"bytes,1,opt,name=list" json:"list"`
-		}
-
-		srcMap := map[string]interface{}{
-			"list": src,
-		}
-
-		dest := &Wrapper{}
-		err := assignAny(desc, srcMap, dest)
-		if err != nil {
-			t.Fatalf("AssignAny failed: %v", err)
-		}
-
-		if dest.List == nil {
-			t.Fatalf("dest.List should not be nil")
-		}
-		if len(dest.List.Items) != 2 {
-			t.Fatalf("Items length: expected 2, got %d", len(dest.List.Items))
-		}
-		if dest.List.Items[0].UserName != "Alice" {
-			t.Errorf("Items[0].UserName: expected 'Alice', got '%s'", dest.List.Items[0].UserName)
-		}
-		if dest.List.Items[1].UserName != "Bob" {
-			t.Errorf("Items[1].UserName: expected 'Bob', got '%s'", dest.List.Items[1].UserName)
-		}
-	})
-
-	t.Run("slice of primitives", func(t *testing.T) {
-		src := []int32{1, 2, 3, 4, 5}
-
-		desc := &Descriptor{
-			Kind: TypeKind_Struct,
-			Name: "Wrapper",
-			Children: []Field{
-				{Name: "nums", ID: 1},
-			},
-		}
-
-		type Wrapper struct {
-			Nums []int64 `protobuf:"bytes,1,opt,name=nums" json:"nums"`
-		}
-
-		srcMap := map[string]interface{}{
-			"nums": src,
-		}
-
-		dest := &Wrapper{}
-		err := assignAny(desc, srcMap, dest)
-		if err != nil {
-			t.Fatalf("AssignAny failed: %v", err)
-		}
-
-		expected := []int64{1, 2, 3, 4, 5}
-		if !reflect.DeepEqual(dest.Nums, expected) {
-			t.Errorf("Nums: expected %v, got %v", expected, dest.Nums)
-		}
-	})
-}
-
-func TestAssignScalar_MapToMap(t *testing.T) {
-	t.Run("map of structs via json tag", func(t *testing.T) {
-		src := &MapSourceStruct{
-			Data: map[string]*SourceStruct{
-				"user1": {Name: "Alice", Age: 30, Score: 95.5, Active: true},
-				"user2": {Name: "Bob", Age: 25, Score: 88.0, Active: false},
-			},
-		}
-
-		desc := &Descriptor{
-			Kind: TypeKind_Struct,
-			Name: "Wrapper",
-			Children: []Field{
-				{Name: "map_data", ID: 1},
-			},
-		}
-
-		type Wrapper struct {
-			MapData *MapDestStruct `protobuf:"bytes,1,opt,name=map_data" json:"map_data"`
-		}
-
-		srcMap := map[string]interface{}{
-			"map_data": src,
-		}
-
-		dest := &Wrapper{}
-		err := assignAny(desc, srcMap, dest)
-		if err != nil {
-			t.Fatalf("AssignAny failed: %v", err)
-		}
-
-		if dest.MapData == nil {
-			t.Fatalf("dest.MapData should not be nil")
-		}
-		if len(dest.MapData.Data) != 2 {
-			t.Fatalf("Data length: expected 2, got %d", len(dest.MapData.Data))
-		}
-		if dest.MapData.Data["user1"].UserName != "Alice" {
-			t.Errorf("Data['user1'].UserName: expected 'Alice', got '%s'", dest.MapData.Data["user1"].UserName)
-		}
-		if dest.MapData.Data["user2"].UserName != "Bob" {
-			t.Errorf("Data['user2'].UserName: expected 'Bob', got '%s'", dest.MapData.Data["user2"].UserName)
-		}
-	})
-
-	t.Run("map of primitives with type conversion", func(t *testing.T) {
-		src := map[string]int32{"a": 1, "b": 2, "c": 3}
-
-		desc := &Descriptor{
-			Kind: TypeKind_Struct,
-			Name: "Wrapper",
-			Children: []Field{
-				{Name: "data", ID: 1},
-			},
-		}
-
-		type Wrapper struct {
-			Data map[string]int64 `protobuf:"bytes,1,opt,name=data" json:"data"`
-		}
-
-		srcMap := map[string]interface{}{
-			"data": src,
-		}
-
-		dest := &Wrapper{}
-		err := assignAny(desc, srcMap, dest)
-		if err != nil {
-			t.Fatalf("AssignAny failed: %v", err)
-		}
-
-		expected := map[string]int64{"a": 1, "b": 2, "c": 3}
-		if !reflect.DeepEqual(dest.Data, expected) {
-			t.Errorf("Data: expected %v, got %v", expected, dest.Data)
-		}
-	})
-}
-
-func TestAssignScalar_ComplexNested(t *testing.T) {
-	// Test complex nested structure similar to TestFetchAndAssign scenario
-	t.Run("complex nested with lists and maps", func(t *testing.T) {
-		type InnerSource struct {
-			Value int    `json:"value"`
-			Label string `json:"label"`
-		}
-
-		type OuterSource struct {
-			ID       int                     `json:"id"`
-			Children []*InnerSource          `json:"children"`
-			Mapping  map[string]*InnerSource `json:"mapping"`
-		}
-
-		type InnerDest struct {
-			Value int    `json:"value"`
-			Label string `json:"label"`
-		}
-
-		type OuterDest struct {
-			ID       int                   `json:"id"`
-			Children []*InnerDest          `json:"children"`
-			Mapping  map[string]*InnerDest `json:"mapping"`
-		}
-
-		src := &OuterSource{
-			ID: 1,
-			Children: []*InnerSource{
-				{Value: 10, Label: "first"},
-				{Value: 20, Label: "second"},
-			},
-			Mapping: map[string]*InnerSource{
-				"key1": {Value: 100, Label: "mapped1"},
-				"key2": {Value: 200, Label: "mapped2"},
-			},
-		}
-
-		desc := &Descriptor{
-			Kind: TypeKind_Struct,
-			Name: "Wrapper",
-			Children: []Field{
-				{Name: "data", ID: 1},
-			},
-		}
-
-		type Wrapper struct {
-			Data *OuterDest `protobuf:"bytes,1,opt,name=data" json:"data"`
-		}
-
-		srcMap := map[string]interface{}{
-			"data": src,
-		}
-
-		dest := &Wrapper{}
-		err := assignAny(desc, srcMap, dest)
-		if err != nil {
-			t.Fatalf("AssignAny failed: %v", err)
-		}
-
-		if dest.Data == nil {
-			t.Fatalf("dest.Data should not be nil")
-		}
-		if dest.Data.ID != 1 {
-			t.Errorf("ID: expected 1, got %d", dest.Data.ID)
-		}
-		if len(dest.Data.Children) != 2 {
-			t.Fatalf("Children length: expected 2, got %d", len(dest.Data.Children))
-		}
-		if dest.Data.Children[0].Value != 10 {
-			t.Errorf("Children[0].Value: expected 10, got %d", dest.Data.Children[0].Value)
-		}
-		if dest.Data.Children[0].Label != "first" {
-			t.Errorf("Children[0].Label: expected 'first', got '%s'", dest.Data.Children[0].Label)
-		}
-		if len(dest.Data.Mapping) != 2 {
-			t.Fatalf("Mapping length: expected 2, got %d", len(dest.Data.Mapping))
-		}
-		if dest.Data.Mapping["key1"].Value != 100 {
-			t.Errorf("Mapping['key1'].Value: expected 100, got %d", dest.Data.Mapping["key1"].Value)
-		}
-	})
-}
-
-func TestAssignScalar_NilHandling(t *testing.T) {
-	t.Run("nil pointer in source struct", func(t *testing.T) {
-		src := &NestedSourceStruct{
-			ID:   100,
-			Data: nil, // nil pointer
-		}
-
-		desc := &Descriptor{
-			Kind: TypeKind_Struct,
-			Name: "Wrapper",
-			Children: []Field{
-				{Name: "nested", ID: 1},
-			},
-		}
-
-		type Wrapper struct {
-			Nested *NestedDestStruct `protobuf:"bytes,1,opt,name=nested" json:"nested"`
-		}
-
-		srcMap := map[string]interface{}{
-			"nested": src,
-		}
-
-		dest := &Wrapper{}
-		err := assignAny(desc, srcMap, dest)
-		if err != nil {
-			t.Fatalf("AssignAny failed: %v", err)
-		}
-
-		if dest.Nested == nil {
-			t.Fatalf("dest.Nested should not be nil")
-		}
-		if dest.Nested.ID != 100 {
-			t.Errorf("ID: expected 100, got %d", dest.Nested.ID)
-		}
-		if dest.Nested.Data != nil {
-			t.Errorf("Data: expected nil, got %v", dest.Nested.Data)
-		}
-	})
-
-	t.Run("nil slice in source struct", func(t *testing.T) {
-		src := &ListSourceStruct{
-			Items: nil,
-		}
-
-		desc := &Descriptor{
-			Kind: TypeKind_Struct,
-			Name: "Wrapper",
-			Children: []Field{
-				{Name: "list", ID: 1},
-			},
-		}
-
-		type Wrapper struct {
-			List *ListDestStruct `protobuf:"bytes,1,opt,name=list" json:"list"`
-		}
-
-		srcMap := map[string]interface{}{
-			"list": src,
-		}
-
-		dest := &Wrapper{}
-		err := assignAny(desc, srcMap, dest)
-		if err != nil {
-			t.Fatalf("AssignAny failed: %v", err)
-		}
-
-		if dest.List == nil {
-			t.Fatalf("dest.List should not be nil")
-		}
-		if dest.List.Items != nil {
-			t.Errorf("Items: expected nil, got %v", dest.List.Items)
-		}
-	})
-}
-
-func BenchmarkAssignScalar_StructToStruct(b *testing.B) {
-	src := &SourceStruct{
-		Name:   "Alice",
-		Age:    30,
-		Score:  95.5,
-		Active: true,
-	}
-
-	desc := &Descriptor{
-		Kind: TypeKind_Struct,
-		Name: "Wrapper",
-		Children: []Field{
-			{Name: "data", ID: 1},
-		},
-	}
-
-	type Wrapper struct {
-		Data *DestStruct `protobuf:"bytes,1,opt,name=data" json:"data"`
-	}
-
-	srcMap := map[string]interface{}{
-		"data": src,
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		dest := &Wrapper{}
-		_ = assignAny(desc, srcMap, dest)
-	}
-}
-
-func BenchmarkAssignScalar_SliceOfStructs(b *testing.B) {
-	src := &ListSourceStruct{
-		Items: []*SourceStruct{
-			{Name: "Alice", Age: 30, Score: 95.5, Active: true},
-			{Name: "Bob", Age: 25, Score: 88.0, Active: false},
-			{Name: "Charlie", Age: 35, Score: 92.0, Active: true},
-		},
-	}
-
-	desc := &Descriptor{
-		Kind: TypeKind_Struct,
-		Name: "Wrapper",
-		Children: []Field{
-			{Name: "list", ID: 1},
-		},
-	}
-
-	type Wrapper struct {
-		List *ListDestStruct `protobuf:"bytes,1,opt,name=list" json:"list"`
-	}
-
-	srcMap := map[string]interface{}{
-		"list": src,
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		dest := &Wrapper{}
-		_ = assignAny(desc, srcMap, dest)
-	}
-}
-
 // ===================== Circular Reference Tests =====================
 // These tests verify that AssignAny can handle circular reference type descriptions.
 // The key principle is: recursively process data until data is nil (src == nil).
@@ -2041,30 +1580,6 @@ func TestAssignAny_CircularDescriptor_MapOfNodes(t *testing.T) {
 	}
 	if child2.Name != "child2" {
 		t.Errorf("child2.name: expected 'child2', got %v", child2.Name)
-	}
-}
-
-func BenchmarkAssignAny_CircularDescriptor(b *testing.B) {
-	// Create a linked list of depth 10 as source
-	depth := 10
-	var src interface{}
-	for i := depth; i > 0; i-- {
-		node := map[string]interface{}{
-			"value": i,
-		}
-		if src != nil {
-			node["next"] = src
-		}
-		src = node
-	}
-
-	desc := makeCircularAssignDesc()
-
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		dest := &circularAssignNode{}
-		_ = assignAny(desc, src, dest)
 	}
 }
 
@@ -2568,29 +2083,6 @@ func anyIndex(s, substr string) bool {
 
 // Benchmark tests for path tracking overhead
 
-// BenchmarkAssignAny_SimpleStruct tests baseline performance on simple struct
-func BenchmarkAssignAny_SimpleStruct(b *testing.B) {
-	src := map[string]interface{}{
-		"field_a": 42,
-		"field_e": "hello",
-	}
-
-	desc := &Descriptor{
-		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
-		Children: []Field{
-			{Name: "field_a", ID: 1},
-			{Name: "field_e", ID: 5},
-		},
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		dest := &sampleAssign{}
-		_ = assignAny(desc, src, dest)
-	}
-}
-
 // BenchmarkAssignAny_NestedStruct tests performance with nested structures
 func BenchmarkAssignAny_NestedStruct(b *testing.B) {
 	src := map[string]interface{}{
@@ -2638,6 +2130,35 @@ func BenchmarkAssignAny_NestedStruct(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		dest := &sampleAssign{}
+		_ = assignAny(desc, src, dest)
+	}
+}
+
+func BenchmarkAssignAny_WithUnknownFields(b *testing.B) {
+	src := map[string]interface{}{
+		"field_a":  42,
+		"field_e":  "hello",
+		"unknown1": 100,
+		"unknown2": "secret",
+		"unknown3": 3.14,
+	}
+
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "SampleAssignSmall",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{Name: "field_e", ID: 5},
+			{Name: "unknown1", ID: 10},
+			{Name: "unknown2", ID: 11},
+			{Name: "unknown3", ID: 12},
+		},
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		dest := &sampleAssignSmall{}
 		_ = assignAny(desc, src, dest)
 	}
 }
@@ -2698,53 +2219,6 @@ func BenchmarkAssignAny_WithMap(b *testing.B) {
 	}
 }
 
-// BenchmarkAssignAny_DeepNesting tests performance with deeply nested structures
-func BenchmarkAssignAny_DeepNesting(b *testing.B) {
-	// Create a deeply nested structure
-	src := map[string]interface{}{
-		"field_a": 1,
-	}
-	current := src
-	for i := 0; i < 10; i++ {
-		nested := map[string]interface{}{
-			"field_a": i + 2,
-		}
-		current["field_d"] = nested
-		current = nested
-	}
-
-	// Create corresponding descriptor
-	desc := &Descriptor{
-		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
-		Children: []Field{
-			{Name: "field_a", ID: 1},
-		},
-	}
-	currentDesc := desc
-	for i := 0; i < 10; i++ {
-		childDesc := &Descriptor{
-			Kind: TypeKind_Struct,
-			Name: "SampleAssign",
-			Children: []Field{
-				{Name: "field_a", ID: 1},
-			},
-		}
-		currentDesc.Children = append(currentDesc.Children, Field{
-			Name: "field_d",
-			ID:   4,
-			Desc: childDesc,
-		})
-		currentDesc = childDesc
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		dest := &sampleAssign{}
-		_ = assignAny(desc, src, dest)
-	}
-}
-
 // BenchmarkAssignAny_ErrorPath tests performance when error occurs (path building)
 func BenchmarkAssignAny_ErrorPath(b *testing.B) {
 	src := map[string]interface{}{
@@ -2779,103 +2253,6 @@ func BenchmarkAssignAny_ErrorPath(b *testing.B) {
 		dest := &sampleAssign{}
 		as := Assigner{AssignOptions{DisallowNotDefined: true}}
 		_ = as.AssignAny(desc, src, dest)
-	}
-}
-
-// BenchmarkAssignAny_ComplexMixed tests performance with complex mixed structure
-func BenchmarkAssignAny_ComplexMixed(b *testing.B) {
-	src := map[string]interface{}{
-		"field_a": 1,
-		"field_e": "root",
-		"field_b": []interface{}{
-			map[string]interface{}{
-				"field_a": 10,
-				"field_e": "list1",
-			},
-			map[string]interface{}{
-				"field_a": 20,
-				"field_e": "list2",
-			},
-		},
-		"field_c": map[string]interface{}{
-			"key1": map[string]interface{}{
-				"field_a": 100,
-				"field_d": map[string]interface{}{
-					"field_a": 200,
-					"field_e": "deep",
-				},
-			},
-			"key2": map[string]interface{}{
-				"field_a": 300,
-			},
-		},
-		"field_map": map[string]interface{}{
-			"mk1": 1000,
-			"mk2": 2000,
-		},
-	}
-
-	desc := &Descriptor{
-		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
-		Children: []Field{
-			{Name: "field_a", ID: 1},
-			{Name: "field_e", ID: 5},
-			{
-				Name: "field_b",
-				ID:   2,
-				Desc: &Descriptor{
-					Kind: TypeKind_Scalar,
-					Name: "LIST",
-				},
-			},
-			{
-				Name: "field_c",
-				ID:   3,
-				Desc: &Descriptor{
-					Kind: TypeKind_StrMap,
-					Name: "MAP",
-					Children: []Field{
-						{
-							Name: "*",
-							Desc: &Descriptor{
-								Kind: TypeKind_Struct,
-								Name: "SampleAssign",
-								Children: []Field{
-									{Name: "field_a", ID: 1},
-									{
-										Name: "field_d",
-										ID:   4,
-										Desc: &Descriptor{
-											Kind: TypeKind_Struct,
-											Name: "SampleAssign",
-											Children: []Field{
-												{Name: "field_a", ID: 1},
-												{Name: "field_e", ID: 5},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			{
-				Name: "field_map",
-				ID:   7,
-				Desc: &Descriptor{
-					Kind: TypeKind_StrMap,
-					Name: "MAP",
-				},
-			},
-		},
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		dest := &sampleAssign{}
-		_ = assignAny(desc, src, dest)
 	}
 }
 
@@ -2929,29 +2306,6 @@ func BenchmarkPathStack_Operations(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_ = stack.buildPath()
-		}
-	})
-}
-
-// BenchmarkStackFramePool tests the performance of memory pool
-func BenchmarkStackFramePool(b *testing.B) {
-	b.Run("with_pool", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			frames := getStackFrames()
-			for j := 0; j < 16; j++ {
-				*frames = append(*frames, stackFrame{name: "test", id: j})
-			}
-			putStackFrames(frames)
-		}
-	})
-
-	b.Run("without_pool", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			frames := make([]stackFrame, 0, 16)
-			for j := 0; j < 16; j++ {
-				frames = append(frames, stackFrame{name: "test", id: j})
-			}
-			_ = frames
 		}
 	})
 }
@@ -3020,6 +2374,1203 @@ func BenchmarkPathTracking_Overhead(b *testing.B) {
 			dest := &sampleAssign{}
 			as := Assigner{AssignOptions{DisallowNotDefined: true}}
 			_ = as.AssignAny(desc, srcWithError, dest)
+		}
+	})
+}
+
+// Test types for AssignValue API
+type SimpleStruct struct {
+	Name  string  `json:"name"`
+	Age   int     `json:"age"`
+	Score float64 `json:"score"`
+}
+
+type NestedStruct struct {
+	XXX_NoUnkeyedLiteral map[string]interface{} `json:"-"`
+	ID                   int                    `json:"id"`
+	Simple               SimpleStruct           `json:"simple"`
+	PtrSimple            *SimpleStruct          `json:"ptr_simple"`
+}
+
+type ComplexStruct struct {
+	Numbers   []int                   `json:"numbers"`
+	Strings   []string                `json:"strings"`
+	PtrSlice  []*SimpleStruct         `json:"ptr_slice"`
+	StrMap    map[string]int          `json:"str_map"`
+	StructMap map[string]SimpleStruct `json:"struct_map"`
+	Nested    NestedStruct            `json:"nested"`
+}
+
+func TestAssignValue_BasicTypes(t *testing.T) {
+	assigner := Assigner{}
+
+	t.Run("int_to_int", func(t *testing.T) {
+		var dest int
+		err := assigner.AssignValue(42, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dest != 42 {
+			t.Errorf("expected 42, got %d", dest)
+		}
+	})
+
+	t.Run("int_to_int64", func(t *testing.T) {
+		var dest int64
+		err := assigner.AssignValue(42, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dest != 42 {
+			t.Errorf("expected 42, got %d", dest)
+		}
+	})
+
+	t.Run("int32_to_int64", func(t *testing.T) {
+		var dest int64
+		err := assigner.AssignValue(int32(100), &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dest != 100 {
+			t.Errorf("expected 100, got %d", dest)
+		}
+	})
+
+	t.Run("uint_to_int", func(t *testing.T) {
+		var dest int
+		err := assigner.AssignValue(uint(50), &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dest != 50 {
+			t.Errorf("expected 50, got %d", dest)
+		}
+	})
+
+	t.Run("float64_to_float32", func(t *testing.T) {
+		var dest float32
+		err := assigner.AssignValue(3.14, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dest < 3.13 || dest > 3.15 {
+			t.Errorf("expected ~3.14, got %f", dest)
+		}
+	})
+
+	t.Run("int_to_float64", func(t *testing.T) {
+		var dest float64
+		err := assigner.AssignValue(42, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dest != 42.0 {
+			t.Errorf("expected 42.0, got %f", dest)
+		}
+	})
+
+	t.Run("float64_to_int", func(t *testing.T) {
+		var dest int
+		err := assigner.AssignValue(42.9, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dest != 42 {
+			t.Errorf("expected 42, got %d", dest)
+		}
+	})
+
+	t.Run("string_to_string", func(t *testing.T) {
+		var dest string
+		err := assigner.AssignValue("hello", &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dest != "hello" {
+			t.Errorf("expected 'hello', got %s", dest)
+		}
+	})
+
+	t.Run("bool_to_bool", func(t *testing.T) {
+		var dest bool
+		err := assigner.AssignValue(true, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !dest {
+			t.Errorf("expected true, got false")
+		}
+	})
+
+	t.Run("nil_source", func(t *testing.T) {
+		var dest int
+		err := assigner.AssignValue(nil, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("non_pointer_dest", func(t *testing.T) {
+		var dest int
+		err := assigner.AssignValue(42, dest)
+		if err == nil {
+			t.Fatal("expected error for non-pointer dest")
+		}
+	})
+}
+
+func TestAssignValue_StructToStruct(t *testing.T) {
+	assigner := Assigner{}
+
+	t.Run("simple_struct_copy", func(t *testing.T) {
+		src := SimpleStruct{Name: "Alice", Age: 30, Score: 95.5}
+		dest := SimpleStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest.Name != "Alice" || dest.Age != 30 || dest.Score != 95.5 {
+			t.Errorf("struct not copied correctly: %+v", dest)
+		}
+	})
+
+	t.Run("partial_field_match", func(t *testing.T) {
+		type SourceStruct struct {
+			Name  string `json:"name"`
+			Age   int    `json:"age"`
+			Extra string `json:"extra"`
+		}
+
+		src := SourceStruct{Name: "Bob", Age: 25, Extra: "ignored"}
+		dest := SimpleStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest.Name != "Bob" || dest.Age != 25 {
+			t.Errorf("fields not matched correctly: %+v", dest)
+		}
+	})
+
+	t.Run("pointer_source", func(t *testing.T) {
+		src := &SimpleStruct{Name: "Charlie", Age: 35, Score: 88.0}
+		dest := SimpleStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest.Name != "Charlie" || dest.Age != 35 {
+			t.Errorf("pointer struct not copied correctly: %+v", dest)
+		}
+	})
+
+	t.Run("nil_pointer_field", func(t *testing.T) {
+		type StructWithPtr struct {
+			Value *int `json:"value"`
+		}
+
+		src := StructWithPtr{Value: nil}
+		dest := StructWithPtr{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest.Value != nil {
+			t.Errorf("expected nil pointer, got %v", dest.Value)
+		}
+	})
+
+	t.Run("nested_struct_with_XXX_NoUnkeyedLiteral", func(t *testing.T) {
+		src := NestedStruct{
+			XXX_NoUnkeyedLiteral: map[string]interface{}{
+				"unknown_field1": 100,
+				"unknown_field2": "secret_data",
+				"unknown_nested": map[string]interface{}{
+					"inner_key": "inner_value",
+				},
+			},
+			ID: 42,
+			Simple: SimpleStruct{
+				Name:  "Alice",
+				Age:   30,
+				Score: 95.5,
+			},
+			PtrSimple: &SimpleStruct{
+				Name:  "Bob",
+				Age:   25,
+				Score: 88.0,
+			},
+		}
+
+		type NestedStruct2 struct {
+			XXX_NoUnkeyedLiteral map[string]interface{} `json:"-"`
+			ID                   int                    `json:"id"`
+			Simple               SimpleStruct           `json:"simple"`
+			PtrSimple            *SimpleStruct          `json:"ptr_simple"`
+		}
+		dest := NestedStruct2{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		// Verify regular fields
+		if dest.ID != 42 {
+			t.Errorf("ID: expected 42, got %d", dest.ID)
+		}
+		if dest.Simple.Name != "Alice" {
+			t.Errorf("Simple.Name: expected 'Alice', got '%s'", dest.Simple.Name)
+		}
+		if dest.PtrSimple == nil {
+			t.Fatalf("PtrSimple should not be nil")
+		}
+		if dest.PtrSimple.Name != "Bob" {
+			t.Errorf("PtrSimple.Name: expected 'Bob', got '%s'", dest.PtrSimple.Name)
+		}
+
+		// Verify XXX_NoUnkeyedLiteral was copied
+		if dest.XXX_NoUnkeyedLiteral == nil {
+			t.Fatalf("XXX_NoUnkeyedLiteral should not be nil")
+		}
+
+		if len(dest.XXX_NoUnkeyedLiteral) != 3 {
+			t.Errorf("XXX_NoUnkeyedLiteral: expected 3 entries, got %d", len(dest.XXX_NoUnkeyedLiteral))
+		}
+
+		// Verify unknown_field1
+		if val, ok := dest.XXX_NoUnkeyedLiteral["unknown_field1"]; !ok {
+			t.Errorf("XXX_NoUnkeyedLiteral: expected 'unknown_field1' key")
+		} else if intVal, ok := val.(int); !ok || intVal != 100 {
+			t.Errorf("XXX_NoUnkeyedLiteral['unknown_field1']: expected 100, got %v (type %T)", val, val)
+		}
+
+		// Verify unknown_field2
+		if val, ok := dest.XXX_NoUnkeyedLiteral["unknown_field2"]; !ok {
+			t.Errorf("XXX_NoUnkeyedLiteral: expected 'unknown_field2' key")
+		} else if strVal, ok := val.(string); !ok || strVal != "secret_data" {
+			t.Errorf("XXX_NoUnkeyedLiteral['unknown_field2']: expected 'secret_data', got %v (type %T)", val, val)
+		}
+
+		// Verify unknown_nested
+		if val, ok := dest.XXX_NoUnkeyedLiteral["unknown_nested"]; !ok {
+			t.Errorf("XXX_NoUnkeyedLiteral: expected 'unknown_nested' key")
+		} else if mapVal, ok := val.(map[string]interface{}); !ok {
+			t.Errorf("XXX_NoUnkeyedLiteral['unknown_nested']: expected map[string]interface{}, got %T", val)
+		} else if innerVal, ok := mapVal["inner_key"]; !ok || innerVal != "inner_value" {
+			t.Errorf("XXX_NoUnkeyedLiteral['unknown_nested']['inner_key']: expected 'inner_value', got %v", innerVal)
+		}
+
+		t.Logf("Successfully verified XXX_NoUnkeyedLiteral copy in NestedStruct")
+		t.Logf("  XXX_NoUnkeyedLiteral: %+v", dest.XXX_NoUnkeyedLiteral)
+	})
+
+	t.Run("nested_struct_with_nil_XXX_NoUnkeyedLiteral", func(t *testing.T) {
+		src := NestedStruct{
+			XXX_NoUnkeyedLiteral: nil,
+			ID:                   100,
+			Simple: SimpleStruct{
+				Name:  "Test",
+				Age:   40,
+				Score: 92.0,
+			},
+		}
+
+		dest := NestedStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		// Regular fields should be copied
+		if dest.ID != 100 {
+			t.Errorf("ID: expected 100, got %d", dest.ID)
+		}
+
+		// XXX_NoUnkeyedLiteral should remain nil or empty
+		if len(dest.XXX_NoUnkeyedLiteral) > 0 {
+			t.Errorf("XXX_NoUnkeyedLiteral: expected nil or empty, got %v", dest.XXX_NoUnkeyedLiteral)
+		}
+	})
+
+	t.Run("nested_struct_with_empty_XXX_NoUnkeyedLiteral", func(t *testing.T) {
+		src := NestedStruct{
+			XXX_NoUnkeyedLiteral: map[string]interface{}{},
+			ID:                   200,
+			Simple: SimpleStruct{
+				Name:  "Empty",
+				Age:   50,
+				Score: 85.0,
+			},
+		}
+
+		dest := NestedStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		// Regular fields should be copied
+		if dest.ID != 200 {
+			t.Errorf("ID: expected 200, got %d", dest.ID)
+		}
+
+		// Empty map should not cause issues
+		if dest.Simple.Name != "Empty" {
+			t.Errorf("Simple.Name: expected 'Empty', got '%s'", dest.Simple.Name)
+		}
+	})
+}
+
+func TestAssignValue_Slices(t *testing.T) {
+	assigner := Assigner{}
+
+	t.Run("int_slice", func(t *testing.T) {
+		src := []int{1, 2, 3, 4, 5}
+		var dest []int
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !reflect.DeepEqual(dest, src) {
+			t.Errorf("slices not equal: got %v, want %v", dest, src)
+		}
+	})
+
+	t.Run("string_slice", func(t *testing.T) {
+		src := []string{"a", "b", "c"}
+		var dest []string
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !reflect.DeepEqual(dest, src) {
+			t.Errorf("slices not equal: got %v, want %v", dest, src)
+		}
+	})
+
+	t.Run("int_to_int64_slice", func(t *testing.T) {
+		src := []int{10, 20, 30}
+		var dest []int64
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		expected := []int64{10, 20, 30}
+		if !reflect.DeepEqual(dest, expected) {
+			t.Errorf("slices not equal: got %v, want %v", dest, expected)
+		}
+	})
+
+	t.Run("struct_slice", func(t *testing.T) {
+		src := []SimpleStruct{
+			{Name: "Alice", Age: 30},
+			{Name: "Bob", Age: 25},
+		}
+		var dest []SimpleStruct
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(dest) != 2 {
+			t.Fatalf("expected 2 elements, got %d", len(dest))
+		}
+		if dest[0].Name != "Alice" || dest[1].Name != "Bob" {
+			t.Errorf("struct slice not copied correctly: %+v", dest)
+		}
+	})
+
+	t.Run("pointer_slice", func(t *testing.T) {
+		src := []*SimpleStruct{
+			{Name: "Alice", Age: 30},
+			nil,
+			{Name: "Bob", Age: 25},
+		}
+		var dest []*SimpleStruct
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(dest) != 3 {
+			t.Fatalf("expected 3 elements, got %d", len(dest))
+		}
+		if dest[0] == nil || dest[0].Name != "Alice" {
+			t.Errorf("first element incorrect: %+v", dest[0])
+		}
+		if dest[1] != nil {
+			t.Errorf("expected nil at index 1, got %+v", dest[1])
+		}
+		if dest[2] == nil || dest[2].Name != "Bob" {
+			t.Errorf("third element incorrect: %+v", dest[2])
+		}
+	})
+
+	t.Run("nil_slice", func(t *testing.T) {
+		var src []int = nil
+		var dest []int
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest != nil {
+			t.Errorf("expected nil slice, got %v", dest)
+		}
+	})
+
+	t.Run("empty_slice", func(t *testing.T) {
+		src := []int{}
+		var dest []int
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(dest) != 0 {
+			t.Errorf("expected empty slice, got %v", dest)
+		}
+	})
+}
+
+func TestAssignValue_Maps(t *testing.T) {
+	assigner := Assigner{}
+
+	t.Run("string_int_map", func(t *testing.T) {
+		src := map[string]int{"a": 1, "b": 2, "c": 3}
+		dest := make(map[string]int)
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !reflect.DeepEqual(dest, src) {
+			t.Errorf("maps not equal: got %v, want %v", dest, src)
+		}
+	})
+
+	t.Run("int_conversion_map", func(t *testing.T) {
+		src := map[string]int32{"x": 10, "y": 20}
+		dest := make(map[string]int64)
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest["x"] != 10 || dest["y"] != 20 {
+			t.Errorf("map values not converted correctly: %v", dest)
+		}
+	})
+
+	t.Run("struct_value_map", func(t *testing.T) {
+		src := map[string]SimpleStruct{
+			"alice": {Name: "Alice", Age: 30},
+			"bob":   {Name: "Bob", Age: 25},
+		}
+		dest := make(map[string]SimpleStruct)
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(dest) != 2 {
+			t.Fatalf("expected 2 entries, got %d", len(dest))
+		}
+		if dest["alice"].Name != "Alice" || dest["bob"].Name != "Bob" {
+			t.Errorf("struct map not copied correctly: %+v", dest)
+		}
+	})
+
+	t.Run("pointer_value_map", func(t *testing.T) {
+		src := map[string]*SimpleStruct{
+			"alice": {Name: "Alice", Age: 30},
+			"nil":   nil,
+		}
+		dest := make(map[string]*SimpleStruct)
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest["alice"] == nil || dest["alice"].Name != "Alice" {
+			t.Errorf("map pointer incorrect: %+v", dest["alice"])
+		}
+		if dest["nil"] != nil {
+			t.Errorf("expected nil pointer in map, got %+v", dest["nil"])
+		}
+	})
+
+	t.Run("nil_map", func(t *testing.T) {
+		var src map[string]int = nil
+		var dest map[string]int
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestAssignValue_MapToStruct(t *testing.T) {
+	assigner := Assigner{}
+
+	t.Run("basic_map_to_struct", func(t *testing.T) {
+		src := map[string]interface{}{
+			"name":  "Alice",
+			"age":   30,
+			"score": 95.5,
+		}
+		dest := SimpleStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest.Name != "Alice" || dest.Age != 30 || dest.Score != 95.5 {
+			t.Errorf("map to struct failed: %+v", dest)
+		}
+	})
+
+	t.Run("partial_fields", func(t *testing.T) {
+		src := map[string]interface{}{
+			"name": "Bob",
+		}
+		dest := SimpleStruct{Age: 100, Score: 50.0}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest.Name != "Bob" {
+			t.Errorf("name not set: %s", dest.Name)
+		}
+		// Age and Score should remain unchanged
+		if dest.Age != 100 || dest.Score != 50.0 {
+			t.Errorf("other fields were modified: %+v", dest)
+		}
+	})
+
+	t.Run("type_conversion_in_map", func(t *testing.T) {
+		src := map[string]interface{}{
+			"name":  "Charlie",
+			"age":   int32(25),
+			"score": float32(88.5),
+		}
+		dest := SimpleStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest.Name != "Charlie" || dest.Age != 25 {
+			t.Errorf("type conversion failed: %+v", dest)
+		}
+	})
+
+	t.Run("nil_value_in_map", func(t *testing.T) {
+		src := map[string]interface{}{
+			"name": "David",
+			"age":  nil,
+		}
+		dest := SimpleStruct{Age: 50}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest.Name != "David" {
+			t.Errorf("name not set: %s", dest.Name)
+		}
+		// Age should remain as is since nil won't overwrite
+		if dest.Age != 50 {
+			t.Errorf("age was modified: %d", dest.Age)
+		}
+	})
+
+	t.Run("unknown_fields_ignored", func(t *testing.T) {
+		src := map[string]interface{}{
+			"name":    "Eve",
+			"unknown": "should be ignored",
+		}
+		dest := SimpleStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest.Name != "Eve" {
+			t.Errorf("name not set: %s", dest.Name)
+		}
+	})
+}
+
+func TestAssignValue_NestedStructs(t *testing.T) {
+	assigner := Assigner{}
+
+	t.Run("nested_struct", func(t *testing.T) {
+		src := NestedStruct{
+			ID: 1,
+			Simple: SimpleStruct{
+				Name:  "Alice",
+				Age:   30,
+				Score: 95.5,
+			},
+		}
+		dest := NestedStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest.ID != 1 {
+			t.Errorf("ID not set: %d", dest.ID)
+		}
+		if dest.Simple.Name != "Alice" || dest.Simple.Age != 30 {
+			t.Errorf("nested struct not copied: %+v", dest.Simple)
+		}
+	})
+
+	t.Run("nested_pointer_struct", func(t *testing.T) {
+		src := NestedStruct{
+			ID: 2,
+			PtrSimple: &SimpleStruct{
+				Name: "Bob",
+				Age:  25,
+			},
+		}
+		dest := NestedStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest.PtrSimple == nil {
+			t.Fatal("PtrSimple is nil")
+		}
+		if dest.PtrSimple.Name != "Bob" || dest.PtrSimple.Age != 25 {
+			t.Errorf("nested pointer struct not copied: %+v", dest.PtrSimple)
+		}
+	})
+
+	t.Run("map_to_nested_struct", func(t *testing.T) {
+		src := map[string]interface{}{
+			"id": 3,
+			"simple": map[string]interface{}{
+				"name":  "Charlie",
+				"age":   35,
+				"score": 88.0,
+			},
+		}
+		dest := NestedStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest.ID != 3 {
+			t.Errorf("ID not set: %d", dest.ID)
+		}
+		if dest.Simple.Name != "Charlie" || dest.Simple.Age != 35 {
+			t.Errorf("nested struct from map failed: %+v", dest.Simple)
+		}
+	})
+
+	t.Run("map_to_nested_pointer_struct", func(t *testing.T) {
+		src := map[string]interface{}{
+			"id": 4,
+			"ptr_simple": map[string]interface{}{
+				"name": "David",
+				"age":  40,
+			},
+		}
+		dest := NestedStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest.PtrSimple == nil {
+			t.Fatal("PtrSimple is nil")
+		}
+		if dest.PtrSimple.Name != "David" || dest.PtrSimple.Age != 40 {
+			t.Errorf("nested pointer struct from map failed: %+v", dest.PtrSimple)
+		}
+	})
+}
+
+func TestAssignValue_ComplexNested(t *testing.T) {
+	assigner := Assigner{}
+
+	t.Run("struct_with_slices_and_maps", func(t *testing.T) {
+		src := ComplexStruct{
+			Numbers: []int{1, 2, 3},
+			Strings: []string{"a", "b", "c"},
+			StrMap:  map[string]int{"x": 10, "y": 20},
+		}
+		dest := ComplexStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !reflect.DeepEqual(dest.Numbers, src.Numbers) {
+			t.Errorf("numbers not copied: %v", dest.Numbers)
+		}
+		if !reflect.DeepEqual(dest.Strings, src.Strings) {
+			t.Errorf("strings not copied: %v", dest.Strings)
+		}
+		if !reflect.DeepEqual(dest.StrMap, src.StrMap) {
+			t.Errorf("map not copied: %v", dest.StrMap)
+		}
+	})
+
+	t.Run("pointer_slice_in_struct", func(t *testing.T) {
+		src := ComplexStruct{
+			PtrSlice: []*SimpleStruct{
+				{Name: "Alice", Age: 30},
+				{Name: "Bob", Age: 25},
+			},
+		}
+		dest := ComplexStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(dest.PtrSlice) != 2 {
+			t.Fatalf("expected 2 elements, got %d", len(dest.PtrSlice))
+		}
+		if dest.PtrSlice[0].Name != "Alice" || dest.PtrSlice[1].Name != "Bob" {
+			t.Errorf("pointer slice not copied correctly: %+v", dest.PtrSlice)
+		}
+	})
+
+	t.Run("struct_map_in_struct", func(t *testing.T) {
+		src := ComplexStruct{
+			StructMap: map[string]SimpleStruct{
+				"alice": {Name: "Alice", Age: 30},
+				"bob":   {Name: "Bob", Age: 25},
+			},
+		}
+		dest := ComplexStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(dest.StructMap) != 2 {
+			t.Fatalf("expected 2 entries, got %d", len(dest.StructMap))
+		}
+		if dest.StructMap["alice"].Name != "Alice" {
+			t.Errorf("struct map not copied correctly: %+v", dest.StructMap)
+		}
+	})
+
+	t.Run("deeply_nested", func(t *testing.T) {
+		src := ComplexStruct{
+			Nested: NestedStruct{
+				ID: 100,
+				Simple: SimpleStruct{
+					Name:  "DeepAlice",
+					Age:   30,
+					Score: 95.5,
+				},
+				PtrSimple: &SimpleStruct{
+					Name:  "DeepBob",
+					Age:   25,
+					Score: 80.0,
+				},
+			},
+		}
+		dest := ComplexStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest.Nested.ID != 100 {
+			t.Errorf("nested ID not copied: %d", dest.Nested.ID)
+		}
+		if dest.Nested.Simple.Name != "DeepAlice" {
+			t.Errorf("deeply nested struct not copied: %+v", dest.Nested.Simple)
+		}
+		if dest.Nested.PtrSimple == nil || dest.Nested.PtrSimple.Name != "DeepBob" {
+			t.Errorf("deeply nested pointer struct not copied: %+v", dest.Nested.PtrSimple)
+		}
+	})
+
+	t.Run("map_to_complex_struct", func(t *testing.T) {
+		src := map[string]interface{}{
+			"numbers": []interface{}{1, 2, 3},
+			"strings": []interface{}{"x", "y", "z"},
+			"str_map": map[string]interface{}{"key1": 100, "key2": 200},
+			"ptr_slice": []interface{}{
+				map[string]interface{}{"name": "MapAlice", "age": 30},
+				map[string]interface{}{"name": "MapBob", "age": 25},
+			},
+			"nested": map[string]interface{}{
+				"id": 500,
+				"simple": map[string]interface{}{
+					"name": "NestedFromMap",
+					"age":  45,
+				},
+			},
+		}
+		dest := ComplexStruct{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(dest.Numbers) != 3 || dest.Numbers[0] != 1 {
+			t.Errorf("numbers not set from map: %v", dest.Numbers)
+		}
+		if len(dest.Strings) != 3 || dest.Strings[0] != "x" {
+			t.Errorf("strings not set from map: %v", dest.Strings)
+		}
+		if dest.StrMap["key1"] != 100 {
+			t.Errorf("str_map not set from map: %v", dest.StrMap)
+		}
+		if len(dest.PtrSlice) != 2 || dest.PtrSlice[0].Name != "MapAlice" {
+			t.Errorf("ptr_slice not set from map: %+v", dest.PtrSlice)
+		}
+		if dest.Nested.ID != 500 || dest.Nested.Simple.Name != "NestedFromMap" {
+			t.Errorf("nested not set from map: %+v", dest.Nested)
+		}
+	})
+}
+
+func TestAssignValue_EdgeCases(t *testing.T) {
+	assigner := Assigner{}
+
+	t.Run("both_nil", func(t *testing.T) {
+		err := assigner.AssignValue(nil, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("interface_wrapping", func(t *testing.T) {
+		var src interface{} = 42
+		var dest int
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if dest != 42 {
+			t.Errorf("expected 42, got %d", dest)
+		}
+	})
+
+	t.Run("interface_to_interface", func(t *testing.T) {
+		var src interface{} = "hello"
+		var dest interface{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if str, ok := dest.(string); !ok || str != "hello" {
+			t.Errorf("expected 'hello', got %v", dest)
+		}
+	})
+
+	t.Run("slice_with_interface_elements", func(t *testing.T) {
+		src := []interface{}{1, "two", 3.0}
+		var dest []interface{}
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(dest) != 3 {
+			t.Fatalf("expected 3 elements, got %d", len(dest))
+		}
+	})
+
+	t.Run("map_with_interface_values", func(t *testing.T) {
+		src := map[string]interface{}{
+			"int":    42,
+			"string": "hello",
+			"float":  3.14,
+		}
+		dest := make(map[string]interface{})
+
+		err := assigner.AssignValue(src, &dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if len(dest) != 3 {
+			t.Fatalf("expected 3 entries, got %d", len(dest))
+		}
+		if dest["int"] != 42 {
+			t.Errorf("int value incorrect: %v", dest["int"])
+		}
+	})
+
+	t.Run("zero_values", func(t *testing.T) {
+		var srcInt int = 0
+		var destInt int = 100
+
+		err := assigner.AssignValue(srcInt, &destInt)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if destInt != 0 {
+			t.Errorf("expected 0, got %d", destInt)
+		}
+	})
+}
+
+// BenchmarkComplexStruct_Comparison compares AssignValue vs JSON marshal/unmarshal
+func BenchmarkAssignValue(b *testing.B) {
+	// Create a complex source struct with nested data (shared by both sub-benchmarks)
+	src := ComplexStruct{
+		Numbers: []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		Strings: []string{"a", "b", "c", "d", "e"},
+		PtrSlice: []*SimpleStruct{
+			{Name: "Alice", Age: 30, Score: 95.5},
+			{Name: "Bob", Age: 25, Score: 88.0},
+			{Name: "Charlie", Age: 35, Score: 92.0},
+		},
+		StrMap: map[string]int{
+			"key1": 100,
+			"key2": 200,
+			"key3": 300,
+		},
+		StructMap: map[string]SimpleStruct{
+			"user1": {Name: "Dave", Age: 40, Score: 87.5},
+			"user2": {Name: "Eve", Age: 28, Score: 91.0},
+		},
+		Nested: NestedStruct{
+			XXX_NoUnkeyedLiteral: map[string]interface{}{
+				"extra1": 999,
+				"extra2": "hidden",
+			},
+			ID: 123,
+			Simple: SimpleStruct{
+				Name:  "NestedUser",
+				Age:   45,
+				Score: 89.5,
+			},
+			PtrSimple: &SimpleStruct{
+				Name:  "NestedPtr",
+				Age:   50,
+				Score: 86.0,
+			},
+		},
+	}
+
+	b.Run("AssignValue", func(b *testing.B) {
+		assigner := Assigner{}
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			dest := ComplexStruct{}
+			_ = assigner.AssignValue(src, &dest)
+		}
+	})
+
+	b.Run("JSON", func(b *testing.B) {
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			// Marshal to JSON
+			jsonData, err := sonic.Marshal(src)
+			if err != nil {
+				b.Fatalf("marshal failed: %v", err)
+			}
+
+			// Unmarshal back to struct
+			dest := ComplexStruct{}
+			err = sonic.Unmarshal(jsonData, &dest)
+			if err != nil {
+				b.Fatalf("unmarshal failed: %v", err)
+			}
+		}
+	})
+}
+
+type sampleAssignArray struct {
+	FieldArray [3]int `protobuf:"varint,1,opt,name=field_array" json:"field_array"`
+}
+
+func TestAssignAny_Array(t *testing.T) {
+	t.Run("Array_SpecificIndices_Success", func(t *testing.T) {
+		src := map[string]interface{}{
+			"field_array": []interface{}{10, 30},
+		}
+		// Assign 10 to index 0, 30 to index 2
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Name: "SampleAssignArray",
+			Children: []Field{
+				{
+					Name: "field_array",
+					ID:   1,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Children: []Field{
+							{ID: 0}, // Maps src[0] (10) to dest[0]
+							{ID: 2}, // Maps src[1] (30) to dest[2]
+						},
+					},
+				},
+			},
+		}
+
+		dest := &sampleAssignArray{}
+		assigner := &Assigner{}
+		err := assigner.AssignAny(desc, src, dest)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dest.FieldArray[0] != 10 {
+			t.Errorf("expected dest[0] to be 10, got %d", dest.FieldArray[0])
+		}
+		if dest.FieldArray[1] != 0 {
+			t.Errorf("expected dest[1] to be 0, got %d", dest.FieldArray[1])
+		}
+		if dest.FieldArray[2] != 30 {
+			t.Errorf("expected dest[2] to be 30, got %d", dest.FieldArray[2])
+		}
+	})
+
+	t.Run("Array_OutOfBounds", func(t *testing.T) {
+		src := map[string]interface{}{
+			"field_array": []interface{}{10},
+		}
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Children: []Field{
+				{
+					Name: "field_array",
+					ID:   1,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Children: []Field{
+							{ID: 3}, // Index 3 is out of bounds for [3]int
+						},
+					},
+				},
+			},
+		}
+		dest := &sampleAssignArray{}
+		assigner := &Assigner{}
+		err := assigner.AssignAny(desc, src, dest)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "out of bounds") {
+			t.Errorf("expected out of bounds error, got: %v", err)
+		}
+	})
+
+	t.Run("Array_MissingSource_DisallowNotDefined", func(t *testing.T) {
+		src := map[string]interface{}{
+			"field_array": []interface{}{10},
+		}
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Children: []Field{
+				{
+					Name: "field_array",
+					ID:   1,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Children: []Field{
+							{ID: 0},
+							{ID: 2}, // Missing in source (src has len 1)
+						},
+					},
+				},
+			},
+		}
+		dest := &sampleAssignArray{}
+		assigner := &Assigner{AssignOptions: AssignOptions{DisallowNotDefined: true}}
+		err := assigner.AssignAny(desc, src, dest)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "not found in source") {
+			t.Errorf("expected not found error, got: %v", err)
+		}
+	})
+
+	t.Run("Array_NegativeIndex", func(t *testing.T) {
+		src := map[string]interface{}{
+			"field_array": []interface{}{10},
+		}
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Children: []Field{
+				{
+					Name: "field_array",
+					ID:   1,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Children: []Field{
+							{ID: 0},
+							{ID: -1},
+						},
+					},
+				},
+			},
+		}
+		dest := &sampleAssignArray{}
+		assigner := &Assigner{AssignOptions: AssignOptions{DisallowNotDefined: true}}
+		err := assigner.AssignAny(desc, src, dest)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "out of bounds") {
+			t.Errorf("expected out of bounds error, got: %v", err)
 		}
 	})
 }

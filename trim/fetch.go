@@ -75,6 +75,17 @@ type structFieldInfo struct {
 // fieldCache caches the struct field info for each type
 var fieldCache sync.Map // map[reflect.Type]*structFieldInfo
 
+var (
+	thriftUnknownFieldName     = "_unknownFields"
+	thriftUnknownFieldNameOnce sync.Once
+)
+
+func SetThriftUnknownFieldName(name string) {
+	thriftUnknownFieldNameOnce.Do(func() {
+		thriftUnknownFieldName = name
+	})
+}
+
 // getStructFieldInfo returns cached struct field info for the given type
 func getStructFieldInfo(t reflect.Type) *structFieldInfo {
 	if cached, ok := fieldCache.Load(t); ok {
@@ -92,7 +103,7 @@ func getStructFieldInfo(t reflect.Type) *structFieldInfo {
 		field := t.Field(i)
 
 		// Check for _unknownFields field
-		if field.Name == "_unknownFields" {
+		if field.Name == thriftUnknownFieldName {
 			info.unknownFieldsIndex = i
 			continue
 		}

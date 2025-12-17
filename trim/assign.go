@@ -38,8 +38,10 @@ type Assigner struct {
 }
 
 // AssignAny assigns values from src (map[string]interface{}) to dest (protobuf struct) according to desc.
-// For fields that exist in src but not in dest's struct definition, they will be encoded
-// to XXX_unrecognized field using protobuf binary encoding.
+// For fields that exist in src but not in dest's struct definition (unknown fields):
+//   - They will be encoded to XXX_unrecognized field using protobuf binary encoding
+//   - Their raw values will also be stored in XXX_NoUnkeyedLiteral field (if present) as map[string]interface{}
+//     with field names as keys
 func (a Assigner) AssignAny(desc *Descriptor, src interface{}, dest interface{}) error {
 	if src == nil || dest == nil || desc == nil {
 		return nil
@@ -69,10 +71,33 @@ type pbStructFieldInfo struct {
 	idToFieldIndex map[int]int
 	// unrecognizedIndex is the index of XXX_unrecognized field, -1 if not present
 	unrecognizedIndex int
+	// noUnkeyedLiteralIndex is the index of XXX_NoUnkeyedLiteral field, -1 if not present
+	noUnkeyedLiteralIndex int
 }
 
 // pbFieldCache caches the struct field info for each type
 var pbFieldCache sync.Map // map[reflect.Type]*pbStructFieldInfo
+
+var (
+	pbUnknownFieldName            = "XXX_unrecognized"
+	pbUnknownFieldNameOnce        sync.Once
+	NoUnkeyedLiteralFieldName     = "XXX_NoUnkeyedLiteral"
+	NoUnkeyedLiteralFieldNameOnce sync.Once
+)
+
+// SetPBUnknownFieldName sets the name of the field used to store unknown fields in protobuf structs
+func SetPBUnknownFieldName(name string) {
+	pbUnknownFieldNameOnce.Do(func() {
+		pbUnknownFieldName = name
+	})
+}
+
+// SetPBNoUnkeyedLiteralFieldName sets the name of the field used to store unknown fields as raw values in protobuf structs
+func SetPBNoUnkeyedLiteralFieldName(name string) {
+	NoUnkeyedLiteralFieldNameOnce.Do(func() {
+		NoUnkeyedLiteralFieldName = name
+	})
+}
 
 // getPBStructFieldInfo returns cached struct field info for the given protobuf type
 func getPBStructFieldInfo(t reflect.Type) *pbStructFieldInfo {
@@ -83,18 +108,25 @@ func getPBStructFieldInfo(t reflect.Type) *pbStructFieldInfo {
 	// Build the field info
 	numField := t.NumField()
 	info := &pbStructFieldInfo{
-		nameToFieldIndex:  make(map[string]int, numField),
-		nameToFieldID:     make(map[string]int, numField),
-		idToFieldIndex:    make(map[int]int, numField),
-		unrecognizedIndex: -1,
+		nameToFieldIndex:      make(map[string]int, numField),
+		nameToFieldID:         make(map[string]int, numField),
+		idToFieldIndex:        make(map[int]int, numField),
+		unrecognizedIndex:     -1,
+		noUnkeyedLiteralIndex: -1,
 	}
 
 	for i := 0; i < numField; i++ {
 		field := t.Field(i)
 
 		// Check for XXX_unrecognized field
-		if field.Name == "XXX_unrecognized" {
+		if field.Name == pbUnknownFieldName {
 			info.unrecognizedIndex = i
+			continue
+		}
+
+		// Check for XXX_NoUnkeyedLiteral field
+		if field.Name == NoUnkeyedLiteralFieldName {
+			info.noUnkeyedLiteralIndex = i
 			continue
 		}
 
@@ -161,7 +193,7 @@ func assignValue(desc *Descriptor, src interface{}, destValue reflect.Value, opt
 	case TypeKind_List:
 		return assignList(desc, src, destValue, opt, stack)
 	default:
-		return assignScalar(src, destValue)
+		return assignLeaf(reflect.ValueOf(src), destValue)
 	}
 }
 
@@ -215,7 +247,7 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 				err = assignValueToField(descField.Desc, value, fieldValue, opt, stack)
 			} else {
 				// Otherwise, assign the value directly
-				err = assignScalar(value, fieldValue)
+				err = assignLeaf(reflect.ValueOf(value), fieldValue)
 			}
 
 			// Pop field from stack
@@ -258,6 +290,25 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 				copy(newBytes, existingBytes)
 				copy(newBytes[len(existingBytes):], bp.Buf)
 				unrecognizedValue.SetBytes(newBytes)
+			}
+		}
+	}
+
+	// Store unassigned fields as raw values to XXX_NoUnkeyedLiteral
+	if len(unassignedFields) > 0 && fieldInfo.noUnkeyedLiteralIndex >= 0 {
+		noUnkeyedLiteralValue := destValue.Field(fieldInfo.noUnkeyedLiteralIndex)
+		if noUnkeyedLiteralValue.CanSet() {
+			// Check if it's a map[string]interface{} or compatible type
+			if noUnkeyedLiteralValue.Kind() == reflect.Map {
+				// Initialize map if nil
+				if noUnkeyedLiteralValue.IsNil() {
+					noUnkeyedLiteralValue.Set(reflect.MakeMap(noUnkeyedLiteralValue.Type()))
+				}
+
+				// Set each unassigned field to the map
+				for key, value := range unassignedFields {
+					noUnkeyedLiteralValue.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(value))
+				}
 			}
 		}
 	}
@@ -322,7 +373,7 @@ func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, op
 		} else if child, ok := keyDescMap[key]; ok && child.Desc != nil {
 			err = assignValueToField(child.Desc, value, elemValue, opt, stack)
 		} else {
-			err = assignScalar(value, elemValue)
+			err = assignLeaf(reflect.ValueOf(value), elemValue)
 		}
 
 		// Pop map key from stack
@@ -375,7 +426,7 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 				if wildcardDesc != nil {
 					err = assignValueToField(wildcardDesc, srcSlice[i], elemValue, opt, stack)
 				} else {
-					err = assignScalar(srcSlice[i], elemValue)
+					err = assignLeaf(reflect.ValueOf(srcSlice[i]), elemValue)
 				}
 
 				// Pop list index from stack
@@ -415,7 +466,7 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 					err = assignValue(wildcardDesc, srcSlice[i], elemValue, opt, stack)
 				}
 			} else {
-				err = assignScalar(srcSlice[i], elemValue)
+				err = assignLeaf(reflect.ValueOf(srcSlice[i]), elemValue)
 			}
 
 			// Pop list index from stack
@@ -493,7 +544,7 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 			if child.Desc != nil {
 				err2 = assignValueToField(child.Desc, srcVal, elemValue, opt, stack)
 			} else {
-				err2 = assignScalar(srcVal, elemValue)
+				err2 = assignLeaf(reflect.ValueOf(srcVal), elemValue)
 			}
 
 			// Pop list index from stack
@@ -558,7 +609,7 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 				err2 = assignValue(child.Desc, srcVal, elemValue, opt, stack)
 			}
 		} else {
-			err2 = assignScalar(srcVal, elemValue)
+			err2 = assignLeaf(reflect.ValueOf(srcVal), elemValue)
 		}
 
 		// Pop list index from stack
@@ -577,6 +628,8 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 type jsonStructFieldInfo struct {
 	// jsonNameToFieldIndex maps json tag name to struct field index
 	jsonNameToFieldIndex map[string]int
+	// noUnkeyedLiteralIndex is the index of XXX_NoUnkeyedLiteral field, -1 if not present
+	noUnkeyedLiteralIndex int
 }
 
 // jsonFieldCache caches the struct field info for each type
@@ -596,6 +649,12 @@ func getJSONStructFieldInfo(t reflect.Type) *jsonStructFieldInfo {
 
 	for i := 0; i < numField; i++ {
 		field := t.Field(i)
+
+		if field.Name == NoUnkeyedLiteralFieldName {
+			info.noUnkeyedLiteralIndex = i
+			continue
+		}
+
 		tag := field.Tag.Get("json")
 		if tag == "" || tag == "-" {
 			continue
@@ -618,95 +677,19 @@ func getJSONStructFieldInfo(t reflect.Type) *jsonStructFieldInfo {
 	return actual.(*jsonStructFieldInfo)
 }
 
-// assignScalar assigns a scalar value to destValue
-func assignScalar(src interface{}, destValue reflect.Value) error {
-	if src == nil {
+// AssignValue assigns values from src to dest by matching reflect-type or map-key or json-tag
+func (Assigner) AssignValue(src interface{}, dest interface{}) error {
+	if src == nil || dest == nil {
 		return nil
 	}
 
-	srcValue := reflect.ValueOf(src)
+	destValue := reflect.ValueOf(dest)
 
-	// Handle pointer destination
-	if destValue.Kind() == reflect.Ptr {
-		if destValue.IsNil() {
-			destValue.Set(reflect.New(destValue.Type().Elem()))
-		}
-		destValue = destValue.Elem()
+	if destValue.Kind() != reflect.Ptr {
+		return fmt.Errorf("dest must be a pointer")
 	}
 
-	// Dereference pointer source
-	for srcValue.Kind() == reflect.Ptr {
-		if srcValue.IsNil() {
-			return nil
-		}
-		srcValue = srcValue.Elem()
-	}
-
-	// Try direct assignment first
-	if srcValue.Type().AssignableTo(destValue.Type()) {
-		destValue.Set(srcValue)
-		return nil
-	}
-
-	// Try conversion
-	if srcValue.Type().ConvertibleTo(destValue.Type()) {
-		destValue.Set(srcValue.Convert(destValue.Type()))
-		return nil
-	}
-
-	// Handle struct to struct mapping via json tags
-	if srcValue.Kind() == reflect.Struct && destValue.Kind() == reflect.Struct {
-		return assignStructToStruct(srcValue, destValue)
-	}
-
-	// Handle slice to slice mapping
-	if srcValue.Kind() == reflect.Slice && destValue.Kind() == reflect.Slice {
-		return assignSliceToSlice(srcValue, destValue)
-	}
-
-	// Handle map to map mapping
-	if srcValue.Kind() == reflect.Map && destValue.Kind() == reflect.Map {
-		return assignMapToMap(srcValue, destValue)
-	}
-
-	// Handle map[string]interface{} to struct mapping
-	if srcValue.Kind() == reflect.Map && destValue.Kind() == reflect.Struct {
-		srcMapIface, ok := src.(map[string]interface{})
-		if ok {
-			return assignMapToStruct(srcMapIface, destValue)
-		}
-	}
-
-	// Handle special cases for numeric type conversions
-	switch destValue.Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		if v, ok := toInt64(src); ok {
-			destValue.SetInt(v)
-			return nil
-		}
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		if v, ok := toUint64(src); ok {
-			destValue.SetUint(v)
-			return nil
-		}
-	case reflect.Float32, reflect.Float64:
-		if v, ok := toFloat64(src); ok {
-			destValue.SetFloat(v)
-			return nil
-		}
-	case reflect.String:
-		if v, ok := src.(string); ok {
-			destValue.SetString(v)
-			return nil
-		}
-	case reflect.Bool:
-		if v, ok := src.(bool); ok {
-			destValue.SetBool(v)
-			return nil
-		}
-	}
-
-	return fmt.Errorf("cannot assign %T to %v", src, destValue.Type())
+	return assignLeaf(reflect.ValueOf(src), destValue)
 }
 
 // assignStructToStruct assigns a struct to another struct by matching json tags
@@ -741,8 +724,29 @@ func assignStructToStruct(srcValue, destValue reflect.Value) error {
 		}
 
 		// Recursively assign the field value
-		if err := assignScalarValue(srcField, destField); err != nil {
+		if err := assignLeaf(srcField, destField); err != nil {
 			return err
+		}
+	}
+
+	if srcInfo.noUnkeyedLiteralIndex >= 0 && destInfo.noUnkeyedLiteralIndex >= 0 {
+		// Special handling for XXX_NoUnkeyedLiteral field
+		// Copy the map if both src and dest have this field
+		srcField := srcValue.Field(srcInfo.noUnkeyedLiteralIndex)
+		destField := destValue.Field(destInfo.noUnkeyedLiteralIndex)
+		if destField.CanSet() && srcField.Kind() == reflect.Map && destField.Kind() == reflect.Map {
+			if !srcField.IsNil() && srcField.Len() > 0 {
+				// Initialize dest map if nil
+				if destField.IsNil() {
+					destField.Set(reflect.MakeMap(destField.Type()))
+				}
+
+				// Copy all entries from src to dest
+				iter := srcField.MapRange()
+				for iter.Next() {
+					destField.SetMapIndex(iter.Key(), iter.Value())
+				}
+			}
 		}
 	}
 
@@ -777,7 +781,7 @@ func assignMapToStruct(srcMap map[string]interface{}, destValue reflect.Value) e
 		}
 
 		// Recursively assign the field value
-		if err := assignScalar(srcVal, destField); err != nil {
+		if err := assignLeaf(reflect.ValueOf(srcVal), destField); err != nil {
 			return err
 		}
 	}
@@ -785,16 +789,8 @@ func assignMapToStruct(srcMap map[string]interface{}, destValue reflect.Value) e
 	return nil
 }
 
-// assignScalarValue assigns a reflect.Value to another reflect.Value
-func assignScalarValue(srcValue, destValue reflect.Value) error {
-	// Handle pointer destination
-	if destValue.Kind() == reflect.Ptr {
-		if destValue.IsNil() {
-			destValue.Set(reflect.New(destValue.Type().Elem()))
-		}
-		destValue = destValue.Elem()
-	}
-
+// assignLeaf assigns a reflect.Value to another reflect.Value
+func assignLeaf(srcValue, destValue reflect.Value) error {
 	// Dereference pointer source
 	for srcValue.Kind() == reflect.Ptr {
 		if srcValue.IsNil() {
@@ -803,14 +799,12 @@ func assignScalarValue(srcValue, destValue reflect.Value) error {
 		srcValue = srcValue.Elem()
 	}
 
-	// Handle interface{} source - extract the underlying value
-	if srcValue.Kind() == reflect.Interface {
-		if srcValue.IsNil() {
-			return nil
+	// Handle pointer destination
+	if destValue.Kind() == reflect.Ptr {
+		if destValue.IsNil() {
+			destValue.Set(reflect.New(destValue.Type().Elem()))
 		}
-		// Get the underlying value and use assignScalar instead
-		// because the underlying value could be map[string]interface{}
-		return assignScalar(srcValue.Interface(), destValue)
+		destValue = destValue.Elem()
 	}
 
 	// Try direct assignment first
@@ -823,6 +817,16 @@ func assignScalarValue(srcValue, destValue reflect.Value) error {
 	if srcValue.Type().ConvertibleTo(destValue.Type()) {
 		destValue.Set(srcValue.Convert(destValue.Type()))
 		return nil
+	}
+
+	// Handle interface{} source - extract the underlying value
+	if srcValue.Kind() == reflect.Interface {
+		if srcValue.IsNil() {
+			return nil
+		}
+		// Get the underlying value and use assignScalar instead
+		// because the underlying value could be map[string]interface{}
+		return assignLeaf(srcValue.Elem(), destValue)
 	}
 
 	// Handle struct to struct mapping via json tags
@@ -840,56 +844,11 @@ func assignScalarValue(srcValue, destValue reflect.Value) error {
 		return assignMapToMap(srcValue, destValue)
 	}
 
-	// Handle numeric conversions
-	switch destValue.Kind() {
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		if srcValue.CanInt() {
-			destValue.SetInt(srcValue.Int())
-			return nil
-		}
-		if srcValue.CanUint() {
-			destValue.SetInt(int64(srcValue.Uint()))
-			return nil
-		}
-		if srcValue.CanFloat() {
-			destValue.SetInt(int64(srcValue.Float()))
-			return nil
-		}
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		if srcValue.CanUint() {
-			destValue.SetUint(srcValue.Uint())
-			return nil
-		}
-		if srcValue.CanInt() {
-			destValue.SetUint(uint64(srcValue.Int()))
-			return nil
-		}
-		if srcValue.CanFloat() {
-			destValue.SetUint(uint64(srcValue.Float()))
-			return nil
-		}
-	case reflect.Float32, reflect.Float64:
-		if srcValue.CanFloat() {
-			destValue.SetFloat(srcValue.Float())
-			return nil
-		}
-		if srcValue.CanInt() {
-			destValue.SetFloat(float64(srcValue.Int()))
-			return nil
-		}
-		if srcValue.CanUint() {
-			destValue.SetFloat(float64(srcValue.Uint()))
-			return nil
-		}
-	case reflect.String:
-		if srcValue.Kind() == reflect.String {
-			destValue.SetString(srcValue.String())
-			return nil
-		}
-	case reflect.Bool:
-		if srcValue.Kind() == reflect.Bool {
-			destValue.SetBool(srcValue.Bool())
-			return nil
+	// Handle map[string]interface{} to struct mapping
+	if srcValue.Kind() == reflect.Map && destValue.Kind() == reflect.Struct {
+		srcMapIface, ok := srcValue.Interface().(map[string]interface{})
+		if ok {
+			return assignMapToStruct(srcMapIface, destValue)
 		}
 	}
 
@@ -925,12 +884,12 @@ func assignSliceToSlice(srcValue, destValue reflect.Value) error {
 				continue
 			}
 			newElem := reflect.New(destElemType.Elem())
-			if err := assignScalarValue(srcElem, newElem.Elem()); err != nil {
+			if err := assignLeaf(srcElem, newElem.Elem()); err != nil {
 				return err
 			}
 			destElem.Set(newElem)
 		} else {
-			if err := assignScalarValue(srcElem, destElem); err != nil {
+			if err := assignLeaf(srcElem, destElem); err != nil {
 				return err
 			}
 		}
@@ -984,12 +943,12 @@ func assignMapToMap(srcValue, destValue reflect.Value) error {
 				continue
 			}
 			newElem := reflect.New(destElemType.Elem())
-			if err := assignScalarValue(srcVal, newElem.Elem()); err != nil {
+			if err := assignLeaf(srcVal, newElem.Elem()); err != nil {
 				return err
 			}
 			destVal.Set(newElem)
 		} else {
-			if err := assignScalarValue(srcVal, destVal); err != nil {
+			if err := assignLeaf(srcVal, destVal); err != nil {
 				return err
 			}
 		}
@@ -999,102 +958,6 @@ func assignMapToMap(srcValue, destValue reflect.Value) error {
 
 	destValue.Set(newMap)
 	return nil
-}
-
-// toInt64 converts various numeric types to int64
-func toInt64(v interface{}) (int64, bool) {
-	switch n := v.(type) {
-	case int:
-		return int64(n), true
-	case int8:
-		return int64(n), true
-	case int16:
-		return int64(n), true
-	case int32:
-		return int64(n), true
-	case int64:
-		return n, true
-	case uint:
-		return int64(n), true
-	case uint8:
-		return int64(n), true
-	case uint16:
-		return int64(n), true
-	case uint32:
-		return int64(n), true
-	case uint64:
-		return int64(n), true
-	case float32:
-		return int64(n), true
-	case float64:
-		return int64(n), true
-	default:
-		return 0, false
-	}
-}
-
-// toUint64 converts various numeric types to uint64
-func toUint64(v interface{}) (uint64, bool) {
-	switch n := v.(type) {
-	case int:
-		return uint64(n), true
-	case int8:
-		return uint64(n), true
-	case int16:
-		return uint64(n), true
-	case int32:
-		return uint64(n), true
-	case int64:
-		return uint64(n), true
-	case uint:
-		return uint64(n), true
-	case uint8:
-		return uint64(n), true
-	case uint16:
-		return uint64(n), true
-	case uint32:
-		return uint64(n), true
-	case uint64:
-		return n, true
-	case float32:
-		return uint64(n), true
-	case float64:
-		return uint64(n), true
-	default:
-		return 0, false
-	}
-}
-
-// toFloat64 converts various numeric types to float64
-func toFloat64(v interface{}) (float64, bool) {
-	switch n := v.(type) {
-	case int:
-		return float64(n), true
-	case int8:
-		return float64(n), true
-	case int16:
-		return float64(n), true
-	case int32:
-		return float64(n), true
-	case int64:
-		return float64(n), true
-	case uint:
-		return float64(n), true
-	case uint8:
-		return float64(n), true
-	case uint16:
-		return float64(n), true
-	case uint32:
-		return float64(n), true
-	case uint64:
-		return float64(n), true
-	case float32:
-		return float64(n), true
-	case float64:
-		return n, true
-	default:
-		return 0, false
-	}
 }
 
 // encodeUnknownField encodes a field value to protobuf binary format

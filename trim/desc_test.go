@@ -33,7 +33,7 @@ func TestDescriptorMarshalJSON(t *testing.T) {
 				Name: "field1",
 				ID:   1,
 				Desc: &Descriptor{
-					Kind: TypeKind_Scalar,
+					Kind: TypeKind_Leaf,
 					Name: "Leaf1",
 				},
 			},
@@ -48,7 +48,7 @@ func TestDescriptorMarshalJSON(t *testing.T) {
 							Name: "key1",
 							ID:   0,
 							Desc: &Descriptor{
-								Kind: TypeKind_Scalar,
+								Kind: TypeKind_Leaf,
 								Name: "Leaf2",
 							},
 						},
@@ -189,7 +189,7 @@ func TestDescriptorMarshalJSONNil(t *testing.T) {
 func TestDescriptorMarshalJSONMultipleReferences(t *testing.T) {
 	// Create a shared descriptor referenced by multiple fields
 	shared := &Descriptor{
-		Kind: TypeKind_Scalar,
+		Kind: TypeKind_Leaf,
 		Name: "Shared",
 	}
 

@@ -29,8 +29,8 @@ import (
 type TypeKind int
 
 const (
-	// TypeKind_Scalar indicates Descriptor is a leaf node, its underlying type can be anything (event go struct/map/list)
-	TypeKind_Scalar TypeKind = iota
+	// TypeKind_Leaf indicates Descriptor is a leaf node, its underlying type can be anything (event go struct/map/list)
+	TypeKind_Leaf TypeKind = iota
 	// TypeKind_Struct indicates Descriptor.Field is struct field
 	TypeKind_Struct
 	// TypeKind_StrMap indicates Descriptor.Field is map key
@@ -114,7 +114,7 @@ func (d *Descriptor) String() string {
 		// Get type prefix based on Kind
 		var typePrefix string
 		switch desc.Kind {
-		case TypeKind_Scalar:
+		case TypeKind_Leaf:
 			sb.WriteString("-")
 			return
 		case TypeKind_StrMap:
