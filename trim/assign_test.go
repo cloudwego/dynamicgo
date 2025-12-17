@@ -26,6 +26,7 @@ import (
 	"github.com/cloudwego/dynamicgo/proto/binary"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/dynamicpb"
 )
@@ -365,6 +366,473 @@ func TestAssignAny_UnknownFields(t *testing.T) {
 	t.Logf("  field_e: %v", fieldE)
 	t.Logf("  unknown_int: %v", unknownInt)
 	t.Logf("  unknown_str: %v", unknownStr)
+}
+
+// Test struct for nested unknown fields
+type sampleNestedUnknown struct {
+	FieldA           int    `protobuf:"varint,1,opt,name=field_a" json:"field_a,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
+}
+
+func TestEncodeUnknownField_NestedStruct(t *testing.T) {
+	// Test nested struct encoding
+	src := map[string]interface{}{
+		"field_a": 42,
+		"nested_struct": map[string]interface{}{
+			"inner_field1": "hello",
+			"inner_field2": int64(123),
+		},
+	}
+
+	// Create descriptor for the struct with nested struct field
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "SampleNestedUnknown",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{
+				Name: "nested_struct",
+				ID:   2,
+				Desc: &Descriptor{
+					Kind: TypeKind_Struct,
+					Name: "NestedStruct",
+					Children: []Field{
+						{Name: "inner_field1", ID: 1},
+						{Name: "inner_field2", ID: 2},
+					},
+				},
+			},
+		},
+	}
+
+	dest := &sampleNestedUnknown{}
+	err := assignAny(desc, src, dest)
+	if err != nil {
+		t.Fatalf("AssignAny failed: %v", err)
+	}
+
+	// Verify field_a is assigned correctly
+	if dest.FieldA != 42 {
+		t.Errorf("field_a: expected 42, got %v", dest.FieldA)
+	}
+
+	// Verify XXX_unrecognized contains the nested struct
+	if len(dest.XXX_unrecognized) == 0 {
+		t.Fatal("XXX_unrecognized should not be empty")
+	}
+
+	// Create protobuf descriptor for verification
+	messageDesc := &descriptorpb.DescriptorProto{
+		Name: proto.String("SampleNestedUnknown"),
+		Field: []*descriptorpb.FieldDescriptorProto{
+			{
+				Name:   proto.String("field_a"),
+				Number: proto.Int32(1),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+			{
+				Name:     proto.String("nested_struct"),
+				Number:   proto.Int32(2),
+				Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+				Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+				TypeName: proto.String(".NestedStruct"),
+			},
+		},
+	}
+
+	nestedMessageDesc := &descriptorpb.DescriptorProto{
+		Name: proto.String("NestedStruct"),
+		Field: []*descriptorpb.FieldDescriptorProto{
+			{
+				Name:   proto.String("inner_field1"),
+				Number: proto.Int32(1),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+			{
+				Name:   proto.String("inner_field2"),
+				Number: proto.Int32(2),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_INT64.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+		},
+	}
+
+	fileDesc := &descriptorpb.FileDescriptorProto{
+		Name:        proto.String("test.proto"),
+		Syntax:      proto.String("proto3"),
+		MessageType: []*descriptorpb.DescriptorProto{messageDesc, nestedMessageDesc},
+	}
+
+	fd, err := protodesc.NewFile(fileDesc, nil)
+	if err != nil {
+		t.Fatalf("failed to create file descriptor: %v", err)
+	}
+
+	msgDesc := fd.Messages().Get(0)
+
+	// Serialize the complete message
+	bp := binary.NewBinaryProtocolBuffer()
+	defer binary.FreeBinaryProtocol(bp)
+
+	bp.AppendTag(1, 0)
+	bp.WriteInt32(int32(dest.FieldA))
+	bp.Buf = append(bp.Buf, dest.XXX_unrecognized...)
+
+	// Unmarshal and verify
+	dynamicMsg := dynamicpb.NewMessage(msgDesc)
+	err = proto.Unmarshal(bp.Buf, dynamicMsg)
+	if err != nil {
+		t.Fatalf("proto.Unmarshal failed: %v", err)
+	}
+
+	fields := dynamicMsg.Descriptor().Fields()
+	fieldA := dynamicMsg.Get(fields.ByNumber(1)).Int()
+	if fieldA != 42 {
+		t.Errorf("field_a: expected 42, got %v", fieldA)
+	}
+
+	nestedMsg := dynamicMsg.Get(fields.ByNumber(2)).Message()
+	nestedFields := nestedMsg.Descriptor().Fields()
+	innerField1 := nestedMsg.Get(nestedFields.ByNumber(1)).String()
+	innerField2 := nestedMsg.Get(nestedFields.ByNumber(2)).Int()
+
+	if innerField1 != "hello" {
+		t.Errorf("nested_struct.inner_field1: expected 'hello', got %v", innerField1)
+	}
+	if innerField2 != 123 {
+		t.Errorf("nested_struct.inner_field2: expected 123, got %v", innerField2)
+	}
+
+	t.Logf("Successfully verified nested struct encoding")
+	t.Logf("  field_a: %v", fieldA)
+	t.Logf("  nested_struct.inner_field1: %v", innerField1)
+	t.Logf("  nested_struct.inner_field2: %v", innerField2)
+}
+
+func TestEncodeUnknownField_NestedList(t *testing.T) {
+	// Test nested list encoding
+	src := map[string]interface{}{
+		"field_a": 42,
+		"nested_list": []interface{}{
+			map[string]interface{}{
+				"item_field": "item1",
+			},
+			map[string]interface{}{
+				"item_field": "item2",
+			},
+		},
+	}
+
+	// Create descriptor for the struct with nested list field
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "SampleNestedUnknown",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{
+				Name: "nested_list",
+				ID:   3,
+				Desc: &Descriptor{
+					Kind: TypeKind_List,
+					Name: "NestedList",
+					Children: []Field{
+						{
+							Name: "*",
+							ID:   0,
+							Desc: &Descriptor{
+								Kind: TypeKind_Struct,
+								Name: "ListItem",
+								Children: []Field{
+									{Name: "item_field", ID: 1},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	dest := &sampleNestedUnknown{}
+	err := assignAny(desc, src, dest)
+	if err != nil {
+		t.Fatalf("AssignAny failed: %v", err)
+	}
+
+	// Verify field_a is assigned correctly
+	if dest.FieldA != 42 {
+		t.Errorf("field_a: expected 42, got %v", dest.FieldA)
+	}
+
+	// Verify XXX_unrecognized contains the nested list
+	if len(dest.XXX_unrecognized) == 0 {
+		t.Fatal("XXX_unrecognized should not be empty")
+	}
+
+	// Create protobuf descriptor for verification
+	listItemDesc := &descriptorpb.DescriptorProto{
+		Name: proto.String("ListItem"),
+		Field: []*descriptorpb.FieldDescriptorProto{
+			{
+				Name:   proto.String("item_field"),
+				Number: proto.Int32(1),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+		},
+	}
+
+	messageDesc := &descriptorpb.DescriptorProto{
+		Name: proto.String("SampleNestedUnknown"),
+		Field: []*descriptorpb.FieldDescriptorProto{
+			{
+				Name:   proto.String("field_a"),
+				Number: proto.Int32(1),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+			{
+				Name:     proto.String("nested_list"),
+				Number:   proto.Int32(3),
+				Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+				Label:    descriptorpb.FieldDescriptorProto_LABEL_REPEATED.Enum(),
+				TypeName: proto.String(".ListItem"),
+			},
+		},
+	}
+
+	fileDesc := &descriptorpb.FileDescriptorProto{
+		Name:        proto.String("test.proto"),
+		Syntax:      proto.String("proto3"),
+		MessageType: []*descriptorpb.DescriptorProto{messageDesc, listItemDesc},
+	}
+
+	fd, err := protodesc.NewFile(fileDesc, nil)
+	if err != nil {
+		t.Fatalf("failed to create file descriptor: %v", err)
+	}
+
+	msgDesc := fd.Messages().Get(0)
+
+	// Serialize the complete message
+	bp := binary.NewBinaryProtocolBuffer()
+	defer binary.FreeBinaryProtocol(bp)
+
+	bp.AppendTag(1, 0)
+	bp.WriteInt32(int32(dest.FieldA))
+	bp.Buf = append(bp.Buf, dest.XXX_unrecognized...)
+
+	// Unmarshal and verify
+	dynamicMsg := dynamicpb.NewMessage(msgDesc)
+	err = proto.Unmarshal(bp.Buf, dynamicMsg)
+	if err != nil {
+		t.Fatalf("proto.Unmarshal failed: %v", err)
+	}
+
+	fields := dynamicMsg.Descriptor().Fields()
+	fieldA := dynamicMsg.Get(fields.ByNumber(1)).Int()
+	if fieldA != 42 {
+		t.Errorf("field_a: expected 42, got %v", fieldA)
+	}
+
+	nestedList := dynamicMsg.Get(fields.ByNumber(3)).List()
+	if nestedList.Len() != 2 {
+		t.Fatalf("nested_list: expected 2 items, got %v", nestedList.Len())
+	}
+
+	for i := 0; i < nestedList.Len(); i++ {
+		itemMsg := nestedList.Get(i).Message()
+		itemFields := itemMsg.Descriptor().Fields()
+		itemField := itemMsg.Get(itemFields.ByNumber(1)).String()
+		expectedValue := "item" + string(rune('1'+i))
+		if itemField != expectedValue {
+			t.Errorf("nested_list[%d].item_field: expected '%s', got %v", i, expectedValue, itemField)
+		}
+		t.Logf("  nested_list[%d].item_field: %v", i, itemField)
+	}
+
+	t.Logf("Successfully verified nested list encoding")
+}
+
+func TestEncodeUnknownField_NestedMap(t *testing.T) {
+	// Test nested map encoding
+	src := map[string]interface{}{
+		"field_a": 42,
+		"nested_map": map[string]interface{}{
+			"key1": map[string]interface{}{
+				"value_field": "value1",
+			},
+			"key2": map[string]interface{}{
+				"value_field": "value2",
+			},
+		},
+	}
+
+	// Create descriptor for the struct with nested map field
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Name: "SampleNestedUnknown",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{
+				Name: "nested_map",
+				ID:   4,
+				Desc: &Descriptor{
+					Kind: TypeKind_StrMap,
+					Name: "NestedMap",
+					Children: []Field{
+						{
+							Name: "*",
+							ID:   0,
+							Desc: &Descriptor{
+								Kind: TypeKind_Struct,
+								Name: "MapValue",
+								Children: []Field{
+									{Name: "value_field", ID: 1},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	dest := &sampleNestedUnknown{}
+	err := assignAny(desc, src, dest)
+	if err != nil {
+		t.Fatalf("AssignAny failed: %v", err)
+	}
+
+	// Verify field_a is assigned correctly
+	if dest.FieldA != 42 {
+		t.Errorf("field_a: expected 42, got %v", dest.FieldA)
+	}
+
+	// Verify XXX_unrecognized contains the nested map
+	if len(dest.XXX_unrecognized) == 0 {
+		t.Fatal("XXX_unrecognized should not be empty")
+	}
+
+	// Create protobuf descriptor for verification
+	mapValueDesc := &descriptorpb.DescriptorProto{
+		Name: proto.String("MapValue"),
+		Field: []*descriptorpb.FieldDescriptorProto{
+			{
+				Name:   proto.String("value_field"),
+				Number: proto.Int32(1),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+		},
+	}
+
+	// Protobuf maps are represented as repeated message with key/value fields
+	mapEntryDesc := &descriptorpb.DescriptorProto{
+		Name: proto.String("NestedMapEntry"),
+		Options: &descriptorpb.MessageOptions{
+			MapEntry: proto.Bool(true),
+		},
+		Field: []*descriptorpb.FieldDescriptorProto{
+			{
+				Name:   proto.String("key"),
+				Number: proto.Int32(1),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+			{
+				Name:     proto.String("value"),
+				Number:   proto.Int32(2),
+				Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+				Label:    descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+				TypeName: proto.String(".MapValue"),
+			},
+		},
+	}
+
+	messageDesc := &descriptorpb.DescriptorProto{
+		Name: proto.String("SampleNestedUnknown"),
+		Field: []*descriptorpb.FieldDescriptorProto{
+			{
+				Name:   proto.String("field_a"),
+				Number: proto.Int32(1),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+			{
+				Name:     proto.String("nested_map"),
+				Number:   proto.Int32(4),
+				Type:     descriptorpb.FieldDescriptorProto_TYPE_MESSAGE.Enum(),
+				Label:    descriptorpb.FieldDescriptorProto_LABEL_REPEATED.Enum(),
+				TypeName: proto.String(".SampleNestedUnknown.NestedMapEntry"),
+			},
+		},
+	}
+
+	// Add the map entry as a nested message within the parent message
+	messageDesc.NestedType = []*descriptorpb.DescriptorProto{mapEntryDesc}
+
+	fileDesc := &descriptorpb.FileDescriptorProto{
+		Name:        proto.String("test.proto"),
+		Syntax:      proto.String("proto3"),
+		MessageType: []*descriptorpb.DescriptorProto{messageDesc, mapValueDesc},
+	}
+
+	fd, err := protodesc.NewFile(fileDesc, nil)
+	if err != nil {
+		t.Fatalf("failed to create file descriptor: %v", err)
+	}
+
+	msgDesc := fd.Messages().Get(0)
+
+	// Serialize the complete message
+	bp := binary.NewBinaryProtocolBuffer()
+	defer binary.FreeBinaryProtocol(bp)
+
+	bp.AppendTag(1, 0)
+	bp.WriteInt32(int32(dest.FieldA))
+	bp.Buf = append(bp.Buf, dest.XXX_unrecognized...)
+
+	// Unmarshal and verify
+	dynamicMsg := dynamicpb.NewMessage(msgDesc)
+	err = proto.Unmarshal(bp.Buf, dynamicMsg)
+	if err != nil {
+		t.Fatalf("proto.Unmarshal failed: %v", err)
+	}
+
+	fields := dynamicMsg.Descriptor().Fields()
+	fieldA := dynamicMsg.Get(fields.ByNumber(1)).Int()
+	if fieldA != 42 {
+		t.Errorf("field_a: expected 42, got %v", fieldA)
+	}
+
+	nestedMap := dynamicMsg.Get(fields.ByNumber(4)).Map()
+	if nestedMap.Len() != 2 {
+		t.Fatalf("nested_map: expected 2 entries, got %v", nestedMap.Len())
+	}
+
+	// Collect map entries
+	mapEntries := make(map[string]string)
+	nestedMap.Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
+		key := k.String()
+		valueMsg := v.Message()
+		valueFields := valueMsg.Descriptor().Fields()
+		value := valueMsg.Get(valueFields.ByNumber(1)).String()
+		mapEntries[key] = value
+		t.Logf("  nested_map[%s].value_field: %v", key, value)
+		return true
+	})
+
+	if mapEntries["key1"] != "value1" {
+		t.Errorf("nested_map[key1].value_field: expected 'value1', got %v", mapEntries["key1"])
+	}
+	if mapEntries["key2"] != "value2" {
+		t.Errorf("nested_map[key2].value_field: expected 'value2', got %v", mapEntries["key2"])
+	}
+
+	t.Logf("Successfully verified nested map encoding")
 }
 
 // TestAssignAny_NoUnkeyedLiteral tests that unknown fields are also stored in XXX_NoUnkeyedLiteral

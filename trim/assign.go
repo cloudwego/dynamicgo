@@ -278,7 +278,8 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 
 			for key, val := range unassignedFields {
 				// Encode this field to XXX_unrecognized
-				if err := encodeUnknownField(bp, descFieldMap[key].ID, val); err != nil {
+				field := descFieldMap[key]
+				if err := encodeUnknownField(bp, field.ID, val, field.Desc); err != nil {
 					return fmt.Errorf("failed to encode unknown field '%s': %w", key, err)
 				}
 			}
@@ -961,11 +962,89 @@ func assignMapToMap(srcValue, destValue reflect.Value) error {
 }
 
 // encodeUnknownField encodes a field value to protobuf binary format
-func encodeUnknownField(bp *binary.BinaryProtocol, fieldID int, value interface{}) error {
+// desc: field descriptor for this value, can be nil for basic types
+func encodeUnknownField(bp *binary.BinaryProtocol, fieldID int, value interface{}, desc *Descriptor) error {
 	if value == nil {
 		return nil
 	}
 
+	// Handle nested structures with descriptor
+	if desc != nil {
+		switch desc.Kind {
+		case TypeKind_Struct:
+			// Encode as embedded message
+			subBp := binary.NewBinaryProtocolBuffer()
+			defer binary.FreeBinaryProtocol(subBp)
+
+			if m, ok := value.(map[string]interface{}); ok {
+				for key, val := range m {
+					if childField, ok := desc.names[key]; ok {
+						if err := encodeUnknownField(subBp, childField.ID, val, childField.Desc); err != nil {
+							return err
+						}
+					}
+				}
+			}
+
+			bp.Buf = appendTag(bp.Buf, fieldID, 2) // length-delimited wire type
+			bp.WriteBytes(subBp.Buf)
+			return nil
+
+		case TypeKind_List:
+			// Encode as repeated field
+			if arr, ok := value.([]interface{}); ok {
+				// Get the element descriptor (usually wildcard "*")
+				var elemDesc *Descriptor
+				if len(desc.Children) > 0 {
+					if desc.Children[0].Name == "*" {
+						elemDesc = desc.Children[0].Desc
+					}
+				}
+
+				for _, elem := range arr {
+					if err := encodeUnknownField(bp, fieldID, elem, elemDesc); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+
+		case TypeKind_StrMap:
+			// For map types, we need to encode each entry as a nested message
+			// with field 1 = key, field 2 = value
+			if m, ok := value.(map[string]interface{}); ok {
+				// Get the value descriptor (usually wildcard "*")
+				var valueDesc *Descriptor
+				if len(desc.Children) > 0 {
+					if desc.Children[0].Name == "*" {
+						valueDesc = desc.Children[0].Desc
+					}
+				}
+
+				for key, val := range m {
+					// Each map entry is encoded as a nested message
+					subBp := binary.NewBinaryProtocolBuffer()
+					defer binary.FreeBinaryProtocol(subBp)
+
+					// Field 1: key (string)
+					subBp.Buf = appendTag(subBp.Buf, 1, 2)
+					subBp.WriteString(key)
+
+					// Field 2: value
+					if err := encodeUnknownField(subBp, 2, val, valueDesc); err != nil {
+						return err
+					}
+
+					// Write the map entry
+					bp.Buf = appendTag(bp.Buf, fieldID, 2)
+					bp.WriteBytes(subBp.Buf)
+				}
+			}
+			return nil
+		}
+	}
+
+	// Fallback to type-based encoding for basic types or when no descriptor
 	switch v := value.(type) {
 	case bool:
 		// varint type for bool
@@ -1009,23 +1088,21 @@ func encodeUnknownField(bp *binary.BinaryProtocol, fieldID int, value interface{
 		bp.WriteBytes(v)
 
 	case []interface{}:
-		// Encode list as repeated field
+		// Encode list as repeated field (without descriptor)
 		for _, elem := range v {
-			if err := encodeUnknownField(bp, fieldID, elem); err != nil {
+			if err := encodeUnknownField(bp, fieldID, elem, nil); err != nil {
 				return err
 			}
 		}
 
 	case map[string]interface{}:
-		// Encode as embedded message
-		// First encode the message content
+		// Encode as embedded message (without descriptor)
 		subBp := binary.NewBinaryProtocolBuffer()
 		defer binary.FreeBinaryProtocol(subBp)
 
 		for key, val := range v {
-			// For unknown map, we assume string keys with field ID based on some hash
-			// This is a simplified approach - in practice, you'd need proper field descriptors
-			if err := encodeUnknownField(subBp, hashFieldName(key), val); err != nil {
+			// For unknown map without descriptor, use hash-based field ID
+			if err := encodeUnknownField(subBp, hashFieldName(key), val, nil); err != nil {
 				return err
 			}
 		}
@@ -1034,39 +1111,7 @@ func encodeUnknownField(bp *binary.BinaryProtocol, fieldID int, value interface{
 		bp.WriteBytes(subBp.Buf)
 
 	default:
-		// Try to use reflection for other types
-		rv := reflect.ValueOf(value)
-		switch rv.Kind() {
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			bp.Buf = appendTag(bp.Buf, fieldID, 0)
-			bp.WriteInt64(rv.Int())
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			bp.Buf = appendTag(bp.Buf, fieldID, 0)
-			bp.WriteUint64(rv.Uint())
-		case reflect.Float32:
-			bp.Buf = appendTag(bp.Buf, fieldID, 5)
-			bp.WriteFloat(float32(rv.Float()))
-		case reflect.Float64:
-			bp.Buf = appendTag(bp.Buf, fieldID, 1)
-			bp.WriteDouble(rv.Float())
-		case reflect.String:
-			bp.Buf = appendTag(bp.Buf, fieldID, 2)
-			bp.WriteString(rv.String())
-		case reflect.Slice:
-			if rv.Type().Elem().Kind() == reflect.Uint8 {
-				bp.Buf = appendTag(bp.Buf, fieldID, 2)
-				bp.WriteBytes(rv.Bytes())
-			} else {
-				// Encode as repeated field
-				for i := 0; i < rv.Len(); i++ {
-					if err := encodeUnknownField(bp, fieldID, rv.Index(i).Interface()); err != nil {
-						return err
-					}
-				}
-			}
-		default:
-			return fmt.Errorf("unsupported type for unknown field encoding: %T", value)
-		}
+		return fmt.Errorf("unsupported type for unknown field encoding: %T", value)
 	}
 
 	return nil
