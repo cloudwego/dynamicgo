@@ -9,38 +9,39 @@ import (
 
 const (
     _entry__f64toa = 496
-    _entry__format_significand = 47904
+    _entry__format_significand = 48576
     _entry__format_integer = 3744
     _entry__hm_get = 28656
     _entry__i64toa = 4176
     _entry__u64toa = 4448
-    _entry__j2t_fsm_exec = 41632
+    _entry__j2t_fsm_exec = 42256
     _entry__advance_ns = 14336
     _entry__fsm_exec = 20928
     _entry__advance_string = 16480
     _entry__validate_string = 23040
     _entry__utf8_validate = 24416
     _entry__skip_number = 19872
-    _entry__j2t_number = 35376
+    _entry__j2t_number = 36000
     _entry__vnumber = 17440
     _entry__atof_eisel_lemire64 = 11216
     _entry__atof_native = 13664
     _entry__decimal_to_f64 = 11712
-    _entry__left_shift = 48384
-    _entry__right_shift = 48928
-    _entry__j2t_string = 35968
+    _entry__left_shift = 49056
+    _entry__right_shift = 49600
+    _entry__tb_write_empty = 32400
+    _entry__j2t_string = 36592
     _entry__unquote = 7584
     _entry__unhex16_is = 9744
-    _entry__j2t_binary = 36848
+    _entry__j2t_binary = 37472
     _entry__b64decode = 25760
-    _entry__j2t_field_vm = 38496
+    _entry__j2t_field_vm = 39120
     _entry__tb_write_string = 30432
-    _entry__tb_write_default_or_empty = 32400
-    _entry__j2t_write_unset_fields = 34720
-    _entry__j2t_key = 39664
-    _entry__j2t_find_field_key = 37824
+    _entry__tb_write_default_or_empty = 32800
+    _entry__j2t_write_unset_fields = 34752
+    _entry__j2t_key = 40288
+    _entry__j2t_find_field_key = 38448
     _entry__quote = 5872
-    _entry__tb_skip = 46848
+    _entry__tb_skip = 47520
     _entry__tb_write_i64 = 30304
     _entry__trie_get = 29536
 )
@@ -66,6 +67,7 @@ const (
     _stack__decimal_to_f64 = 80
     _stack__left_shift = 24
     _stack__right_shift = 16
+    _stack__tb_write_empty = 8
     _stack__j2t_string = 184
     _stack__unquote = 112
     _stack__unhex16_is = 8
@@ -73,8 +75,8 @@ const (
     _stack__b64decode = 152
     _stack__j2t_field_vm = 312
     _stack__tb_write_string = 8
-    _stack__tb_write_default_or_empty = 16
-    _stack__j2t_write_unset_fields = 120
+    _stack__tb_write_default_or_empty = 24
+    _stack__j2t_write_unset_fields = 112
     _stack__j2t_key = 400
     _stack__j2t_find_field_key = 64
     _stack__quote = 80
@@ -90,7 +92,7 @@ const (
     _size__hm_get = 544
     _size__i64toa = 272
     _size__u64toa = 1376
-    _size__j2t_fsm_exec = 4684
+    _size__j2t_fsm_exec = 4736
     _size__advance_ns = 608
     _size__fsm_exec = 1336
     _size__advance_string = 912
@@ -104,6 +106,7 @@ const (
     _size__decimal_to_f64 = 1952
     _size__left_shift = 544
     _size__right_shift = 464
+    _size__tb_write_empty = 344
     _size__j2t_string = 880
     _size__unquote = 2160
     _size__unhex16_is = 128
@@ -111,8 +114,8 @@ const (
     _size__b64decode = 2064
     _size__j2t_field_vm = 1124
     _size__tb_write_string = 656
-    _size__tb_write_default_or_empty = 936
-    _size__j2t_write_unset_fields = 656
+    _size__tb_write_default_or_empty = 624
+    _size__j2t_write_unset_fields = 1248
     _size__j2t_key = 1936
     _size__j2t_find_field_key = 384
     _size__quote = 1696
@@ -224,15 +227,15 @@ var (
         {1583, 184},
         {1604, 192},
         {1611, 200},
-        {3574, 184},
-        {3581, 48},
-        {3582, 40},
-        {3584, 32},
-        {3586, 24},
-        {3588, 16},
-        {3590, 8},
-        {3594, 0},
-        {4684, 184},
+        {3625, 184},
+        {3632, 48},
+        {3633, 40},
+        {3635, 32},
+        {3637, 24},
+        {3639, 16},
+        {3641, 8},
+        {3645, 0},
+        {4736, 184},
     }
     _pcsp__advance_ns = [][2]uint32{
         {1, 0},
@@ -420,6 +423,21 @@ var (
         {457, 8},
         {459, 0},
     }
+    _pcsp__tb_write_empty = [][2]uint32{
+        {1, 0},
+        {77, 8},
+        {78, 0},
+        {117, 8},
+        {118, 0},
+        {197, 8},
+        {198, 0},
+        {214, 8},
+        {215, 0},
+        {321, 8},
+        {322, 0},
+        {339, 8},
+        {344, 0},
+    }
     _pcsp__j2t_string = [][2]uint32{
         {1, 0},
         {4, 8},
@@ -549,27 +567,16 @@ var (
     _pcsp__tb_write_default_or_empty = [][2]uint32{
         {1, 0},
         {4, 8},
-        {319, 16},
-        {320, 8},
-        {324, 0},
-        {363, 16},
-        {364, 8},
-        {365, 0},
-        {464, 16},
-        {465, 8},
-        {466, 0},
-        {482, 16},
-        {483, 8},
-        {484, 0},
-        {588, 16},
-        {589, 8},
-        {590, 0},
-        {607, 16},
-        {608, 8},
-        {609, 0},
-        {930, 16},
-        {931, 8},
-        {936, 0},
+        {69, 16},
+        {70, 8},
+        {71, 0},
+        {193, 16},
+        {194, 8},
+        {198, 0},
+        {271, 16},
+        {272, 8},
+        {276, 0},
+        {613, 16},
     }
     _pcsp__j2t_write_unset_fields = [][2]uint32{
         {1, 0},
@@ -579,15 +586,15 @@ var (
         {10, 32},
         {12, 40},
         {13, 48},
-        {571, 104},
-        {575, 48},
-        {576, 40},
-        {578, 32},
-        {580, 24},
-        {582, 16},
-        {584, 8},
-        {585, 0},
-        {652, 104},
+        {1143, 104},
+        {1147, 48},
+        {1148, 40},
+        {1150, 32},
+        {1152, 24},
+        {1154, 16},
+        {1156, 8},
+        {1160, 0},
+        {1247, 104},
     }
     _pcsp__j2t_key = [][2]uint32{
         {1, 0},
@@ -702,6 +709,7 @@ var Funcs = []loader.CFunc{
     {"_decimal_to_f64", _entry__decimal_to_f64, _size__decimal_to_f64, _stack__decimal_to_f64, _pcsp__decimal_to_f64},
     {"_left_shift", _entry__left_shift, _size__left_shift, _stack__left_shift, _pcsp__left_shift},
     {"_right_shift", _entry__right_shift, _size__right_shift, _stack__right_shift, _pcsp__right_shift},
+    {"_tb_write_empty", _entry__tb_write_empty, _size__tb_write_empty, _stack__tb_write_empty, _pcsp__tb_write_empty},
     {"_j2t_string", _entry__j2t_string, _size__j2t_string, _stack__j2t_string, _pcsp__j2t_string},
     {"_unquote", _entry__unquote, _size__unquote, _stack__unquote, _pcsp__unquote},
     {"_unhex16_is", _entry__unhex16_is, _size__unhex16_is, _stack__unhex16_is, _pcsp__unhex16_is},

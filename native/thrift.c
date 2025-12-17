@@ -168,18 +168,8 @@ uint64_t tb_write_list_n(GoSlice *buf, ttype elem, int32_t size)
     return 0;
 }
 
-uint64_t tb_write_default_or_empty(GoSlice *buf, const tFieldDesc *field, long p)
+uint64_t tb_write_empty(GoSlice *buf, const tTypeDesc *desc, long p)
 {
-    if (field->default_value != NULL)
-    {
-        xprintf("[tb_write_default_or_empty] json_val: %s\n", &field->default_value->json_val);
-        size_t n = field->default_value->thrift_binary.len;
-        size_t l = buf->len;
-        J2T_ZERO(buf_malloc(buf, n));
-        memcpy2(&buf->buf[l], field->default_value->thrift_binary.buf, n);
-        return 0;
-    }
-    tTypeDesc *desc = field->type;
     switch (desc->type)
     {
     case TTYPE_BOOL:
@@ -210,6 +200,20 @@ uint64_t tb_write_default_or_empty(GoSlice *buf, const tFieldDesc *field, long p
     default:
         WRAP_ERR_POS(ERR_UNSUPPORT_THRIFT_TYPE, desc->type, p);
     }
+}
+
+uint64_t tb_write_default_or_empty(GoSlice *buf, const tFieldDesc *field, long p)
+{
+    if (field->default_value != NULL)
+    {
+        xprintf("[tb_write_default_or_empty] json_val: %s\n", &field->default_value->json_val);
+        size_t n = field->default_value->thrift_binary.len;
+        size_t l = buf->len;
+        J2T_ZERO(buf_malloc(buf, n));
+        memcpy2(&buf->buf[l], field->default_value->thrift_binary.buf, n);
+        return 0;
+    }
+    return tb_write_empty(buf, field->type, p);
 }
 
 uint64_t tb_write_message_begin(GoSlice *buf, const GoString name, int32_t type, int32_t seq)
@@ -1143,16 +1147,24 @@ uint64_t j2t_fsm_exec(J2TStateMachine *self, GoSlice *buf, const GoString *src, 
             }
             else if ((flag & F_ENABLE_I2S) != 0 && (dc->type == TTYPE_I64 || dc->type == TTYPE_I32 || dc->type == TTYPE_I16 || dc->type == TTYPE_BYTE || dc->type == TTYPE_DOUBLE))
             {
-                J2T_STORE_NEXT(j2t_number(buf, dc, src, p, &self->jt));
-                long x = *p;
-                if (x >= src->len)
+                if (src->buf[*p] == '"')
                 {
-                    WRAP_ERR(ERR_EOF, J2T_VAL);
+                    // write empty value for empty string
+                    J2T_STORE_NEXT(tb_write_empty(buf, dc, *p));
                 }
-                // must end with a comma
-                if (src->buf[x] != '"')
+                else
                 {
-                    WRAP_ERR2(ERR_INVAL, src->buf[x], J2T_VAL);
+                    J2T_STORE_NEXT(j2t_number(buf, dc, src, p, &self->jt));
+                    long x = *p;
+                    if (x >= src->len)
+                    {
+                        WRAP_ERR(ERR_EOF, J2T_VAL);
+                    }
+                    // must end with a comma
+                    if (src->buf[x] != '"')
+                    {
+                        WRAP_ERR2(ERR_INVAL, src->buf[x], J2T_VAL);
+                    }
                 }
                 *p += 1;
             }

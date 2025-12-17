@@ -672,11 +672,9 @@ func TestThriftRequestBase(t *testing.T) {
 
 func TestString2Int(t *testing.T) {
 	desc := getExampleInt2FloatDesc()
-	cv := NewBinaryConv(conv.Options{
-		String2Int64: true,
-	})
+	cv := NewBinaryConv(conv.Options{})
 	t.Run("converting", func(t *testing.T) {
-		data := []byte(`{"Int32":"", "Float64":"1.1", "中文": 123.3}`)
+		data := []byte(`{"Int32":"222", "Float64":"1.1", "中文": 123.3}`)
 		cv.SetOptions(conv.Options{
 			EnableValueMapping: true,
 		})
@@ -684,7 +682,7 @@ func TestString2Int(t *testing.T) {
 		out, err := cv.Do(ctx, desc, data)
 		require.Nil(t, err)
 		exp := example3.NewExampleInt2Float()
-		exp.Int32 = 0
+		exp.Int32 = 222
 		exp.Float64 = 1.1
 		exp.String_ = "123.3"
 		act := example3.NewExampleInt2Float()
@@ -712,7 +710,7 @@ func TestString2Int(t *testing.T) {
 	})
 
 	t.Run("option Int64AsString", func(t *testing.T) {
-		data := []byte(`{"Int32":"222","Int64":"333", "Float64":"1.1"}`)
+		data := []byte(`{"Int32":"","Int64":"333", "Float64":"1.1"}`)
 		cv.SetOptions(conv.Options{
 			String2Int64: true,
 		})
@@ -721,7 +719,7 @@ func TestString2Int(t *testing.T) {
 		require.Nil(t, err)
 		exp := example3.NewExampleInt2Float()
 		exp.Int64 = 333
-		exp.Int32 = 222
+		exp.Int32 = 0
 		exp.Float64 = 1.1
 		act := example3.NewExampleInt2Float()
 		_, err = act.FastRead(out)
