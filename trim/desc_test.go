@@ -27,14 +27,14 @@ func TestDescriptorMarshalJSON(t *testing.T) {
 	// Create a simple descriptor without circular reference
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "Root",
+		Type: "Root",
 		Children: []Field{
 			{
 				Name: "field1",
 				ID:   1,
 				Desc: &Descriptor{
 					Kind: TypeKind_Leaf,
-					Name: "Leaf1",
+					Type: "Leaf1",
 				},
 			},
 			{
@@ -42,14 +42,14 @@ func TestDescriptorMarshalJSON(t *testing.T) {
 				ID:   2,
 				Desc: &Descriptor{
 					Kind: TypeKind_StrMap,
-					Name: "Map1",
+					Type: "Map1",
 					Children: []Field{
 						{
 							Name: "key1",
 							ID:   0,
 							Desc: &Descriptor{
 								Kind: TypeKind_Leaf,
-								Name: "Leaf2",
+								Type: "Leaf2",
 							},
 						},
 					},
@@ -70,24 +70,24 @@ func TestDescriptorMarshalJSON(t *testing.T) {
 
 	// Verify structure
 	require.Equal(t, desc.Kind, desc2.Kind)
-	require.Equal(t, desc.Name, desc2.Name)
+	require.Equal(t, desc.Type, desc2.Type)
 	require.Len(t, desc2.Children, 2)
 	require.Equal(t, desc.Children[0].Name, desc2.Children[0].Name)
 	require.Equal(t, desc.Children[0].ID, desc2.Children[0].ID)
 	require.NotNil(t, desc2.Children[0].Desc)
-	require.Equal(t, desc.Children[0].Desc.Name, desc2.Children[0].Desc.Name)
+	require.Equal(t, desc.Children[0].Desc.Type, desc2.Children[0].Desc.Type)
 }
 
 func TestDescriptorMarshalJSONWithCircularReference(t *testing.T) {
 	// Create a descriptor with circular reference
 	root := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "Root",
+		Type: "Root",
 	}
 
 	child := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "Child",
+		Type: "Child",
 	}
 
 	// Root -> Child -> Root (circular reference)
@@ -119,10 +119,10 @@ func TestDescriptorMarshalJSONWithCircularReference(t *testing.T) {
 
 	// Verify structure
 	require.Equal(t, root.Kind, root2.Kind)
-	require.Equal(t, root.Name, root2.Name)
+	require.Equal(t, root.Type, root2.Type)
 	require.Len(t, root2.Children, 1)
 	require.NotNil(t, root2.Children[0].Desc)
-	require.Equal(t, "Child", root2.Children[0].Desc.Name)
+	require.Equal(t, "Child", root2.Children[0].Desc.Type)
 
 	// Verify circular reference is resolved
 	require.NotNil(t, root2.Children[0].Desc.Children)
@@ -136,7 +136,7 @@ func TestDescriptorMarshalJSONSelfReference(t *testing.T) {
 	// Create a descriptor that references itself
 	self := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "Self",
+		Type: "Self",
 	}
 
 	self.Children = []Field{
@@ -165,7 +165,7 @@ func TestDescriptorMarshalJSONNil(t *testing.T) {
 	// Descriptor with nil child
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "Root",
+		Type: "Root",
 		Children: []Field{
 			{
 				Name: "field1",
@@ -190,12 +190,12 @@ func TestDescriptorMarshalJSONMultipleReferences(t *testing.T) {
 	// Create a shared descriptor referenced by multiple fields
 	shared := &Descriptor{
 		Kind: TypeKind_Leaf,
-		Name: "Shared",
+		Type: "Shared",
 	}
 
 	root := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "Root",
+		Type: "Root",
 		Children: []Field{
 			{
 				Name: "ref1",

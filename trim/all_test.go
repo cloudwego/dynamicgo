@@ -107,7 +107,7 @@ func TestFetchAndAssign_UnknownToUnrecognized(t *testing.T) {
 	// Note: these descriptor IDs are Thrift IDs, NOT protobuf IDs!
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "TestStruct",
+		Type: "TestStruct",
 		Children: []Field{
 			{Name: "field_a", ID: 1}, // Thrift ID 1
 			{Name: "field_b", ID: 2}, // Thrift ID 2 -> will become protobuf field 20
@@ -133,7 +133,7 @@ func TestFetchAndAssign_UnknownToUnrecognized(t *testing.T) {
 	// The key point: descriptor.ID here represents the TARGET protobuf field ID
 	assignDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "TestStruct",
+		Type: "TestStruct",
 		Children: []Field{
 			{Name: "field_a", ID: 10}, // Protobuf ID 10
 			{Name: "field_b", ID: 20}, // Protobuf ID 20 -> will go to XXX_unrecognized
@@ -201,7 +201,7 @@ func TestFetchAndAssign_UnknownToKnown(t *testing.T) {
 	// Descriptor for fetching (Thrift IDs)
 	fetchDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "TestStruct",
+		Type: "TestStruct",
 		Children: []Field{
 			{Name: "field_a", ID: 1}, // Thrift ID 1
 			{Name: "field_b", ID: 2}, // Thrift ID 2, in _unknownFields
@@ -223,7 +223,7 @@ func TestFetchAndAssign_UnknownToKnown(t *testing.T) {
 	// Descriptor for assigning (Protobuf IDs)
 	assignDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "TestStruct",
+		Type: "TestStruct",
 		Children: []Field{
 			{Name: "field_a", ID: 10}, // Protobuf ID 10
 			{Name: "field_b", ID: 20}, // Protobuf ID 20, is a known field in dest
@@ -263,7 +263,7 @@ func TestFetchAndAssign_KnownToUnrecognized(t *testing.T) {
 	// Descriptor for fetching (Thrift IDs)
 	fetchDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "TestStruct",
+		Type: "TestStruct",
 		Children: []Field{
 			{Name: "field_a", ID: 1}, // Thrift ID 1
 			{Name: "field_b", ID: 2}, // Thrift ID 2
@@ -289,7 +289,7 @@ func TestFetchAndAssign_KnownToUnrecognized(t *testing.T) {
 	// Note: IDs here are protobuf field IDs, different from thrift IDs!
 	assignDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "TestStruct",
+		Type: "TestStruct",
 		Children: []Field{
 			{Name: "field_a", ID: 10}, // Protobuf ID 10, is a known field in dest
 			{Name: "field_b", ID: 20}, // Protobuf ID 20, NOT in dest -> XXX_unrecognized
@@ -375,7 +375,7 @@ func TestFetchAndAssign_MixedScenario(t *testing.T) {
 	// Fetch descriptor (Thrift IDs)
 	fetchDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "MixedStruct",
+		Type: "MixedStruct",
 		Children: []Field{
 			{Name: "field_a", ID: 1}, // known in thrift
 			{Name: "field_b", ID: 2}, // in thrift _unknownFields
@@ -398,7 +398,7 @@ func TestFetchAndAssign_MixedScenario(t *testing.T) {
 	// Assign descriptor (Protobuf IDs)
 	assignDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "MixedStruct",
+		Type: "MixedStruct",
 		Children: []Field{
 			{Name: "field_a", ID: 10}, // known in pb
 			{Name: "field_b", ID: 20}, // known in pb (from thrift _unknownFields)
@@ -487,7 +487,7 @@ func TestFetchAndAssign_NestedStructWithUnknownFields(t *testing.T) {
 	// Fetch descriptor
 	fetchDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "Outer",
+		Type: "Outer",
 		Children: []Field{
 			{Name: "id", ID: 1},
 			{
@@ -495,7 +495,7 @@ func TestFetchAndAssign_NestedStructWithUnknownFields(t *testing.T) {
 				ID:   2,
 				Desc: &Descriptor{
 					Kind: TypeKind_Struct,
-					Name: "Inner",
+					Type: "Inner",
 					Children: []Field{
 						{Name: "name", ID: 1},
 						{Name: "value", ID: 2},
@@ -521,7 +521,7 @@ func TestFetchAndAssign_NestedStructWithUnknownFields(t *testing.T) {
 	// Assign descriptor (Protobuf IDs)
 	assignDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "Outer",
+		Type: "Outer",
 		Children: []Field{
 			{Name: "id", ID: 10},
 			{
@@ -529,7 +529,7 @@ func TestFetchAndAssign_NestedStructWithUnknownFields(t *testing.T) {
 				ID:   20,
 				Desc: &Descriptor{
 					Kind: TypeKind_Struct,
-					Name: "Inner",
+					Type: "Inner",
 					Children: []Field{
 						{Name: "name", ID: 1},
 						{Name: "value", ID: 2},
@@ -564,7 +564,7 @@ func TestFetchAndAssign_ShallowDescriptor(t *testing.T) {
 	// Create a shallow descriptor (depth=1) - no nested Desc for Children
 	shallowDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleFetch",
+		Type: "SampleFetch",
 		Children: []Field{
 			{Name: "field_a", ID: 1}, // scalar field, no Desc needed
 			{Name: "field_e", ID: 5}, // scalar field, no Desc needed
@@ -642,7 +642,7 @@ func TestFetchAndAssign_MissingFieldsInDescriptor(t *testing.T) {
 	// Descriptor only includes field_a, field_c, field_e (missing field_b, field_d)
 	partialDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "PartialStruct",
+		Type: "PartialStruct",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{Name: "field_c", ID: 3},
@@ -728,7 +728,7 @@ func TestFetchAndAssign_NestedMissingFields(t *testing.T) {
 	// Also missing outer.tag
 	partialDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "Outer",
+		Type: "Outer",
 		Children: []Field{
 			{Name: "id", ID: 1},
 			{
@@ -736,7 +736,7 @@ func TestFetchAndAssign_NestedMissingFields(t *testing.T) {
 				ID:   2,
 				Desc: &Descriptor{
 					Kind: TypeKind_Struct,
-					Name: "Inner",
+					Type: "Inner",
 					Children: []Field{
 						{Name: "name", ID: 1}, // only fetch name, not value or extra
 					},
@@ -823,7 +823,7 @@ func TestFetchAndAssign_DescShallowerThanNestedList(t *testing.T) {
 	// Shallow descriptor - no Desc for items, so items are fetched as-is
 	shallowDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "Container",
+		Type: "Container",
 		Children: []Field{
 			{Name: "items", ID: 1}, // No Desc, so list is fetched as raw value
 		},
@@ -887,14 +887,14 @@ func TestFetchAndAssign_DescShallowerThanNestedMap(t *testing.T) {
 	// Shallow descriptor - no Desc for map values
 	shallowDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "Container",
+		Type: "Container",
 		Children: []Field{
 			{
 				Name: "data",
 				ID:   1,
 				Desc: &Descriptor{
 					Kind: TypeKind_StrMap,
-					Name: "DataMap",
+					Type: "DataMap",
 					Children: []Field{
 						{Name: "*"}, // Wildcard, but no Desc for values -> fetch as raw
 					},
@@ -953,14 +953,14 @@ func TestFetchAndAssign_PartialMapKeys(t *testing.T) {
 	// Descriptor only specifies key1 and key3 (not key2, key4)
 	partialDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "Container",
+		Type: "Container",
 		Children: []Field{
 			{
 				Name: "data",
 				ID:   1,
 				Desc: &Descriptor{
 					Kind: TypeKind_StrMap,
-					Name: "DataMap",
+					Type: "DataMap",
 					Children: []Field{
 						{Name: "key1"},
 						{Name: "key3"},
@@ -1026,7 +1026,7 @@ func TestFetchAndAssign_EmptyDescriptor(t *testing.T) {
 	// Empty descriptor - no children
 	emptyDesc := &Descriptor{
 		Kind:     TypeKind_Struct,
-		Name:     "EmptyStruct",
+		Type:     "EmptyStruct",
 		Children: []Field{},
 	}
 
@@ -1059,7 +1059,7 @@ func TestFetchAndAssign_EmptyDescriptor(t *testing.T) {
 func TestDescriptor_String_Scalar(t *testing.T) {
 	desc := &Descriptor{
 		Kind: TypeKind_Leaf,
-		Name: "ScalarType",
+		Type: "ScalarType",
 	}
 
 	result := desc.String()
@@ -1070,7 +1070,7 @@ func TestDescriptor_String_Scalar(t *testing.T) {
 func TestDescriptor_String_EmptyStruct(t *testing.T) {
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "EmptyStruct",
+		Type: "EmptyStruct",
 	}
 
 	result := desc.String()
@@ -1081,7 +1081,7 @@ func TestDescriptor_String_EmptyStruct(t *testing.T) {
 func TestDescriptor_String_SimpleStruct(t *testing.T) {
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SimpleStruct",
+		Type: "SimpleStruct",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{Name: "field_b", ID: 2},
@@ -1100,7 +1100,7 @@ func TestDescriptor_String_SimpleStruct(t *testing.T) {
 func TestDescriptor_String_NestedStruct(t *testing.T) {
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "OuterStruct",
+		Type: "OuterStruct",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{
@@ -1108,7 +1108,7 @@ func TestDescriptor_String_NestedStruct(t *testing.T) {
 				ID:   2,
 				Desc: &Descriptor{
 					Kind: TypeKind_Struct,
-					Name: "InnerStruct",
+					Type: "InnerStruct",
 					Children: []Field{
 						{Name: "name", ID: 1},
 						{Name: "value", ID: 2},
@@ -1133,7 +1133,7 @@ func TestDescriptor_String_NestedStruct(t *testing.T) {
 func TestDescriptor_String_MapWithWildcard(t *testing.T) {
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "ContainerStruct",
+		Type: "ContainerStruct",
 		Children: []Field{
 			{Name: "id", ID: 1},
 			{
@@ -1141,13 +1141,13 @@ func TestDescriptor_String_MapWithWildcard(t *testing.T) {
 				ID:   2,
 				Desc: &Descriptor{
 					Kind: TypeKind_StrMap,
-					Name: "DataMap",
+					Type: "DataMap",
 					Children: []Field{
 						{
 							Name: "*",
 							Desc: &Descriptor{
 								Kind: TypeKind_Struct,
-								Name: "ItemStruct",
+								Type: "ItemStruct",
 								Children: []Field{
 									{Name: "name", ID: 1},
 								},
@@ -1175,7 +1175,7 @@ func TestDescriptor_String_MapWithWildcard(t *testing.T) {
 func TestDescriptor_String_MapWithSpecificKeys(t *testing.T) {
 	desc := &Descriptor{
 		Kind: TypeKind_StrMap,
-		Name: "SpecificKeyMap",
+		Type: "SpecificKeyMap",
 		Children: []Field{
 			{Name: "key1"},
 			{Name: "key2"},
@@ -1183,7 +1183,7 @@ func TestDescriptor_String_MapWithSpecificKeys(t *testing.T) {
 				Name: "key3",
 				Desc: &Descriptor{
 					Kind: TypeKind_Struct,
-					Name: "NestedType",
+					Type: "NestedType",
 					Children: []Field{
 						{Name: "value", ID: 1},
 					},
@@ -1207,21 +1207,21 @@ func TestDescriptor_String_MapWithSpecificKeys(t *testing.T) {
 func TestDescriptor_String_DeeplyNested(t *testing.T) {
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "Level1",
+		Type: "Level1",
 		Children: []Field{
 			{
 				Name: "level2",
 				ID:   1,
 				Desc: &Descriptor{
 					Kind: TypeKind_Struct,
-					Name: "Level2",
+					Type: "Level2",
 					Children: []Field{
 						{
 							Name: "level3",
 							ID:   1,
 							Desc: &Descriptor{
 								Kind: TypeKind_Struct,
-								Name: "Level3",
+								Type: "Level3",
 								Children: []Field{
 									{Name: "value", ID: 1},
 								},
@@ -1249,7 +1249,7 @@ func TestDescriptor_String_CircularReference(t *testing.T) {
 	// Create a descriptor that references itself
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SelfRef",
+		Type: "SelfRef",
 		Children: []Field{
 			{Name: "value", ID: 1},
 		},
@@ -1273,7 +1273,7 @@ func TestDescriptor_String_CircularReference(t *testing.T) {
 func TestDescriptor_String_MixedTypes(t *testing.T) {
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "MixedStruct",
+		Type: "MixedStruct",
 		Children: []Field{
 			{Name: "scalar_field", ID: 1},
 			{
@@ -1281,7 +1281,7 @@ func TestDescriptor_String_MixedTypes(t *testing.T) {
 				ID:   2,
 				Desc: &Descriptor{
 					Kind: TypeKind_Struct,
-					Name: "NestedStruct",
+					Type: "NestedStruct",
 					Children: []Field{
 						{Name: "a", ID: 1},
 					},
@@ -1292,7 +1292,7 @@ func TestDescriptor_String_MixedTypes(t *testing.T) {
 				ID:   3,
 				Desc: &Descriptor{
 					Kind: TypeKind_StrMap,
-					Name: "NestedMap",
+					Type: "NestedMap",
 					Children: []Field{
 						{Name: "*"},
 					},
@@ -1303,7 +1303,7 @@ func TestDescriptor_String_MixedTypes(t *testing.T) {
 				ID:   4,
 				Desc: &Descriptor{
 					Kind: TypeKind_Leaf,
-					Name: "ScalarType",
+					Type: "ScalarType",
 				},
 			},
 		},

@@ -92,7 +92,7 @@ func TestAssignAny_Basic(t *testing.T) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
+		Type: "SampleAssign",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{Name: "field_e", ID: 5},
@@ -124,7 +124,7 @@ func TestAssignAny_NestedStruct(t *testing.T) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
+		Type: "SampleAssign",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{
@@ -132,7 +132,7 @@ func TestAssignAny_NestedStruct(t *testing.T) {
 				ID:   4,
 				Desc: &Descriptor{
 					Kind: TypeKind_Struct,
-					Name: "SampleAssign",
+					Type: "SampleAssign",
 					Children: []Field{
 						{Name: "field_a", ID: 1},
 						{Name: "field_e", ID: 5},
@@ -169,14 +169,14 @@ func TestAssignAny_List(t *testing.T) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
+		Type: "SampleAssign",
 		Children: []Field{
 			{
 				Name: "field_list",
 				ID:   6,
 				Desc: &Descriptor{
 					Kind: TypeKind_Leaf,
-					Name: "LIST",
+					Type: "LIST",
 				},
 			},
 		},
@@ -204,14 +204,14 @@ func TestAssignAny_Map(t *testing.T) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
+		Type: "SampleAssign",
 		Children: []Field{
 			{
 				Name: "field_map",
 				ID:   7,
 				Desc: &Descriptor{
 					Kind: TypeKind_StrMap,
-					Name: "MAP",
+					Type: "MAP",
 					Children: []Field{
 						{Name: "*"},
 					},
@@ -245,7 +245,7 @@ func TestAssignAny_UnknownFields(t *testing.T) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleAssignSmall",
+		Type: "SampleAssignSmall",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{Name: "field_e", ID: 5},
@@ -387,7 +387,7 @@ func TestEncodeUnknownField_NestedStruct(t *testing.T) {
 	// Create descriptor for the struct with nested struct field
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleNestedUnknown",
+		Type: "SampleNestedUnknown",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{
@@ -395,7 +395,7 @@ func TestEncodeUnknownField_NestedStruct(t *testing.T) {
 				ID:   2,
 				Desc: &Descriptor{
 					Kind: TypeKind_Struct,
-					Name: "NestedStruct",
+					Type: "NestedStruct",
 					Children: []Field{
 						{Name: "inner_field1", ID: 1},
 						{Name: "inner_field2", ID: 2},
@@ -528,7 +528,7 @@ func TestEncodeUnknownField_NestedList(t *testing.T) {
 	// Create descriptor for the struct with nested list field
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleNestedUnknown",
+		Type: "SampleNestedUnknown",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{
@@ -536,14 +536,14 @@ func TestEncodeUnknownField_NestedList(t *testing.T) {
 				ID:   3,
 				Desc: &Descriptor{
 					Kind: TypeKind_List,
-					Name: "NestedList",
+					Type: "NestedList",
 					Children: []Field{
 						{
 							Name: "*",
 							ID:   0,
 							Desc: &Descriptor{
 								Kind: TypeKind_Struct,
-								Name: "ListItem",
+								Type: "ListItem",
 								Children: []Field{
 									{Name: "item_field", ID: 1},
 								},
@@ -673,7 +673,7 @@ func TestEncodeUnknownField_NestedMap(t *testing.T) {
 	// Create descriptor for the struct with nested map field
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleNestedUnknown",
+		Type: "SampleNestedUnknown",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{
@@ -681,14 +681,14 @@ func TestEncodeUnknownField_NestedMap(t *testing.T) {
 				ID:   4,
 				Desc: &Descriptor{
 					Kind: TypeKind_StrMap,
-					Name: "NestedMap",
+					Type: "NestedMap",
 					Children: []Field{
 						{
 							Name: "*",
 							ID:   0,
 							Desc: &Descriptor{
 								Kind: TypeKind_Struct,
-								Name: "MapValue",
+								Type: "MapValue",
 								Children: []Field{
 									{Name: "value_field", ID: 1},
 								},
@@ -849,7 +849,7 @@ func TestAssignAny_NoUnkeyedLiteral(t *testing.T) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleAssignSmall",
+		Type: "SampleAssignSmall",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{Name: "field_e", ID: 5},
@@ -939,14 +939,14 @@ func TestAssignAny_ListOfStructs(t *testing.T) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
+		Type: "SampleAssign",
 		Children: []Field{
 			{
 				Name: "field_b",
 				ID:   2,
 				Desc: &Descriptor{
 					Kind: TypeKind_Leaf,
-					Name: "LIST",
+					Type: "LIST",
 				},
 			},
 		},
@@ -992,7 +992,7 @@ func TestAssignAny_MapOfStructs(t *testing.T) {
 
 	nestedDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
+		Type: "SampleAssign",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{Name: "field_e", ID: 5},
@@ -1001,14 +1001,14 @@ func TestAssignAny_MapOfStructs(t *testing.T) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
+		Type: "SampleAssign",
 		Children: []Field{
 			{
 				Name: "field_c",
 				ID:   3,
 				Desc: &Descriptor{
 					Kind: TypeKind_StrMap,
-					Name: "MAP",
+					Type: "MAP",
 					Children: []Field{
 						{Name: "*", Desc: nestedDesc},
 					},
@@ -1048,14 +1048,14 @@ func TestAssignAny_ListWithSpecificIndices(t *testing.T) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleAssign",
+			Type: "SampleAssign",
 			Children: []Field{
 				{
 					Name: "field_list",
 					ID:   6,
 					Desc: &Descriptor{
 						Kind: TypeKind_List,
-						Name: "LIST",
+						Type: "LIST",
 						Children: []Field{
 							{Name: "*"}, // wildcard - all elements
 						},
@@ -1086,14 +1086,14 @@ func TestAssignAny_ListWithSpecificIndices(t *testing.T) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleAssign",
+			Type: "SampleAssign",
 			Children: []Field{
 				{
 					Name: "field_list",
 					ID:   6,
 					Desc: &Descriptor{
 						Kind: TypeKind_List,
-						Name: "LIST",
+						Type: "LIST",
 						Children: []Field{
 							{Name: "0", ID: 0}, // src[0] -> dest[0]
 							{Name: "2", ID: 2}, // src[1] -> dest[2]
@@ -1144,14 +1144,14 @@ func TestAssignAny_ListWithSpecificIndices(t *testing.T) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleAssign",
+			Type: "SampleAssign",
 			Children: []Field{
 				{
 					Name: "field_list",
 					ID:   6,
 					Desc: &Descriptor{
 						Kind: TypeKind_List,
-						Name: "LIST",
+						Type: "LIST",
 						Children: []Field{
 							{Name: "0", ID: 0},   // src[0] -> dest[0]
 							{Name: "1", ID: 1},   // src[1] -> dest[1]
@@ -1201,14 +1201,14 @@ func TestAssignAny_ListWithSpecificIndices(t *testing.T) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleAssign",
+			Type: "SampleAssign",
 			Children: []Field{
 				{
 					Name: "field_list",
 					ID:   6,
 					Desc: &Descriptor{
 						Kind: TypeKind_List,
-						Name: "LIST",
+						Type: "LIST",
 						Children: []Field{
 							{Name: "0", ID: 0}, // src[0] -> dest[0]
 							{Name: "1", ID: 1}, // src[1] -> dest[1]
@@ -1230,8 +1230,8 @@ func TestAssignAny_ListWithSpecificIndices(t *testing.T) {
 		if !ok {
 			t.Fatalf("expected ErrNotFound, got %T: %v", err, err)
 		}
-		if notFoundErr.Parent.Name != "LIST" {
-			t.Errorf("expected parent name 'LIST', got '%s'", notFoundErr.Parent.Name)
+		if notFoundErr.Parent.Type != "LIST" {
+			t.Errorf("expected parent name 'LIST', got '%s'", notFoundErr.Parent.Type)
 		}
 	})
 
@@ -1256,20 +1256,20 @@ func TestAssignAny_ListWithSpecificIndices(t *testing.T) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleAssign",
+			Type: "SampleAssign",
 			Children: []Field{
 				{
 					Name: "field_b",
 					ID:   2,
 					Desc: &Descriptor{
 						Kind: TypeKind_List,
-						Name: "LIST",
+						Type: "LIST",
 						Children: []Field{
 							{
 								Name: "*",
 								Desc: &Descriptor{
 									Kind: TypeKind_Struct,
-									Name: "SampleAssign",
+									Type: "SampleAssign",
 									Children: []Field{
 										{Name: "field_a", ID: 1},
 										{Name: "field_e", ID: 5},
@@ -1325,21 +1325,21 @@ func TestAssignAny_ListWithSpecificIndices(t *testing.T) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleAssign",
+			Type: "SampleAssign",
 			Children: []Field{
 				{
 					Name: "field_b",
 					ID:   2,
 					Desc: &Descriptor{
 						Kind: TypeKind_List,
-						Name: "LIST",
+						Type: "LIST",
 						Children: []Field{
 							{
 								Name: "0",
 								ID:   0, // src[0] -> dest[0]
 								Desc: &Descriptor{
 									Kind: TypeKind_Struct,
-									Name: "SampleAssign",
+									Type: "SampleAssign",
 									Children: []Field{
 										{Name: "field_a", ID: 1},
 										{Name: "field_e", ID: 5},
@@ -1351,7 +1351,7 @@ func TestAssignAny_ListWithSpecificIndices(t *testing.T) {
 								ID:   2, // src[1] -> dest[2]
 								Desc: &Descriptor{
 									Kind: TypeKind_Struct,
-									Name: "SampleAssign",
+									Type: "SampleAssign",
 									Children: []Field{
 										{Name: "field_a", ID: 1},
 										{Name: "field_e", ID: 5},
@@ -1421,21 +1421,21 @@ func TestAssignAny_ListWithSpecificIndices(t *testing.T) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleAssign",
+			Type: "SampleAssign",
 			Children: []Field{
 				{
 					Name: "field_b",
 					ID:   2,
 					Desc: &Descriptor{
 						Kind: TypeKind_List,
-						Name: "LIST",
+						Type: "LIST",
 						Children: []Field{
 							{
 								Name: "1",
 								ID:   1, // src[0] -> dest[1]
 								Desc: &Descriptor{
 									Kind: TypeKind_Struct,
-									Name: "SampleAssign",
+									Type: "SampleAssign",
 									Children: []Field{
 										{Name: "field_a", ID: 1},
 										{Name: "field_e", ID: 5},
@@ -1447,7 +1447,7 @@ func TestAssignAny_ListWithSpecificIndices(t *testing.T) {
 								ID:   3, // src[1] -> dest[3]
 								Desc: &Descriptor{
 									Kind: TypeKind_Struct,
-									Name: "SampleAssign",
+									Type: "SampleAssign",
 									Children: []Field{
 										{Name: "field_a", ID: 1},
 										{Name: "field_e", ID: 5},
@@ -1537,21 +1537,21 @@ func TestAssignAny_ListWithSpecificIndices(t *testing.T) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleAssign",
+			Type: "SampleAssign",
 			Children: []Field{
 				{
 					Name: "field_b",
 					ID:   2,
 					Desc: &Descriptor{
 						Kind: TypeKind_List,
-						Name: "LIST",
+						Type: "LIST",
 						Children: []Field{
 							{
 								Name: "5",
 								ID:   5, // src[0] -> dest[5]
 								Desc: &Descriptor{
 									Kind: TypeKind_Struct,
-									Name: "SampleAssign",
+									Type: "SampleAssign",
 									Children: []Field{
 										{Name: "field_a", ID: 1},
 									},
@@ -1616,20 +1616,20 @@ func TestAssignAny_ListWithSpecificIndices(t *testing.T) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleAssign",
+			Type: "SampleAssign",
 			Children: []Field{
 				{
 					Name: "field_b",
 					ID:   2,
 					Desc: &Descriptor{
 						Kind: TypeKind_List,
-						Name: "LIST",
+						Type: "LIST",
 						Children: []Field{
 							{
 								Name: "*",
 								Desc: &Descriptor{
 									Kind: TypeKind_Struct,
-									Name: "SampleAssign",
+									Type: "SampleAssign",
 									Children: []Field{
 										{Name: "field_a", ID: 1},
 									},
@@ -1676,7 +1676,7 @@ func TestAssignAny_NilValues(t *testing.T) {
 		t.Errorf("expected nil error for nil inputs, got %v", err)
 	}
 
-	desc := &Descriptor{Kind: TypeKind_Struct, Name: "Test"}
+	desc := &Descriptor{Kind: TypeKind_Struct, Type: "Test"}
 	dest := &sampleAssign{}
 
 	err = assignAny(desc, nil, dest)
@@ -1693,7 +1693,7 @@ func TestAssignAny_DisallowNotFound(t *testing.T) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
+		Type: "SampleAssign",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			// nonexistent is not in descriptor
@@ -1739,7 +1739,7 @@ type circularAssignTree struct {
 func makeCircularAssignDesc() *Descriptor {
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "CircularNode",
+		Type: "CircularNode",
 		Children: []Field{
 			{Name: "value", ID: 1},
 			{Name: "next", ID: 2},
@@ -1754,7 +1754,7 @@ func makeCircularAssignDesc() *Descriptor {
 func makeCircularAssignTreeDesc() *Descriptor {
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "CircularTree",
+		Type: "CircularTree",
 		Children: []Field{
 			{Name: "value", ID: 1},
 			{Name: "left", ID: 2},
@@ -1963,7 +1963,7 @@ type circularAssignMapNode struct {
 func makeCircularAssignMapDesc() *Descriptor {
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "CircularMapNode",
+		Type: "CircularMapNode",
 		Children: []Field{
 			{Name: "name", ID: 1},
 			{Name: "children", ID: 2},
@@ -1972,7 +1972,7 @@ func makeCircularAssignMapDesc() *Descriptor {
 	// Make children field circular: it's a map with values of the same type
 	desc.Children[1].Desc = &Descriptor{
 		Kind: TypeKind_StrMap,
-		Name: "ChildrenMap",
+		Type: "ChildrenMap",
 		Children: []Field{
 			{Name: "*", Desc: desc}, // Wildcard with circular reference
 		},
@@ -2075,7 +2075,7 @@ func TestAssignAny_CircularDescriptor_FetchThenAssign(t *testing.T) {
 	// Create circular descriptor for fetch
 	fetchDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "CircularNode",
+		Type: "CircularNode",
 		Children: []Field{
 			{Name: "value", ID: 1},
 			{Name: "next", ID: 2},
@@ -2092,7 +2092,7 @@ func TestAssignAny_CircularDescriptor_FetchThenAssign(t *testing.T) {
 	// Create circular descriptor for assign (with different IDs if needed)
 	assignDesc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "CircularNode",
+		Type: "CircularNode",
 		Children: []Field{
 			{Name: "value", ID: 1},
 			{Name: "next", ID: 2},
@@ -2137,7 +2137,7 @@ func TestAssignAny_PathTracking(t *testing.T) {
 			},
 			desc: &Descriptor{
 				Kind: TypeKind_Struct,
-				Name: "SampleAssign",
+				Type: "SampleAssign",
 				Children: []Field{
 					{Name: "field_a", ID: 1},
 				},
@@ -2153,14 +2153,14 @@ func TestAssignAny_PathTracking(t *testing.T) {
 			},
 			desc: &Descriptor{
 				Kind: TypeKind_Struct,
-				Name: "SampleAssign",
+				Type: "SampleAssign",
 				Children: []Field{
 					{
 						Name: "field_d",
 						ID:   4,
 						Desc: &Descriptor{
 							Kind: TypeKind_Struct,
-							Name: "SampleAssign",
+							Type: "SampleAssign",
 							Children: []Field{
 								{Name: "field_a", ID: 1},
 							},
@@ -2182,14 +2182,14 @@ func TestAssignAny_PathTracking(t *testing.T) {
 			},
 			desc: &Descriptor{
 				Kind: TypeKind_Struct,
-				Name: "SampleAssign",
+				Type: "SampleAssign",
 				Children: []Field{
 					{
 						Name: "field_d",
 						ID:   4,
 						Desc: &Descriptor{
 							Kind: TypeKind_Struct,
-							Name: "SampleAssign",
+							Type: "SampleAssign",
 							Children: []Field{
 								{Name: "field_a", ID: 1},
 								{
@@ -2197,7 +2197,7 @@ func TestAssignAny_PathTracking(t *testing.T) {
 									ID:   4,
 									Desc: &Descriptor{
 										Kind: TypeKind_Struct,
-										Name: "SampleAssign",
+										Type: "SampleAssign",
 										Children: []Field{
 											{Name: "field_a", ID: 1},
 										},
@@ -2221,20 +2221,20 @@ func TestAssignAny_PathTracking(t *testing.T) {
 			},
 			desc: &Descriptor{
 				Kind: TypeKind_Struct,
-				Name: "SampleAssign",
+				Type: "SampleAssign",
 				Children: []Field{
 					{
 						Name: "field_c",
 						ID:   3,
 						Desc: &Descriptor{
 							Kind: TypeKind_StrMap,
-							Name: "MAP",
+							Type: "MAP",
 							Children: []Field{
 								{
 									Name: "*",
 									Desc: &Descriptor{
 										Kind: TypeKind_Struct,
-										Name: "SampleAssign",
+										Type: "SampleAssign",
 										Children: []Field{
 											{Name: "field_a", ID: 1},
 										},
@@ -2277,7 +2277,7 @@ func TestAssignAny_PathTracking_TypeErrors(t *testing.T) {
 			src:  "not a map", // Should be map[string]interface{}
 			desc: &Descriptor{
 				Kind: TypeKind_Struct,
-				Name: "SampleAssign",
+				Type: "SampleAssign",
 				Children: []Field{
 					{Name: "field_a", ID: 1},
 				},
@@ -2291,14 +2291,14 @@ func TestAssignAny_PathTracking_TypeErrors(t *testing.T) {
 			},
 			desc: &Descriptor{
 				Kind: TypeKind_Struct,
-				Name: "SampleAssign",
+				Type: "SampleAssign",
 				Children: []Field{
 					{
 						Name: "field_d",
 						ID:   4,
 						Desc: &Descriptor{
 							Kind: TypeKind_Struct,
-							Name: "SampleAssign",
+							Type: "SampleAssign",
 							Children: []Field{
 								{Name: "field_a", ID: 1},
 							},
@@ -2317,20 +2317,20 @@ func TestAssignAny_PathTracking_TypeErrors(t *testing.T) {
 			},
 			desc: &Descriptor{
 				Kind: TypeKind_Struct,
-				Name: "SampleAssign",
+				Type: "SampleAssign",
 				Children: []Field{
 					{
 						Name: "field_c",
 						ID:   3,
 						Desc: &Descriptor{
 							Kind: TypeKind_StrMap,
-							Name: "MAP",
+							Type: "MAP",
 							Children: []Field{
 								{
 									Name: "*",
 									Desc: &Descriptor{
 										Kind: TypeKind_Struct,
-										Name: "SampleAssign",
+										Type: "SampleAssign",
 										Children: []Field{
 											{Name: "field_a", ID: 1},
 										},
@@ -2483,7 +2483,7 @@ func TestAssignAny_PathTracking_Integration(t *testing.T) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
+		Type: "SampleAssign",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{
@@ -2491,13 +2491,13 @@ func TestAssignAny_PathTracking_Integration(t *testing.T) {
 				ID:   3,
 				Desc: &Descriptor{
 					Kind: TypeKind_StrMap,
-					Name: "MAP",
+					Type: "MAP",
 					Children: []Field{
 						{
 							Name: "*",
 							Desc: &Descriptor{
 								Kind: TypeKind_Struct,
-								Name: "SampleAssign",
+								Type: "SampleAssign",
 								Children: []Field{
 									{Name: "field_a", ID: 1},
 									{
@@ -2505,7 +2505,7 @@ func TestAssignAny_PathTracking_Integration(t *testing.T) {
 										ID:   4,
 										Desc: &Descriptor{
 											Kind: TypeKind_Struct,
-											Name: "SampleAssign",
+											Type: "SampleAssign",
 											Children: []Field{
 												{Name: "field_a", ID: 1},
 											},
@@ -2566,7 +2566,7 @@ func BenchmarkAssignAny_NestedStruct(b *testing.B) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
+		Type: "SampleAssign",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{
@@ -2574,7 +2574,7 @@ func BenchmarkAssignAny_NestedStruct(b *testing.B) {
 				ID:   4,
 				Desc: &Descriptor{
 					Kind: TypeKind_Struct,
-					Name: "SampleAssign",
+					Type: "SampleAssign",
 					Children: []Field{
 						{Name: "field_a", ID: 1},
 						{
@@ -2582,7 +2582,7 @@ func BenchmarkAssignAny_NestedStruct(b *testing.B) {
 							ID:   4,
 							Desc: &Descriptor{
 								Kind: TypeKind_Struct,
-								Name: "SampleAssign",
+								Type: "SampleAssign",
 								Children: []Field{
 									{Name: "field_a", ID: 1},
 									{Name: "field_e", ID: 5},
@@ -2613,7 +2613,7 @@ func BenchmarkAssignAny_WithUnknownFields(b *testing.B) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleAssignSmall",
+		Type: "SampleAssignSmall",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{Name: "field_e", ID: 5},
@@ -2653,7 +2653,7 @@ func BenchmarkAssignAny_WithMap(b *testing.B) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
+		Type: "SampleAssign",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{
@@ -2661,13 +2661,13 @@ func BenchmarkAssignAny_WithMap(b *testing.B) {
 				ID:   3,
 				Desc: &Descriptor{
 					Kind: TypeKind_StrMap,
-					Name: "MAP",
+					Type: "MAP",
 					Children: []Field{
 						{
 							Name: "*",
 							Desc: &Descriptor{
 								Kind: TypeKind_Struct,
-								Name: "SampleAssign",
+								Type: "SampleAssign",
 								Children: []Field{
 									{Name: "field_a", ID: 1},
 									{Name: "field_e", ID: 5},
@@ -2699,7 +2699,7 @@ func BenchmarkAssignAny_ErrorPath(b *testing.B) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
+		Type: "SampleAssign",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{
@@ -2707,7 +2707,7 @@ func BenchmarkAssignAny_ErrorPath(b *testing.B) {
 				ID:   4,
 				Desc: &Descriptor{
 					Kind: TypeKind_Struct,
-					Name: "SampleAssign",
+					Type: "SampleAssign",
 					Children: []Field{
 						{Name: "field_a", ID: 1},
 					},
@@ -2795,7 +2795,7 @@ func BenchmarkPathTracking_Overhead(b *testing.B) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleAssign",
+		Type: "SampleAssign",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{Name: "field_e", ID: 5},
@@ -2804,13 +2804,13 @@ func BenchmarkPathTracking_Overhead(b *testing.B) {
 				ID:   3,
 				Desc: &Descriptor{
 					Kind: TypeKind_StrMap,
-					Name: "MAP",
+					Type: "MAP",
 					Children: []Field{
 						{
 							Name: "*",
 							Desc: &Descriptor{
 								Kind: TypeKind_Struct,
-								Name: "SampleAssign",
+								Type: "SampleAssign",
 								Children: []Field{
 									{Name: "field_a", ID: 1},
 								},
@@ -3917,7 +3917,7 @@ func TestAssignAny_Array(t *testing.T) {
 		// Assign 10 to index 0, 30 to index 2
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleAssignArray",
+			Type: "SampleAssignArray",
 			Children: []Field{
 				{
 					Name: "field_array",

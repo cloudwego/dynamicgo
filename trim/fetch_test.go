@@ -68,7 +68,7 @@ func makeDesc(width int, depth int, withE bool) *Descriptor {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleFetch",
+		Type: "SampleFetch",
 		Children: []Field{
 			{
 				Name: "field_a",
@@ -107,7 +107,7 @@ func makeDesc(width int, depth int, withE bool) *Descriptor {
 	nd := makeDesc(width, depth-1, withE)
 	desc.Children[2].Desc = &Descriptor{
 		Kind: TypeKind_StrMap,
-		Name: "MAP",
+		Type: "MAP",
 		Children: []Field{
 			{
 				Name: "*",
@@ -119,7 +119,7 @@ func makeDesc(width int, depth int, withE bool) *Descriptor {
 	// field_list is TypeKind_List with wildcard (all elements)
 	desc.Children[4].Desc = &Descriptor{
 		Kind: TypeKind_List,
-		Name: "LIST",
+		Type: "LIST",
 		Children: []Field{
 			{
 				Name: "*", // all elements
@@ -187,7 +187,7 @@ func TestFetchAny_ListWithSpecificIndices(t *testing.T) {
 	t.Run("specific_indices", func(t *testing.T) {
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleFetch",
+			Type: "SampleFetch",
 			Children: []Field{
 				{
 					Name: "field_a",
@@ -198,7 +198,7 @@ func TestFetchAny_ListWithSpecificIndices(t *testing.T) {
 					ID:   6,
 					Desc: &Descriptor{
 						Kind: TypeKind_List,
-						Name: "LIST",
+						Type: "LIST",
 						Children: []Field{
 							{Name: "0", ID: 0}, // index 0
 							{Name: "2", ID: 2}, // index 2
@@ -245,14 +245,14 @@ func TestFetchAny_ListWithSpecificIndices(t *testing.T) {
 	t.Run("out_of_bounds_index", func(t *testing.T) {
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleFetch",
+			Type: "SampleFetch",
 			Children: []Field{
 				{
 					Name: "field_list",
 					ID:   6,
 					Desc: &Descriptor{
 						Kind: TypeKind_List,
-						Name: "LIST",
+						Type: "LIST",
 						Children: []Field{
 							{Name: "1", ID: 1},   // index 1 - valid
 							{Name: "10", ID: 10}, // index 10 - out of bounds
@@ -295,14 +295,14 @@ func TestFetchAny_ListWithSpecificIndices(t *testing.T) {
 	t.Run("disallow_not_found_out_of_bounds", func(t *testing.T) {
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleFetch",
+			Type: "SampleFetch",
 			Children: []Field{
 				{
 					Name: "field_list",
 					ID:   6,
 					Desc: &Descriptor{
 						Kind: TypeKind_List,
-						Name: "LIST",
+						Type: "LIST",
 						Children: []Field{
 							{Name: "1", ID: 1},   // index 1 - valid
 							{Name: "10", ID: 10}, // index 10 - out of bounds
@@ -322,8 +322,8 @@ func TestFetchAny_ListWithSpecificIndices(t *testing.T) {
 		if !ok {
 			t.Fatalf("expected ErrNotFound, got %T: %v", err, err)
 		}
-		if notFoundErr.Parent.Name != "LIST" {
-			t.Errorf("expected parent name 'LIST', got '%s'", notFoundErr.Parent.Name)
+		if notFoundErr.Parent.Type != "LIST" {
+			t.Errorf("expected parent name 'LIST', got '%s'", notFoundErr.Parent.Type)
 		}
 	})
 
@@ -340,21 +340,21 @@ func TestFetchAny_ListWithSpecificIndices(t *testing.T) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleFetch",
+			Type: "SampleFetch",
 			Children: []Field{
 				{
 					Name: "field_b",
 					ID:   2,
 					Desc: &Descriptor{
 						Kind: TypeKind_List,
-						Name: "LIST",
+						Type: "LIST",
 						Children: []Field{
 							{
 								Name: "0",
 								ID:   0,
 								Desc: &Descriptor{
 									Kind: TypeKind_Struct,
-									Name: "SampleFetch",
+									Type: "SampleFetch",
 									Children: []Field{
 										{Name: "field_a", ID: 1},
 									},
@@ -365,7 +365,7 @@ func TestFetchAny_ListWithSpecificIndices(t *testing.T) {
 								ID:   2,
 								Desc: &Descriptor{
 									Kind: TypeKind_Struct,
-									Name: "SampleFetch",
+									Type: "SampleFetch",
 									Children: []Field{
 										{Name: "field_e", ID: 5},
 									},
@@ -513,7 +513,7 @@ func TestFetchAnyWithUnknownFields(t *testing.T) {
 	// Create a descriptor that asks for all fields
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleWithUnknown",
+		Type: "SampleWithUnknown",
 		Children: []Field{
 			{Name: "field_a", ID: 1},      // Static field
 			{Name: "field_e", ID: 5},      // From unknownFields (string)
@@ -584,7 +584,7 @@ func TestFetchAnyWithEmptyUnknownFields(t *testing.T) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleWithUnknown",
+		Type: "SampleWithUnknown",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{Name: "field_e", ID: 5}, // Not present in unknownFields
@@ -618,7 +618,7 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleWithUnknown",
+			Type: "SampleWithUnknown",
 			Children: []Field{
 				{Name: "field_a", ID: 1},
 				{Name: "field_e", ID: 5}, // Not present
@@ -635,8 +635,8 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 		if !ok {
 			t.Fatalf("expected ErrNotFound, got %T: %v", err, err)
 		}
-		if notFoundErr.Parent.Name != "SampleWithUnknown" {
-			t.Errorf("expected parent name 'SampleWithUnknown', got '%s'", notFoundErr.Parent.Name)
+		if notFoundErr.Parent.Type != "SampleWithUnknown" {
+			t.Errorf("expected parent name 'SampleWithUnknown', got '%s'", notFoundErr.Parent.Type)
 		}
 		if notFoundErr.Field.Name != "field_e" {
 			t.Errorf("expected field name 'field_e', got '%s'", notFoundErr.Field.Name)
@@ -652,14 +652,14 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "Test",
+			Type: "Test",
 			Children: []Field{
 				{
 					Name: "data",
 					ID:   1,
 					Desc: &Descriptor{
 						Kind: TypeKind_StrMap,
-						Name: "MAP",
+						Type: "MAP",
 						Children: []Field{
 							{Name: "key1"}, // exists
 							{Name: "key2"}, // not exists
@@ -679,8 +679,8 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 		if !ok {
 			t.Fatalf("expected ErrNotFound, got %T: %v", err, err)
 		}
-		if notFoundErr.Parent.Name != "MAP" {
-			t.Errorf("expected parent name 'MAP', got '%s'", notFoundErr.Parent.Name)
+		if notFoundErr.Parent.Type != "MAP" {
+			t.Errorf("expected parent name 'MAP', got '%s'", notFoundErr.Parent.Type)
 		}
 		if notFoundErr.Field.Name != "key2" {
 			t.Errorf("expected field name 'key2', got '%s'", notFoundErr.Field.Name)
@@ -700,14 +700,14 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "Outer",
+			Type: "Outer",
 			Children: []Field{
 				{
 					Name: "inner",
 					ID:   1,
 					Desc: &Descriptor{
 						Kind: TypeKind_Struct,
-						Name: "Inner",
+						Type: "Inner",
 						Children: []Field{
 							{Name: "value", ID: 1},    // exists
 							{Name: "missing", ID: 99}, // not exists
@@ -727,8 +727,8 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 		if !ok {
 			t.Fatalf("expected ErrNotFound, got %T: %v", err, err)
 		}
-		if notFoundErr.Parent.Name != "Inner" {
-			t.Errorf("expected parent name 'Inner', got '%s'", notFoundErr.Parent.Name)
+		if notFoundErr.Parent.Type != "Inner" {
+			t.Errorf("expected parent name 'Inner', got '%s'", notFoundErr.Parent.Type)
 		}
 		if notFoundErr.Field.Name != "missing" {
 			t.Errorf("expected field name 'missing', got '%s'", notFoundErr.Field.Name)
@@ -740,7 +740,7 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleWithUnknown",
+			Type: "SampleWithUnknown",
 			Children: []Field{
 				{Name: "field_a", ID: 1}, // exists
 			},
@@ -788,7 +788,7 @@ type circularTree struct {
 func makeCircularDesc() *Descriptor {
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "CircularNode",
+		Type: "CircularNode",
 		Children: []Field{
 			{Name: "value", ID: 1},
 			{Name: "next", ID: 2},
@@ -803,7 +803,7 @@ func makeCircularDesc() *Descriptor {
 func makeCircularTreeDesc() *Descriptor {
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "CircularTree",
+		Type: "CircularTree",
 		Children: []Field{
 			{Name: "value", ID: 1},
 			{Name: "left", ID: 2},
@@ -1026,7 +1026,7 @@ type circularMapNode struct {
 func makeCircularMapDesc() *Descriptor {
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "CircularMapNode",
+		Type: "CircularMapNode",
 		Children: []Field{
 			{Name: "name", ID: 1},
 			{Name: "children", ID: 2},
@@ -1035,7 +1035,7 @@ func makeCircularMapDesc() *Descriptor {
 	// Make children field circular: it's a map with values of the same type
 	desc.Children[1].Desc = &Descriptor{
 		Kind: TypeKind_StrMap,
-		Name: "ChildrenMap",
+		Type: "ChildrenMap",
 		Children: []Field{
 			{Name: "*", Desc: desc}, // Wildcard with circular reference
 		},
@@ -1162,7 +1162,7 @@ func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 		// This means we don't want to further fetch into the struct
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleWithUnknown",
+			Type: "SampleWithUnknown",
 			Children: []Field{
 				{Name: "field_a", ID: 1},
 				{Name: "nested_struct", ID: 10}, // No Desc, so no further fetch
@@ -1228,7 +1228,7 @@ func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 		// This means we want to further fetch into the struct and convert it
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleWithUnknown",
+			Type: "SampleWithUnknown",
 			Children: []Field{
 				{Name: "field_a", ID: 1},
 				{
@@ -1236,7 +1236,7 @@ func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 					ID:   10,
 					Desc: &Descriptor{
 						Kind: TypeKind_Struct,
-						Name: "NestedStruct",
+						Type: "NestedStruct",
 						Children: []Field{
 							{Name: "name", ID: 1},  // maps to field 1
 							{Name: "count", ID: 2}, // maps to field 2
@@ -1317,7 +1317,7 @@ func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 		// Create a descriptor for deeply nested fetch
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleWithUnknown",
+			Type: "SampleWithUnknown",
 			Children: []Field{
 				{Name: "field_a", ID: 1},
 				{
@@ -1325,7 +1325,7 @@ func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 					ID:   10,
 					Desc: &Descriptor{
 						Kind: TypeKind_Struct,
-						Name: "Level1Struct",
+						Type: "Level1Struct",
 						Children: []Field{
 							{Name: "level1_name", ID: 1},
 							{
@@ -1333,7 +1333,7 @@ func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 								ID:   2,
 								Desc: &Descriptor{
 									Kind: TypeKind_Struct,
-									Name: "Level2Struct",
+									Type: "Level2Struct",
 									Children: []Field{
 										{Name: "level2_name", ID: 1},
 										{Name: "level2_value", ID: 2},
@@ -1416,7 +1416,7 @@ func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 		// Create a descriptor with map containing struct descriptor
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleWithUnknown",
+			Type: "SampleWithUnknown",
 			Children: []Field{
 				{Name: "field_a", ID: 1},
 				{
@@ -1424,13 +1424,13 @@ func TestFetchAnyWithUnknownFieldsStruct(t *testing.T) {
 					ID:   10,
 					Desc: &Descriptor{
 						Kind: TypeKind_StrMap,
-						Name: "DataMap",
+						Type: "DataMap",
 						Children: []Field{
 							{
 								Name: "*",
 								Desc: &Descriptor{
 									Kind: TypeKind_Struct,
-									Name: "Data",
+									Type: "Data",
 									Children: []Field{
 										{Name: "name", ID: 1},
 										{Name: "count", ID: 2},
@@ -1504,7 +1504,7 @@ func TestFetchAny_PathTracking(t *testing.T) {
 			},
 			desc: &Descriptor{
 				Kind: TypeKind_Struct,
-				Name: "SampleFetch",
+				Type: "SampleFetch",
 				Children: []Field{
 					{Name: "field_a", ID: 1},
 					{Name: "unknown_field", ID: 99},
@@ -1522,7 +1522,7 @@ func TestFetchAny_PathTracking(t *testing.T) {
 			},
 			desc: &Descriptor{
 				Kind: TypeKind_Struct,
-				Name: "SampleFetch",
+				Type: "SampleFetch",
 				Children: []Field{
 					{Name: "field_a", ID: 1},
 					{
@@ -1530,7 +1530,7 @@ func TestFetchAny_PathTracking(t *testing.T) {
 						ID:   4,
 						Desc: &Descriptor{
 							Kind: TypeKind_Struct,
-							Name: "SampleFetch",
+							Type: "SampleFetch",
 							Children: []Field{
 								{Name: "field_a", ID: 1},
 								{Name: "missing_field", ID: 88},
@@ -1554,7 +1554,7 @@ func TestFetchAny_PathTracking(t *testing.T) {
 			},
 			desc: &Descriptor{
 				Kind: TypeKind_Struct,
-				Name: "SampleFetch",
+				Type: "SampleFetch",
 				Children: []Field{
 					{Name: "field_a", ID: 1},
 					{
@@ -1562,7 +1562,7 @@ func TestFetchAny_PathTracking(t *testing.T) {
 						ID:   4,
 						Desc: &Descriptor{
 							Kind: TypeKind_Struct,
-							Name: "SampleFetch",
+							Type: "SampleFetch",
 							Children: []Field{
 								{Name: "field_a", ID: 1},
 								{
@@ -1570,7 +1570,7 @@ func TestFetchAny_PathTracking(t *testing.T) {
 									ID:   4,
 									Desc: &Descriptor{
 										Kind: TypeKind_Struct,
-										Name: "SampleFetch",
+										Type: "SampleFetch",
 										Children: []Field{
 											{Name: "field_a", ID: 1},
 											{Name: "bad_field", ID: 77},
@@ -1594,7 +1594,7 @@ func TestFetchAny_PathTracking(t *testing.T) {
 			},
 			desc: &Descriptor{
 				Kind: TypeKind_Struct,
-				Name: "SampleFetch",
+				Type: "SampleFetch",
 				Children: []Field{
 					{Name: "field_a", ID: 1},
 					{
@@ -1602,7 +1602,7 @@ func TestFetchAny_PathTracking(t *testing.T) {
 						ID:   3,
 						Desc: &Descriptor{
 							Kind: TypeKind_StrMap,
-							Name: "MAP",
+							Type: "MAP",
 							Children: []Field{
 								{Name: "key1"},
 								{Name: "missing_key"},
@@ -1623,7 +1623,7 @@ func TestFetchAny_PathTracking(t *testing.T) {
 			},
 			desc: &Descriptor{
 				Kind: TypeKind_Struct,
-				Name: "SampleFetch",
+				Type: "SampleFetch",
 				Children: []Field{
 					{Name: "field_a", ID: 1},
 					{
@@ -1631,13 +1631,13 @@ func TestFetchAny_PathTracking(t *testing.T) {
 						ID:   3,
 						Desc: &Descriptor{
 							Kind: TypeKind_StrMap,
-							Name: "MAP",
+							Type: "MAP",
 							Children: []Field{
 								{
 									Name: "*",
 									Desc: &Descriptor{
 										Kind: TypeKind_Struct,
-										Name: "SampleFetch",
+										Type: "SampleFetch",
 										Children: []Field{
 											{Name: "field_a", ID: 1},
 											{Name: "nonexistent", ID: 66},
@@ -1683,7 +1683,7 @@ func TestFetchAny_PathTracking_Integration(t *testing.T) {
 
 	desc := &Descriptor{
 		Kind: TypeKind_Struct,
-		Name: "SampleFetch",
+		Type: "SampleFetch",
 		Children: []Field{
 			{Name: "field_a", ID: 1},
 			{
@@ -1691,13 +1691,13 @@ func TestFetchAny_PathTracking_Integration(t *testing.T) {
 				ID:   3,
 				Desc: &Descriptor{
 					Kind: TypeKind_StrMap,
-					Name: "MAP",
+					Type: "MAP",
 					Children: []Field{
 						{
 							Name: "*",
 							Desc: &Descriptor{
 								Kind: TypeKind_Struct,
-								Name: "SampleFetch",
+								Type: "SampleFetch",
 								Children: []Field{
 									{Name: "field_a", ID: 1},
 									{
@@ -1705,7 +1705,7 @@ func TestFetchAny_PathTracking_Integration(t *testing.T) {
 										ID:   4,
 										Desc: &Descriptor{
 											Kind: TypeKind_Struct,
-											Name: "SampleFetch",
+											Type: "SampleFetch",
 											Children: []Field{
 												{Name: "field_a", ID: 1},
 												{Name: "missing", ID: 55},
@@ -1743,7 +1743,7 @@ func BenchmarkFetchAny_PathTracking(b *testing.B) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleFetch",
+			Type: "SampleFetch",
 			Children: []Field{
 				{Name: "field_a", ID: 1},
 				{Name: "field_e", ID: 5},
@@ -1771,7 +1771,7 @@ func BenchmarkFetchAny_PathTracking(b *testing.B) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleFetch",
+			Type: "SampleFetch",
 			Children: []Field{
 				{Name: "field_a", ID: 1},
 				{
@@ -1779,7 +1779,7 @@ func BenchmarkFetchAny_PathTracking(b *testing.B) {
 					ID:   4,
 					Desc: &Descriptor{
 						Kind: TypeKind_Struct,
-						Name: "SampleFetch",
+						Type: "SampleFetch",
 						Children: []Field{
 							{Name: "field_a", ID: 1},
 							{
@@ -1787,7 +1787,7 @@ func BenchmarkFetchAny_PathTracking(b *testing.B) {
 								ID:   4,
 								Desc: &Descriptor{
 									Kind: TypeKind_Struct,
-									Name: "SampleFetch",
+									Type: "SampleFetch",
 									Children: []Field{
 										{Name: "field_a", ID: 1},
 										{Name: "field_e", ID: 5},
@@ -1819,7 +1819,7 @@ func BenchmarkFetchAny_PathTracking(b *testing.B) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleFetch",
+			Type: "SampleFetch",
 			Children: []Field{
 				{Name: "field_a", ID: 1},
 				{
@@ -1827,13 +1827,13 @@ func BenchmarkFetchAny_PathTracking(b *testing.B) {
 					ID:   3,
 					Desc: &Descriptor{
 						Kind: TypeKind_StrMap,
-						Name: "MAP",
+						Type: "MAP",
 						Children: []Field{
 							{
 								Name: "*",
 								Desc: &Descriptor{
 									Kind: TypeKind_Struct,
-									Name: "SampleFetch",
+									Type: "SampleFetch",
 									Children: []Field{
 										{Name: "field_a", ID: 1},
 										{Name: "field_e", ID: 5},
@@ -1863,7 +1863,7 @@ func BenchmarkFetchAny_PathTracking(b *testing.B) {
 
 		desc := &Descriptor{
 			Kind: TypeKind_Struct,
-			Name: "SampleFetch",
+			Type: "SampleFetch",
 			Children: []Field{
 				{Name: "field_a", ID: 1},
 				{
@@ -1871,7 +1871,7 @@ func BenchmarkFetchAny_PathTracking(b *testing.B) {
 					ID:   4,
 					Desc: &Descriptor{
 						Kind: TypeKind_Struct,
-						Name: "SampleFetch",
+						Type: "SampleFetch",
 						Children: []Field{
 							{Name: "field_a", ID: 1},
 							{Name: "missing", ID: 99},

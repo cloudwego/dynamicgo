@@ -46,8 +46,8 @@ type Descriptor struct {
 	// Based on this, we can decide how to manipulate the data (e.g. mapKey or strucField)
 	Kind TypeKind
 
-	// Name of the type
-	Name string
+	// Type of the type
+	Type string
 
 	// children for TypeKind_Struct|TypeKind_StrMap|TypeKind_List
 	// - For TypeKind_StrMap, either each Field is a key-value pair or one field with Name "*"
@@ -106,7 +106,7 @@ func (d *Descriptor) String() string {
 	printer = func(desc *Descriptor, indent string) {
 		// Handle circular references
 		if visited[desc] {
-			sb.WriteString("<" + desc.Name + ">")
+			sb.WriteString("<" + desc.Type + ">")
 			return
 		}
 		visited[desc] = true
@@ -120,7 +120,7 @@ func (d *Descriptor) String() string {
 		case TypeKind_StrMap:
 			typePrefix = "<MAP>"
 		default: // TypeKind_Struct
-			typePrefix = "<" + desc.Name + ">"
+			typePrefix = "<" + desc.Type + ">"
 		}
 
 		sb.WriteString(typePrefix)
@@ -205,7 +205,7 @@ func (d *Descriptor) marshalWithPath(path string, visited map[*Descriptor]string
 
 	result := &descriptorJSON{
 		Kind:     d.Kind,
-		Name:     d.Name,
+		Name:     d.Type,
 		Children: make([]fieldJSON, 0, len(d.Children)),
 	}
 
@@ -252,7 +252,7 @@ func (d *Descriptor) UnmarshalJSON(data []byte) error {
 // unmarshalFromJSON populates the descriptor from JSON representation
 func (d *Descriptor) unmarshalFromJSON(raw *descriptorJSON, path string, refs map[string]*Descriptor) {
 	d.Kind = raw.Kind
-	d.Name = raw.Name
+	d.Type = raw.Name
 	d.Children = make([]Field, 0, len(raw.Children))
 	d.ids = nil
 	d.names = nil
@@ -270,7 +270,7 @@ func (d *Descriptor) unmarshalFromJSON(raw *descriptorJSON, path string, refs ma
 		if fj.Ref != "" {
 			// This is a reference, will be resolved later
 			// Create a placeholder descriptor with special name
-			f.Desc = &Descriptor{Name: "$ref:" + fj.Ref}
+			f.Desc = &Descriptor{Type: "$ref:" + fj.Ref}
 		} else if fj.Desc != nil {
 			f.Desc = &Descriptor{}
 			f.Desc.unmarshalFromJSON(fj.Desc, childPath, refs)
@@ -287,8 +287,8 @@ func (d *Descriptor) resolveRefs(path string, refs map[string]*Descriptor) {
 			childPath := fmt.Sprintf("%s.children[%d].desc", path, i)
 
 			// Check if this is a reference
-			if strings.HasPrefix(d.Children[i].Desc.Name, "$ref:") {
-				refPath := strings.TrimPrefix(d.Children[i].Desc.Name, "$ref:")
+			if strings.HasPrefix(d.Children[i].Desc.Type, "$ref:") {
+				refPath := strings.TrimPrefix(d.Children[i].Desc.Type, "$ref:")
 				if target, ok := refs[refPath]; ok {
 					d.Children[i].Desc = target
 				}

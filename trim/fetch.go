@@ -61,9 +61,9 @@ type ErrNotFound struct {
 
 func (e ErrNotFound) Error() string {
 	if e.Msg != "" {
-		return fmt.Sprintf("not found %v at %v: %s", e.Field.Name, e.Parent.Name, e.Msg)
+		return fmt.Sprintf("not found %v at %v: %s", e.Field.Name, e.Parent.Type, e.Msg)
 	}
-	return fmt.Sprintf("not found %v at %v", e.Field.Name, e.Parent.Name)
+	return fmt.Sprintf("not found %v at %v", e.Field.Name, e.Parent.Type)
 }
 
 // structFieldInfo caches field mapping information for a struct type
