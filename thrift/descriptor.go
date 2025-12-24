@@ -117,16 +117,28 @@ func (p Type) IsComplex() bool {
 
 // TypeDescriptor is the runtime descriptor of a thrift type
 type TypeDescriptor struct {
-	typ   Type
-	name  string
-	key   *TypeDescriptor   // for map key
-	elem  *TypeDescriptor   // for slice or map element
-	struc *StructDescriptor // for struct
+	typ       Type
+	name      string
+	key       *TypeDescriptor   // for map key
+	elem      *TypeDescriptor   // for slice or map element
+	struc     *StructDescriptor // for struct
+	namespace string            // for idl namespace
+	file      string            // for idl absolute filepath
 }
 
 const (
 	nameBinary = "binary"
 )
+
+// Namespace returns the namespace of the type
+func (d TypeDescriptor) Namespace() string {
+	return d.namespace
+}
+
+// File returns the file of the type
+func (d TypeDescriptor) File() string {
+	return d.file
+}
 
 // IsBinary tells if the type is binary type ([]byte)
 func (d TypeDescriptor) IsBinary() bool {
