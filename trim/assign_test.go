@@ -24,6 +24,7 @@ import (
 
 	"github.com/bytedance/sonic"
 	"github.com/cloudwego/dynamicgo/proto/binary"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -230,6 +231,89 @@ func TestAssignAny_Map(t *testing.T) {
 	if !reflect.DeepEqual(dest.FieldMap, expected) {
 		t.Errorf("field_map: expected %v, got %v", expected, dest.FieldMap)
 	}
+}
+
+func TestAssignAny_OnlyAssignLeafNodes(t *testing.T) {
+	src := map[string]interface{}{
+		"field_b": []interface{}{
+			map[string]interface{}{},
+			map[string]interface{}{
+				"field_a": 10,
+				"field_b": []interface{}{},
+			},
+			map[string]interface{}{
+				"field_a": 10,
+			},
+		},
+		"field_c": map[string]interface{}{
+			"empty": map[string]interface{}{},
+			"non_empty": map[string]interface{}{
+				"field_a": 10,
+				"field_c": map[string]interface{}{},
+			},
+			"add": map[string]interface{}{
+				"field_a": 10,
+			},
+		},
+		"field_d": map[string]interface{}{},
+	}
+	var desc = new(Descriptor)
+	*desc = Descriptor{
+		Kind: TypeKind_Struct,
+		Type: "SampleAssign",
+		Children: []Field{
+			{Name: "field_a", ID: 1, Desc: &Descriptor{Kind: TypeKind_Leaf, Type: "INT32"}},
+			{Name: "field_b", ID: 2, Desc: &Descriptor{
+				Kind:     TypeKind_List,
+				Type:     "LIST",
+				Children: []Field{{Name: "*", Desc: desc}},
+			}},
+			{Name: "field_c", ID: 3, Desc: &Descriptor{
+				Kind:     TypeKind_StrMap,
+				Type:     "MAP",
+				Children: []Field{{Name: "*", Desc: desc}},
+			}},
+			{
+				Name: "field_d",
+				ID:   4,
+				Desc: desc,
+			},
+		},
+	}
+
+	dest := &sampleAssign{
+		FieldB: []*sampleAssign{
+			{FieldA: 1, FieldE: "should not be cleared"},
+			{FieldA: 1, FieldB: []*sampleAssign{{FieldA: 1}}, FieldE: "should not be cleared"},
+		},
+		FieldC: map[string]*sampleAssign{
+			"empty":     {FieldA: 1, FieldE: "should not be cleared"},
+			"non_empty": {FieldA: 1, FieldC: map[string]*sampleAssign{"a": {FieldA: 1}}, FieldE: "should not be cleared"},
+		},
+		FieldD: &sampleAssign{FieldA: 1, FieldE: "should not be cleared"},
+	}
+
+	assigner := &Assigner{}
+	err := assigner.AssignAny(desc, src, dest)
+	if err != nil {
+		t.Fatalf("AssignAny failed: %v", err)
+	}
+
+	expected := &sampleAssign{
+		FieldB: []*sampleAssign{
+			{FieldA: 1, FieldE: "should not be cleared"},
+			{FieldA: 10, FieldB: []*sampleAssign{{FieldA: 1}}, FieldE: "should not be cleared"},
+			{FieldA: 10},
+		},
+		FieldC: map[string]*sampleAssign{
+			"empty":     {FieldA: 1, FieldE: "should not be cleared"},
+			"non_empty": {FieldA: 10, FieldC: map[string]*sampleAssign{"a": {FieldA: 1}}, FieldE: "should not be cleared"},
+			"add":       {FieldA: 10},
+		},
+		FieldD: &sampleAssign{FieldA: 1, FieldE: "should not be cleared"},
+	}
+
+	require.Equal(t, expected, dest)
 }
 
 // TestAssignAny_UnknownFields tests that the converted sample
@@ -1656,7 +1740,7 @@ func TestAssignAny_ListWithSpecificIndices(t *testing.T) {
 		}
 
 		// Wildcard should completely replace with source length
-		if len(dest.FieldB) != 2 {
+		if len(dest.FieldB) != 3 {
 			t.Fatalf("field_b: expected length 2 (from source), got %d", len(dest.FieldB))
 		}
 

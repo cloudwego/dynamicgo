@@ -322,11 +322,37 @@ func assignValueToField(desc *Descriptor, src interface{}, fieldValue reflect.Va
 	// Handle pointer fields - allocate if needed
 	if fieldValue.Kind() == reflect.Ptr {
 		if fieldValue.IsNil() {
+			// Skip allocating for empty non-leaf sources to avoid clobbering existing data
+			if isEmptyNonLeaf(desc, src) {
+				return nil
+			}
+
 			fieldValue.Set(reflect.New(fieldValue.Type().Elem()))
 		}
 		return assignValue(desc, src, fieldValue.Elem(), opt, stack)
 	}
 	return assignValue(desc, src, fieldValue, opt, stack)
+}
+
+// isEmptyNonLeaf returns true if src is an empty composite value for the given descriptor.
+// Used to avoid allocating new nested structs or slices when there is nothing to assign.
+func isEmptyNonLeaf(desc *Descriptor, src interface{}) bool {
+	if desc == nil || src == nil {
+		return false
+	}
+
+	switch desc.Kind {
+	case TypeKind_Struct, TypeKind_StrMap:
+		if m, ok := src.(map[string]interface{}); ok {
+			return len(m) == 0
+		}
+	case TypeKind_List:
+		if s, ok := src.([]interface{}); ok {
+			return len(s) == 0
+		}
+	}
+
+	return false
 }
 
 // assignStrMap handles TypeKind_StrMap assignment
@@ -355,24 +381,55 @@ func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, op
 	elemType := destValue.Type().Elem()
 
 	for key, value := range srcMap {
-		// Create a new element
+		keyValue := reflect.ValueOf(key)
+		existing := destValue.MapIndex(keyValue)
 		elemValue := reflect.New(elemType).Elem()
+		if existing.IsValid() {
+			elemValue.Set(existing)
+		}
+
+		// Find the appropriate descriptor for this entry
+		var childDesc *Descriptor
+		if wildcardDesc != nil {
+			childDesc = wildcardDesc
+		} else if child, ok := keyDescMap[key]; ok {
+			childDesc = child.Desc
+		}
+
+		// Skip assigning empty non-leaf nodes to avoid overwriting existing values
+		if childDesc != nil && isEmptyNonLeaf(childDesc, value) {
+			if !existing.IsValid() {
+				continue
+			}
+			// keep existing value untouched
+			continue
+		}
 
 		if value == nil {
-			// Set nil value in map (zero value for the element type, e.g., nil pointer)
-			destValue.SetMapIndex(reflect.ValueOf(key), elemValue)
+			// Preserve existing entry if present; otherwise set zero value
+			if existing.IsValid() {
+				destValue.SetMapIndex(keyValue, existing)
+			}
 			continue
 		}
 
 		// Push map key onto stack
 		stack.push(TypeKind_StrMap, key, 0)
 
-		// Find the appropriate descriptor
 		var err error
-		if wildcardDesc != nil {
-			err = assignValueToField(wildcardDesc, value, elemValue, opt, stack)
-		} else if child, ok := keyDescMap[key]; ok && child.Desc != nil {
-			err = assignValueToField(child.Desc, value, elemValue, opt, stack)
+		if childDesc != nil {
+			if elemType.Kind() == reflect.Ptr {
+				ptrValue := elemValue
+				if elemValue.IsNil() {
+					ptrValue = reflect.New(elemType.Elem())
+				}
+				err = assignValue(childDesc, value, ptrValue.Elem(), opt, stack)
+				if err == nil {
+					elemValue = ptrValue
+				}
+			} else {
+				err = assignValue(childDesc, value, elemValue, opt, stack)
+			}
 		} else {
 			err = assignLeaf(reflect.ValueOf(value), elemValue)
 		}
@@ -384,7 +441,7 @@ func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, op
 			return err
 		}
 
-		destValue.SetMapIndex(reflect.ValueOf(key), elemValue)
+		destValue.SetMapIndex(keyValue, elemValue)
 	}
 
 	return nil
@@ -440,14 +497,27 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 			return nil
 		}
 
-		// Handle slice (dynamic size)
+		// Handle slice (dynamic size). Reuse existing slice when possible; only allocate when growing.
 		elemType := destValue.Type().Elem()
-		newSlice := reflect.MakeSlice(destValue.Type(), srcLen, srcLen)
+		destLen := destValue.Len()
+		useSlice := destValue
+		if destLen < srcLen {
+			useSlice = reflect.MakeSlice(destValue.Type(), srcLen, srcLen)
+			if destLen > 0 {
+				reflect.Copy(useSlice, destValue)
+			}
+		}
 
 		for i := 0; i < srcLen; i++ {
-			elemValue := newSlice.Index(i)
+			elemValue := useSlice.Index(i)
+
+			// Skip empty non-leaf sources to avoid overwriting existing elements
+			if wildcardDesc != nil && isEmptyNonLeaf(wildcardDesc, srcSlice[i]) {
+				continue
+			}
+
 			if srcSlice[i] == nil {
-				// Keep as zero value
+				// Preserve existing value
 				continue
 			}
 
@@ -456,12 +526,15 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 
 			var err error
 			if wildcardDesc != nil {
-				// Handle pointer element type
+				// Handle pointer element type without dropping existing value
 				if elemType.Kind() == reflect.Ptr {
-					newElem := reflect.New(elemType.Elem())
-					err = assignValue(wildcardDesc, srcSlice[i], newElem.Elem(), opt, stack)
+					targetPtr := elemValue
+					if elemValue.IsNil() {
+						targetPtr = reflect.New(elemType.Elem())
+					}
+					err = assignValue(wildcardDesc, srcSlice[i], targetPtr.Elem(), opt, stack)
 					if err == nil {
-						elemValue.Set(newElem)
+						elemValue.Set(targetPtr)
 					}
 				} else {
 					err = assignValue(wildcardDesc, srcSlice[i], elemValue, opt, stack)
@@ -478,7 +551,9 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 			}
 		}
 
-		destValue.Set(newSlice)
+		if useSlice.Pointer() != destValue.Pointer() || destLen != useSlice.Len() {
+			destValue.Set(useSlice)
+		}
 		return nil
 	}
 
