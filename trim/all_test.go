@@ -2,6 +2,7 @@ package trim
 
 import (
 	"encoding/json"
+	"sync"
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/proto"
@@ -11,9 +12,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func fetchAny(desc *Descriptor, any interface{}) (interface{}, error) {
-	fetcher := &Fetcher{}
-	return fetcher.FetchAny(desc, any)
+func BenchmarkFetchAndAssign(b *testing.B) {
+	src := makeSampleFetch(3, 3)
+	desc := makeDesc(3, 3, true)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m, err := fetchAny(desc, src)
+		if err != nil {
+			b.Fatalf("FetchAny failed: %v", err)
+		}
+		dest := &sampleAssign{}
+		err = assignAny(desc, m, dest)
+		if err != nil {
+			b.Fatalf("AssignAny failed: %v", err)
+		}
+	}
 }
 
 func TestFetchAndAssign(t *testing.T) {
@@ -23,35 +38,55 @@ func TestFetchAndAssign(t *testing.T) {
 		t.Fatalf("json.Marshal failed: %v", err)
 	}
 	desc := makeDesc(3, 3, true)
-	m, err := fetchAny(desc, src)
-	if err != nil {
-		t.Fatalf("FetchAny failed: %v", err)
-	}
-	mjson, err := json.Marshal(m)
-	if err != nil {
-		t.Fatalf("json.Marshal failed: %v", err)
-	}
-	require.Equal(t, string(srcjson), string(mjson))
 
-	dest := makeSampleAssign(3, 3)
-	err = assignAny(desc, m, dest)
-	if err != nil {
-		t.Fatalf("AssignAny failed: %v", err)
+	wg := sync.WaitGroup{}
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			m, err := fetchAny(desc, src)
+			if err != nil {
+				t.Fatalf("FetchAny failed: %v", err)
+			}
+
+			mjson, err := json.Marshal(m)
+			if err != nil {
+				t.Fatalf("json.Marshal failed: %v", err)
+			}
+			require.Equal(t, string(srcjson), string(mjson))
+
+			dest := makeSampleAssign(3, 3)
+			err = assignAny(desc, m, dest)
+			if err != nil {
+				t.Fatalf("AssignAny failed: %v", err)
+			}
+
+			destjson, err := json.Marshal(dest)
+			if err != nil {
+				t.Fatalf("json.Marshal failed: %v", err)
+			}
+			var srcAny interface{}
+			if err := json.Unmarshal(srcjson, &srcAny); err != nil {
+				t.Fail()
+			}
+			var destAny interface{}
+			if err := json.Unmarshal(destjson, &destAny); err != nil {
+				t.Fail()
+			}
+			require.Equal(t, srcAny, destAny)
+		}()
 	}
 
-	destjson, err := json.Marshal(dest)
-	if err != nil {
-		t.Fatalf("json.Marshal failed: %v", err)
+	wg.Wait()
+}
+
+func fetchAny(desc *Descriptor, any interface{}) (interface{}, error) {
+	if desc != nil {
+		desc.Normalize()
 	}
-	var srcAny interface{}
-	if err := json.Unmarshal(srcjson, &srcAny); err != nil {
-		t.Fail()
-	}
-	var destAny interface{}
-	if err := json.Unmarshal(destjson, &destAny); err != nil {
-		t.Fail()
-	}
-	require.Equal(t, srcAny, destAny)
+	fetcher := &Fetcher{}
+	return fetcher.FetchAny(desc, any)
 }
 
 // ===================== UnknownFields FetchAndAssign Tests =====================

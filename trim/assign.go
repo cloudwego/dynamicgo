@@ -42,12 +42,14 @@ type Assigner struct {
 //   - They will be encoded to XXX_unrecognized field using protobuf binary encoding
 //   - Their raw values will also be stored in XXX_NoUnkeyedLiteral field (if present) as map[string]interface{}
 //     with field names as keys
+//
+// Warning: desc must be normalized before calling this method.
 func (a Assigner) AssignAny(desc *Descriptor, src interface{}, dest interface{}) error {
 	if src == nil || dest == nil || desc == nil {
 		return nil
 	}
 
-	desc.Normalize()
+	// desc.Normalize()
 
 	destValue := reflect.ValueOf(dest)
 	if destValue.Kind() != reflect.Ptr {

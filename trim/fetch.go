@@ -37,12 +37,14 @@ type FetchOptions struct {
 }
 
 // FetchAny fetches the value of the field described by desc from any based on go reflect.
+//
+// Warning: desc must be normalized before calling this method.
 func (f Fetcher) FetchAny(desc *Descriptor, any interface{}) (interface{}, error) {
 	if any == nil || desc == nil {
 		return nil, nil
 	}
 
-	desc.Normalize()
+	// desc.Normalize()
 
 	// Initialize path stack from pool
 	stack := getStackFrames()

@@ -33,6 +33,9 @@ import (
 )
 
 func assignAny(desc *Descriptor, src interface{}, dest interface{}) error {
+	if desc != nil {
+		desc.Normalize()
+	}
 	assigner := &Assigner{}
 	return assigner.AssignAny(desc, src, dest)
 }
@@ -294,6 +297,7 @@ func TestAssignAny_OnlyAssignLeafNodes(t *testing.T) {
 	}
 
 	assigner := &Assigner{}
+	desc.Normalize()
 	err := assigner.AssignAny(desc, src, dest)
 	if err != nil {
 		t.Fatalf("AssignAny failed: %v", err)
@@ -1305,6 +1309,7 @@ func TestAssignAny_ListWithSpecificIndices(t *testing.T) {
 
 		assigner := Assigner{AssignOptions: AssignOptions{DisallowNotDefined: true}}
 		dest := &sampleAssign{}
+		desc.Normalize()
 		err := assigner.AssignAny(desc, src, dest)
 		if err == nil {
 			t.Fatalf("expected ErrNotFound, got nil")
@@ -1786,6 +1791,7 @@ func TestAssignAny_DisallowNotFound(t *testing.T) {
 
 	dest := &sampleAssign{}
 	as := Assigner{AssignOptions{DisallowNotDefined: true}}
+	desc.Normalize()
 	err := as.AssignAny(desc, src, dest)
 	if err == nil {
 		t.Fatalf("expected error for nonexistent field with DisallowNotFound")
@@ -2337,6 +2343,7 @@ func TestAssignAny_PathTracking(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dest := &sampleAssign{}
 			as := Assigner{AssignOptions{DisallowNotDefined: true}}
+			tt.desc.Normalize()
 			err := as.AssignAny(tt.desc, tt.src, dest)
 			if err == nil {
 				t.Fatalf("expected error, got nil")
@@ -2606,6 +2613,7 @@ func TestAssignAny_PathTracking_Integration(t *testing.T) {
 
 	dest := &sampleAssign{}
 	as := Assigner{AssignOptions{DisallowNotDefined: true}}
+	desc.Normalize()
 	err := as.AssignAny(desc, src, dest)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
@@ -2804,6 +2812,7 @@ func BenchmarkAssignAny_ErrorPath(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		dest := &sampleAssign{}
 		as := Assigner{AssignOptions{DisallowNotDefined: true}}
+		desc.Normalize()
 		_ = as.AssignAny(desc, src, dest)
 	}
 }
@@ -2922,6 +2931,7 @@ func BenchmarkPathTracking_Overhead(b *testing.B) {
 			"unknown": 999,
 		}
 		b.ResetTimer()
+		desc.Normalize()
 		for i := 0; i < b.N; i++ {
 			dest := &sampleAssign{}
 			as := Assigner{AssignOptions{DisallowNotDefined: true}}
@@ -4019,6 +4029,7 @@ func TestAssignAny_Array(t *testing.T) {
 
 		dest := &sampleAssignArray{}
 		assigner := &Assigner{}
+		desc.Normalize()
 		err := assigner.AssignAny(desc, src, dest)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -4055,6 +4066,7 @@ func TestAssignAny_Array(t *testing.T) {
 		}
 		dest := &sampleAssignArray{}
 		assigner := &Assigner{}
+		desc.Normalize()
 		err := assigner.AssignAny(desc, src, dest)
 		if err == nil {
 			t.Fatal("expected error, got nil")
@@ -4086,6 +4098,7 @@ func TestAssignAny_Array(t *testing.T) {
 		}
 		dest := &sampleAssignArray{}
 		assigner := &Assigner{AssignOptions: AssignOptions{DisallowNotDefined: true}}
+		desc.Normalize()
 		err := assigner.AssignAny(desc, src, dest)
 		if err == nil {
 			t.Fatal("expected error, got nil")
@@ -4117,6 +4130,7 @@ func TestAssignAny_Array(t *testing.T) {
 		}
 		dest := &sampleAssignArray{}
 		assigner := &Assigner{AssignOptions: AssignOptions{DisallowNotDefined: true}}
+		desc.Normalize()
 		err := assigner.AssignAny(desc, src, dest)
 		if err == nil {
 			t.Fatal("expected error, got nil")

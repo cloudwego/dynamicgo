@@ -22,7 +22,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 )
 
 // TypeKind is the kind of type.
@@ -41,6 +40,8 @@ const (
 
 // Descriptor describes the entire a DSL-pruning scheme for a type.
 // base on this, we can fetch the type's object data on demands
+//
+// WARNING: user must call Normalize() before using this
 type Descriptor struct {
 	// the kind of corresponding type
 	// Based on this, we can decide how to manipulate the data (e.g. mapKey or strucField)
@@ -56,7 +57,8 @@ type Descriptor struct {
 	Children []Field
 
 	// for speed-up search
-	normalized int32 // atomic flag: 0=not started, 1=in progress/done
+	// WARNING: user must call Normalize() before using this
+	normalized bool
 	ids        map[int]Field
 	names      map[string]Field
 }
@@ -77,12 +79,11 @@ type Field struct {
 // Normalize cache all the fields in the descriptor for speeding up search.
 // It handles circular references by using an atomic flag to detect re-entry.
 func (d *Descriptor) Normalize() {
-	// Use atomic to detect if we're already normalizing this descriptor
-	// This prevents infinite recursion in circular references
-	if !atomic.CompareAndSwapInt32(&d.normalized, 0, 1) {
-		// Already being normalized or already done
+	// Fast-path: already normalized (or in-progress done)
+	if d.normalized {
 		return
 	}
+	d.normalized = true
 
 	d.ids = make(map[int]Field, len(d.Children))
 	d.names = make(map[string]Field, len(d.Children))

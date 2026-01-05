@@ -128,6 +128,7 @@ func makeDesc(width int, depth int, withE bool) *Descriptor {
 		},
 	}
 
+	desc.Normalize()
 	return desc
 }
 
@@ -313,6 +314,7 @@ func TestFetchAny_ListWithSpecificIndices(t *testing.T) {
 		}
 
 		f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+		desc.Normalize()
 		_, err := f.FetchAny(desc, obj)
 		if err == nil {
 			t.Fatalf("expected ErrNotFound, got nil")
@@ -626,6 +628,7 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 		}
 
 		f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+		desc.Normalize()
 		_, err := f.FetchAny(desc, obj)
 		if err == nil {
 			t.Fatalf("expected ErrNotFound, got nil")
@@ -670,6 +673,7 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 		}
 
 		f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+		desc.Normalize()
 		_, err := f.FetchAny(desc, obj)
 		if err == nil {
 			t.Fatalf("expected ErrNotFound, got nil")
@@ -718,6 +722,7 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 		}
 
 		f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+		desc.Normalize()
 		_, err := f.FetchAny(desc, obj)
 		if err == nil {
 			t.Fatalf("expected ErrNotFound, got nil")
@@ -747,6 +752,7 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 		}
 
 		f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+		desc.Normalize()
 		ret, err := f.FetchAny(desc, obj)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -1656,6 +1662,7 @@ func TestFetchAny_PathTracking(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+			tt.desc.Normalize()
 			_, err := f.FetchAny(tt.desc, tt.obj)
 			if err == nil {
 				t.Fatalf("expected error, got nil")
@@ -1722,6 +1729,7 @@ func TestFetchAny_PathTracking_Integration(t *testing.T) {
 	}
 
 	f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+	desc.Normalize()
 	_, err := f.FetchAny(desc, obj)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
@@ -1751,6 +1759,7 @@ func BenchmarkFetchAny_PathTracking(b *testing.B) {
 		}
 
 		f := Fetcher{}
+		desc.Normalize()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, _ = f.FetchAny(desc, obj)
@@ -1801,6 +1810,7 @@ func BenchmarkFetchAny_PathTracking(b *testing.B) {
 		}
 
 		f := Fetcher{}
+		desc.Normalize()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, _ = f.FetchAny(desc, obj)
@@ -1847,6 +1857,7 @@ func BenchmarkFetchAny_PathTracking(b *testing.B) {
 		}
 
 		f := Fetcher{}
+		desc.Normalize()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, _ = f.FetchAny(desc, obj)
@@ -1882,6 +1893,7 @@ func BenchmarkFetchAny_PathTracking(b *testing.B) {
 		}
 
 		f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+		desc.Normalize()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, _ = f.FetchAny(desc, obj)
