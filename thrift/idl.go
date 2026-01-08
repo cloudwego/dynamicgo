@@ -597,22 +597,16 @@ func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache c
 	switch t.Name {
 	case "list":
 		ty := &TypeDescriptor{name: t.Name}
-		ty.namespace = thriftNamespace(tree)
-		ty.file = tree.GetFilename()
 		ty.typ = LIST
 		ty.elem, err = parseType(ctx, t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		return ty, err
 	case "set":
 		ty := &TypeDescriptor{name: t.Name}
-		ty.namespace = thriftNamespace(tree)
-		ty.file = tree.GetFilename()
 		ty.typ = SET
 		ty.elem, err = parseType(ctx, t.ValueType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget)
 		return ty, err
 	case "map":
 		ty := &TypeDescriptor{name: t.Name}
-		ty.namespace = thriftNamespace(tree)
-		ty.file = tree.GetFilename()
 		ty.typ = MAP
 		if ty.key, err = parseType(ctx, t.KeyType, tree, cache, nextRecursionDepth, opts, nextAnns, parseTarget); err != nil {
 			return nil, err
@@ -686,8 +680,6 @@ func parseType(ctx context.Context, t *parser.Type, tree *parser.Thrift, cache c
 				annotations: oannos,
 			},
 		}
-		ty.namespace = thriftNamespace(tree)
-		ty.file = tree.GetFilename()
 
 		if recursionDepth == 0 {
 			ctx = context.WithValue(ctx, CtxKeyIsBodyRoot, true)

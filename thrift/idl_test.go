@@ -580,9 +580,6 @@ func TestNewDescriptorByName(t *testing.T) {
 
 		// Test parsing User struct with cross-file reference notation
 		desc, err := opts.NewDescriptorByName(context.Background(), mainPath, "base.User", includes)
-		// verify file and namespace correctness
-		require.Equal(t, "base.thrift", desc.File())
-		require.Equal(t, "kitex.test.base", desc.Namespace())
 
 		require.NoError(t, err)
 		require.NotNil(t, desc)
@@ -638,9 +635,6 @@ func TestNewDescriptorByName(t *testing.T) {
 
 		// Test parsing UserRequest with relative path that goes up directories
 		desc, err := opts.NewDescriptorByName(context.Background(), mainPath, "UserRequest", includes)
-		// verify file and namespace correctness
-		require.Equal(t, "a/b/main.thrift", desc.File())
-		require.Equal(t, "kitex.test.server", desc.Namespace())
 
 		require.NoError(t, err)
 		require.NotNil(t, desc)
