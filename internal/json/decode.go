@@ -470,5 +470,5 @@ func SkipValue(src string, pos int) (ret int, start int) {
 	return ret, pos
 }
 
-//go:linkname unquoteBytes encoding/json.unquoteBytes
+//go:linkname unquoteBytes github.com/bytedance/sonic/unquote/unquoteBytes
 func unquoteBytes(s []byte) (t []byte, ok bool)
