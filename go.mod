@@ -1,6 +1,6 @@
 module github.com/cloudwego/dynamicgo
 
-go 1.17
+go 1.18
 
 require (
 	github.com/bytedance/sonic v1.15.0
