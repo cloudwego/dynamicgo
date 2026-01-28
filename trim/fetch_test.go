@@ -317,12 +317,20 @@ func TestFetchAny_ListWithSpecificIndices(t *testing.T) {
 		desc.Normalize()
 		_, err := f.FetchAny(desc, obj)
 		if err == nil {
-			t.Fatalf("expected ErrNotFound, got nil")
+			t.Fatalf("expected error, got nil")
 		}
 
-		notFoundErr, ok := err.(ErrNotFound)
+		// Extract ErrNotFound from MultiErrors
+		fetchErrs, ok := err.(MultiErrors)
 		if !ok {
-			t.Fatalf("expected ErrNotFound, got %T: %v", err, err)
+			t.Fatalf("expected MultiErrors, got %T: %v", err, err)
+		}
+		if len(fetchErrs.Errors) == 0 {
+			t.Fatalf("expected at least one error in MultiErrors")
+		}
+		notFoundErr, ok := fetchErrs.Errors[0].(ErrNotFound)
+		if !ok {
+			t.Fatalf("expected first error to be ErrNotFound, got %T: %v", fetchErrs.Errors[0], fetchErrs.Errors[0])
 		}
 		if notFoundErr.Parent.Type != "LIST" {
 			t.Errorf("expected parent name 'LIST', got '%s'", notFoundErr.Parent.Type)
@@ -631,12 +639,20 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 		desc.Normalize()
 		_, err := f.FetchAny(desc, obj)
 		if err == nil {
-			t.Fatalf("expected ErrNotFound, got nil")
+			t.Fatalf("expected error, got nil")
 		}
 
-		notFoundErr, ok := err.(ErrNotFound)
+		// Extract ErrNotFound from MultiErrors
+		fetchErrs, ok := err.(MultiErrors)
 		if !ok {
-			t.Fatalf("expected ErrNotFound, got %T: %v", err, err)
+			t.Fatalf("expected MultiErrors, got %T: %v", err, err)
+		}
+		if len(fetchErrs.Errors) == 0 {
+			t.Fatalf("expected at least one error in MultiErrors")
+		}
+		notFoundErr, ok := fetchErrs.Errors[0].(ErrNotFound)
+		if !ok {
+			t.Fatalf("expected first error to be ErrNotFound, got %T: %v", fetchErrs.Errors[0], fetchErrs.Errors[0])
 		}
 		if notFoundErr.Parent.Type != "SampleWithUnknown" {
 			t.Errorf("expected parent name 'SampleWithUnknown', got '%s'", notFoundErr.Parent.Type)
@@ -676,12 +692,20 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 		desc.Normalize()
 		_, err := f.FetchAny(desc, obj)
 		if err == nil {
-			t.Fatalf("expected ErrNotFound, got nil")
+			t.Fatalf("expected error, got nil")
 		}
 
-		notFoundErr, ok := err.(ErrNotFound)
+		// Extract ErrNotFound from MultiErrors
+		fetchErrs, ok := err.(MultiErrors)
 		if !ok {
-			t.Fatalf("expected ErrNotFound, got %T: %v", err, err)
+			t.Fatalf("expected MultiErrors, got %T: %v", err, err)
+		}
+		if len(fetchErrs.Errors) == 0 {
+			t.Fatalf("expected at least one error in MultiErrors")
+		}
+		notFoundErr, ok := fetchErrs.Errors[0].(ErrNotFound)
+		if !ok {
+			t.Fatalf("expected first error to be ErrNotFound, got %T: %v", fetchErrs.Errors[0], fetchErrs.Errors[0])
 		}
 		if notFoundErr.Parent.Type != "MAP" {
 			t.Errorf("expected parent name 'MAP', got '%s'", notFoundErr.Parent.Type)
@@ -725,12 +749,20 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 		desc.Normalize()
 		_, err := f.FetchAny(desc, obj)
 		if err == nil {
-			t.Fatalf("expected ErrNotFound, got nil")
+			t.Fatalf("expected error, got nil")
 		}
 
-		notFoundErr, ok := err.(ErrNotFound)
+		// Extract ErrNotFound from MultiErrors
+		fetchErrs, ok := err.(MultiErrors)
 		if !ok {
-			t.Fatalf("expected ErrNotFound, got %T: %v", err, err)
+			t.Fatalf("expected MultiErrors, got %T: %v", err, err)
+		}
+		if len(fetchErrs.Errors) == 0 {
+			t.Fatalf("expected at least one error in MultiErrors")
+		}
+		notFoundErr, ok := fetchErrs.Errors[0].(ErrNotFound)
+		if !ok {
+			t.Fatalf("expected first error to be ErrNotFound, got %T: %v", fetchErrs.Errors[0], fetchErrs.Errors[0])
 		}
 		if notFoundErr.Parent.Type != "Inner" {
 			t.Errorf("expected parent name 'Inner', got '%s'", notFoundErr.Parent.Type)
@@ -765,6 +797,142 @@ func TestFetchAnyWithDisallowNotFound(t *testing.T) {
 		if result["field_a"] != 42 {
 			t.Errorf("field_a: expected 42, got %v", result["field_a"])
 		}
+	})
+
+	t.Run("multiple errors collected (try-best)", func(t *testing.T) {
+		// Create a complex nested structure with multiple missing fields
+		obj := &struct {
+			FieldA int `thrift:"FieldA,1"`
+			FieldB *struct {
+				Value int `thrift:"Value,1"`
+			} `thrift:"FieldB,2"`
+			FieldC map[string]int `thrift:"FieldC,3"`
+			FieldD []int          `thrift:"FieldD,4"`
+		}{
+			FieldA: 42,
+			FieldB: &struct {
+				Value int `thrift:"Value,1"`
+			}{Value: 100},
+			FieldC: map[string]int{"key1": 1},
+			FieldD: []int{10, 20},
+		}
+
+		// Descriptor requests multiple missing fields at different levels
+		desc := &Descriptor{
+			Kind: TypeKind_Struct,
+			Type: "Root",
+			Children: []Field{
+				{Name: "field_a", ID: 1},         // exists
+				{Name: "field_missing1", ID: 99}, // not exists - ERROR 1
+				{
+					Name: "field_b",
+					ID:   2,
+					Desc: &Descriptor{
+						Kind: TypeKind_Struct,
+						Type: "Nested",
+						Children: []Field{
+							{Name: "value", ID: 1},           // exists
+							{Name: "missing_nested", ID: 88}, // not exists - ERROR 2
+						},
+					},
+				},
+				{
+					Name: "field_c",
+					ID:   3,
+					Desc: &Descriptor{
+						Kind: TypeKind_StrMap,
+						Type: "MAP",
+						Children: []Field{
+							{Name: "key1", ID: 0},        // exists
+							{Name: "key_missing", ID: 0}, // not exists - ERROR 3
+						},
+					},
+				},
+				{
+					Name: "field_d",
+					ID:   4,
+					Desc: &Descriptor{
+						Kind: TypeKind_List,
+						Type: "LIST",
+						Children: []Field{
+							{Name: "", ID: 0}, // index 0, exists
+							{Name: "", ID: 5}, // index 5, out of bounds - ERROR 4
+						},
+					},
+				},
+			},
+		}
+
+		f := Fetcher{FetchOptions: FetchOptions{DisallowNotFound: true}}
+		desc.Normalize()
+		result, err := f.FetchAny(desc, obj)
+
+		// Should have result (try-best)
+		if result == nil {
+			t.Fatalf("expected result even with errors, got nil")
+		}
+
+		// Verify we got MultiErrors with multiple errors
+		if err == nil {
+			t.Fatalf("expected MultiErrors with multiple errors, got nil")
+		}
+
+		fetchErrs, ok := err.(MultiErrors)
+		if !ok {
+			t.Fatalf("expected MultiErrors, got %T: %v", err, err)
+		}
+
+		// Should have exactly 4 errors
+		if len(fetchErrs.Errors) != 4 {
+			t.Errorf("expected 4 errors, got %d: %v", len(fetchErrs.Errors), fetchErrs.Errors)
+		}
+
+		// Verify all errors are ErrNotFound
+		errorPaths := make([]string, 0, len(fetchErrs.Errors))
+		for i, e := range fetchErrs.Errors {
+			notFoundErr, ok := e.(ErrNotFound)
+			if !ok {
+				t.Errorf("error %d: expected ErrNotFound, got %T: %v", i, e, e)
+				continue
+			}
+			errorPaths = append(errorPaths, notFoundErr.Msg)
+		}
+
+		// Verify the result still contains successfully fetched fields
+		resultMap, ok := result.(map[string]interface{})
+		if !ok {
+			t.Fatalf("expected map[string]interface{}, got %T", result)
+		}
+
+		// Check that successfully fetched fields are present
+		if resultMap["field_a"] != 42 {
+			t.Errorf("field_a: expected 42, got %v", resultMap["field_a"])
+		}
+
+		nestedMap, ok := resultMap["field_b"].(map[string]interface{})
+		if !ok {
+			t.Errorf("field_b: expected map[string]interface{}, got %T", resultMap["field_b"])
+		} else if nestedMap["value"] != 100 {
+			t.Errorf("field_b.value: expected 100, got %v", nestedMap["value"])
+		}
+
+		mapC, ok := resultMap["field_c"].(map[string]interface{})
+		if !ok {
+			t.Errorf("field_c: expected map[string]interface{}, got %T", resultMap["field_c"])
+		} else if mapC["key1"] != 1 {
+			t.Errorf("field_c[key1]: expected 1, got %v", mapC["key1"])
+		}
+
+		listD, ok := resultMap["field_d"].([]interface{})
+		if !ok {
+			t.Errorf("field_d: expected []interface{}, got %T", resultMap["field_d"])
+		} else if len(listD) != 1 || listD[0] != 10 {
+			// Only index 0 succeeded, index 5 was out of bounds
+			t.Errorf("field_d: expected [10] (only index 0), got %v", listD)
+		}
+
+		t.Logf("Try-best fetch succeeded with %d errors and partial results", len(fetchErrs.Errors))
+		t.Logf("Error paths: %v", errorPaths)
 	})
 }
 

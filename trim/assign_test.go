@@ -550,6 +550,145 @@ func TestAssignAny_UnknownFields(t *testing.T) {
 	t.Logf("  unknown_mybool (typedef bool): %v", unknownMyBool)
 }
 
+// TestAssignValue_MultipleErrors tests that AssignValue collects multiple field errors
+func TestAssignValue_MultipleErrors(t *testing.T) {
+	type SrcStruct struct {
+		A string `json:"a"`
+		B int    `json:"b"`
+		C string `json:"c"`
+		D string `json:"d"`
+	}
+
+	type DestStruct struct {
+		A int `json:"a"` // Type mismatch
+		B int `json:"b"` // Compatible
+		C int `json:"c"` // Type mismatch
+		D int `json:"d"` // Type mismatch
+	}
+
+	src := SrcStruct{
+		A: "not_an_int",
+		B: 42,
+		C: "also_not_an_int",
+		D: "still_not_an_int",
+	}
+
+	dest := &DestStruct{}
+	assigner := Assigner{}
+
+	err := assigner.AssignValue(&src, dest)
+
+	// We expect an error due to type mismatches
+	if err == nil {
+		t.Fatal("Expected error due to type mismatches, but got nil")
+	}
+
+	// Check that field B was still assigned despite errors in other fields
+	if dest.B != 42 {
+		t.Errorf("Expected field B to be assigned despite errors in other fields, got %d", dest.B)
+	}
+
+	// The error should be MultiErrors type
+	multiErr, ok := err.(MultiErrors)
+	if !ok {
+		t.Fatalf("Expected MultiErrors type, got %T: %v", err, err)
+	}
+
+	// Should have 3 errors (fields A, C, D)
+	if len(multiErr.Errors) != 3 {
+		t.Errorf("Expected 3 errors, but got %d: %v", len(multiErr.Errors), multiErr.Errors)
+	}
+
+	errStr := err.Error()
+	if !strings.Contains(errStr, "multiple errors") {
+		t.Errorf("Error message should indicate multiple errors, got: %s", errStr)
+	}
+
+	t.Logf("Successfully collected multiple errors in try-best mode for AssignValue:\n%s", errStr)
+}
+
+// TestAssignAny_NestedMultipleErrors tests error collection in nested structures
+func TestAssignAny_NestedMultipleErrors(t *testing.T) {
+	src := map[string]interface{}{
+		"field_a": "error1", // Type error at root level
+		"field_d": map[string]interface{}{
+			"field_a": "error2", // Type error in nested struct
+			"field_e": 123,      // Type error in nested struct
+		},
+		"field_b": []interface{}{
+			map[string]interface{}{
+				"field_a": "error3", // Type error in list element
+			},
+		},
+	}
+
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Type: "SampleAssign",
+		Children: []Field{
+			{Name: "field_a", ID: 1, Desc: &Descriptor{Kind: TypeKind_Leaf}},
+			{
+				Name: "field_d",
+				ID:   4,
+				Desc: &Descriptor{
+					Kind: TypeKind_Struct,
+					Type: "SampleAssign",
+					Children: []Field{
+						{Name: "field_a", ID: 1, Desc: &Descriptor{Kind: TypeKind_Leaf}},
+						{Name: "field_e", ID: 5, Desc: &Descriptor{Kind: TypeKind_Leaf}},
+					},
+				},
+			},
+			{
+				Name: "field_b",
+				ID:   2,
+				Desc: &Descriptor{
+					Kind: TypeKind_List,
+					Type: "LIST",
+					Children: []Field{
+						{
+							Name: "*",
+							Desc: &Descriptor{
+								Kind: TypeKind_Struct,
+								Type: "SampleAssign",
+								Children: []Field{
+									{Name: "field_a", ID: 1, Desc: &Descriptor{Kind: TypeKind_Leaf}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	dest := &sampleAssign{}
+	err := assignAny(desc, src, dest)
+
+	// Should get an error due to multiple type mismatches at different levels
+	if err == nil {
+		t.Fatal("Expected error due to nested type mismatches, but got nil")
+	}
+
+	// The error should be MultiErrors type
+	multiErr, ok := err.(MultiErrors)
+	if !ok {
+		t.Fatalf("Expected MultiErrors type, got %T: %v", err, err)
+	}
+
+	// Should have multiple errors from different nesting levels
+	if len(multiErr.Errors) < 3 {
+		t.Errorf("Expected at least 3 errors from nested structures, but got %d: %v", len(multiErr.Errors), multiErr.Errors)
+	}
+
+	errStr := err.Error()
+	if !strings.Contains(errStr, "multiple errors") {
+		t.Errorf("Error message should indicate multiple errors, got: %s", errStr)
+	}
+
+	t.Logf("Successfully collected errors from nested structures:\n%s", errStr)
+}
+
 // TestEncodeUnknownField_Typedef tests encoding of typedef types
 func TestEncodeUnknownField_Typedef(t *testing.T) {
 	// Test various typedef types

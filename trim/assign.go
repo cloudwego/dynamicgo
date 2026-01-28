@@ -37,6 +37,27 @@ type Assigner struct {
 	AssignOptions
 }
 
+// errorCollector collects errors during assignment in try-best mode
+type errorCollector struct {
+	errors []error
+}
+
+func (ec *errorCollector) add(err error) {
+	if err != nil {
+		ec.errors = append(ec.errors, err)
+	}
+}
+
+func (ec *errorCollector) toError() error {
+	if len(ec.errors) == 0 {
+		return nil
+	}
+	if len(ec.errors) == 1 {
+		return ec.errors[0]
+	}
+	return MultiErrors{Errors: ec.errors}
+}
+
 // AssignAny assigns values from src (map[string]interface{}) to dest (protobuf struct) according to desc.
 // For fields that exist in src but not in dest's struct definition (unknown fields):
 //   - They will be encoded to XXX_unrecognized field using protobuf binary encoding
@@ -44,6 +65,8 @@ type Assigner struct {
 //     with field names as keys
 //
 // Warning: desc must be normalized before calling this method.
+// This method uses try-best mode: it will continue processing even if some fields fail,
+// collecting all errors and returning them at the end.
 func (a Assigner) AssignAny(desc *Descriptor, src interface{}, dest interface{}) error {
 	if src == nil || dest == nil || desc == nil {
 		return nil
@@ -60,7 +83,11 @@ func (a Assigner) AssignAny(desc *Descriptor, src interface{}, dest interface{})
 	stack := getStackFrames()
 	defer putStackFrames(stack)
 
-	return assignValue(desc, src, destValue.Elem(), &a.AssignOptions, stack)
+	// Initialize error collector
+	ec := &errorCollector{}
+
+	assignValue(desc, src, destValue.Elem(), &a.AssignOptions, stack, ec)
+	return ec.toError()
 }
 
 // pbStructFieldInfo caches field mapping information for a protobuf struct type
@@ -173,9 +200,9 @@ func getPBStructFieldInfo(t reflect.Type) *pbStructFieldInfo {
 }
 
 // assignValue is the internal implementation that works with reflect.Value directly
-func assignValue(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions, stack *pathStack) error {
+func assignValue(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions, stack *pathStack, ec *errorCollector) {
 	if src == nil {
-		return nil
+		return
 	}
 
 	// Dereference pointers on dest
@@ -189,25 +216,27 @@ func assignValue(desc *Descriptor, src interface{}, destValue reflect.Value, opt
 
 	switch desc.Kind {
 	case TypeKind_Struct:
-		return assignStruct(desc, src, destValue, opt, stack)
+		assignStruct(desc, src, destValue, opt, stack, ec)
 	case TypeKind_StrMap:
-		return assignStrMap(desc, src, destValue, opt, stack)
+		assignStrMap(desc, src, destValue, opt, stack, ec)
 	case TypeKind_List:
-		return assignList(desc, src, destValue, opt, stack)
+		assignList(desc, src, destValue, opt, stack, ec)
 	default:
-		return assignLeaf(reflect.ValueOf(src), destValue)
+		ec.add(assignLeaf(reflect.ValueOf(src), destValue))
 	}
 }
 
 // assignStruct handles TypeKind_Struct assignment
-func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions, stack *pathStack) error {
+func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions, stack *pathStack, ec *errorCollector) {
 	srcMap, ok := src.(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("expected map[string]interface{} for struct at %s, got %T", stack.buildPath(), src)
+		ec.add(fmt.Errorf("expected map[string]interface{} for struct at %s, got %T", stack.buildPath(), src))
+		return
 	}
 
 	if destValue.Kind() != reflect.Struct {
-		return fmt.Errorf("expected struct destination at %s, got %v", stack.buildPath(), destValue.Kind())
+		ec.add(fmt.Errorf("expected struct destination at %s, got %v", stack.buildPath(), destValue.Kind()))
+		return
 	}
 
 	// Get cached field info for this type
@@ -244,20 +273,15 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 			stack.push(TypeKind_Struct, key, fieldID)
 
 			// If field has a child descriptor, recursively assign
-			var err error
 			if hasDescField && descField.Desc != nil {
-				err = assignValueToField(descField.Desc, value, fieldValue, opt, stack)
+				assignValueToField(descField.Desc, value, fieldValue, opt, stack, ec)
 			} else {
 				// Otherwise, assign the value directly
-				err = assignLeaf(reflect.ValueOf(value), fieldValue)
+				ec.add(assignLeaf(reflect.ValueOf(value), fieldValue))
 			}
 
 			// Pop field from stack
 			stack.pop()
-
-			if err != nil {
-				return err
-			}
 		} else if hasDescField {
 			// Field exists in descriptor but not in struct - encode to XXX_unrecognized
 			// This will be handled below
@@ -267,7 +291,7 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 			stack.push(TypeKind_Struct, key, fieldID)
 			path := stack.buildPath()
 			stack.pop()
-			return ErrNotFound{Parent: desc, Field: Field{Name: key}, Msg: fmt.Sprintf("field '%s' not found in struct at path %s", key, path)}
+			ec.add(ErrNotFound{Parent: desc, Field: Field{Name: key}, Msg: fmt.Sprintf("field '%s' not found in struct at path %s", key, path)})
 		}
 	}
 
@@ -282,7 +306,8 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 				// Encode this field to XXX_unrecognized
 				field := descFieldMap[key]
 				if err := encodeUnknownField(bp, field.ID, val, field.Desc); err != nil {
-					return fmt.Errorf("failed to encode unknown field '%s': %w", key, err)
+					ec.add(fmt.Errorf("failed to encode unknown field '%s': %w", key, err))
+					continue
 				}
 			}
 
@@ -315,25 +340,24 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 			}
 		}
 	}
-
-	return nil
 }
 
 // assignValueToField assigns a value to a field, handling pointer allocation
-func assignValueToField(desc *Descriptor, src interface{}, fieldValue reflect.Value, opt *AssignOptions, stack *pathStack) error {
+func assignValueToField(desc *Descriptor, src interface{}, fieldValue reflect.Value, opt *AssignOptions, stack *pathStack, ec *errorCollector) {
 	// Handle pointer fields - allocate if needed
 	if fieldValue.Kind() == reflect.Ptr {
 		if fieldValue.IsNil() {
 			// Skip allocating for empty non-leaf sources to avoid clobbering existing data
 			if isEmptyNonLeaf(desc, src) {
-				return nil
+				return
 			}
 
 			fieldValue.Set(reflect.New(fieldValue.Type().Elem()))
 		}
-		return assignValue(desc, src, fieldValue.Elem(), opt, stack)
+		assignValue(desc, src, fieldValue.Elem(), opt, stack, ec)
+		return
 	}
-	return assignValue(desc, src, fieldValue, opt, stack)
+	assignValue(desc, src, fieldValue, opt, stack, ec)
 }
 
 // isEmptyNonLeaf returns true if src is an empty composite value for the given descriptor.
@@ -358,14 +382,16 @@ func isEmptyNonLeaf(desc *Descriptor, src interface{}) bool {
 }
 
 // assignStrMap handles TypeKind_StrMap assignment
-func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions, stack *pathStack) error {
+func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions, stack *pathStack, ec *errorCollector) {
 	srcMap, ok := src.(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("expected map[string]interface{} for strmap at %s, got %T", stack.buildPath(), src)
+		ec.add(fmt.Errorf("expected map[string]interface{} for strmap at %s, got %T", stack.buildPath(), src))
+		return
 	}
 
 	if destValue.Kind() != reflect.Map {
-		return fmt.Errorf("expected map destination at %s, got %v", stack.buildPath(), destValue.Kind())
+		ec.add(fmt.Errorf("expected map destination at %s, got %v", stack.buildPath(), destValue.Kind()))
+		return
 	}
 
 	// Find wildcard or keyed descriptors
@@ -418,46 +444,39 @@ func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, op
 		// Push map key onto stack
 		stack.push(TypeKind_StrMap, key, 0)
 
-		var err error
 		if childDesc != nil {
 			if elemType.Kind() == reflect.Ptr {
 				ptrValue := elemValue
 				if elemValue.IsNil() {
 					ptrValue = reflect.New(elemType.Elem())
 				}
-				err = assignValue(childDesc, value, ptrValue.Elem(), opt, stack)
-				if err == nil {
-					elemValue = ptrValue
-				}
+				assignValue(childDesc, value, ptrValue.Elem(), opt, stack, ec)
+				elemValue = ptrValue
 			} else {
-				err = assignValue(childDesc, value, elemValue, opt, stack)
+				assignValue(childDesc, value, elemValue, opt, stack, ec)
 			}
 		} else {
-			err = assignLeaf(reflect.ValueOf(value), elemValue)
+			ec.add(assignLeaf(reflect.ValueOf(value), elemValue))
 		}
 
 		// Pop map key from stack
 		stack.pop()
 
-		if err != nil {
-			return err
-		}
-
 		destValue.SetMapIndex(keyValue, elemValue)
 	}
-
-	return nil
 }
 
 // assignList handles TypeKind_List assignment
-func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions, stack *pathStack) error {
+func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt *AssignOptions, stack *pathStack, ec *errorCollector) {
 	srcSlice, ok := src.([]interface{})
 	if !ok {
-		return fmt.Errorf("expected []interface{} for list at %s, got %T", stack.buildPath(), src)
+		ec.add(fmt.Errorf("expected []interface{} for list at %s, got %T", stack.buildPath(), src))
+		return
 	}
 
 	if destValue.Kind() != reflect.Slice && destValue.Kind() != reflect.Array {
-		return fmt.Errorf("expected slice or array destination at %s, got %v", stack.buildPath(), destValue.Kind())
+		ec.add(fmt.Errorf("expected slice or array destination at %s, got %v", stack.buildPath(), destValue.Kind()))
+		return
 	}
 
 	childrenLen := len(desc.Children)
@@ -471,7 +490,8 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 		if destValue.Kind() == reflect.Array {
 			arrayLen := destValue.Len()
 			if srcLen != arrayLen {
-				return fmt.Errorf("array length mismatch at %s: expected %d, got %d", stack.buildPath(), arrayLen, srcLen)
+				ec.add(fmt.Errorf("array length mismatch at %s: expected %d, got %d", stack.buildPath(), arrayLen, srcLen))
+				return
 			}
 			for i := 0; i < srcLen; i++ {
 				elemValue := destValue.Index(i)
@@ -482,21 +502,16 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 				// Push list index onto stack
 				stack.push(TypeKind_List, "*", i)
 
-				var err error
 				if wildcardDesc != nil {
-					err = assignValueToField(wildcardDesc, srcSlice[i], elemValue, opt, stack)
+					assignValueToField(wildcardDesc, srcSlice[i], elemValue, opt, stack, ec)
 				} else {
-					err = assignLeaf(reflect.ValueOf(srcSlice[i]), elemValue)
+					ec.add(assignLeaf(reflect.ValueOf(srcSlice[i]), elemValue))
 				}
 
 				// Pop list index from stack
 				stack.pop()
-
-				if err != nil {
-					return err
-				}
 			}
-			return nil
+			return
 		}
 
 		// Handle slice (dynamic size). Reuse existing slice when possible; only allocate when growing.
@@ -526,7 +541,6 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 			// Push list index onto stack
 			stack.push(TypeKind_List, "*", i)
 
-			var err error
 			if wildcardDesc != nil {
 				// Handle pointer element type without dropping existing value
 				if elemType.Kind() == reflect.Ptr {
@@ -534,29 +548,23 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 					if elemValue.IsNil() {
 						targetPtr = reflect.New(elemType.Elem())
 					}
-					err = assignValue(wildcardDesc, srcSlice[i], targetPtr.Elem(), opt, stack)
-					if err == nil {
-						elemValue.Set(targetPtr)
-					}
+					assignValue(wildcardDesc, srcSlice[i], targetPtr.Elem(), opt, stack, ec)
+					elemValue.Set(targetPtr)
 				} else {
-					err = assignValue(wildcardDesc, srcSlice[i], elemValue, opt, stack)
+					assignValue(wildcardDesc, srcSlice[i], elemValue, opt, stack, ec)
 				}
 			} else {
-				err = assignLeaf(reflect.ValueOf(srcSlice[i]), elemValue)
+				ec.add(assignLeaf(reflect.ValueOf(srcSlice[i]), elemValue))
 			}
 
 			// Pop list index from stack
 			stack.pop()
-
-			if err != nil {
-				return err
-			}
 		}
 
 		if useSlice.Pointer() != destValue.Pointer() || destLen != useSlice.Len() {
 			destValue.Set(useSlice)
 		}
-		return nil
+		return
 	}
 
 	// Specific indices requested
@@ -571,14 +579,15 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 
 	if maxIdx < 0 {
 		// No valid indices
-		return nil
+		return
 	}
 
 	// Handle array (fixed size)
 	if destValue.Kind() == reflect.Array {
 		arrayLen := destValue.Len()
 		if maxIdx >= arrayLen {
-			return fmt.Errorf("index %d out of bounds for array of length %d at %s", maxIdx, arrayLen, stack.buildPath())
+			ec.add(fmt.Errorf("index %d out of bounds for array of length %d at %s", maxIdx, arrayLen, stack.buildPath()))
+			return
 		}
 
 		// Find corresponding source elements by index
@@ -597,7 +606,7 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 					stack.push(TypeKind_List, "", idx)
 					path := stack.buildPath()
 					stack.pop()
-					return ErrNotFound{Parent: desc, Field: child, Msg: fmt.Sprintf("index %d out of bounds for array at path %s", idx, path)}
+					ec.add(ErrNotFound{Parent: desc, Field: child, Msg: fmt.Sprintf("index %d out of bounds for array at path %s", idx, path)})
 				}
 				continue
 			}
@@ -608,7 +617,7 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 					stack.push(TypeKind_List, "", idx)
 					path := stack.buildPath()
 					stack.pop()
-					return ErrNotFound{Parent: desc, Field: child, Msg: fmt.Sprintf("index %d not found in source at path %s", idx, path)}
+					ec.add(ErrNotFound{Parent: desc, Field: child, Msg: fmt.Sprintf("index %d not found in source at path %s", idx, path)})
 				}
 				continue
 			}
@@ -618,21 +627,16 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 			// Push list index onto stack
 			stack.push(TypeKind_List, "", idx)
 
-			var err2 error
 			if child.Desc != nil {
-				err2 = assignValueToField(child.Desc, srcVal, elemValue, opt, stack)
+				assignValueToField(child.Desc, srcVal, elemValue, opt, stack, ec)
 			} else {
-				err2 = assignLeaf(reflect.ValueOf(srcVal), elemValue)
+				ec.add(assignLeaf(reflect.ValueOf(srcVal), elemValue))
 			}
 
 			// Pop list index from stack
 			stack.pop()
-
-			if err2 != nil {
-				return err2
-			}
 		}
-		return nil
+		return
 	}
 
 	// Handle slice (dynamic size)
@@ -664,7 +668,7 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 				stack.push(TypeKind_List, "", idx)
 				path := stack.buildPath()
 				stack.pop()
-				return ErrNotFound{Parent: desc, Field: child, Msg: fmt.Sprintf("index %d not found in source at path %s", idx, path)}
+				ec.add(ErrNotFound{Parent: desc, Field: child, Msg: fmt.Sprintf("index %d not found in source at path %s", idx, path)})
 			}
 			continue
 		}
@@ -674,32 +678,24 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 		// Push list index onto stack
 		stack.push(TypeKind_List, "", idx)
 
-		var err2 error
 		if child.Desc != nil {
 			// Handle pointer element type
 			if elemType.Kind() == reflect.Ptr {
 				newElem := reflect.New(elemType.Elem())
-				err2 = assignValue(child.Desc, srcVal, newElem.Elem(), opt, stack)
-				if err2 == nil {
-					elemValue.Set(newElem)
-				}
+				assignValue(child.Desc, srcVal, newElem.Elem(), opt, stack, ec)
+				elemValue.Set(newElem)
 			} else {
-				err2 = assignValue(child.Desc, srcVal, elemValue, opt, stack)
+				assignValue(child.Desc, srcVal, elemValue, opt, stack, ec)
 			}
 		} else {
-			err2 = assignLeaf(reflect.ValueOf(srcVal), elemValue)
+			ec.add(assignLeaf(reflect.ValueOf(srcVal), elemValue))
 		}
 
 		// Pop list index from stack
 		stack.pop()
-
-		if err2 != nil {
-			return err2
-		}
 	}
 
 	destValue.Set(newSlice)
-	return nil
 }
 
 // jsonStructFieldInfo caches field mapping information for a struct type based on json tags
@@ -756,6 +752,8 @@ func getJSONStructFieldInfo(t reflect.Type) *jsonStructFieldInfo {
 }
 
 // AssignValue assigns values from src to dest by matching reflect-type or map-key or json-tag
+// This method uses try-best mode: it will continue processing even if some fields fail,
+// collecting all errors and returning them at the end.
 func (Assigner) AssignValue(src interface{}, dest interface{}) error {
 	if src == nil || dest == nil {
 		return nil
@@ -767,11 +765,22 @@ func (Assigner) AssignValue(src interface{}, dest interface{}) error {
 		return fmt.Errorf("dest must be a pointer")
 	}
 
-	return assignLeaf(reflect.ValueOf(src), destValue)
+	// Initialize error collector
+	ec := &errorCollector{}
+
+	assignLeafTryBest(reflect.ValueOf(src), destValue, ec)
+	return ec.toError()
 }
 
 // assignStructToStruct assigns a struct to another struct by matching json tags
 func assignStructToStruct(srcValue, destValue reflect.Value) error {
+	ec := &errorCollector{}
+	assignStructToStructTryBest(srcValue, destValue, ec)
+	return ec.toError()
+}
+
+// assignStructToStructTryBest assigns a struct to another struct by matching json tags in try-best mode
+func assignStructToStructTryBest(srcValue, destValue reflect.Value, ec *errorCollector) {
 	srcType := srcValue.Type()
 	destType := destValue.Type()
 
@@ -802,9 +811,7 @@ func assignStructToStruct(srcValue, destValue reflect.Value) error {
 		}
 
 		// Recursively assign the field value
-		if err := assignLeaf(srcField, destField); err != nil {
-			return err
-		}
+		assignLeafTryBest(srcField, destField, ec)
 	}
 
 	if srcInfo.noUnkeyedLiteralIndex >= 0 && destInfo.noUnkeyedLiteralIndex >= 0 {
@@ -827,12 +834,17 @@ func assignStructToStruct(srcValue, destValue reflect.Value) error {
 			}
 		}
 	}
-
-	return nil
 }
 
 // assignMapToStruct assigns a map[string]interface{} to a struct by matching json tags
 func assignMapToStruct(srcMap map[string]interface{}, destValue reflect.Value) error {
+	ec := &errorCollector{}
+	assignMapToStructTryBest(srcMap, destValue, ec)
+	return ec.toError()
+}
+
+// assignMapToStructTryBest assigns a map[string]interface{} to a struct by matching json tags in try-best mode
+func assignMapToStructTryBest(srcMap map[string]interface{}, destValue reflect.Value, ec *errorCollector) {
 	destType := destValue.Type()
 
 	// Get json field info for dest type
@@ -859,12 +871,79 @@ func assignMapToStruct(srcMap map[string]interface{}, destValue reflect.Value) e
 		}
 
 		// Recursively assign the field value
-		if err := assignLeaf(reflect.ValueOf(srcVal), destField); err != nil {
-			return err
+		assignLeafTryBest(reflect.ValueOf(srcVal), destField, ec)
+	}
+}
+
+// assignLeafTryBest assigns a reflect.Value to another reflect.Value in try-best mode
+func assignLeafTryBest(srcValue, destValue reflect.Value, ec *errorCollector) {
+	// Dereference pointer source
+	for srcValue.Kind() == reflect.Ptr {
+		if srcValue.IsNil() {
+			return
+		}
+		srcValue = srcValue.Elem()
+	}
+
+	// Handle pointer destination
+	if destValue.Kind() == reflect.Ptr {
+		if destValue.IsNil() {
+			destValue.Set(reflect.New(destValue.Type().Elem()))
+		}
+		destValue = destValue.Elem()
+	}
+
+	// Try direct assignment first
+	if srcValue.Type().AssignableTo(destValue.Type()) {
+		destValue.Set(srcValue)
+		return
+	}
+
+	// Try conversion
+	if srcValue.Type().ConvertibleTo(destValue.Type()) {
+		destValue.Set(srcValue.Convert(destValue.Type()))
+		return
+	}
+
+	// Handle interface{} source - extract the underlying value
+	if srcValue.Kind() == reflect.Interface {
+		if srcValue.IsNil() {
+			return
+		}
+		// Get the underlying value and use assignScalar instead
+		// because the underlying value could be map[string]interface{}
+		assignLeafTryBest(srcValue.Elem(), destValue, ec)
+		return
+	}
+
+	// Handle struct to struct mapping via json tags
+	if srcValue.Kind() == reflect.Struct && destValue.Kind() == reflect.Struct {
+		assignStructToStructTryBest(srcValue, destValue, ec)
+		return
+	}
+
+	// Handle slice to slice mapping
+	if srcValue.Kind() == reflect.Slice && destValue.Kind() == reflect.Slice {
+		assignSliceToSliceTryBest(srcValue, destValue, ec)
+		return
+	}
+
+	// Handle map to map mapping
+	if srcValue.Kind() == reflect.Map && destValue.Kind() == reflect.Map {
+		assignMapToMapTryBest(srcValue, destValue, ec)
+		return
+	}
+
+	// Handle map[string]interface{} to struct mapping
+	if srcValue.Kind() == reflect.Map && destValue.Kind() == reflect.Struct {
+		srcMapIface, ok := srcValue.Interface().(map[string]interface{})
+		if ok {
+			assignMapToStructTryBest(srcMapIface, destValue, ec)
+			return
 		}
 	}
 
-	return nil
+	ec.add(fmt.Errorf("cannot assign %v to %v", srcValue.Type(), destValue.Type()))
 }
 
 // assignLeaf assigns a reflect.Value to another reflect.Value
@@ -935,9 +1014,16 @@ func assignLeaf(srcValue, destValue reflect.Value) error {
 
 // assignSliceToSlice assigns a slice to another slice, converting elements as needed
 func assignSliceToSlice(srcValue, destValue reflect.Value) error {
+	ec := &errorCollector{}
+	assignSliceToSliceTryBest(srcValue, destValue, ec)
+	return ec.toError()
+}
+
+// assignSliceToSliceTryBest assigns a slice to another slice, converting elements as needed in try-best mode
+func assignSliceToSliceTryBest(srcValue, destValue reflect.Value, ec *errorCollector) {
 	if srcValue.IsNil() {
 		destValue.Set(reflect.Zero(destValue.Type()))
-		return nil
+		return
 	}
 	srcLen := srcValue.Len()
 	destElemType := destValue.Type().Elem()
@@ -962,25 +1048,27 @@ func assignSliceToSlice(srcValue, destValue reflect.Value) error {
 				continue
 			}
 			newElem := reflect.New(destElemType.Elem())
-			if err := assignLeaf(srcElem, newElem.Elem()); err != nil {
-				return err
-			}
+			assignLeafTryBest(srcElem, newElem.Elem(), ec)
 			destElem.Set(newElem)
 		} else {
-			if err := assignLeaf(srcElem, destElem); err != nil {
-				return err
-			}
+			assignLeafTryBest(srcElem, destElem, ec)
 		}
 	}
 
 	destValue.Set(newSlice)
-	return nil
 }
 
 // assignMapToMap assigns a map to another map, converting elements as needed
 func assignMapToMap(srcValue, destValue reflect.Value) error {
+	ec := &errorCollector{}
+	assignMapToMapTryBest(srcValue, destValue, ec)
+	return ec.toError()
+}
+
+// assignMapToMapTryBest assigns a map to another map, converting elements as needed in try-best mode
+func assignMapToMapTryBest(srcValue, destValue reflect.Value, ec *errorCollector) {
 	if srcValue.IsNil() {
-		return nil
+		return
 	}
 
 	destType := destValue.Type()
@@ -1002,7 +1090,8 @@ func assignMapToMap(srcValue, destValue reflect.Value) error {
 		} else if srcKey.Type().ConvertibleTo(destKeyType) {
 			destKey = srcKey.Convert(destKeyType)
 		} else {
-			return fmt.Errorf("cannot convert map key %v to %v", srcKey.Type(), destKeyType)
+			ec.add(fmt.Errorf("cannot convert map key %v to %v", srcKey.Type(), destKeyType))
+			continue
 		}
 
 		// Convert value
@@ -1021,21 +1110,16 @@ func assignMapToMap(srcValue, destValue reflect.Value) error {
 				continue
 			}
 			newElem := reflect.New(destElemType.Elem())
-			if err := assignLeaf(srcVal, newElem.Elem()); err != nil {
-				return err
-			}
+			assignLeafTryBest(srcVal, newElem.Elem(), ec)
 			destVal.Set(newElem)
 		} else {
-			if err := assignLeaf(srcVal, destVal); err != nil {
-				return err
-			}
+			assignLeafTryBest(srcVal, destVal, ec)
 		}
 
 		newMap.SetMapIndex(destKey, destVal)
 	}
 
 	destValue.Set(newMap)
-	return nil
 }
 
 // encodeUnknownField encodes a field value to protobuf binary format

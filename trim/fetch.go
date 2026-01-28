@@ -50,8 +50,17 @@ func (f Fetcher) FetchAny(desc *Descriptor, any interface{}) (interface{}, error
 	stack := getStackFrames()
 	defer putStackFrames(stack)
 
+	// Initialize error collection
+	var errs []error
+
 	v := reflect.ValueOf(any)
-	return fetchValue(desc, v, &f.FetchOptions, stack)
+	result := fetchValue(desc, v, &f.FetchOptions, stack, &errs)
+
+	// Return all collected errors if any
+	if len(errs) > 0 {
+		return result, MultiErrors{Errors: errs}
+	}
+	return result, nil
 }
 
 // ErrNotFound is returned when a field/index/key is not found and disallowNotFound is enabled
@@ -66,6 +75,26 @@ func (e ErrNotFound) Error() string {
 		return fmt.Sprintf("not found %v at %v: %s", e.Field.Name, e.Parent.Type, e.Msg)
 	}
 	return fmt.Sprintf("not found %v at %v", e.Field.Name, e.Parent.Type)
+}
+
+// MultiErrors contains multiple errors encountered during fetching
+type MultiErrors struct {
+	Errors []error
+}
+
+func (e MultiErrors) Error() string {
+	if len(e.Errors) == 0 {
+		return "no errors"
+	}
+	if len(e.Errors) == 1 {
+		return e.Errors[0].Error()
+	}
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("multiple errors (%d):\n", len(e.Errors)))
+	for i, err := range e.Errors {
+		sb.WriteString(fmt.Sprintf("  %d. %v\n", i+1, err))
+	}
+	return sb.String()
 }
 
 // structFieldInfo caches field mapping information for a struct type
@@ -136,34 +165,34 @@ func getStructFieldInfo(t reflect.Type) *structFieldInfo {
 
 // fetchValue is the internal implementation that works with reflect.Value directly
 // to avoid repeated interface{} boxing/unboxing overhead
-func fetchValue(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pathStack) (interface{}, error) {
+func fetchValue(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pathStack, errs *[]error) interface{} {
 	// Dereference pointers
 	for v.Kind() == reflect.Ptr {
 		if v.IsNil() {
-			return nil, nil
+			return nil
 		}
 		v = v.Elem()
 	}
 
 	switch desc.Kind {
 	case TypeKind_Struct:
-		return fetchStruct(desc, v, opt, stack)
+		return fetchStruct(desc, v, opt, stack, errs)
 
 	case TypeKind_StrMap:
-		return fetchStrMap(desc, v, opt, stack)
+		return fetchStrMap(desc, v, opt, stack, errs)
 
 	case TypeKind_List:
-		return fetchList(desc, v, opt, stack)
+		return fetchList(desc, v, opt, stack, errs)
 
 	default:
-		return v.Interface(), nil
+		return v.Interface()
 	}
 }
 
 // fetchStruct handles TypeKind_Struct
-func fetchStruct(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pathStack) (interface{}, error) {
+func fetchStruct(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pathStack, errs *[]error) interface{} {
 	if v.Kind() != reflect.Struct {
-		return nil, nil
+		return nil
 	}
 
 	result := make(map[string]interface{}, len(desc.Children))
@@ -181,7 +210,8 @@ func fetchStruct(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pa
 			var err error
 			unknownFieldsMap, err = parseUnknownFields(unknownBytes)
 			if err != nil {
-				return nil, err
+				// Record error but continue processing
+				*errs = append(*errs, fmt.Errorf("failed to parse unknownFields: %w", err))
 			}
 		}
 	}
@@ -199,7 +229,7 @@ func fetchStruct(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pa
 					stack.push(TypeKind_Struct, field.Name, field.ID)
 					path := stack.buildPath()
 					stack.pop()
-					return nil, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d is nil at path %s", field.ID, path)}
+					*errs = append(*errs, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d is nil at path %s", field.ID, path)})
 				}
 				continue
 			}
@@ -208,13 +238,9 @@ func fetchStruct(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pa
 			stack.push(TypeKind_Struct, field.Name, field.ID)
 
 			// If field has a child descriptor, recursively fetch
-			var err error
 			if field.Desc != nil {
-				var fetched interface{}
-				fetched, err = fetchValue(field.Desc, fieldValue, opt, stack)
-				if err == nil {
-					result[field.Name] = fetched
-				}
+				fetched := fetchValue(field.Desc, fieldValue, opt, stack, errs)
+				result[field.Name] = fetched
 			} else {
 				// Otherwise, use the value directly
 				result[field.Name] = fieldValue.Interface()
@@ -222,10 +248,6 @@ func fetchStruct(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pa
 
 			// Pop field from stack
 			stack.pop()
-
-			if err != nil {
-				return nil, err
-			}
 		} else if unknownFieldsMap != nil {
 			// Try to get field from unknownFields
 			if val, ok := unknownFieldsMap[thrift.FieldID(field.ID)]; ok {
@@ -236,16 +258,16 @@ func fetchStruct(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pa
 				stack.push(TypeKind_Struct, field.Name, field.ID)
 				path := stack.buildPath()
 				stack.pop()
-				return nil, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d not found in struct or unknownFields at path %s", field.ID, path)}
+				*errs = append(*errs, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d not found in struct or unknownFields at path %s", field.ID, path)})
 			}
 		} else if opt.DisallowNotFound {
 			stack.push(TypeKind_Struct, field.Name, field.ID)
 			path := stack.buildPath()
 			stack.pop()
-			return nil, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d not found in struct at path %s", field.ID, path)}
+			*errs = append(*errs, ErrNotFound{Parent: desc, Field: *field, Msg: fmt.Sprintf("field ID=%d not found in struct at path %s", field.ID, path)})
 		}
 	}
-	return result, nil
+	return result
 }
 
 // parseUnknownFields parses thrift binary encoded unknown fields and returns a map of field ID to value
@@ -365,9 +387,9 @@ func fetchUnknownValue(val interface{}, desc *Descriptor) interface{} {
 }
 
 // fetchStrMap handles TypeKind_StrMap
-func fetchStrMap(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pathStack) (interface{}, error) {
+func fetchStrMap(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pathStack, errs *[]error) interface{} {
 	if v.Kind() != reflect.Map || v.Type().Key().Kind() != reflect.String {
-		return nil, nil
+		return nil
 	}
 
 	childrenLen := len(desc.Children)
@@ -389,25 +411,17 @@ func fetchStrMap(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pa
 			// Push map key onto stack
 			stack.push(TypeKind_StrMap, keyStr, 0)
 
-			var err error
 			if wildcardDesc != nil {
-				var fetched interface{}
-				fetched, err = fetchValue(wildcardDesc, elemValue, opt, stack)
-				if err == nil {
-					result[keyStr] = fetched
-				}
+				fetched := fetchValue(wildcardDesc, elemValue, opt, stack, errs)
+				result[keyStr] = fetched
 			} else {
 				result[keyStr] = elemValue.Interface()
 			}
 
 			// Pop map key from stack
 			stack.pop()
-
-			if err != nil {
-				return nil, err
-			}
 		}
-		return result, nil
+		return result
 	}
 
 	// range over children
@@ -421,10 +435,9 @@ func fetchStrMap(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pa
 				stack.push(TypeKind_StrMap, key, 0)
 				path := stack.buildPath()
 				stack.pop()
-				return nil, ErrNotFound{Parent: desc, Field: keyDescMap[key], Msg: fmt.Sprintf("key '%s' not found in map at path %s", key, path)}
-			} else {
-				continue
+				*errs = append(*errs, ErrNotFound{Parent: desc, Field: keyDescMap[key], Msg: fmt.Sprintf("key '%s' not found in map at path %s", key, path)})
 			}
+			continue
 		}
 		if val.Kind() == reflect.Ptr && val.IsNil() {
 			result[key] = nil
@@ -434,33 +447,25 @@ func fetchStrMap(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pa
 		// Push map key onto stack
 		stack.push(TypeKind_StrMap, key, 0)
 
-		var err error
 		if child.Desc != nil {
-			var fetched interface{}
-			fetched, err = fetchValue(child.Desc, val, opt, stack)
-			if err == nil {
-				result[key] = fetched
-			}
+			fetched := fetchValue(child.Desc, val, opt, stack, errs)
+			result[key] = fetched
 		} else {
 			result[key] = val.Interface()
 		}
 
 		// Pop map key from stack
 		stack.pop()
-
-		if err != nil {
-			return nil, err
-		}
 	}
 
-	return result, nil
+	return result
 }
 
 // fetchList handles TypeKind_List
-func fetchList(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pathStack) (interface{}, error) {
+func fetchList(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *pathStack, errs *[]error) interface{} {
 	kind := v.Kind()
 	if kind != reflect.Slice && kind != reflect.Array {
-		return nil, nil
+		return nil
 	}
 
 	childrenLen := len(desc.Children)
@@ -482,25 +487,17 @@ func fetchList(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *path
 			// Push list index onto stack
 			stack.push(TypeKind_List, "*", i)
 
-			var err error
 			if wildcardDesc != nil {
-				var fetched interface{}
-				fetched, err = fetchValue(wildcardDesc, elemValue, opt, stack)
-				if err == nil {
-					result = append(result, fetched)
-				}
+				fetched := fetchValue(wildcardDesc, elemValue, opt, stack, errs)
+				result = append(result, fetched)
 			} else {
 				result = append(result, elemValue.Interface())
 			}
 
 			// Pop list index from stack
 			stack.pop()
-
-			if err != nil {
-				return nil, err
-			}
 		}
-		return result, nil
+		return result
 	}
 
 	// Specific indices requested
@@ -515,7 +512,7 @@ func fetchList(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *path
 				stack.push(TypeKind_List, "", idx)
 				path := stack.buildPath()
 				stack.pop()
-				return nil, ErrNotFound{Parent: desc, Field: child, Msg: fmt.Sprintf("index %d out of bounds (len=%d) at path %s", idx, v.Len(), path)}
+				*errs = append(*errs, ErrNotFound{Parent: desc, Field: child, Msg: fmt.Sprintf("index %d out of bounds (len=%d) at path %s", idx, v.Len(), path)})
 			}
 			continue
 		}
@@ -529,24 +526,16 @@ func fetchList(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *path
 		// Push list index onto stack
 		stack.push(TypeKind_List, "", idx)
 
-		var err error
 		if child.Desc != nil {
-			var fetched interface{}
-			fetched, err = fetchValue(child.Desc, elemValue, opt, stack)
-			if err == nil {
-				result = append(result, fetched)
-			}
+			fetched := fetchValue(child.Desc, elemValue, opt, stack, errs)
+			result = append(result, fetched)
 		} else {
 			result = append(result, elemValue.Interface())
 		}
 
 		// Pop list index from stack
 		stack.pop()
-
-		if err != nil {
-			return nil, err
-		}
 	}
 
-	return result, nil
+	return result
 }
