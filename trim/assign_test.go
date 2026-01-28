@@ -88,6 +88,15 @@ func intPtr(i int) *int {
 	return &i
 }
 
+// Typedef types for testing
+type MyInt int32
+type MyInt64 int64
+type MyUint32 uint32
+type MyString string
+type MyFloat64 float64
+type MyBool bool
+type MyBytes []byte
+
 func TestAssignAny_Basic(t *testing.T) {
 	src := map[string]interface{}{
 		"field_a": 42,
@@ -325,10 +334,16 @@ func TestAssignAny_OnlyAssignLeafNodes(t *testing.T) {
 func TestAssignAny_UnknownFields(t *testing.T) {
 	// Step 1: Create a sampleAssignSmall with unknown fields
 	src := map[string]interface{}{
-		"field_a":     42,
-		"field_e":     "hello",
-		"unknown_int": 100,      // Field ID 10
-		"unknown_str": "secret", // Field ID 11
+		"field_a":        42,
+		"field_e":        "hello",
+		"unknown_int":    100,                // Field ID 10
+		"unknown_str":    "secret",           // Field ID 11
+		"unknown_myint":  MyInt(200),         // Field ID 20, typedef int32
+		"unknown_mystr":  MyString("custom"), // Field ID 21, typedef string
+		"unknown_myi64":  MyInt64(999),       // Field ID 22, typedef int64
+		"unknown_myu32":  MyUint32(777),      // Field ID 23, typedef uint32
+		"unknown_myf64":  MyFloat64(3.14),    // Field ID 24, typedef float64
+		"unknown_mybool": MyBool(true),       // Field ID 25, typedef bool
 	}
 
 	desc := &Descriptor{
@@ -339,6 +354,12 @@ func TestAssignAny_UnknownFields(t *testing.T) {
 			{Name: "field_e", ID: 5},
 			{Name: "unknown_int", ID: 10},
 			{Name: "unknown_str", ID: 11},
+			{Name: "unknown_myint", ID: 20},
+			{Name: "unknown_mystr", ID: 21},
+			{Name: "unknown_myi64", ID: 22},
+			{Name: "unknown_myu32", ID: 23},
+			{Name: "unknown_myf64", ID: 24},
+			{Name: "unknown_mybool", ID: 25},
 		},
 	}
 
@@ -401,6 +422,42 @@ func TestAssignAny_UnknownFields(t *testing.T) {
 				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
 				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
 			},
+			{
+				Name:   proto.String("unknown_myint"),
+				Number: proto.Int32(20),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+			{
+				Name:   proto.String("unknown_mystr"),
+				Number: proto.Int32(21),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+			{
+				Name:   proto.String("unknown_myi64"),
+				Number: proto.Int32(22),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_INT64.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+			{
+				Name:   proto.String("unknown_myu32"),
+				Number: proto.Int32(23),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_UINT32.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+			{
+				Name:   proto.String("unknown_myf64"),
+				Number: proto.Int32(24),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_DOUBLE.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
+			{
+				Name:   proto.String("unknown_mybool"),
+				Number: proto.Int32(25),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_BOOL.Enum(),
+				Label:  descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL.Enum(),
+			},
 		},
 	}
 
@@ -449,11 +506,194 @@ func TestAssignAny_UnknownFields(t *testing.T) {
 		t.Errorf("unknown_str: expected 'secret', got %v", unknownStr)
 	}
 
+	// Verify typedef fields
+	unknownMyInt := dynamicMsg.Get(fields.ByNumber(20)).Int()
+	if unknownMyInt != 200 {
+		t.Errorf("unknown_myint: expected 200, got %v", unknownMyInt)
+	}
+
+	unknownMyStr := dynamicMsg.Get(fields.ByNumber(21)).String()
+	if unknownMyStr != "custom" {
+		t.Errorf("unknown_mystr: expected 'custom', got %v", unknownMyStr)
+	}
+
+	unknownMyI64 := dynamicMsg.Get(fields.ByNumber(22)).Int()
+	if unknownMyI64 != 999 {
+		t.Errorf("unknown_myi64: expected 999, got %v", unknownMyI64)
+	}
+
+	unknownMyU32 := dynamicMsg.Get(fields.ByNumber(23)).Uint()
+	if unknownMyU32 != 777 {
+		t.Errorf("unknown_myu32: expected 777, got %v", unknownMyU32)
+	}
+
+	unknownMyF64 := dynamicMsg.Get(fields.ByNumber(24)).Float()
+	if unknownMyF64 != 3.14 {
+		t.Errorf("unknown_myf64: expected 3.14, got %v", unknownMyF64)
+	}
+
+	unknownMyBool := dynamicMsg.Get(fields.ByNumber(25)).Bool()
+	if unknownMyBool != true {
+		t.Errorf("unknown_mybool: expected true, got %v", unknownMyBool)
+	}
+
 	t.Logf("Successfully verified protobuf serialization with unknown fields using official proto")
 	t.Logf("  field_a: %v", fieldA)
 	t.Logf("  field_e: %v", fieldE)
 	t.Logf("  unknown_int: %v", unknownInt)
 	t.Logf("  unknown_str: %v", unknownStr)
+	t.Logf("  unknown_myint (typedef int32): %v", unknownMyInt)
+	t.Logf("  unknown_mystr (typedef string): %v", unknownMyStr)
+	t.Logf("  unknown_myi64 (typedef int64): %v", unknownMyI64)
+	t.Logf("  unknown_myu32 (typedef uint32): %v", unknownMyU32)
+	t.Logf("  unknown_myf64 (typedef float64): %v", unknownMyF64)
+	t.Logf("  unknown_mybool (typedef bool): %v", unknownMyBool)
+}
+
+// TestEncodeUnknownField_Typedef tests encoding of typedef types
+func TestEncodeUnknownField_Typedef(t *testing.T) {
+	// Test various typedef types
+	src := map[string]interface{}{
+		"field_a":        42,
+		"typedef_int":    MyInt(100),
+		"typedef_int64":  MyInt64(200),
+		"typedef_uint32": MyUint32(300),
+		"typedef_string": MyString("test"),
+		"typedef_float":  MyFloat64(1.23),
+		"typedef_bool":   MyBool(true),
+		"typedef_bytes":  MyBytes([]byte{1, 2, 3}),
+	}
+
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Type: "TypedefTest",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{Name: "typedef_int", ID: 10},
+			{Name: "typedef_int64", ID: 11},
+			{Name: "typedef_uint32", ID: 12},
+			{Name: "typedef_string", ID: 13},
+			{Name: "typedef_float", ID: 14},
+			{Name: "typedef_bool", ID: 15},
+			{Name: "typedef_bytes", ID: 16},
+		},
+	}
+
+	dest := &sampleNestedUnknown{}
+	err := assignAny(desc, src, dest)
+	if err != nil {
+		t.Fatalf("AssignAny failed: %v", err)
+	}
+
+	if dest.FieldA != 42 {
+		t.Errorf("field_a: expected 42, got %v", dest.FieldA)
+	}
+
+	if len(dest.XXX_unrecognized) == 0 {
+		t.Fatal("XXX_unrecognized should not be empty")
+	}
+
+	// Create protobuf descriptor
+	messageDesc := &descriptorpb.DescriptorProto{
+		Name: proto.String("TypedefTest"),
+		Field: []*descriptorpb.FieldDescriptorProto{
+			{
+				Name:   proto.String("field_a"),
+				Number: proto.Int32(1),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
+			},
+			{
+				Name:   proto.String("typedef_int"),
+				Number: proto.Int32(10),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_INT32.Enum(),
+			},
+			{
+				Name:   proto.String("typedef_int64"),
+				Number: proto.Int32(11),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_INT64.Enum(),
+			},
+			{
+				Name:   proto.String("typedef_uint32"),
+				Number: proto.Int32(12),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_UINT32.Enum(),
+			},
+			{
+				Name:   proto.String("typedef_string"),
+				Number: proto.Int32(13),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_STRING.Enum(),
+			},
+			{
+				Name:   proto.String("typedef_float"),
+				Number: proto.Int32(14),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_DOUBLE.Enum(),
+			},
+			{
+				Name:   proto.String("typedef_bool"),
+				Number: proto.Int32(15),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_BOOL.Enum(),
+			},
+			{
+				Name:   proto.String("typedef_bytes"),
+				Number: proto.Int32(16),
+				Type:   descriptorpb.FieldDescriptorProto_TYPE_BYTES.Enum(),
+			},
+		},
+	}
+
+	fileDesc := &descriptorpb.FileDescriptorProto{
+		Name:        proto.String("test.proto"),
+		Syntax:      proto.String("proto3"),
+		MessageType: []*descriptorpb.DescriptorProto{messageDesc},
+	}
+
+	fd, err := protodesc.NewFile(fileDesc, nil)
+	if err != nil {
+		t.Fatalf("failed to create file descriptor: %v", err)
+	}
+
+	msgDesc := fd.Messages().Get(0)
+
+	// Serialize the message
+	bp := binary.NewBinaryProtocolBuffer()
+	defer binary.FreeBinaryProtocol(bp)
+
+	bp.AppendTag(1, 0)
+	bp.WriteInt32(int32(dest.FieldA))
+	bp.Buf = append(bp.Buf, dest.XXX_unrecognized...)
+
+	// Unmarshal and verify
+	dynamicMsg := dynamicpb.NewMessage(msgDesc)
+	err = proto.Unmarshal(bp.Buf, dynamicMsg)
+	if err != nil {
+		t.Fatalf("proto.Unmarshal failed: %v", err)
+	}
+
+	fields := dynamicMsg.Descriptor().Fields()
+
+	// Verify all typedef fields
+	if v := dynamicMsg.Get(fields.ByNumber(10)).Int(); v != 100 {
+		t.Errorf("typedef_int: expected 100, got %v", v)
+	}
+	if v := dynamicMsg.Get(fields.ByNumber(11)).Int(); v != 200 {
+		t.Errorf("typedef_int64: expected 200, got %v", v)
+	}
+	if v := dynamicMsg.Get(fields.ByNumber(12)).Uint(); v != 300 {
+		t.Errorf("typedef_uint32: expected 300, got %v", v)
+	}
+	if v := dynamicMsg.Get(fields.ByNumber(13)).String(); v != "test" {
+		t.Errorf("typedef_string: expected 'test', got %v", v)
+	}
+	if v := dynamicMsg.Get(fields.ByNumber(14)).Float(); v != 1.23 {
+		t.Errorf("typedef_float: expected 1.23, got %v", v)
+	}
+	if v := dynamicMsg.Get(fields.ByNumber(15)).Bool(); v != true {
+		t.Errorf("typedef_bool: expected true, got %v", v)
+	}
+	if v := dynamicMsg.Get(fields.ByNumber(16)).Bytes(); !reflect.DeepEqual(v, []byte{1, 2, 3}) {
+		t.Errorf("typedef_bytes: expected [1 2 3], got %v", v)
+	}
+
+	t.Logf("Successfully verified all typedef types encoding")
 }
 
 // Test struct for nested unknown fields
@@ -462,14 +702,22 @@ type sampleNestedUnknown struct {
 	XXX_unrecognized []byte `json:"-"`
 }
 
+// Nested struct used in the test
+type nestedStructData struct {
+	InnerField1 string `json:"inner_field1"`
+	InnerField2 int64  `json:"inner_field2"`
+}
+
 func TestEncodeUnknownField_NestedStruct(t *testing.T) {
-	// Test nested struct encoding
+	// Test nested struct encoding - use struct type for nested field value
+	nestedData := nestedStructData{
+		InnerField1: "hello",
+		InnerField2: int64(123),
+	}
+
 	src := map[string]interface{}{
-		"field_a": 42,
-		"nested_struct": map[string]interface{}{
-			"inner_field1": "hello",
-			"inner_field2": int64(123),
-		},
+		"field_a":       42,
+		"nested_struct": nestedData, // Use struct instead of map
 	}
 
 	// Create descriptor for the struct with nested struct field

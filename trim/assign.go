@@ -1054,10 +1054,35 @@ func encodeUnknownField(bp *binary.BinaryProtocol, fieldID int, value interface{
 			defer binary.FreeBinaryProtocol(subBp)
 
 			if m, ok := value.(map[string]interface{}); ok {
+				// Handle map[string]interface{}
 				for key, val := range m {
 					if childField, ok := desc.names[key]; ok {
 						if err := encodeUnknownField(subBp, childField.ID, val, childField.Desc); err != nil {
 							return err
+						}
+					}
+				}
+			} else {
+				// Handle struct type via reflection
+				rv := reflect.ValueOf(value)
+				for rv.Kind() == reflect.Ptr {
+					rv = rv.Elem()
+				}
+
+				if rv.Kind() == reflect.Struct {
+					// Use cached field info to avoid repeated json tag parsing
+					structType := rv.Type()
+					fieldInfo := getJSONStructFieldInfo(structType)
+
+					// Iterate through cached json field mappings
+					for jsonName, fieldIdx := range fieldInfo.jsonNameToFieldIndex {
+						fieldValue := rv.Field(fieldIdx)
+
+						// Find corresponding field in descriptor
+						if childField, ok := desc.names[jsonName]; ok {
+							if err := encodeUnknownField(subBp, childField.ID, fieldValue.Interface(), childField.Desc); err != nil {
+								return err
+							}
 						}
 					}
 				}
@@ -1188,7 +1213,45 @@ func encodeUnknownField(bp *binary.BinaryProtocol, fieldID int, value interface{
 		bp.WriteBytes(subBp.Buf)
 
 	default:
-		return fmt.Errorf("unsupported type for unknown field encoding: %T", value)
+		// Handle typedef types (e.g., type Int int32) using reflection
+		rv := reflect.ValueOf(value)
+		switch rv.Kind() {
+		case reflect.Bool:
+			bp.Buf = appendTag(bp.Buf, fieldID, 0)
+			bp.WriteBool(rv.Bool())
+
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			bp.Buf = appendTag(bp.Buf, fieldID, 0)
+			bp.WriteInt64(rv.Int())
+
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			bp.Buf = appendTag(bp.Buf, fieldID, 0)
+			bp.WriteUint64(rv.Uint())
+
+		case reflect.Float32:
+			bp.Buf = appendTag(bp.Buf, fieldID, 5) // fixed32 wire type
+			bp.WriteFloat(float32(rv.Float()))
+
+		case reflect.Float64:
+			bp.Buf = appendTag(bp.Buf, fieldID, 1) // fixed64 wire type
+			bp.WriteDouble(rv.Float())
+
+		case reflect.String:
+			bp.Buf = appendTag(bp.Buf, fieldID, 2)
+			bp.WriteString(rv.String())
+
+		case reflect.Slice:
+			// Handle []byte typedef
+			if rv.Type().Elem().Kind() == reflect.Uint8 {
+				bp.Buf = appendTag(bp.Buf, fieldID, 2)
+				bp.WriteBytes(rv.Bytes())
+			} else {
+				return fmt.Errorf("unsupported slice type for unknown field encoding: %T", value)
+			}
+
+		default:
+			return fmt.Errorf("unsupported type for unknown field encoding: %T (kind: %v)", value, rv.Kind())
+		}
 	}
 
 	return nil
