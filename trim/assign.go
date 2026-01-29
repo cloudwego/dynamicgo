@@ -344,14 +344,15 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 
 // assignValueToField assigns a value to a field, handling pointer allocation
 func assignValueToField(desc *Descriptor, src interface{}, fieldValue reflect.Value, opt *AssignOptions, stack *pathStack, ec *errorCollector) {
+	// If source is an empty non-leaf, only initialize nil destinations and skip assignment.
+	if isEmptyNonLeaf(desc, src) {
+		initEmptyNonLeafValue(desc, fieldValue)
+		return
+	}
+
 	// Handle pointer fields - allocate if needed
 	if fieldValue.Kind() == reflect.Ptr {
 		if fieldValue.IsNil() {
-			// Skip allocating for empty non-leaf sources to avoid clobbering existing data
-			if isEmptyNonLeaf(desc, src) {
-				return
-			}
-
 			fieldValue.Set(reflect.New(fieldValue.Type().Elem()))
 		}
 		assignValue(desc, src, fieldValue.Elem(), opt, stack, ec)
@@ -379,6 +380,36 @@ func isEmptyNonLeaf(desc *Descriptor, src interface{}) bool {
 	}
 
 	return false
+}
+
+// initEmptyNonLeafValue initializes nil destinations for empty non-leaf sources.
+// It avoids overwriting existing non-nil values.
+func initEmptyNonLeafValue(desc *Descriptor, destValue reflect.Value) {
+	if desc == nil || !destValue.IsValid() {
+		return
+	}
+
+	// Unwrap pointers but only allocate when nil
+	if destValue.Kind() == reflect.Ptr {
+		if destValue.IsNil() {
+			destValue.Set(reflect.New(destValue.Type().Elem()))
+		}
+		destValue = destValue.Elem()
+	}
+
+	switch desc.Kind {
+	case TypeKind_StrMap:
+		if destValue.Kind() == reflect.Map && destValue.IsNil() && destValue.CanSet() {
+			destValue.Set(reflect.MakeMap(destValue.Type()))
+		}
+	case TypeKind_List:
+		if destValue.Kind() == reflect.Slice && destValue.IsNil() && destValue.CanSet() {
+			destValue.Set(reflect.MakeSlice(destValue.Type(), 0, 0))
+		}
+	case TypeKind_Struct:
+		// Struct zero value is fine once pointer is allocated.
+		return
+	}
 }
 
 // assignStrMap handles TypeKind_StrMap assignment
@@ -426,10 +457,20 @@ func assignStrMap(desc *Descriptor, src interface{}, destValue reflect.Value, op
 
 		// Skip assigning empty non-leaf nodes to avoid overwriting existing values
 		if childDesc != nil && isEmptyNonLeaf(childDesc, value) {
-			if !existing.IsValid() {
+			if existing.IsValid() {
+				// keep existing value untouched
 				continue
 			}
-			// keep existing value untouched
+			// initialize zero value when destination is nil
+			if elemType.Kind() == reflect.Ptr {
+				newElem := reflect.New(elemType.Elem())
+				initEmptyNonLeafValue(childDesc, newElem)
+				destValue.SetMapIndex(keyValue, newElem)
+			} else {
+				zeroElem := reflect.New(elemType).Elem()
+				initEmptyNonLeafValue(childDesc, zeroElem)
+				destValue.SetMapIndex(keyValue, zeroElem)
+			}
 			continue
 		}
 
@@ -530,6 +571,15 @@ func assignList(desc *Descriptor, src interface{}, destValue reflect.Value, opt 
 
 			// Skip empty non-leaf sources to avoid overwriting existing elements
 			if wildcardDesc != nil && isEmptyNonLeaf(wildcardDesc, srcSlice[i]) {
+				if elemType.Kind() == reflect.Ptr {
+					if elemValue.IsNil() {
+						newElem := reflect.New(elemType.Elem())
+						initEmptyNonLeafValue(wildcardDesc, newElem)
+						elemValue.Set(newElem)
+					}
+				} else {
+					initEmptyNonLeafValue(wildcardDesc, elemValue)
+				}
 				continue
 			}
 

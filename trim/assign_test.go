@@ -252,10 +252,12 @@ func TestAssignAny_OnlyAssignLeafNodes(t *testing.T) {
 			map[string]interface{}{
 				"field_a": 10,
 				"field_b": []interface{}{},
+				"field_c": map[string]interface{}{},
 			},
 			map[string]interface{}{
 				"field_a": 10,
 			},
+			map[string]interface{}{},
 		},
 		"field_c": map[string]interface{}{
 			"empty": map[string]interface{}{},
@@ -266,6 +268,7 @@ func TestAssignAny_OnlyAssignLeafNodes(t *testing.T) {
 			"add": map[string]interface{}{
 				"field_a": 10,
 			},
+			"default": map[string]interface{}{},
 		},
 		"field_d": map[string]interface{}{},
 	}
@@ -315,13 +318,18 @@ func TestAssignAny_OnlyAssignLeafNodes(t *testing.T) {
 	expected := &sampleAssign{
 		FieldB: []*sampleAssign{
 			{FieldA: 1, FieldE: "should not be cleared"},
-			{FieldA: 10, FieldB: []*sampleAssign{{FieldA: 1}}, FieldE: "should not be cleared"},
+			{FieldA: 10,
+				FieldB: []*sampleAssign{{FieldA: 1}},
+				FieldC: map[string]*sampleAssign{}, // empty src should assign to nil desc
+				FieldE: "should not be cleared"},
 			{FieldA: 10},
+			new(sampleAssign), // empty src should assign to nil desc
 		},
 		FieldC: map[string]*sampleAssign{
 			"empty":     {FieldA: 1, FieldE: "should not be cleared"},
 			"non_empty": {FieldA: 10, FieldC: map[string]*sampleAssign{"a": {FieldA: 1}}, FieldE: "should not be cleared"},
 			"add":       {FieldA: 10},
+			"default":   {}, // empty src should assigning to nil dest
 		},
 		FieldD: &sampleAssign{FieldA: 1, FieldE: "should not be cleared"},
 	}
