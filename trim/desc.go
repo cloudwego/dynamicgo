@@ -166,7 +166,7 @@ func (d *Descriptor) String() string {
 // descriptorJSON is the JSON representation of Descriptor
 type descriptorJSON struct {
 	Kind     TypeKind    `json:"kind"`
-	Name     string      `json:"name"`
+	Type     string      `json:"type"`
 	Children []fieldJSON `json:"children,omitempty"`
 }
 
@@ -197,7 +197,7 @@ func (d *Descriptor) marshalWithPath(path string, visited map[*Descriptor]string
 		// Return a reference placeholder - this will be handled specially
 		return &descriptorJSON{
 			Kind: d.Kind,
-			Name: fmt.Sprintf("$ref:%s", existingPath),
+			Type: fmt.Sprintf("$ref:%s", existingPath),
 		}
 	}
 
@@ -206,7 +206,7 @@ func (d *Descriptor) marshalWithPath(path string, visited map[*Descriptor]string
 
 	result := &descriptorJSON{
 		Kind:     d.Kind,
-		Name:     d.Type,
+		Type:     d.Type,
 		Children: make([]fieldJSON, 0, len(d.Children)),
 	}
 
@@ -253,7 +253,7 @@ func (d *Descriptor) UnmarshalJSON(data []byte) error {
 // unmarshalFromJSON populates the descriptor from JSON representation
 func (d *Descriptor) unmarshalFromJSON(raw *descriptorJSON, path string, refs map[string]*Descriptor) {
 	d.Kind = raw.Kind
-	d.Type = raw.Name
+	d.Type = raw.Type
 	d.Children = make([]Field, 0, len(raw.Children))
 	d.ids = nil
 	d.names = nil
