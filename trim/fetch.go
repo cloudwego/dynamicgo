@@ -468,6 +468,11 @@ func fetchList(desc *Descriptor, v reflect.Value, opt *FetchOptions, stack *path
 		return nil
 	}
 
+	// Check if the slice is nil to distinguish from empty slice []
+	if kind == reflect.Slice && v.IsNil() {
+		return nil
+	}
+
 	childrenLen := len(desc.Children)
 
 	// Fast path: only wildcard descriptor ("*" means all elements)
