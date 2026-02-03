@@ -1396,6 +1396,98 @@ func TestAssignAny_NoUnkeyedLiteral(t *testing.T) {
 	t.Logf("  XXX_NoUnkeyedLiteral: %+v", dest.XXX_NoUnkeyedLiteral)
 }
 
+// TestAssignAny_NoUnkeyedLiteral_WithoutDesc tests that fields without descriptor
+// are stored in XXX_NoUnkeyedLiteral but NOT in XXX_unrecognized
+func TestAssignAny_NoUnkeyedLiteral_WithoutDesc(t *testing.T) {
+	src := map[string]interface{}{
+		"field_a":                42,
+		"field_e":                "hello",
+		"field_with_desc":        100,       // Has descriptor, not in struct -> goes to both XXX_unrecognized and XXX_NoUnkeyedLiteral
+		"field_without_desc_int": 200,       // No descriptor -> goes only to XXX_NoUnkeyedLiteral
+		"field_without_desc_str": "no_desc", // No descriptor -> goes only to XXX_NoUnkeyedLiteral
+		"field_without_desc_map": map[string]interface{}{ // No descriptor -> goes only to XXX_NoUnkeyedLiteral
+			"key1": "value1",
+		},
+	}
+
+	// Descriptor only includes field_a, field_e, and field_with_desc
+	// field_without_desc_* are NOT in the descriptor
+	desc := &Descriptor{
+		Kind: TypeKind_Struct,
+		Type: "SampleAssignSmall",
+		Children: []Field{
+			{Name: "field_a", ID: 1},
+			{Name: "field_e", ID: 5},
+			{Name: "field_with_desc", ID: 10}, // This field is in desc but not in struct
+		},
+	}
+
+	dest := &sampleAssignSmall{}
+	err := assignAny(desc, src, dest)
+	if err != nil {
+		t.Fatalf("AssignAny failed: %v", err)
+	}
+
+	// Verify known fields
+	if dest.FieldA == nil || *dest.FieldA != 42 {
+		t.Errorf("field_a: expected 42, got %v", dest.FieldA)
+	}
+	if dest.FieldE != "hello" {
+		t.Errorf("field_e: expected 'hello', got %v", dest.FieldE)
+	}
+
+	// Verify XXX_unrecognized contains only field_with_desc (has descriptor)
+	if len(dest.XXX_unrecognized) == 0 {
+		t.Errorf("XXX_unrecognized: expected non-empty (should contain field_with_desc)")
+	}
+
+	// Verify XXX_NoUnkeyedLiteral contains ALL unknown fields (with and without desc)
+	if dest.XXX_NoUnkeyedLiteral == nil {
+		t.Fatalf("XXX_NoUnkeyedLiteral: expected non-nil map")
+	}
+
+	// Check field_with_desc (has descriptor)
+	if val, ok := dest.XXX_NoUnkeyedLiteral["field_with_desc"]; !ok {
+		t.Errorf("XXX_NoUnkeyedLiteral: expected 'field_with_desc' key")
+	} else if intVal, ok := val.(int); !ok || intVal != 100 {
+		t.Errorf("XXX_NoUnkeyedLiteral['field_with_desc']: expected 100, got %v (type %T)", val, val)
+	}
+
+	// Check field_without_desc_int (no descriptor)
+	if val, ok := dest.XXX_NoUnkeyedLiteral["field_without_desc_int"]; !ok {
+		t.Errorf("XXX_NoUnkeyedLiteral: expected 'field_without_desc_int' key")
+	} else if intVal, ok := val.(int); !ok || intVal != 200 {
+		t.Errorf("XXX_NoUnkeyedLiteral['field_without_desc_int']: expected 200, got %v (type %T)", val, val)
+	}
+
+	// Check field_without_desc_str (no descriptor)
+	if val, ok := dest.XXX_NoUnkeyedLiteral["field_without_desc_str"]; !ok {
+		t.Errorf("XXX_NoUnkeyedLiteral: expected 'field_without_desc_str' key")
+	} else if strVal, ok := val.(string); !ok || strVal != "no_desc" {
+		t.Errorf("XXX_NoUnkeyedLiteral['field_without_desc_str']: expected 'no_desc', got %v (type %T)", val, val)
+	}
+
+	// Check field_without_desc_map (no descriptor)
+	if val, ok := dest.XXX_NoUnkeyedLiteral["field_without_desc_map"]; !ok {
+		t.Errorf("XXX_NoUnkeyedLiteral: expected 'field_without_desc_map' key")
+	} else if mapVal, ok := val.(map[string]interface{}); !ok {
+		t.Errorf("XXX_NoUnkeyedLiteral['field_without_desc_map']: expected map[string]interface{}, got %T", val)
+	} else if nestedVal, ok := mapVal["key1"]; !ok || nestedVal != "value1" {
+		t.Errorf("XXX_NoUnkeyedLiteral['field_without_desc_map']['key1']: expected 'value1', got %v", nestedVal)
+	}
+
+	// Verify that XXX_NoUnkeyedLiteral has exactly 4 entries
+	if len(dest.XXX_NoUnkeyedLiteral) != 4 {
+		t.Errorf("XXX_NoUnkeyedLiteral: expected 4 entries, got %d", len(dest.XXX_NoUnkeyedLiteral))
+	}
+
+	t.Logf("Successfully verified XXX_NoUnkeyedLiteral contains fields without descriptors")
+	t.Logf("  field_a: %v", *dest.FieldA)
+	t.Logf("  field_e: %v", dest.FieldE)
+	t.Logf("  XXX_unrecognized length: %d", len(dest.XXX_unrecognized))
+	t.Logf("  XXX_NoUnkeyedLiteral: %+v", dest.XXX_NoUnkeyedLiteral)
+}
+
 func TestAssignAny_ListOfStructs(t *testing.T) {
 
 	src := map[string]interface{}{

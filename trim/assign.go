@@ -60,9 +60,9 @@ func (ec *errorCollector) toError() error {
 
 // AssignAny assigns values from src (map[string]interface{}) to dest (protobuf struct) according to desc.
 // For fields that exist in src but not in dest's struct definition (unknown fields):
-//   - They will be encoded to XXX_unrecognized field using protobuf binary encoding
-//   - Their raw values will also be stored in XXX_NoUnkeyedLiteral field (if present) as map[string]interface{}
-//     with field names as keys
+//   - If the field exists in descriptor: it will be encoded to XXX_unrecognized field using protobuf binary encoding
+//   - All unknown fields (with or without descriptor) will be stored in XXX_NoUnkeyedLiteral field (if present)
+//     as map[string]interface{} with field names as keys
 //
 // Warning: desc must be normalized before calling this method.
 // This method uses try-best mode: it will continue processing even if some fields fail,
@@ -88,6 +88,12 @@ func (a Assigner) AssignAny(desc *Descriptor, src interface{}, dest interface{})
 
 	assignValue(desc, src, destValue.Elem(), &a.AssignOptions, stack, ec)
 	return ec.toError()
+}
+
+// unassignedFieldEntry represents a field that is not assigned to a struct field
+type unassignedFieldEntry struct {
+	value   interface{}
+	hasDesc bool // true if field exists in descriptor
 }
 
 // pbStructFieldInfo caches field mapping information for a protobuf struct type
@@ -242,8 +248,8 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 	// Get cached field info for this type
 	fieldInfo := getPBStructFieldInfo(destValue.Type())
 
-	// Track which fields in srcMap are assigned to struct fields
-	unassignedFields := make(map[string]interface{}, len(srcMap))
+	// Track which fields in srcMap are not assigned to struct fields
+	unassignedFields := make(map[string]unassignedFieldEntry, len(srcMap))
 
 	// Iterate through srcMap and assign values
 	descFieldMap := desc.names
@@ -283,29 +289,38 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 			// Pop field from stack
 			stack.pop()
 		} else if hasDescField {
-			// Field exists in descriptor but not in struct - encode to XXX_unrecognized
-			// This will be handled below
-			unassignedFields[key] = value
-		} else if opt.DisallowNotDefined {
-			// Include path in error message
-			stack.push(TypeKind_Struct, key, fieldID)
-			path := stack.buildPath()
-			stack.pop()
-			ec.add(ErrNotFound{Parent: desc, Field: Field{Name: key}, Msg: fmt.Sprintf("field '%s' not found in struct at path %s", key, path)})
+			// Field exists in descriptor but not in struct
+			unassignedFields[key] = unassignedFieldEntry{value: value, hasDesc: true}
+		} else {
+			// Field does not exist in descriptor
+			if opt.DisallowNotDefined {
+				// Include path in error message
+				stack.push(TypeKind_Struct, key, fieldID)
+				path := stack.buildPath()
+				stack.pop()
+				ec.add(ErrNotFound{Parent: desc, Field: Field{Name: key}, Msg: fmt.Sprintf("field '%s' not found in struct at path %s", key, path)})
+			} else {
+				// Store field without descriptor
+				unassignedFields[key] = unassignedFieldEntry{value: value, hasDesc: false}
+			}
 		}
 	}
 
-	// Encode unassigned fields (from descriptor) to XXX_unrecognized
+	// Encode unassigned fields with descriptor to XXX_unrecognized
 	if len(unassignedFields) > 0 && fieldInfo.unrecognizedIndex >= 0 {
 		unrecognizedValue := destValue.Field(fieldInfo.unrecognizedIndex)
 		if unrecognizedValue.CanSet() {
 			bp := binary.NewBinaryProtocolBuffer()
 			defer binary.FreeBinaryProtocol(bp)
 
-			for key, val := range unassignedFields {
+			for key, entry := range unassignedFields {
+				// Only encode fields with descriptor to XXX_unrecognized
+				if !entry.hasDesc {
+					continue
+				}
 				// Encode this field to XXX_unrecognized
 				field := descFieldMap[key]
-				if err := encodeUnknownField(bp, field.ID, val, field.Desc); err != nil {
+				if err := encodeUnknownField(bp, field.ID, entry.value, field.Desc); err != nil {
 					ec.add(fmt.Errorf("failed to encode unknown field '%s': %w", key, err))
 					continue
 				}
@@ -322,7 +337,7 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 		}
 	}
 
-	// Store unassigned fields as raw values to XXX_NoUnkeyedLiteral
+	// Store all unassigned fields to XXX_NoUnkeyedLiteral (with or without descriptor)
 	if len(unassignedFields) > 0 && fieldInfo.noUnkeyedLiteralIndex >= 0 {
 		noUnkeyedLiteralValue := destValue.Field(fieldInfo.noUnkeyedLiteralIndex)
 		if noUnkeyedLiteralValue.CanSet() {
@@ -334,8 +349,8 @@ func assignStruct(desc *Descriptor, src interface{}, destValue reflect.Value, op
 				}
 
 				// Set each unassigned field to the map
-				for key, value := range unassignedFields {
-					noUnkeyedLiteralValue.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(value))
+				for key, entry := range unassignedFields {
+					noUnkeyedLiteralValue.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(entry.value))
 				}
 			}
 		}
