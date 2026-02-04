@@ -558,6 +558,31 @@ type compilingInstance struct {
 
 type compilingCache map[string]*compilingInstance
 
+func thriftNamespace(ast *parser.Thrift) string {
+	if ast == nil || ast.Namespaces == nil || len(ast.Namespaces) == 0 {
+		return ""
+	}
+	var any, star string
+	for _, ns := range ast.Namespaces {
+		if ns == nil || ns.Name == "" {
+			continue
+		}
+		if ns.Language == "go" {
+			return ns.Name
+		}
+		if ns.Language == "*" {
+			star = ns.Name
+		}
+		if any == "" {
+			any = ns.Name
+		}
+	}
+	if star != "" {
+		return star
+	}
+	return any
+}
+
 // arg cache:
 // only support self reference on the same file
 // cross file self reference complicate matters
@@ -923,4 +948,69 @@ func makeDefaultValue(typ *TypeDescriptor, val *parser.ConstValue, tree *parser.
 
 	}
 	return nil, nil
+}
+
+// NewDescriptorByName parse thrift IDL and return the specified （file+typeName） type descriptor.
+// The includes is the thrift file content map, and its keys are specific including thrift file path, values are the thrift file content.
+// file is the main thrift file path, name is the type name to parse (supports format like "package.TypeName" for cross-file references).
+// Returns a complete TypeDescriptor with all referenced types resolved.
+func (opts Options) NewDescriptorByName(ctx context.Context, file string, name string, includes map[string]string) (*TypeDescriptor, error) {
+	// Parse the main IDL file and all includes
+	tree, err := parseIDLContent(file, includes[file], includes)
+	if err != nil {
+		return nil, err
+	}
+
+	// Resolve all symbols in the AST
+	if err := semantic.ResolveSymbols(tree); err != nil {
+		return nil, err
+	}
+
+	// Create a compilingCache to handle recursive type references
+	structsCache := compilingCache{}
+
+	// Parse the type using the parseType function
+	// First, we need to create a parser.Type that matches the requested type name
+	typePkg, typeName := util.SplitSubfix(name)
+	var targetTree *parser.Thrift = tree
+
+	// If cross-file reference, resolve the file reference
+	if typePkg != "" {
+		ref, ok := tree.GetReference(typePkg)
+		if !ok {
+			return nil, fmt.Errorf("miss reference: %s in file: %s", typePkg, file)
+		}
+		targetTree = ref
+		// Reset cache for cross-file reference
+		structsCache = compilingCache{}
+	}
+
+	// Verify the type exists in the target file
+	if _, ok := targetTree.GetStruct(typeName); !ok {
+		if _, ok := targetTree.GetUnion(typeName); !ok {
+			if _, ok := targetTree.GetException(typeName); !ok {
+				if _, ok := targetTree.GetTypedef(typeName); !ok {
+					if _, ok := targetTree.GetEnum(typeName); !ok {
+						return nil, fmt.Errorf("missing type: %s in file: %s", name, file)
+					}
+					// Handle enum type - return as i32 or i64 based on options
+					if opts.ParseEnumAsInt64 {
+						return builtinTypes["i64"], nil
+					}
+					return builtinTypes["i32"], nil
+				}
+				// Handle typedef - recursively parse the underlying type
+				typDef, _ := targetTree.GetTypedef(typeName)
+				return parseType(ctx, typDef.Type, targetTree, structsCache, 0, opts, nil, Request)
+			}
+		}
+	}
+
+	// Create a parser.Type for the target type
+	parserType := &parser.Type{
+		Name: name,
+	}
+
+	// Parse the type descriptor
+	return parseType(ctx, parserType, tree, structsCache, 0, opts, nil, Request)
 }

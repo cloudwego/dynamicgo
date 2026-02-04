@@ -488,3 +488,169 @@ func TestParseWithServiceName(t *testing.T) {
 	require.Nil(t, p)
 	require.Equal(t, err.Error(), "the idl service name UnknownService is not in the idl. Please check your idl")
 }
+
+func TestNewDescriptorByName(t *testing.T) {
+	t.Run("WithIncludes", func(t *testing.T) {
+		// Test cross-file struct parsing
+		mainPath := "main.thrift"
+		mainContent := `
+	namespace go kitex.test.server
+	include "base.thrift"
+	
+	struct UserRequest {
+		1: required string username
+		2: base.User user
+	}
+	`
+
+		basePath := "base.thrift"
+		baseContent := `
+	namespace go kitex.test.server
+	
+	struct User {
+		1: required i64 id
+		2: required string name
+		3: optional string email
+	}
+	`
+
+		includes := map[string]string{
+			mainPath: mainContent,
+			basePath: baseContent,
+		}
+
+		opts := Options{}
+
+		// Test parsing UserRequest which references User from another file
+		desc, err := opts.NewDescriptorByName(context.Background(), mainPath, "UserRequest", includes)
+		require.NoError(t, err)
+		require.NotNil(t, desc)
+		require.Equal(t, STRUCT, desc.Type())
+		require.Equal(t, "UserRequest", desc.Struct().Name())
+
+		// Verify fields
+		usernameField := desc.Struct().FieldByKey("username")
+		require.NotNil(t, usernameField)
+		require.Equal(t, STRING, usernameField.Type().Type())
+
+		userField := desc.Struct().FieldByKey("user")
+		require.NotNil(t, userField)
+		require.Equal(t, STRUCT, userField.Type().Type())
+		require.Equal(t, "User", userField.Type().Struct().Name())
+
+		// Verify nested User struct fields
+		userStruct := userField.Type().Struct()
+		idField := userStruct.FieldByKey("id")
+		require.NotNil(t, idField)
+		require.Equal(t, I64, idField.Type().Type())
+
+		nameField := userStruct.FieldByKey("name")
+		require.NotNil(t, nameField)
+		require.Equal(t, STRING, nameField.Type().Type())
+
+		emailField := userStruct.FieldByKey("email")
+		require.NotNil(t, emailField)
+		require.Equal(t, STRING, emailField.Type().Type())
+	})
+
+	t.Run("PackageNotation", func(t *testing.T) {
+		// Test cross-file reference using package notation (e.g., "base.User")
+		mainPath := "main.thrift"
+		mainContent := `
+	namespace go kitex.test.server
+	include "base.thrift"
+	`
+
+		basePath := "base.thrift"
+		baseContent := `
+	namespace go kitex.test.base
+	
+	struct User {
+		1: required i64 id
+		2: required string name
+	}
+	`
+
+		includes := map[string]string{
+			mainPath: mainContent,
+			basePath: baseContent,
+		}
+
+		opts := Options{}
+
+		// Test parsing User struct with cross-file reference notation
+		desc, err := opts.NewDescriptorByName(context.Background(), mainPath, "base.User", includes)
+
+		require.NoError(t, err)
+		require.NotNil(t, desc)
+		require.Equal(t, STRUCT, desc.Type())
+		require.Equal(t, "User", desc.Struct().Name())
+
+		// Verify fields
+		idField := desc.Struct().FieldByKey("id")
+		require.NotNil(t, idField)
+		require.Equal(t, I64, idField.Type().Type())
+	})
+
+	// Test with mixed relative and absolute paths
+	t.Run("WithMixedPaths", func(t *testing.T) {
+		mainPath := "a/b/main.thrift"
+		mainContent := `
+	namespace go kitex.test.server
+	include "../c/base.thrift"
+	include "a/b/ref.thrift"
+	
+	struct UserRequest {
+		1: required string username
+		2: base.User user
+		3: ref.Placeholder placeholder
+	}
+	`
+
+		basePath := "a/c/base.thrift"
+		baseContent := `
+	namespace go kitex.test.server
+	
+	struct User {
+		1: required i64 id
+		2: required string name
+	}
+	`
+		refPath := "a/b/ref.thrift"
+		refContent := `
+	namespace go kitex.test.server
+	
+	struct Placeholder {
+		1: required string info
+	}
+	`
+
+		includes := map[string]string{
+			mainPath: mainContent,
+			basePath: baseContent,
+			refPath:  refContent,
+		}
+
+		opts := Options{}
+
+		// Test parsing UserRequest with relative path that goes up directories
+		desc, err := opts.NewDescriptorByName(context.Background(), mainPath, "UserRequest", includes)
+
+		require.NoError(t, err)
+		require.NotNil(t, desc)
+		require.Equal(t, STRUCT, desc.Type())
+		require.Equal(t, "UserRequest", desc.Struct().Name())
+
+		// Verify nested User struct is correctly resolved via relative path
+		userField := desc.Struct().FieldByKey("user")
+		require.NotNil(t, userField)
+		require.Equal(t, STRUCT, userField.Type().Type())
+		require.Equal(t, "User", userField.Type().Struct().Name())
+
+		// Verify nested Placeholder struct is correctly resolved via direct relative path
+		placeholderField := desc.Struct().FieldByKey("placeholder")
+		require.NotNil(t, placeholderField)
+		require.Equal(t, STRUCT, placeholderField.Type().Type())
+		require.Equal(t, "Placeholder", placeholderField.Type().Struct().Name())
+	})
+}
