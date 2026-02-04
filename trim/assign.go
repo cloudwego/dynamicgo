@@ -1252,6 +1252,26 @@ func encodeUnknownField(bp *binary.BinaryProtocol, fieldID int, value interface{
 					}
 				}
 
+				// Try packed encoding for primitive numeric types
+				if len(arr) > 0 && canUsePacked(arr[0]) {
+					// Use packed encoding: tag + length + data
+					packedBuf := binary.NewBinaryProtocolBuffer()
+					defer binary.FreeBinaryProtocol(packedBuf)
+
+					for _, elem := range arr {
+						if err := encodePackedElement(packedBuf, elem); err != nil {
+							// Fallback to non-packed if any element fails
+							goto nonPacked
+						}
+					}
+
+					bp.Buf = appendTag(bp.Buf, fieldID, 2) // length-delimited wire type
+					bp.WriteBytes(packedBuf.Buf)
+					return nil
+				}
+
+			nonPacked:
+				// Non-packed encoding: each element with its own tag
 				for _, elem := range arr {
 					if err := encodeUnknownField(bp, fieldID, elem, elemDesc); err != nil {
 						return err
@@ -1403,6 +1423,69 @@ func encodeUnknownField(bp *binary.BinaryProtocol, fieldID int, value interface{
 		}
 	}
 
+	return nil
+}
+
+// canUsePacked returns true if the value type can be encoded using packed encoding
+func canUsePacked(value interface{}) bool {
+	if value == nil {
+		return false
+	}
+
+	switch value.(type) {
+	case bool, int, int32, int64, uint32, uint64, float32, float64:
+		return true
+	default:
+		// Check typedef using reflection
+		rv := reflect.ValueOf(value)
+		switch rv.Kind() {
+		case reflect.Bool,
+			reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+			reflect.Float32, reflect.Float64:
+			return true
+		}
+	}
+	return false
+}
+
+// encodePackedElement encodes a single element for packed encoding (without tag)
+func encodePackedElement(bp *binary.BinaryProtocol, value interface{}) error {
+	switch v := value.(type) {
+	case bool:
+		bp.WriteBool(v)
+	case int:
+		bp.WriteInt64(int64(v))
+	case int32:
+		bp.WriteInt32(v)
+	case int64:
+		bp.WriteInt64(v)
+	case uint32:
+		bp.WriteUint32(v)
+	case uint64:
+		bp.WriteUint64(v)
+	case float32:
+		bp.WriteFloat(v)
+	case float64:
+		bp.WriteDouble(v)
+	default:
+		// Handle typedef types using reflection
+		rv := reflect.ValueOf(value)
+		switch rv.Kind() {
+		case reflect.Bool:
+			bp.WriteBool(rv.Bool())
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			bp.WriteInt64(rv.Int())
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			bp.WriteUint64(rv.Uint())
+		case reflect.Float32:
+			bp.WriteFloat(float32(rv.Float()))
+		case reflect.Float64:
+			bp.WriteDouble(rv.Float())
+		default:
+			return fmt.Errorf("unsupported type for packed encoding: %T", value)
+		}
+	}
 	return nil
 }
 

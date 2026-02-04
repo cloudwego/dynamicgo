@@ -69,7 +69,8 @@ type Field struct {
 	// Or the selection key for TypeKind_StrMap
 	Name string
 
-	// FieldID in IDL
+	// Field ID in Struct
+	// or List Index in List
 	ID int
 
 	// the child of the field

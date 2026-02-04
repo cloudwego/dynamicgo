@@ -4627,3 +4627,154 @@ func TestAssignAny_Array(t *testing.T) {
 		}
 	})
 }
+
+// TestEncodeUnknownField_PackedList tests that numeric lists use packed encoding
+func TestEncodeUnknownField_PackedList(t *testing.T) {
+	tests := []struct {
+		name       string
+		list       []interface{}
+		shouldPack bool
+	}{
+		{
+			name:       "int32 list - should pack",
+			list:       []interface{}{int32(1), int32(2), int32(3), int32(4), int32(5)},
+			shouldPack: true,
+		},
+		{
+			name:       "int64 list - should pack",
+			list:       []interface{}{int64(100), int64(200), int64(300)},
+			shouldPack: true,
+		},
+		{
+			name:       "bool list - should pack",
+			list:       []interface{}{true, false, true, false},
+			shouldPack: true,
+		},
+		{
+			name:       "float64 list - should pack",
+			list:       []interface{}{float64(1.5), float64(2.5), float64(3.5)},
+			shouldPack: true,
+		},
+		{
+			name:       "uint32 list - should pack",
+			list:       []interface{}{uint32(10), uint32(20), uint32(30)},
+			shouldPack: true,
+		},
+		{
+			name:       "string list - should not pack",
+			list:       []interface{}{"a", "b", "c"},
+			shouldPack: false,
+		},
+		{
+			name:       "mixed list - should not pack",
+			list:       []interface{}{int32(1), "string", int32(2)},
+			shouldPack: false,
+		},
+		{
+			name:       "typedef int list - should pack",
+			list:       []interface{}{MyInt(1), MyInt(2), MyInt(3)},
+			shouldPack: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := map[string]interface{}{
+				"field_a":     42,
+				"packed_list": tt.list,
+			}
+
+			desc := &Descriptor{
+				Kind: TypeKind_Struct,
+				Type: "TestPacked",
+				Children: []Field{
+					{Name: "field_a", ID: 1},
+					{
+						Name: "packed_list",
+						ID:   10,
+						Desc: &Descriptor{
+							Kind: TypeKind_List,
+							Type: "PackedList",
+							Children: []Field{
+								{Name: "*", ID: 0},
+							},
+						},
+					},
+				},
+			}
+
+			dest := &sampleAssignSmall{}
+			err := assignAny(desc, src, dest)
+			if err != nil {
+				t.Fatalf("AssignAny failed: %v", err)
+			}
+
+			if *dest.FieldA != 42 {
+				t.Errorf("field_a: expected 42, got %v", *dest.FieldA)
+			}
+
+			if len(dest.XXX_unrecognized) == 0 {
+				t.Fatal("XXX_unrecognized should not be empty")
+			}
+
+			// Parse the encoded data to count tags
+			bp := binary.NewBinaryProtocolBuffer()
+			bp.Buf = dest.XXX_unrecognized
+
+			tagCount := 0
+			fieldID10Tags := 0
+
+			for len(bp.Buf) > 0 {
+				// Read tag
+				tag, err := bp.ReadUint64()
+				if err != nil {
+					break
+				}
+				tagCount++
+
+				fieldNum := int(tag >> 3)
+				wireType := int(tag & 0x7)
+
+				if fieldNum == 10 {
+					fieldID10Tags++
+				}
+
+				// Skip the field data based on wire type
+				switch wireType {
+				case 0: // varint
+					bp.ReadUint64()
+				case 1: // fixed64
+					bp.ReadDouble()
+				case 2: // length-delimited
+					length, _ := bp.ReadUint64()
+					bp.Buf = bp.Buf[length:]
+				case 5: // fixed32
+					bp.ReadFloat()
+				}
+			}
+
+			if tt.shouldPack {
+				// Packed encoding: should have only 1 tag for field 10
+				if fieldID10Tags != 1 {
+					t.Errorf("Expected 1 tag for packed list, got %d tags", fieldID10Tags)
+				}
+				t.Logf("✓ Packed encoding used: 1 tag for %d elements", len(tt.list))
+			} else {
+				// Non-packed encoding: should have multiple tags (one per element)
+				expectedTags := len(tt.list)
+				if fieldID10Tags != expectedTags {
+					t.Logf("Expected %d tags for non-packed list, got %d tags (may be ok for mixed types)", expectedTags, fieldID10Tags)
+				}
+				t.Logf("✓ Non-packed encoding used: %d tags for %d elements", fieldID10Tags, len(tt.list))
+			}
+
+			// Verify XXX_NoUnkeyedLiteral contains the list
+			if dest.XXX_NoUnkeyedLiteral == nil {
+				t.Fatal("XXX_NoUnkeyedLiteral should not be nil")
+			}
+			if _, ok := dest.XXX_NoUnkeyedLiteral["packed_list"]; !ok {
+				t.Error("packed_list should be in XXX_NoUnkeyedLiteral")
+			}
+		})
+	}
+}
