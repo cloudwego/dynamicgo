@@ -89,6 +89,26 @@ graph TD
   ```
   如上所示，当 Go 层通过 `J2T_FSM` 传入配置好的有限状态机 (`fsm`)、JSON 原文 (`src`) 以及目标缓冲 (`buf`) 的指针时，Go 把对应的底层内存以 `NoEscape` 原语直接借给 C 端；C 端执行完毕对缓冲结构体 `GoSlice` 的填充后，Go 层即可零损耗地获得序列化后的 Thrift 二进制流。
 
+## 如何编译 C 代码
+
+C 代码更新或 debug 时候需要重新编译 asm 文件，步骤如下：
+1. 安装 clang-14
+    ```
+    brew install llvm@14
+    ```
+2. dynamicgo 根目录下下载 `tools/asm2asm` submodule
+    ```
+    git submodule update --init --remote -f
+    ```
+3. 执行 `make`，会自动编译生成 `internal/nativx/xxx`（包含 AVX2、AVX、SSE 三个版本的 C 语言目标文件）以及对应的 Go 汇编绑定代码。
+4. PS：如果需要在执行 C 时打印 debug log，需要在 makefile 中**编译flags**添加 `-DDEBUG` 定义。
+    ```
+    CFLAGS_avx		:= -msse -mno-sse4 -mavx -mpclmul -mno-avx2 -mstack-alignment=0 -DDEBUG -DUSE_AVX=1 -DUSE_AVX2=0
+    CFLAGS_avx2		:= -msse -mno-sse4 -mavx -mpclmul -mavx2 -mstack-alignment=0 -DDEBUG -DUSE_AVX=1 -DUSE_AVX2=1 
+    CFLAGS_sse		:= -msse -mno-sse4 -mno-avx -mno-avx2 -mpclmul -DDEBUG
+    ```
+
+
 ## 总结
 
 `conv/j2t` 包通过灵活的双重实现架构（Go层手工递归解包 vs 底层 AVX C/ASM 加速）、与描述符的强绑定以及智能的 HTTP 参数映射，在复杂和高吞吐的微服务网关场景中提供了一套极致性能的 JSON 转 Thrift 的序列化方案。
