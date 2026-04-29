@@ -166,6 +166,25 @@ func TestConvJSON2Thrift(t *testing.T) {
 	require.Equal(t, exp, act)
 }
 
+func TestConvJSON2Thrift_ForceHashMapAsFieldNameMap(t *testing.T) {
+	desc := getExampleDescByName("ExampleMethod", true, thrift.Options{
+		ForceHashMapAsFieldNameMap: true,
+	})
+	data := getExampleData()
+	cv := NewBinaryConv(conv.Options{})
+	out, err := cv.Do(context.Background(), desc, data)
+	require.NoError(t, err)
+
+	exp := example3.NewExampleReq()
+	err = json.Unmarshal(data, exp)
+	require.NoError(t, err)
+
+	act := example3.NewExampleReq()
+	_, err = act.FastRead(out)
+	require.NoError(t, err)
+	require.Equal(t, exp, act)
+}
+
 func TestConvHTTP2Thrift(t *testing.T) {
 	desc := getExampleDesc()
 	data := getExampleData()

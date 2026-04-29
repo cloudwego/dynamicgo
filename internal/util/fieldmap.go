@@ -35,12 +35,12 @@ type FieldNameMap struct {
 	maxKeyLength int
 	all          []caching.Pair
 	trie         *caching.TrieTree
-	hash         map[string]unsafe.Pointer
+	hash         *caching.HashMap
 }
 
 func NewFieldNameMap() *FieldNameMap {
 	return &FieldNameMap{
-		hash: make(map[string]unsafe.Pointer, defaultMapSize),
+		hash: caching.NewHashMap(defaultMapSize, defaultHashMapLoadFactor),
 	}
 }
 
@@ -68,7 +68,7 @@ func (ft FieldNameMap) Get(k string) unsafe.Pointer {
 	if ft.trie != nil {
 		return (unsafe.Pointer)(ft.trie.Get(k))
 	} else if ft.hash != nil {
-		return (unsafe.Pointer)(ft.hash[k])
+		return (unsafe.Pointer)(ft.hash.Get(k))
 	}
 	return nil
 }
@@ -81,7 +81,7 @@ func (ft FieldNameMap) All() []caching.Pair {
 // Size returns the size of the map
 func (ft FieldNameMap) Size() int {
 	if ft.hash != nil {
-		return len(ft.hash)
+		return ft.hash.Size()
 	} else if ft.trie != nil {
 		return ft.trie.Size()
 	}
@@ -162,18 +162,18 @@ func (ft *FieldNameMap) Build(noTrieTree bool) {
 
 	// no ideal position or force use hash map
 	ft.trie = nil
-	ft.hash = make(map[string]unsafe.Pointer, len(ft.all))
+	ft.hash = caching.NewHashMap(len(ft.all), defaultHashMapLoadFactor)
 	// set all key-values to the trie tree
 	for _, v := range ft.all {
 		// caching.HashMap does not support duplicate key, so must check if the key exists before set
 		// WARN: if the key exists, the value WON'T be replaced
-		o := ft.hash[v.Key]
+		o := ft.hash.Get(v.Key)
 		if o == nil {
-			ft.hash[v.Key] = v.Val
+			ft.hash.Set(v.Key, v.Val)
 		}
 	}
 	if empty != nil {
-		ft.hash[""] = empty
+		ft.hash.Set("", empty)
 	}
 }
 
