@@ -104,6 +104,8 @@ type Options struct {
 	// ForceHashMapAsFieldNameMap indicates to use hash map as underlying field name map.
 	// By default we try to use trie tree as field name map, which is usually faster than go map but consume more memory.
 	ForceHashMapAsFieldNameMap bool
+
+	annotationMappers *annotationMapperRegistry
 }
 
 // NewDefaultOptions creates a default Options.
@@ -129,6 +131,7 @@ func NewDescritorFromPath(ctx context.Context, path string, includeDirs ...strin
 // NewDescritorFromContent creates a ServiceDescriptor from a thrift path and its includes, which uses the given options.
 // The includeDirs is used to find the include files.
 func (opts Options) NewDescritorFromPath(ctx context.Context, path string, includeDirs ...string) (*ServiceDescriptor, error) {
+	opts = opts.prepareAnnotationMappersForParse()
 	tree, err := parser.ParseFile(path, includeDirs, true)
 	if err != nil {
 		return nil, err
@@ -144,6 +147,7 @@ func (opts Options) NewDescritorFromPath(ctx context.Context, path string, inclu
 // If methods is empty, all methods will be parsed.
 // The includeDirs is used to find the include files.
 func (opts Options) NewDescriptorFromPathWithMethod(ctx context.Context, path string, includeDirs []string, methods ...string) (*ServiceDescriptor, error) {
+	opts = opts.prepareAnnotationMappersForParse()
 	tree, err := parser.ParseFile(path, includeDirs, true)
 	if err != nil {
 		return nil, err
@@ -165,6 +169,7 @@ func NewDescritorFromContent(ctx context.Context, path, content string, includes
 // includes is the thrift file content map, and its keys are specific including thrift file path.
 // isAbsIncludePath argument has become obsolete. Regardless of whether its value is true or false, both absolute path and relative path will be searched.
 func (opts Options) NewDescritorFromContent(ctx context.Context, path, content string, includes map[string]string, isAbsIncludePath bool) (*ServiceDescriptor, error) {
+	opts = opts.prepareAnnotationMappersForParse()
 	tree, err := parseIDLContent(path, content, includes)
 	if err != nil {
 		return nil, err
@@ -178,6 +183,7 @@ func (opts Options) NewDescritorFromContent(ctx context.Context, path, content s
 
 // NewDescritorFromContentWithMethod creates a ServiceDescriptor from a thrift content and its includes, but only parse specific methods.
 func (opts Options) NewDescriptorFromContentWithMethod(ctx context.Context, path, content string, includes map[string]string, isAbsIncludePath bool, methods ...string) (*ServiceDescriptor, error) {
+	opts = opts.prepareAnnotationMappersForParse()
 	tree, err := parseIDLContent(path, content, includes)
 	if err != nil {
 		return nil, err
@@ -955,6 +961,7 @@ func makeDefaultValue(typ *TypeDescriptor, val *parser.ConstValue, tree *parser.
 // file is the main thrift file path, name is the type name to parse (supports format like "package.TypeName" for cross-file references).
 // Returns a complete TypeDescriptor with all referenced types resolved.
 func (opts Options) NewDescriptorByName(ctx context.Context, file string, name string, includes map[string]string) (*TypeDescriptor, error) {
+	opts = opts.prepareAnnotationMappersForParse()
 	// Parse the main IDL file and all includes
 	tree, err := parseIDLContent(file, includes[file], includes)
 	if err != nil {
