@@ -125,6 +125,15 @@ type OptionMapping interface {
 	Map(ctx context.Context, opts Options) Options
 }
 
+func applyOptionMapping(ctx context.Context, mapper OptionMapping, opts *Options) {
+	annotationMappers := opts.annotationMappers
+	mapped := mapper.Map(ctx, *opts)
+	if mapped.annotationMappers == nil {
+		mapped.annotationMappers = annotationMappers
+	}
+	*opts = mapped
+}
+
 // ValueMapping is used to convert thrift value while running convertion.
 // See also: thrift/annotation/value_mapping.go
 type ValueMapping interface {
@@ -427,7 +436,7 @@ func handleAnnotation(ctx context.Context, scope AnnoScope, ann Annotation, valu
 			if !ok {
 				return fmt.Errorf("annotation %#v for %d is not OptionMaker", handle, ann.ID())
 			}
-			*opts = om.Map(ctx, *opts)
+			applyOptionMapping(ctx, om, opts)
 			return nil
 		default:
 			//NOTICE: ignore unsupported annotations
@@ -449,7 +458,7 @@ func handleFieldAnnotation(ctx context.Context, ann Annotation, values []parser.
 			if !ok {
 				return fmt.Errorf("annotation %#v for %d is not OptionMaker", handle, ann.ID())
 			}
-			*opts = om.Map(ctx, *opts)
+			applyOptionMapping(ctx, om, opts)
 			return nil
 		case AnnoKindHttpMappping:
 			hm, ok := handle.(HttpMapping)

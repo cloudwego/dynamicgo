@@ -17,14 +17,43 @@
 package annotation
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/thrift"
+	"github.com/cloudwego/thriftgo/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const resetOptionsAnnotationKey = "dynamicgo.test.reset_options"
+
+type resetOptionsAnnotation struct{}
+
+func (resetOptionsAnnotation) ID() thrift.AnnoID {
+	return thrift.MakeAnnoID(thrift.AnnoKindOptionMapping, thrift.AnnoScopeService, 65000)
+}
+
+func (resetOptionsAnnotation) Make(context.Context, []parser.Annotation, interface{}) (interface{}, error) {
+	return resetOptionsMapping{}, nil
+}
+
+type resetOptionsMapping struct{}
+
+func (resetOptionsMapping) Map(context.Context, thrift.Options) thrift.Options {
+	return thrift.Options{}
+}
+
+type countingAnnotationMapper struct {
+	calls *int
+}
+
+func (m countingAnnotationMapper) Map(context.Context, []parser.Annotation, interface{}, thrift.Options) ([]parser.Annotation, []parser.Annotation, error) {
+	(*m.calls)++
+	return nil, nil, nil
+}
 
 func TestMain(m *testing.M) {
 	InitAGWAnnos()
@@ -113,6 +142,32 @@ func TestGoTagMapperOptionsIsolation(t *testing.T) {
 	require.NoError(t, err)
 	req = p.Request().Struct().Fields()[0].Type()
 	require.Equal(t, "message", req.Struct().FieldById(1).Alias())
+}
+
+func TestOptionMappingPreservesAnnotationMapperSnapshot(t *testing.T) {
+	const mapperKey = "dynamicgo.test.count_mapper"
+
+	thrift.RegisterAnnotation(resetOptionsAnnotation{}, resetOptionsAnnotationKey)
+	calls := 0
+	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, countingAnnotationMapper{calls: &calls}, mapperKey)
+	t.Cleanup(func() {
+		thrift.RemoveAnnotationMapper(thrift.AnnoScopeField, mapperKey)
+	})
+
+	opts := thrift.NewDefaultOptions()
+	opts.RemoveAnnotationMapper(thrift.AnnoScopeField, mapperKey)
+	_, err := GetDescFromContentWithOptions(`
+	namespace go kitex.test.server
+	struct Base {
+		1: string Msg (`+mapperKey+` = "true")
+	}
+
+	service InboxService {
+		string ExampleMethod(1: Base req)
+	} (`+resetOptionsAnnotationKey+` = "true")
+	`, "ExampleMethod", opts)
+	require.NoError(t, err)
+	require.Zero(t, calls, "removed mapper was restored after OptionMapping returned fresh Options")
 }
 
 func TestAnnotationMapperOptionsCopyOnWrite(t *testing.T) {
