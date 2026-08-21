@@ -17,12 +17,43 @@
 package annotation
 
 import (
+	"context"
+	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/cloudwego/dynamicgo/thrift"
+	"github.com/cloudwego/thriftgo/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const resetOptionsAnnotationKey = "dynamicgo.test.reset_options"
+
+type resetOptionsAnnotation struct{}
+
+func (resetOptionsAnnotation) ID() thrift.AnnoID {
+	return thrift.MakeAnnoID(thrift.AnnoKindOptionMapping, thrift.AnnoScopeService, 65000)
+}
+
+func (resetOptionsAnnotation) Make(context.Context, []parser.Annotation, interface{}) (interface{}, error) {
+	return resetOptionsMapping{}, nil
+}
+
+type resetOptionsMapping struct{}
+
+func (resetOptionsMapping) Map(context.Context, thrift.Options) thrift.Options {
+	return thrift.Options{}
+}
+
+type countingAnnotationMapper struct {
+	calls *int
+}
+
+func (m countingAnnotationMapper) Map(context.Context, []parser.Annotation, interface{}, thrift.Options) ([]parser.Annotation, []parser.Annotation, error) {
+	(*m.calls)++
+	return nil, nil, nil
+}
 
 func TestMain(m *testing.M) {
 	InitAGWAnnos()
@@ -78,6 +109,176 @@ func TestGoTagJSON(t *testing.T) {
 	}
 	`, "ExampleMethod")
 	require.NoError(t, err)
+}
+
+func TestGoTagMapperOptionsIsolation(t *testing.T) {
+	content := `
+	namespace go kitex.test.server
+	struct Base {
+		1: string Msg (go.tag = "json:\"message\"")
+	}
+
+	service InboxService {
+		string ExampleMethod(1: Base req)
+	}
+	`
+
+	opts := thrift.NewDefaultOptions()
+	opts.RemoveAnnotationMapper(thrift.AnnoScopeField, "go.tag")
+	p, err := GetDescFromContentWithOptions(content, "ExampleMethod", opts)
+	require.NoError(t, err)
+	req := p.Request().Struct().Fields()[0].Type()
+	require.Equal(t, "Msg", req.Struct().FieldById(1).Alias())
+
+	p, err = GetDescFromContent(content, "ExampleMethod")
+	require.NoError(t, err)
+	req = p.Request().Struct().Fields()[0].Type()
+	require.Equal(t, "message", req.Struct().FieldById(1).Alias())
+
+	opts = thrift.NewDefaultOptions()
+	opts.RemoveAnnotationMapper(thrift.AnnoScopeField, "go.tag")
+	opts.RegisterAnnotationMapper(thrift.AnnoScopeField, goTagMapper{}, "go.tag")
+	p, err = GetDescFromContentWithOptions(content, "ExampleMethod", opts)
+	require.NoError(t, err)
+	req = p.Request().Struct().Fields()[0].Type()
+	require.Equal(t, "message", req.Struct().FieldById(1).Alias())
+}
+
+func TestOptionMappingPreservesAnnotationMapperSnapshot(t *testing.T) {
+	const mapperKey = "dynamicgo.test.count_mapper"
+
+	thrift.RegisterAnnotation(resetOptionsAnnotation{}, resetOptionsAnnotationKey)
+	calls := 0
+	thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, countingAnnotationMapper{calls: &calls}, mapperKey)
+	t.Cleanup(func() {
+		thrift.RemoveAnnotationMapper(thrift.AnnoScopeField, mapperKey)
+	})
+
+	opts := thrift.NewDefaultOptions()
+	opts.RemoveAnnotationMapper(thrift.AnnoScopeField, mapperKey)
+	_, err := GetDescFromContentWithOptions(`
+	namespace go kitex.test.server
+	struct Base {
+		1: string Msg (`+mapperKey+` = "true")
+	}
+
+	service InboxService {
+		string ExampleMethod(1: Base req)
+	} (`+resetOptionsAnnotationKey+` = "true")
+	`, "ExampleMethod", opts)
+	require.NoError(t, err)
+	require.Zero(t, calls, "removed mapper was restored after OptionMapping returned fresh Options")
+}
+
+func TestAnnotationMapperOptionsCopyOnWrite(t *testing.T) {
+	content := `
+	namespace go kitex.test.server
+	struct Base {
+		1: string Msg (go.tag = "json:\"message\"")
+	}
+
+	service InboxService {
+		string ExampleMethod(1: Base req)
+	}
+	`
+
+	base := thrift.NewDefaultOptions()
+	base.RegisterAnnotationMapper(thrift.AnnoScopeField, goTagMapper{}, "go.tag")
+	copied := base
+	require.True(t, base == copied)
+
+	const workers = 8
+	var wg sync.WaitGroup
+	errCh := make(chan error, workers)
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func(disableGoTag bool) {
+			defer wg.Done()
+			for j := 0; j < 50; j++ {
+				opts := base
+				want := "message"
+				if disableGoTag {
+					opts.RemoveAnnotationMapper(thrift.AnnoScopeField, "go.tag")
+					want = "Msg"
+				} else {
+					opts.RegisterAnnotationMapper(thrift.AnnoScopeField, goTagMapper{}, "go.tag")
+				}
+
+				p, err := GetDescFromContentWithOptions(content, "ExampleMethod", opts)
+				if err != nil {
+					errCh <- err
+					return
+				}
+				req := p.Request().Struct().Fields()[0].Type()
+				if got := req.Struct().FieldById(1).Alias(); got != want {
+					errCh <- fmt.Errorf("unexpected field alias: got %q, want %q", got, want)
+					return
+				}
+			}
+		}(i%2 == 0)
+	}
+
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		require.NoError(t, err)
+	}
+
+	p, err := GetDescFromContentWithOptions(content, "ExampleMethod", base)
+	require.NoError(t, err)
+	req := p.Request().Struct().Fields()[0].Type()
+	require.Equal(t, "message", req.Struct().FieldById(1).Alias())
+}
+
+func TestAnnotationMapperConcurrentDefaultMutationAndParse(t *testing.T) {
+	t.Cleanup(func() {
+		thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, goTagMapper{}, "go.tag")
+	})
+	content := `
+	namespace go kitex.test.server
+	struct Base {
+		1: string Msg (go.tag = "json:\"message\"")
+	}
+
+	service InboxService {
+		string ExampleMethod(1: Base req)
+	}
+	`
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, 512)
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func(disableGoTag bool) {
+			defer wg.Done()
+			for j := 0; j < 50; j++ {
+				opts := thrift.NewDefaultOptions()
+				if disableGoTag {
+					opts.RemoveAnnotationMapper(thrift.AnnoScopeField, "go.tag")
+				}
+				_, err := GetDescFromContentWithOptions(content, "ExampleMethod", opts)
+				if err != nil {
+					errCh <- err
+					return
+				}
+			}
+		}(i%2 == 0)
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 100; i++ {
+			thrift.RemoveAnnotationMapper(thrift.AnnoScopeField, "go.tag")
+			thrift.RegisterAnnotationMapper(thrift.AnnoScopeField, goTagMapper{}, "go.tag")
+		}
+	}()
+
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		require.NoError(t, err)
+	}
 }
 
 func TestApiKey(t *testing.T) {

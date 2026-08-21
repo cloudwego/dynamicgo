@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/cloudwego/dynamicgo/http"
 	"github.com/cloudwego/dynamicgo/meta"
@@ -124,6 +125,15 @@ type OptionMapping interface {
 	Map(ctx context.Context, opts Options) Options
 }
 
+func applyOptionMapping(ctx context.Context, mapper OptionMapping, opts *Options) {
+	annotationMappers := opts.annotationMappers
+	mapped := mapper.Map(ctx, *opts)
+	if mapped.annotationMappers == nil {
+		mapped.annotationMappers = annotationMappers
+	}
+	*opts = mapped
+}
+
 // ValueMapping is used to convert thrift value while running convertion.
 // See also: thrift/annotation/value_mapping.go
 type ValueMapping interface {
@@ -196,6 +206,53 @@ func makeAnnotation(ctx context.Context, anns []parser.Annotation, scope AnnoSco
 	}
 }
 
+type annotationMapperRegistry map[string]map[AnnoScope]AnnotationMapper
+
+func (r annotationMapperRegistry) find(key string, scope AnnoScope) AnnotationMapper {
+	m := r[key]
+	if m == nil {
+		return nil
+	}
+	return m[scope]
+}
+
+func (r annotationMapperRegistry) clone() annotationMapperRegistry {
+	if r == nil {
+		return nil
+	}
+	ret := make(annotationMapperRegistry, len(r))
+	for key, scopes := range r {
+		if scopes == nil {
+			continue
+		}
+		copied := make(map[AnnoScope]AnnotationMapper, len(scopes))
+		for scope, mapper := range scopes {
+			copied[scope] = mapper
+		}
+		ret[key] = copied
+	}
+	return ret
+}
+
+func (r annotationMapperRegistry) register(scope AnnoScope, mapper AnnotationMapper, keys ...string) {
+	for _, key := range keys {
+		m := r[key]
+		if m == nil {
+			m = make(map[AnnoScope]AnnotationMapper)
+			r[key] = m
+		}
+		m[scope] = mapper
+	}
+}
+
+func (r annotationMapperRegistry) remove(scope AnnoScope, keys ...string) {
+	for _, key := range keys {
+		if m := r[key]; m != nil {
+			delete(m, scope)
+		}
+	}
+}
+
 // AnnotationMapper is used to convert a annotation to equivalent annotations
 // desc is specific to its registered AnnoScope:
 //
@@ -208,37 +265,76 @@ type AnnotationMapper interface {
 	Map(ctx context.Context, ann []parser.Annotation, desc interface{}, opt Options) (cur []parser.Annotation, next []parser.Annotation, err error)
 }
 
-var annotationMapper = map[string]map[AnnoScope]AnnotationMapper{}
+var (
+	defaultAnnotationMapperMu sync.RWMutex
+	defaultAnnotationMapper   = annotationMapperRegistry{}
+)
 
 // RegisterAnnotationMapper register a annotation mapper on specific scope
 func RegisterAnnotationMapper(scope AnnoScope, mapper AnnotationMapper, keys ...string) {
-	for _, key := range keys {
-		m := annotationMapper[key]
-		if m == nil {
-			m = make(map[AnnoScope]AnnotationMapper)
-			annotationMapper[key] = m
-		}
-		m[scope] = mapper
-	}
+	defaultAnnotationMapperMu.Lock()
+	defer defaultAnnotationMapperMu.Unlock()
+	defaultAnnotationMapper.register(scope, mapper, keys...)
 }
 
 func FindAnnotationMapper(key string, scope AnnoScope) AnnotationMapper {
-	m := annotationMapper[key]
-	if m == nil {
-		return nil
-	}
-	return m[scope]
+	defaultAnnotationMapperMu.RLock()
+	defer defaultAnnotationMapperMu.RUnlock()
+	return defaultAnnotationMapper.find(key, scope)
 }
 
 func RemoveAnnotationMapper(scope AnnoScope, keys ...string) {
-	for _, key := range keys {
-		m := annotationMapper[key]
-		if m != nil {
-			if _, ok := m[scope]; ok {
-				delete(m, scope)
-			}
-		}
+	defaultAnnotationMapperMu.Lock()
+	defer defaultAnnotationMapperMu.Unlock()
+	defaultAnnotationMapper.remove(scope, keys...)
+}
+
+func cloneDefaultAnnotationMappers() annotationMapperRegistry {
+	defaultAnnotationMapperMu.RLock()
+	defer defaultAnnotationMapperMu.RUnlock()
+	return defaultAnnotationMapper.clone()
+}
+
+func (opts Options) cloneAnnotationMappersForUpdate() annotationMapperRegistry {
+	if opts.annotationMappers == nil {
+		return cloneDefaultAnnotationMappers()
 	}
+	return (*opts.annotationMappers).clone()
+}
+
+// RegisterAnnotationMapper registers a mapper on this Options. It uses
+// copy-on-write so modifying a copied Options value does not affect the source.
+// It must not be called concurrently on the same *Options.
+func (opts *Options) RegisterAnnotationMapper(scope AnnoScope, mapper AnnotationMapper, keys ...string) {
+	registry := opts.cloneAnnotationMappersForUpdate()
+	registry.register(scope, mapper, keys...)
+	opts.annotationMappers = &registry
+}
+
+// RemoveAnnotationMapper removes mappers from this Options. It uses
+// copy-on-write so modifying a copied Options value does not affect the source.
+// It must not be called concurrently on the same *Options.
+func (opts *Options) RemoveAnnotationMapper(scope AnnoScope, keys ...string) {
+	registry := opts.cloneAnnotationMappersForUpdate()
+	registry.remove(scope, keys...)
+	opts.annotationMappers = &registry
+}
+
+// FindAnnotationMapper finds a mapper from this Options or the global defaults
+// if this Options has not taken a snapshot yet.
+func (opts Options) FindAnnotationMapper(key string, scope AnnoScope) AnnotationMapper {
+	if opts.annotationMappers != nil {
+		return (*opts.annotationMappers).find(key, scope)
+	}
+	return FindAnnotationMapper(key, scope)
+}
+
+func (opts Options) prepareAnnotationMappersForParse() Options {
+	if opts.annotationMappers == nil {
+		registry := cloneDefaultAnnotationMappers()
+		opts.annotationMappers = &registry
+	}
+	return opts
 }
 
 //------------------------------- IDL processing logic -------------------------------
@@ -275,7 +371,7 @@ func mapAnnotations(ctx context.Context, as parser.Annotations, scope AnnoScope,
 	cur := make([]parser.Annotation, 0, len(as))
 	// try find mapper
 	for _, a := range as {
-		if mapper := FindAnnotationMapper(a.Key, scope); mapper != nil {
+		if mapper := opt.FindAnnotationMapper(a.Key, scope); mapper != nil {
 			con.Add(*a, mapper)
 		} else {
 			// no mapper found, just append it to the result
@@ -340,7 +436,7 @@ func handleAnnotation(ctx context.Context, scope AnnoScope, ann Annotation, valu
 			if !ok {
 				return fmt.Errorf("annotation %#v for %d is not OptionMaker", handle, ann.ID())
 			}
-			*opts = om.Map(ctx, *opts)
+			applyOptionMapping(ctx, om, opts)
 			return nil
 		default:
 			//NOTICE: ignore unsupported annotations
@@ -362,7 +458,7 @@ func handleFieldAnnotation(ctx context.Context, ann Annotation, values []parser.
 			if !ok {
 				return fmt.Errorf("annotation %#v for %d is not OptionMaker", handle, ann.ID())
 			}
-			*opts = om.Map(ctx, *opts)
+			applyOptionMapping(ctx, om, opts)
 			return nil
 		case AnnoKindHttpMappping:
 			hm, ok := handle.(HttpMapping)
