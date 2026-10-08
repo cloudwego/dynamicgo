@@ -134,9 +134,13 @@ func decodeInt64(src string, pos int) (ret int, v int64, err error) {
 
 	v, err = strconv.ParseInt(vv, 10, 64)
 	if err != nil {
-		//NOTICE: allow overflow here
+		// NOTICE: allow overflow here: an integer literal that does not fit in
+		// int64 (e.g. 9223372036854775808) is still a valid JSON number. Treat
+		// it like a number containing '.'/'e'/'E' and return the
+		// number-format sentinel so DecodeValue falls back to decodeFloat64,
+		// instead of reporting a successful integer parse with value 0.
 		if err.(*strconv.NumError).Err == strconv.ErrRange {
-			return ret, 0, err
+			return -int(types.ERR_INVALID_NUMBER_FMT), 0, err
 		}
 		return -int(types.ERR_INVALID_CHAR), 0, err
 	}
